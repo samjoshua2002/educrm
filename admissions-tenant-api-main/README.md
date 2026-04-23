@@ -96,3 +96,24 @@ Nest is an MIT-licensed open source project. It can grow thanks to the sponsors 
 ## License
 
 Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+
+
+# educrm
+npm install class-validator@0.14.0
+
+npm run start:dev   
+
+# Server
+PORT=3000
+NODE_ENV=development
+
+# Database (PostgreSQL)
+DB_HOST=localhost
+DB_PORT=5432
+DB_USERNAME=postgres
+DB_PASSWORD=postgres
+DB_NAME=admissions_crm
+
+# JWT
+JWT_SECRET=my-educrm-secret-key-is-here
+JWT_EXPIRES_IN=7d
