@@ -62,7 +62,7 @@ export const organizationNavItems: NavGroup[] = [
   },
   {
     id: 2,
-    label: "Organization Management",
+    label: "Management",
     items: [
       {
         title: "Branches",
