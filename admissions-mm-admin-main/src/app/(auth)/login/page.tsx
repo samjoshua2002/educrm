@@ -8,7 +8,10 @@ import { X } from "lucide-react";
 
 export default function LoginPage() {
   return (
-    <div className="relative min-h-screen w-full bg-sidebar flex flex-col lg:flex-row overflow-hidden selection:bg-[#2563EB]/30 selection:text-white">
+    <div 
+      className="relative min-h-screen w-full bg-sidebar flex flex-col lg:flex-row overflow-hidden selection:bg-[#2563EB]/30 selection:text-white"
+      suppressHydrationWarning={true}
+    >
       {/* Abstract Background - Fit Screen Height */}
       <div className="absolute inset-y-0 left-0 w-full lg:w-auto h-full pointer-events-none z-0">
         <Image
@@ -22,10 +25,10 @@ export default function LoginPage() {
       </div>
 
       {/* Main Content Layout */}
-      <div className="relative z-10 flex flex-col lg:flex-row w-full min-h-screen px-6 lg:px-20 py-10 lg:py-0">
+      <div className="relative z-10 flex flex-col lg:flex-row w-full min-h-screen px-6 lg:px-20 py-4 lg:py-0">
         
         {/* Left Section: Branding & Headline */}
-        <div className="flex-1 flex flex-col justify-between py-12 lg:py-16">
+        <div className="flex-1 flex flex-col items-center lg:items-start justify-between py-8 lg:py-16 text-center lg:text-left">
           {/* Logo & Brand */}
           <div className="flex items-center gap-5 group cursor-default">
             <div className="relative w-[50px] h-[54px] lg:w-[55px] lg:h-[60px] transition-transform duration-500 group-hover:scale-110">
@@ -42,7 +45,7 @@ export default function LoginPage() {
           </div>
 
           {/* Headline - Bottom Left */}
-          <div className="mt-auto max-w-[400px] animate-in fade-in slide-in-from-left duration-1000">
+          <div className="mt-8 lg:mt-auto max-w-[400px] mx-auto lg:mx-0 animate-in fade-in slide-in-from-left duration-1000">
             <h1 className="text-white text-2xl lg:text-[32.7px] font-medium font-['Inter'] leading-[1.3] tracking-tight">
               Insights and dashboards to accelerate your brand&apos;s growth
             </h1>
@@ -53,7 +56,10 @@ export default function LoginPage() {
         <div className="flex-1 flex items-center justify-center lg:justify-end py-10 lg:py-0 animate-in fade-in slide-in-from-bottom lg:slide-in-from-right duration-700">
           <div className="bg-white rounded-[24px] shadow-[0_20px_50px_rgba(0,0,0,0.4)] w-full max-w-[520px] p-8 lg:px-12 lg:py-10 relative border border-white/10 backdrop-blur-sm bg-opacity-[0.98]">
             {/* Close Button */}
-            <button className="absolute top-6 right-6 text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-full hover:bg-gray-100">
+            <button 
+              className="absolute top-6 right-6 text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-full hover:bg-gray-100"
+              suppressHydrationWarning={true}
+            >
               <X size={20} />
             </button>
 
@@ -78,6 +84,7 @@ export default function LoginPage() {
               {/* Google Button */}
               <GoogleButton 
                 className="w-full h-12 bg-white hover:bg-gray-50 border border-[#66666659] text-[#1E293B] rounded-[25px] font-medium transition-all shadow-sm flex items-center justify-center gap-3 active:scale-[0.98]"
+                suppressHydrationWarning={true}
               />
 
               {/* Footer Links */}

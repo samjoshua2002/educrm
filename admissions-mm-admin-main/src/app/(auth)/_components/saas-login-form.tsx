@@ -74,7 +74,11 @@ export function SaasLoginForm() {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+      <form 
+        onSubmit={form.handleSubmit(onSubmit)} 
+        className="space-y-5"
+        suppressHydrationWarning={true}
+      >
         <FormField
           control={form.control}
           name="email"
@@ -88,6 +92,7 @@ export function SaasLoginForm() {
                   placeholder="" 
                   autoComplete="email" 
                   className="h-12 border-[#66666659] rounded-[10px] bg-white focus-visible:ring-[#2563EB]/20 focus-visible:border-[#2563EB]"
+                  suppressHydrationWarning={true}
                   {...field} 
                 />
               </FormControl>
@@ -106,6 +111,7 @@ export function SaasLoginForm() {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="text-[#64748B] text-base font-medium flex items-center gap-1 hover:text-[#2563EB] transition-colors"
+                  suppressHydrationWarning={true}
                 >
                   {showPassword ? (
                     <EyeOff size={14} strokeWidth={2} />
@@ -122,6 +128,7 @@ export function SaasLoginForm() {
                   placeholder=""
                   autoComplete="current-password"
                   className="h-12 border-[#66666659] rounded-[10px] bg-white focus-visible:ring-[#2563EB]/20 focus-visible:border-[#2563EB]"
+                  suppressHydrationWarning={true}
                   {...field}
                 />
               </FormControl>
@@ -130,7 +137,17 @@ export function SaasLoginForm() {
           )}
         />
 
-        <div className="flex items-center justify-between pt-1">
+     
+
+        <Button 
+          className="w-full h-12 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-[25px] font-medium text-base shadow-lg transition-all mt-1" 
+          type="submit" 
+          disabled={form.formState.isSubmitting}
+          suppressHydrationWarning={true}
+        >
+          {form.formState.isSubmitting ? "Signing in..." : "Sign in"}
+        </Button>
+           <div className="flex items-center justify-between pt-1">
           <FormField
             control={form.control}
             name="remember"
@@ -142,6 +159,7 @@ export function SaasLoginForm() {
                     checked={field.value}
                     onCheckedChange={field.onChange}
                     className="size-4 border-[#66666659] data-[state=checked]:bg-[#0B0033] data-[state=checked]:border-[#0B0033]"
+                    suppressHydrationWarning={true}
                   />
                 </FormControl>
                 <FormLabel htmlFor="login-remember" className="text-[#4B5563] text-base font-medium cursor-pointer">
@@ -154,14 +172,6 @@ export function SaasLoginForm() {
             Need help?
           </Link>
         </div>
-
-        <Button 
-          className="w-full h-12 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-[25px] font-medium text-base shadow-lg transition-all mt-1" 
-          type="submit" 
-          disabled={form.formState.isSubmitting}
-        >
-          {form.formState.isSubmitting ? "Signing in..." : "Sign in"}
-        </Button>
       </form>
     </Form>
   );
