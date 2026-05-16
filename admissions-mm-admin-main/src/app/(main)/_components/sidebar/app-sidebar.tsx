@@ -1,7 +1,7 @@
 "use client";
 
 import { Settings, CircleHelp, Search, Database, ClipboardList, File, Command } from "lucide-react";
-
+import { AccountSwitcher } from "./account-switcher";
 import {
   Sidebar,
   SidebarContent,
@@ -55,7 +55,7 @@ const data = {
   ],
 };
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+export function AppSidebar({ users, ...props }: React.ComponentProps<typeof Sidebar> & { users: any[] }) {
   return (
     <Sidebar {...props}>
       <SidebarHeader>
@@ -73,6 +73,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarContent>
         <NavMain items={sidebarItems} />
       </SidebarContent>
+      {/* Add this section */}
+      <SidebarFooter>
+        <div className="p-4 flex items-center justify-center">
+           <AccountSwitcher users={users} />
+        </div>
+      </SidebarFooter>
     </Sidebar>
   );
 }
