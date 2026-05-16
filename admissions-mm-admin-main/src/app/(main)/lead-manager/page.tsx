@@ -294,7 +294,7 @@ export default function LeadManagerPage() {
 
   return (
     <>
-      <div className="sticky top-0 z-10 bg-background/40 backdrop-blur-md flex items-center justify-between px-4 md:px-6 py-3 border-b">
+      <div className="sticky top-12 z-10 bg-background/40 backdrop-blur-md flex items-center justify-between px-4 md:px-6 py-3 border-b">
         <h1 className="text-xl font-semibold">Lead Manager</h1>
         <Link href="/lead-manager/create">
           <Button>

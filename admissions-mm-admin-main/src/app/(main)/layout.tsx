@@ -14,6 +14,7 @@ import {
     type ContentLayout,
 } from "@/types/preferences/layout";
 import { AccountSwitcher } from "./_components/sidebar/account-switcher";
+import { DynamicHeader } from "./_components/header/dynamic-header";
 
 export default async function Layout({ children }: Readonly<{ children: ReactNode }>) {
     const cookieStore = await cookies();
@@ -50,6 +51,7 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
                         </div> 
                     </div>
                 </header>  */}
+                <DynamicHeader />
                 <div className="h-full pt-0">{children}</div>
             </SidebarInset>
         </SidebarProvider>
