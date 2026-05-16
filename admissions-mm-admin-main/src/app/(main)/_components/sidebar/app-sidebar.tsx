@@ -10,6 +10,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarTrigger, 
 } from "@/components/ui/sidebar";
 import { APP_CONFIG } from "@/config/app-config";
 import { rootUser } from "@/data/users";
@@ -59,23 +60,26 @@ export function AppSidebar({ users, ...props }: React.ComponentProps<typeof Side
   return (
     <Sidebar {...props}>
       <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild className="data-[slot=sidebar-menu-button]:!p-1.5">
-              <a href="#">
-                <Command />
-                <span className="text-base font-semibold">{APP_CONFIG.name}</span>
-              </a>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarHeader>
+  <SidebarMenu>
+    <SidebarMenuItem>
+      <div className="flex items-center justify-between pr-2"> {/* Add this wrapper */}
+        <SidebarMenuButton asChild className="data-[slot=sidebar-menu-button]:!p-1.5 flex-1">
+          <a href="#">
+            <Command />
+            <span className="text-base font-semibold">{APP_CONFIG.name}</span>
+          </a>
+        </SidebarMenuButton>
+        <SidebarTrigger /> {/* Add the trigger here */}
+      </div>
+    </SidebarMenuItem>
+  </SidebarMenu>
+</SidebarHeader>
       <SidebarContent>
         <NavMain items={sidebarItems} />
       </SidebarContent>
       {/* Add this section */}
       <SidebarFooter>
-        <div className="p-4 flex items-center justify-center">
+        <div className="p-4 flex items-center justify-start gap-3">
            <AccountSwitcher users={users} />
         </div>
       </SidebarFooter>
