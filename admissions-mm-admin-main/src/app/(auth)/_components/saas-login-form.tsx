@@ -1,5 +1,8 @@
 "use client";
 
+import * as React from "react";
+import Link from "next/link";
+
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -13,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Eye, EyeOff } from "lucide-react";
 
 const FormSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
@@ -28,6 +32,7 @@ interface LoginResponse {
 export function SaasLoginForm() {
   const router = useRouter();
   const login = useAuthStore((state) => state.login);
+  const [showPassword, setShowPassword] = React.useState(false);
 
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
@@ -40,26 +45,20 @@ export function SaasLoginForm() {
 
   const onSubmit = async (data: z.infer<typeof FormSchema>) => {
     try {
-      // Step 1: Real API Call
       const response = await apiPost<LoginResponse>("/auth/login", {
         email: data.email,
         password: data.password,
       });
 
-      // Step 2: Update Auth Store & Cookies
       login(response.access_token, response.user);
-      
       toast.success("Login successful!");
 
-      // Step 3: Role-based Redirection
       if (response.user.role === Role.SUPERADMIN) {
         router.push("/superadmin/dashboard");
       } else {
         router.push("/organization/dashboard");
       }
     } catch (error: any) {
-      // API Interceptor handles generic toasts (401, 500)
-      // Here we handle specific 400/422 validation if needed
       if (error.response?.status === 422 || error.response?.status === 400) {
         const errors = error.response?.data?.errors;
         if (errors) {
@@ -75,15 +74,22 @@ export function SaasLoginForm() {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
         <FormField
           control={form.control}
           name="email"
           render={({ field }) => (
-            <FormItem>
-              <FormLabel>Email Address</FormLabel>
+            <FormItem className="space-y-1">
+              <FormLabel className="text-[#64748B] text-base font-medium">Email or phone number</FormLabel>
               <FormControl>
-                <Input id="email" type="email" placeholder="you@example.com" autoComplete="email" {...field} />
+                <Input 
+                  id="email" 
+                  type="email" 
+                  placeholder="" 
+                  autoComplete="email" 
+                  className="h-12 border-[#66666659] rounded-[10px] bg-white focus-visible:ring-[#2563EB]/20 focus-visible:border-[#2563EB]"
+                  {...field} 
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -93,14 +99,29 @@ export function SaasLoginForm() {
           control={form.control}
           name="password"
           render={({ field }) => (
-            <FormItem>
-              <FormLabel>Password</FormLabel>
+            <FormItem className="space-y-1">
+              <div className="flex items-center justify-between">
+                <FormLabel className="text-[#64748B] text-base font-medium">Password</FormLabel>
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="text-[#64748B] text-base font-medium flex items-center gap-1 hover:text-[#2563EB] transition-colors"
+                >
+                  {showPassword ? (
+                    <EyeOff size={14} strokeWidth={2} />
+                  ) : (
+                    <Eye size={14} strokeWidth={2} />
+                  )}
+                  {showPassword ? "Hide" : "Show"}
+                </button>
+              </div>
               <FormControl>
                 <Input
                   id="password"
-                  type="password"
-                  placeholder="••••••••"
+                  type={showPassword ? "text" : "password"}
+                  placeholder=""
                   autoComplete="current-password"
+                  className="h-12 border-[#66666659] rounded-[10px] bg-white focus-visible:ring-[#2563EB]/20 focus-visible:border-[#2563EB]"
                   {...field}
                 />
               </FormControl>
@@ -108,27 +129,38 @@ export function SaasLoginForm() {
             </FormItem>
           )}
         />
-        <FormField
-          control={form.control}
-          name="remember"
-          render={({ field }) => (
-            <FormItem className="flex flex-row items-center">
-              <FormControl>
-                <Checkbox
-                  id="login-remember"
-                  checked={field.value}
-                  onCheckedChange={field.onChange}
-                  className="size-4"
-                />
-              </FormControl>
-              <FormLabel htmlFor="login-remember" className="text-muted-foreground ml-1 text-sm font-medium">
-                Remember me for 30 days
-              </FormLabel>
-            </FormItem>
-          )}
-        />
-        <Button className="w-full" type="submit" disabled={form.formState.isSubmitting}>
-          {form.formState.isSubmitting ? "Logging in..." : "Login"}
+
+        <div className="flex items-center justify-between pt-1">
+          <FormField
+            control={form.control}
+            name="remember"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-center space-y-0 gap-2">
+                <FormControl>
+                  <Checkbox
+                    id="login-remember"
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                    className="size-4 border-[#66666659] data-[state=checked]:bg-[#0B0033] data-[state=checked]:border-[#0B0033]"
+                  />
+                </FormControl>
+                <FormLabel htmlFor="login-remember" className="text-[#4B5563] text-base font-medium cursor-pointer">
+                  Remember me
+                </FormLabel>
+              </FormItem>
+            )}
+          />
+          <Link href="#" className="text-[#4B5563] text-base font-medium hover:text-[#2563EB]">
+            Need help?
+          </Link>
+        </div>
+
+        <Button 
+          className="w-full h-12 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-[25px] font-medium text-base shadow-lg transition-all mt-1" 
+          type="submit" 
+          disabled={form.formState.isSubmitting}
+        >
+          {form.formState.isSubmitting ? "Signing in..." : "Sign in"}
         </Button>
       </form>
     </Form>
