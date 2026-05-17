@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Check } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
@@ -61,7 +61,7 @@ export default function AddLeadPage() {
 
   return (
     <>
-      <div className="sticky top-12 z-10 bg-background/40 backdrop-blur-md flex items-center px-4 md:px-6 py-3 border-b gap-3">
+      <div className="sticky top-12 z-10 bg-background/40 backdrop-blur-md flex items-center px-4 md:px-6 py-3  gap-3">
         <Link href="/lead-manager">
           <Button variant="ghost" size="icon">
             <ChevronLeft className="size-5" />
@@ -74,48 +74,46 @@ export default function AddLeadPage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
 
           {/* Left — col 8 */}
-          <Card className="lg:col-span-8">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Lead Details</CardTitle>
+          <Card className="lg:col-span-8 bg-white border border-[#d4d4d4] rounded-[8px] shadow-sm overflow-hidden">
+            <CardHeader className="border-b border-[#e5e5e5] px-6 py-4">
+              <CardTitle className="text-[18px] font-medium text-[#0a0a0a]">Lead Information</CardTitle>
             </CardHeader>
-            <CardContent className="flex flex-col gap-6">
+            <CardContent className="p-6 flex flex-col divide-y divide-[#e5e5e5]">
 
               {/* Personal Info */}
-              <section className="flex flex-col gap-3">
-                <div>
-                  <p className="text-sm font-semibold">Personal Information</p>
-                  <p className="text-xs text-muted-foreground">Basic contact details of the lead.</p>
+              <section className="flex flex-col gap-5 pb-6">
+                <div className="flex flex-col gap-1">
+                  <p className="text-[16px] font-medium text-[#0a0a0a]">Personal Information</p>
+                  <p className="text-[14px] text-[#64748b]">Basic contact details of the lead.</p>
                 </div>
-                <Separator />
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="name" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Full Name</Label>
-                    <Input id="name" placeholder="e.g. Arjun Sharma" value={form.name} onChange={(e) => set("name", e.target.value)} />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="name" className="text-[14px] font-semibold uppercase tracking-[0.6px] text-[#64748b]">Full Name</Label>
+                    <Input id="name" placeholder="e.g., Sam Joshua" value={form.name} onChange={(e) => set("name", e.target.value)} className="border border-[#e5e5e5] h-[40px] rounded-[8px] text-[12px] placeholder:text-[#64748b]" />
                   </div>
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="email" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Email</Label>
-                    <Input id="email" type="email" placeholder="e.g. arjun@example.com" value={form.email} onChange={(e) => set("email", e.target.value)} />
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="email" className="text-[14px] font-semibold uppercase tracking-[0.6px] text-[#64748b]">Email</Label>
+                    <Input id="email" type="email" placeholder="e.g., Sam@gmail.com" value={form.email} onChange={(e) => set("email", e.target.value)} className="border border-[#e5e5e5] h-[40px] rounded-[8px] text-[12px] placeholder:text-[#64748b]" />
                   </div>
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="mobile" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Mobile</Label>
-                    <Input id="mobile" type="tel" placeholder="e.g. +91 98765 43210" value={form.mobile} onChange={(e) => set("mobile", e.target.value)} />
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="mobile" className="text-[14px] font-semibold uppercase tracking-[0.6px] text-[#64748b]">Mobile</Label>
+                    <Input id="mobile" type="tel" placeholder="e.g., +91 9876543210" value={form.mobile} onChange={(e) => set("mobile", e.target.value)} className="border border-[#e5e5e5] h-[40px] rounded-[8px] text-[12px] placeholder:text-[#64748b]" />
                   </div>
                 </div>
               </section>
 
               {/* Location */}
-              <section className="flex flex-col gap-3">
-                <div>
-                  <p className="text-sm font-semibold">Location</p>
-                  <p className="text-xs text-muted-foreground">Where is the lead based?</p>
+              <section className="flex flex-col gap-5 py-6">
+                <div className="flex flex-col gap-1">
+                  <p className="text-[16px] font-medium text-[#0a0a0a]">Location</p>
+                  <p className="text-[14px] text-[#64748b]">Where is the lead based</p>
                 </div>
-                <Separator />
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="state" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">State</Label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="state" className="text-[14px] font-semibold uppercase tracking-[0.6px] text-[#64748b]">State</Label>
                     <Select value={form.state} onValueChange={(v) => set("state", v)}>
-                      <SelectTrigger id="state" className="w-full">
-                        <SelectValue placeholder="Select state" />
+                      <SelectTrigger id="state" className="border border-[#e5e5e5] h-[40px] rounded-[8px] text-[12px] text-[#1e293b] w-full data-[placeholder]:text-[#1e293b]">
+                        <SelectValue placeholder="Select State" />
                       </SelectTrigger>
                       <SelectContent>
                         {INDIAN_STATES.map((s) => (
@@ -124,26 +122,25 @@ export default function AddLeadPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="city" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">City</Label>
-                    <Input id="city" placeholder="e.g. Mumbai" value={form.city} onChange={(e) => set("city", e.target.value)} />
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="city" className="text-[14px] font-semibold uppercase tracking-[0.6px] text-[#64748b]">City</Label>
+                    <Input id="city" placeholder="e.g., Mumbai" value={form.city} onChange={(e) => set("city", e.target.value)} className="border border-[#e5e5e5] h-[40px] rounded-[8px] text-[12px] placeholder:text-[#64748b]" />
                   </div>
                 </div>
               </section>
 
               {/* Lead Source */}
-              <section className="flex flex-col gap-3">
-                <div>
-                  <p className="text-sm font-semibold">Lead Source</p>
-                  <p className="text-xs text-muted-foreground">Where did this lead come from?</p>
+              <section className="flex flex-col gap-5 py-6">
+                <div className="flex flex-col gap-1">
+                  <p className="text-[16px] font-medium text-[#0a0a0a]">Lead Source</p>
+                  <p className="text-[14px] text-[#64748b]">Where did this lead come from?</p>
                 </div>
-                <Separator />
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="source" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Source</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="source" className="text-[14px] font-semibold uppercase tracking-[0.6px] text-[#64748b]">Source</Label>
                     <Select value={form.source} onValueChange={(v) => set("source", v)}>
-                      <SelectTrigger id="source" className="w-full">
-                        <SelectValue placeholder="Select source" />
+                      <SelectTrigger id="source" className="border border-[#e5e5e5] h-[40px] rounded-[8px] text-[12px] text-[#1e293b] w-full data-[placeholder]:text-[#1e293b]">
+                        <SelectValue placeholder="Select Source" />
                       </SelectTrigger>
                       <SelectContent>
                         {SOURCES.map((s) => (
@@ -152,11 +149,11 @@ export default function AddLeadPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="medium" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Medium</Label>
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="medium" className="text-[14px] font-semibold uppercase tracking-[0.6px] text-[#64748b]">Medium</Label>
                     <Select value={form.medium} onValueChange={(v) => set("medium", v)}>
-                      <SelectTrigger id="medium" className="w-full">
-                        <SelectValue placeholder="Select medium" />
+                      <SelectTrigger id="medium" className="border border-[#e5e5e5] h-[40px] rounded-[8px] text-[12px] text-[#1e293b] w-full data-[placeholder]:text-[#1e293b]">
+                        <SelectValue placeholder="Select Medium" />
                       </SelectTrigger>
                       <SelectContent>
                         {MEDIUMS.map((m) => (
@@ -165,11 +162,11 @@ export default function AddLeadPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="campaign" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Campaign</Label>
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="campaign" className="text-[14px] font-semibold uppercase tracking-[0.6px] text-[#64748b]">Campaign</Label>
                     <Select value={form.campaign} onValueChange={(v) => set("campaign", v)}>
-                      <SelectTrigger id="campaign" className="w-full">
-                        <SelectValue placeholder="Select campaign" />
+                      <SelectTrigger id="campaign" className="border border-[#e5e5e5] h-[40px] rounded-[8px] text-[12px] text-[#1e293b] w-full data-[placeholder]:text-[#1e293b]">
+                        <SelectValue placeholder="Select Campaign" />
                       </SelectTrigger>
                       <SelectContent>
                         {CAMPAIGNS.map((c) => (
@@ -182,79 +179,107 @@ export default function AddLeadPage() {
               </section>
 
               {/* Notes */}
-              <section className="flex flex-col gap-3">
-                <div>
-                  <p className="text-sm font-semibold">Notes</p>
-                  <p className="text-xs text-muted-foreground">Any additional remarks about this lead.</p>
+              <section className="flex flex-col gap-5 pt-6">
+                <div className="flex flex-col gap-1">
+                  <p className="text-[16px] font-medium text-[#0a0a0a]">Notes</p>
+                  <p className="text-[14px] text-[#64748b]">Any additional remarks about this lead.</p>
                 </div>
-                <Separator />
-                <Textarea
-                  placeholder="Add notes about this lead..."
-                  className="min-h-24 resize-none"
-                  value={form.notes}
-                  onChange={(e) => set("notes", e.target.value)}
-                />
+                <div>
+                  <Textarea
+                    placeholder="Add notes about this lead...."
+                    className="border border-[#e5e5e5] min-h-[137px] rounded-[8px] text-[12px] placeholder:text-[#64748b] resize-none"
+                    value={form.notes}
+                    onChange={(e) => set("notes", e.target.value)}
+                  />
+                </div>
               </section>
 
             </CardContent>
           </Card>
 
           {/* Right — col 4 */}
-          <Card className="lg:col-span-4">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">CRM Details</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-4">
-              <div className="grid gap-1.5">
-                <Label htmlFor="stage" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Stage</Label>
-                <Select value={form.stage} onValueChange={(v) => set("stage", v)}>
-                  <SelectTrigger id="stage" className="w-full">
-                    <SelectValue placeholder="Select stage" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {STAGES.map((s) => (
-                      <SelectItem key={s} value={s}>{s}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="status" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</Label>
-                <Select value={form.status} onValueChange={(v) => set("status", v)}>
-                  <SelectTrigger id="status" className="w-full">
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {STATUSES.map((s) => (
-                      <SelectItem key={s} value={s}>{s}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="assignedTo" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Assigned To</Label>
-                <Select value={form.assignedTo} onValueChange={(v) => set("assignedTo", v)}>
-                  <SelectTrigger id="assignedTo" className="w-full">
-                    <SelectValue placeholder="Select counsellor" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {COUNSELLORS.map((c) => (
-                      <SelectItem key={c} value={c}>{c}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+          <div className="lg:col-span-4 flex flex-col gap-6">
+            
+            {/* CRM Detail Card */}
+            <div className="border border-[#d4d4d4] rounded-[8px] bg-white p-6 flex flex-col gap-6" data-node-id="77:1671">
+              <h2 className="text-[18px] font-medium text-[#0a0a0a]" data-node-id="77:1672">
+                CRM Detail
+              </h2>
+              
+              <div className="flex flex-col gap-5">
+                {/* Source */}
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="crm-source" className="text-[14px] font-semibold uppercase tracking-[0.6px] text-[#64748b]">Source</Label>
+                  <Select value={form.source} onValueChange={(v) => set("source", v)}>
+                    <SelectTrigger id="crm-source" className="border border-[#e5e5e5] h-[40px] rounded-[8px] text-[12px] text-[#1e293b] w-full data-[placeholder]:text-[#1e293b]">
+                      <SelectValue placeholder="Select Source" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SOURCES.map((s) => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Medium */}
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="crm-medium" className="text-[14px] font-semibold uppercase tracking-[0.6px] text-[#64748b]">Medium</Label>
+                  <Select value={form.medium} onValueChange={(v) => set("medium", v)}>
+                    <SelectTrigger id="crm-medium" className="border border-[#e5e5e5] h-[40px] rounded-[8px] text-[12px] text-[#1e293b] w-full data-[placeholder]:text-[#1e293b]">
+                      <SelectValue placeholder="Select Medium" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MEDIUMS.map((m) => (
+                        <SelectItem key={m} value={m}>{m}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Campaign */}
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="crm-campaign" className="text-[14px] font-semibold uppercase tracking-[0.6px] text-[#64748b]">Campaign</Label>
+                  <Select value={form.campaign} onValueChange={(v) => set("campaign", v)}>
+                    <SelectTrigger id="crm-campaign" className="border border-[#e5e5e5] h-[40px] rounded-[8px] text-[12px] text-[#1e293b] w-full data-[placeholder]:text-[#1e293b]">
+                      <SelectValue placeholder="Select Campaign" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CAMPAIGNS.map((c) => (
+                        <SelectItem key={c} value={c}>{c}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
-              <Separator />
-
-              <div className="flex flex-col gap-2">
-                <Button className="w-full" onClick={handleSubmit}>Save Lead</Button>
+              <div className="flex flex-col gap-3 mt-4">
+                <Button 
+                  className="w-full bg-[#2563ea] hover:bg-[#1d4ed8] text-white flex items-center justify-center gap-2 h-11 text-base font-medium rounded-[8px]" 
+                  onClick={handleSubmit}
+                >
+                  <Check className="size-5" />
+                  Save Lead
+                </Button>
                 <Link href="/lead-manager" className="w-full">
-                  <Button variant="outline" className="w-full">Cancel</Button>
+                  <Button variant="outline" className="w-full border border-[#d4d4d4] h-11 text-base font-medium text-[#0a0a0a] rounded-[8px] hover:bg-neutral-50">
+                    Cancel
+                  </Button>
                 </Link>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+
+            {/* Protip Card */}
+            <div className="bg-[#eff6ff] flex flex-col gap-4 p-6 rounded-[8px]" data-node-id="77:1718">
+              <p className="text-[#2563eb] text-[18px] font-semibold leading-normal">
+                Protip
+              </p>
+              <p className="text-[#1e293b] text-[12px] font-medium leading-[20px] tracking-[0.6px]">
+                Completing the Lead Source details helps the AI system better predict conversion rates for this campaign.
+              </p>
+            </div>
+
+          </div>
 
         </div>
       </div>
