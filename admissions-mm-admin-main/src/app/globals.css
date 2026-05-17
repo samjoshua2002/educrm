@@ -10,23 +10,23 @@
 
 :root {
   --background: oklch(0.9851 0 0);
-  --foreground: oklch(0 0 0);
+  --foreground: oklch(0.12 0 0);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.2046 0 0);
+  --card-foreground: oklch(0.12 0 0);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0 0 0);
+  --popover-foreground: oklch(0.12 0 0);
   --primary: oklch(0.5144 0.1605 267.4400);
-  --primary-foreground: oklch(0.9700 0.0140 254.6040);
+  --primary-foreground: oklch(1 0 0);
   --secondary: oklch(0.9400 0 0);
   --secondary-foreground: oklch(0.2500 0 0);
   --muted: oklch(0.9700 0 0);
-  --muted-foreground: oklch(0.4400 0 0);
-  --accent: oklch(0.9214 0.0248 257.6500);
-  --accent-foreground: oklch(0.2571 0.1161 272.2400);
+  --muted-foreground: oklch(0.556 0.03 256.4);
+  --accent: oklch(0.97 0.015 256.4);
+  --accent-foreground: oklch(0.5144 0.1605 267.4400);
   --destructive: oklch(0.5800 0.2200 27);
   --destructive-foreground: oklch(0.9700 0.0140 254.6040);
-  --border: oklch(0.9200 0 0);
-  --input: oklch(0.9400 0 0);
+  --border: oklch(0.86 0 0);
+  --input: oklch(0.922 0 0);
   --ring: oklch(0.5144 0.1605 267.4400);
   --chart-1: oklch(0.9214 0.0248 257.6500);
   --chart-2: oklch(0.7597 0.0804 267.0100);
