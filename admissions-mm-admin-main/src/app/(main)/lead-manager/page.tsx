@@ -492,7 +492,7 @@ export default function LeadManagerPage() {
                 className="w-full border border-border h-9 text-sm font-medium text-foreground  hover:bg-accent hover:text-accent-foreground"
               >
                 <Plus className="size-4" />
-                Add Lead logeshwari
+                Add Lead
               </Button>
             </Link>
           </div>
