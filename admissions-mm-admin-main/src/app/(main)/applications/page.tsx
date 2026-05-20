@@ -3,6 +3,8 @@
 import * as React from "react";
 import {
   EllipsisVertical,
+  Filter,
+  SearchX,
   Pencil,
   Trash2,
   Eye,
@@ -16,6 +18,17 @@ import {
 import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -252,12 +265,12 @@ const PROGRAMS = [
 const CAMPUSES = ["Main Campus", "City Campus", "South Campus"] as const;
 
 const formStatusStyles: Record<string, string> = {
-  Incomplete: "border-gray-300 text-gray-600 dark:border-gray-600 dark:text-gray-400",
-  "In Progress": "border-amber-300 text-amber-700 dark:border-amber-700 dark:text-amber-300",
-  Submitted: "border-blue-300 text-blue-700 dark:border-blue-700 dark:text-blue-300",
-  "Under Review": "border-purple-300 text-purple-700 dark:border-purple-700 dark:text-purple-300",
-  Accepted: "border-green-300 text-green-700 dark:border-green-700 dark:text-green-300",
-  Rejected: "border-red-300 text-red-700 dark:border-red-700 dark:text-red-300",
+  Incomplete: "bg-gray-500/10 text-gray-700 dark:bg-gray-500/20 dark:text-gray-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
+  "In Progress": "bg-amber-500/10 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
+  Submitted: "bg-blue-500/10 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
+  "Under Review": "bg-purple-500/10 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
+  Accepted: "bg-green-500/10 text-green-700 dark:bg-green-500/20 dark:text-green-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
+  Rejected: "bg-red-500/10 text-red-700 dark:bg-red-500/20 dark:text-red-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
 };
 
 
@@ -273,6 +286,12 @@ function formatDate(dateStr: string) {
 
 
 export default function ApplicationsPage() {
+  const [applicationsState, setApplicationsState] = React.useState<Application[]>(applications);
+  const [deleteAppId, setDeleteAppId] = React.useState<number | null>(null);
+
+  function handleDeleteApplication(id: number) {
+    setApplicationsState((prev) => prev.filter((app) => app.id !== id));
+  }
   const [currentPage, setCurrentPage] = React.useState(1);
   const itemsPerPage = 10;
 
@@ -340,7 +359,7 @@ export default function ApplicationsPage() {
   }
 
   const filteredApplications = React.useMemo(() => {
-    return applications.filter((app) => {
+    return applicationsState.filter((app) => {
       if (appliedSearch) {
         const q = appliedSearch.toLowerCase();
         const matchesSearch =
@@ -367,6 +386,34 @@ export default function ApplicationsPage() {
   const endIndex = startIndex + itemsPerPage;
   const paginatedApplications = filteredApplications.slice(startIndex, endIndex);
 
+  const [mobileVisibleCount, setMobileVisibleCount] = React.useState(5);
+
+  React.useEffect(() => {
+    setMobileVisibleCount(5);
+  }, [appliedSearch, appliedFormStatus, appliedProgram, appliedAdvanced]);
+
+  const mobileApplications = React.useMemo(() => {
+    return filteredApplications.slice(0, mobileVisibleCount);
+  }, [filteredApplications, mobileVisibleCount]);
+
+  const visiblePages = React.useMemo(() => {
+    let startPage = 1;
+    let endPage = totalPages;
+    if (totalPages > 5) {
+      if (currentPage <= 3) {
+        startPage = 1;
+        endPage = 5;
+      } else if (currentPage + 2 >= totalPages) {
+        startPage = totalPages - 4;
+        endPage = totalPages;
+      } else {
+        startPage = currentPage - 2;
+        endPage = currentPage + 2;
+      }
+    }
+    return Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i);
+  }, [currentPage, totalPages]);
+
   const hasAdvancedFilters =
     appliedAdvanced.campus !== "all" ||
     appliedAdvanced.paymentStatus !== "all" ||
@@ -377,66 +424,95 @@ export default function ApplicationsPage() {
 
   return (
     <>
-      <div className="sticky top-12 z-10 bg-background/40 backdrop-blur-md flex items-center justify-between px-4 md:px-6 py-3 border-b">
-        <h1 className="text-xl font-semibold">Applications</h1>
-        <div className="flex items-center gap-2">
-          <Button variant="outline">
-            <Download className="size-4" />
-            Export
-          </Button>
-
-        </div>
-      </div>
-
       <div className="flex flex-col gap-4 p-4 md:p-6">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-          <div className="flex flex-1 items-center gap-2">
-            <Input
-              placeholder="Search by name, email, phone or application no..."
-              className="max-w-sm"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") applyFilters(); }}
-            />
-            <Button variant="outline" size="icon" className="size-9 shrink-0" onClick={applyFilters}>
-              <Search className="size-4" />
-              <span className="sr-only">Search</span>
-            </Button>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+          {/* Search Section */}
+          <div className="flex flex-1 w-full">
+            <div className="relative w-full">
+              <Input
+                placeholder="Search by name, email, phone or application no..."
+                className="w-full pr-10 h-10"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setAppliedSearch(e.target.value);
+                  setCurrentPage(1);
+                }}
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 size-7 -translate-y-1/2 hover:bg-transparent"
+              >
+                <Search className="size-4 text-muted-foreground" />
+                <span className="sr-only">Search</span>
+              </Button>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Select value={formStatusDraft} onValueChange={setFormStatusDraft}>
-              <SelectTrigger className="w-[160px]" size="sm">
-                <SelectValue placeholder="All Statuses" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                {FORM_STATUSES.map((s) => (
-                  <SelectItem key={s} value={s}>{s}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={programDraft} onValueChange={setProgramDraft}>
-              <SelectTrigger className="w-[200px]" size="sm">
-                <SelectValue placeholder="All Programs" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Programs</SelectItem>
-                {PROGRAMS.map((p) => (
-                  <SelectItem key={p} value={p}>{p}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+
+          {/* Filters + Actions */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full lg:w-auto">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              {/* Form Status Select */}
+              <div className="flex-1 min-w-0 sm:w-[140px]">
+                <Select value={formStatusDraft} onValueChange={(val) => {
+                  setFormStatusDraft(val);
+                  setAppliedFormStatus(val);
+                  setCurrentPage(1);
+                }}>
+                  <SelectTrigger className="w-full h-10" size="lg">
+                    <SelectValue placeholder="All Statuses" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    {FORM_STATUSES.map((s) => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Program Select */}
+              <div className="flex-1 min-w-0 sm:w-[180px]">
+                <Select value={programDraft} onValueChange={(val) => {
+                  setProgramDraft(val);
+                  setAppliedProgram(val);
+                  setCurrentPage(1);
+                }}>
+                  <SelectTrigger className="w-full h-10" size="lg">
+                    <SelectValue placeholder="All Programs" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Programs</SelectItem>
+                    {PROGRAMS.map((p) => (
+                      <SelectItem key={p} value={p}>{p}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Advanced Filter Button */}
+              <Button
+                variant="outline"
+                size="icon"
+              className="relative h-[39px] w-[39px] shrink-0"
+                onClick={() => setAdvancedOpen(true)}
+              >
+                <Filter className="size-4" />
+                <span className="sr-only">Advanced Filters</span>
+                {hasAdvancedFilters && (
+                  <span className="absolute -top-1 -right-1 size-2 rounded-full bg-primary" />
+                )}
+              </Button>
+            </div>
+
+            {/* Export Button */}
             <Button
               variant="outline"
-              size="icon"
-              className="relative size-9 shrink-0"
-              onClick={() => setAdvancedOpen(true)}
+              className="w-full sm:w-auto shrink-0 border border-border h-[39px] text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground"
             >
-              <SlidersHorizontal className="size-4" />
-              <span className="sr-only">Advanced Search</span>
-              {hasAdvancedFilters && (
-                <span className="absolute -top-1 -right-1 size-2 rounded-full bg-primary" />
-              )}
+              <Download className="size-4 mr-2" />
+              Export
             </Button>
           </div>
         </div>
@@ -524,67 +600,70 @@ export default function ApplicationsPage() {
           </DialogContent>
         </Dialog>
 
-        <div className="overflow-hidden rounded-lg border">
+        {/* Desktop View Table */}
+        <div className="hidden lg:block overflow-hidden rounded-[12px] border border-border bg-card shadow-[0_1px_3px_0_rgba(0,0,0,0.05),0_1px_2px_-1px_rgba(0,0,0,0.05)]">
           <Table>
-            <TableHeader className="bg-muted">
-              <TableRow>
-                <TableHead className="ps-4">App. No.</TableHead>
-                <TableHead>Applicant Details</TableHead>
-                <TableHead>Program</TableHead>
-                <TableHead>Form Status</TableHead>
-                <TableHead>Payment</TableHead>
-                <TableHead>Last Activity</TableHead>
-                <TableHead className="text-right pe-4">Actions</TableHead>
+            <TableHeader className="bg-zinc-100 dark:bg-muted/5 border-b border-border/80">
+              <TableRow className="hover:bg-transparent border-b border-border/80">
+                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">APPLICANT DETAIL</TableHead>
+                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">APPLICATION NO.</TableHead>
+                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">PROGRAM</TableHead>
+                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">FORM STATUS</TableHead>
+                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">PAYMENT</TableHead>
+                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">LAST ACTIVITY</TableHead>
+                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto text-right w-[85px]">ACTIONS</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paginatedApplications.length === 0 ? (
+              {filteredApplications.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
-                    No applications found.
+                  <TableCell colSpan={7} className="h-64 text-center">
+                    <div className="flex flex-col items-center justify-center gap-3">
+                      <div className="flex size-12 items-center justify-center rounded-full bg-muted/40">
+                        <SearchX className="size-6 text-muted-foreground/80" />
+                      </div>
+                      <div className="flex flex-col gap-0.5 text-center">
+                        <p className="text-sm font-semibold text-foreground">No results found</p>
+                        <p className="text-xs text-muted-foreground">Try adjusting your filters or search query.</p>
+                      </div>
+                    </div>
                   </TableCell>
                 </TableRow>
               ) : (
                 paginatedApplications.map((app) => (
-                  <TableRow key={app.id}>
-                    <TableCell className="ps-4 font-mono text-sm text-muted-foreground uppercase">
+                  <TableRow key={app.id} className="border-b border-border/80 hover:bg-muted/15 dark:hover:bg-muted/5 transition-colors">
+                    <TableCell className="py-5 px-6 align-middle">
+                      <div className="flex flex-col gap-0.5">
+                        <div className="font-semibold text-foreground text-sm tracking-tight">{app.name}</div>
+                        <div className="text-xs text-muted-foreground font-normal">{app.email} · {app.phone}</div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="py-5 px-6 align-middle text-sm text-foreground/80 font-normal">
                       {app.applicationNo}
                     </TableCell>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium text-sm">{app.name}</div>
-                        <div className="text-[13px] text-muted-foreground mt-0.5 opacity-60">
-                          {app.email} <br /> {app.phone}
-                        </div>
+                    <TableCell className="py-5 px-6 align-middle">
+                      <div className="flex flex-col gap-0.5">
+                        <div className="font-medium text-foreground text-sm tracking-tight">{app.program}</div>
+                        <div className="text-xs text-muted-foreground font-normal">{app.campus}</div>
                       </div>
                     </TableCell>
-                    <TableCell>
-                      <div>
-                        <div className="text-sm leading-tight font-medium">{app.program}</div>
-                        <div className="text-[12px] text-muted-foreground/70">{app.campus}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={`text-[12px] h-5 px-1.5 ${formStatusStyles[app.formStatus] ?? ""}`}>
+                    <TableCell className="py-5 px-6 align-middle">
+                      <span className={formStatusStyles[app.formStatus] ?? ""}>
                         {app.formStatus}
-                      </Badge>
+                      </span>
                     </TableCell>
-                    <TableCell className="text-xs">
+                    <TableCell className="py-5 px-6 align-middle text-sm text-foreground/80 font-normal">
                       {app.paymentMode !== "—" ? app.paymentMode : ""}
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
+                    <TableCell className="py-5 px-6 align-middle text-sm text-muted-foreground font-normal">
                       {formatDate(app.lastActivity)}
                     </TableCell>
-                    <TableCell className="text-right pe-4">
+                    <TableCell className="py-5 px-6 align-middle text-right">
                       <div className="flex justify-end">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              className="data-[state=open]:bg-muted text-muted-foreground flex size-8"
-                              size="icon"
-                            >
-                              <EllipsisVertical />
+                            <Button variant="ghost" className="data-[state=open]:bg-muted text-muted-foreground flex size-8 rounded-md hover:bg-muted" size="icon">
+                              <EllipsisVertical className="size-4" />
                               <span className="sr-only">Open menu</span>
                             </Button>
                           </DropdownMenuTrigger>
@@ -600,7 +679,7 @@ export default function ApplicationsPage() {
                               Edit
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem variant="destructive" className="gap-2">
+                            <DropdownMenuItem variant="destructive" className="gap-2" onClick={() => setDeleteAppId(app.id)}>
                               <Trash2 className="size-4" />
                               Delete
                             </DropdownMenuItem>
@@ -613,53 +692,237 @@ export default function ApplicationsPage() {
               )}
             </TableBody>
           </Table>
+
+          {/* Desktop Pagination Footer */}
+          <div className="flex flex-col sm:flex-row items-center justify-between border-t border-border/80 bg-zinc-100 dark:bg-muted/5 py-4 px-6 gap-4">
+            <p className="text-sm text-muted-foreground font-normal">
+              Showing <span className="font-medium text-foreground">{filteredApplications.length === 0 ? 0 : startIndex + 1}</span> to{" "}
+              <span className="font-medium text-foreground">{Math.min(endIndex, filteredApplications.length)}</span> of{" "}
+              <span className="font-medium text-foreground">{filteredApplications.length}</span> entries
+            </p>
+            {totalPages > 1 && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button
+                  variant="outline"
+                  className="h-9 px-4 border border-border/80 bg-background text-foreground text-sm font-normal rounded-[6px] hover:bg-muted/30 dark:hover:bg-muted/10 transition-colors shadow-2xs"
+                  onClick={() => {
+                    if (currentPage > 1) setCurrentPage(currentPage - 1);
+                  }}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </Button>
+
+                <div className="flex items-center gap-1">
+                  {visiblePages.map((page) => {
+                    const isActive = currentPage === page;
+                    return (
+                      <Button
+                        key={page}
+                        variant={isActive ? "default" : "outline"}
+                        className={`h-9 w-9 p-0 text-sm border shadow-2xs rounded-[6px] transition-colors ${isActive
+                            ? "bg-background border-border text-foreground font-semibold hover:bg-muted/15 dark:hover:bg-muted/5 shadow-xs"
+                            : "border-border/80 bg-transparent text-muted-foreground hover:bg-muted/30 dark:hover:bg-muted/10 hover:text-foreground font-normal"
+                          }`}
+                        onClick={() => setCurrentPage(page)}
+                      >
+                        {page}
+                      </Button>
+                    );
+                  })}
+                </div>
+
+                <Button
+                  variant="outline"
+                  className="h-9 px-4 border border-border/80 bg-background text-foreground text-sm font-normal rounded-[6px] hover:bg-muted/30 dark:hover:bg-muted/10 transition-colors shadow-2xs"
+                  onClick={() => {
+                    if (currentPage < totalPages) setCurrentPage(currentPage + 1);
+                  }}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            Showing {filteredApplications.length === 0 ? 0 : startIndex + 1}–{Math.min(endIndex, filteredApplications.length)} of {filteredApplications.length} applications
-          </p>
-          {totalPages > 1 && (
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => {
-                  if (currentPage > 1) setCurrentPage(currentPage - 1);
-                }}
-                disabled={currentPage === 1}
-              >
-                <ChevronLeft className="h-4 w-4" />
-                <span className="sr-only">Previous page</span>
-              </Button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                <Button
-                  key={page}
-                  variant={currentPage === page ? "default" : "outline"}
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => setCurrentPage(page)}
-                >
-                  {page}
-                </Button>
-              ))}
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => {
-                  if (currentPage < totalPages) setCurrentPage(currentPage + 1);
-                }}
-                disabled={currentPage === totalPages}
-              >
-                <ChevronRight className="h-4 w-4" />
-                <span className="sr-only">Next page</span>
-              </Button>
+        {/* Mobile View - Ultra-Compact List Layout */}
+        {filteredApplications.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-3 py-16 border border-border/80 bg-card rounded-xl lg:hidden text-center px-4 w-full">
+            <div className="flex size-12 items-center justify-center rounded-full bg-muted/40">
+              <SearchX className="size-6 text-muted-foreground/80" />
             </div>
-          )}
-        </div>
+            <div className="flex flex-col gap-0.5">
+              <p className="text-sm font-semibold text-foreground">No results found</p>
+              <p className="text-xs text-muted-foreground">Try adjusting your filters or search query.</p>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3.5 lg:hidden w-full">
+            {mobileApplications.map((app) => {
+              const initials = app.name
+                .split(" ")
+                .map((n: string) => n[0])
+                .join("")
+                .toUpperCase()
+                .slice(0, 2);
+
+              return (
+                <div
+                  key={app.id}
+                  className="bg-card border border-border/80 rounded-xl p-4 md:p-5 flex flex-col gap-4 hover:shadow-xs transition-all duration-200"
+                >
+                  {/* Row 1: Avatar, Name, Email, Stage & Action */}
+                  <div className="flex items-center justify-between gap-4 min-w-0">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex size-10 items-center justify-center rounded-full bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/10 text-primary font-semibold text-sm shrink-0">
+                        {initials}
+                      </div>
+
+                      <div className="min-w-0">
+                        <span className="font-semibold text-foreground text-sm tracking-tight truncate block">
+                          {app.name}
+                        </span>
+                        <span className="text-xs text-muted-foreground truncate block mt-0.5">
+                          {app.email}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0 self-center">
+                      <span className={formStatusStyles[app.formStatus] ?? ""}>
+                        {app.formStatus}
+                      </span>
+
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            className="text-muted-foreground flex size-8 rounded-md hover:bg-muted p-0 shrink-0"
+                            size="icon"
+                          >
+                            <EllipsisVertical className="size-4" />
+                            <span className="sr-only">Open menu</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+
+                        <DropdownMenuContent align="end" className="w-40">
+                          <DropdownMenuItem className="gap-2" asChild>
+                            <Link href={`/applications/${app.applicationNo}`}>
+                              <Eye className="size-4" />
+                              View
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="gap-2">
+                            <Pencil className="size-4" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem variant="destructive" className="gap-2" onClick={() => setDeleteAppId(app.id)}>
+                            <Trash2 className="size-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+
+                  {/* Row 2: Grid of key details */}
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-3.5 text-xs border-t border-border/40 pt-3 text-muted-foreground">
+                    <div className="flex flex-col gap-1">
+                      <span className="font-medium text-muted-foreground/80 block">
+                        App No:
+                      </span>
+                      <span className="text-foreground/95 font-medium">{app.applicationNo}</span>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <span className="font-medium text-muted-foreground/80 block">
+                        Program:
+                      </span>
+                      <span className="text-foreground/95 font-medium truncate">
+                        {app.program}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <span className="font-medium text-muted-foreground/80 block">
+                        Payment Mode:
+                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-foreground/95 font-medium">
+                          {app.paymentMode !== "—" ? app.paymentMode : "N/A"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <span className="font-medium text-muted-foreground/80 block">
+                        Last Activity:
+                      </span>
+                      <span className="text-foreground/95 font-medium truncate">
+                        {formatDate(app.lastActivity)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Mobile & Tablet Load More Footer */}
+        {mobileVisibleCount < filteredApplications.length ? (
+          <div className="flex flex-col items-center gap-3 py-4 mt-2 lg:hidden">
+            <Button
+              variant="outline"
+              onClick={() => setMobileVisibleCount((prev) => prev + 5)}
+              className="w-full h-10 border border-border bg-background text-foreground font-medium rounded-[8px] hover:bg-accent hover:text-accent-foreground shadow-2xs transition-colors"
+            >
+              Load More Applications
+            </Button>
+            <p className="text-xs text-muted-foreground font-normal">
+              Showing <span className="font-medium text-foreground">{Math.min(mobileVisibleCount, filteredApplications.length)}</span> of{" "}
+              <span className="font-medium text-foreground">{filteredApplications.length}</span> entries
+            </p>
+          </div>
+        ) : (
+          <div className="text-center py-4 mt-2 lg:hidden border-t border-border/40">
+            <p className="text-xs text-muted-foreground font-normal">
+              Showing all <span className="font-medium text-foreground">{filteredApplications.length}</span> of{" "}
+              <span className="font-medium text-foreground">{filteredApplications.length}</span> entries
+            </p>
+          </div>
+        )}
       </div>
+      {/* Shadcn Alert Dialog for Application Deletion Warning Confirmation */}
+      <AlertDialog open={deleteAppId !== null} onOpenChange={(open) => { if (!open) setDeleteAppId(null); }}>
+        <AlertDialogContent className="w-[92%] sm:w-full sm:max-w-[400px] rounded-[12px] p-5 sm:p-6 gap-4">
+          <AlertDialogHeader className="text-left">
+            <AlertDialogTitle className="text-base font-semibold text-foreground">Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription className="text-xs text-muted-foreground leading-relaxed mt-1">
+              This action cannot be undone. This will permanently delete the application from the system.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-5 gap-2 sm:gap-3 flex flex-col-reverse sm:flex-row sm:justify-end">
+            <AlertDialogCancel className="w-full sm:w-auto h-9.5 rounded-[8px] text-xs font-medium border border-border bg-background text-foreground hover:bg-muted/30">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="w-full sm:w-auto h-9.5 rounded-[8px] text-xs font-medium bg-red-600 text-white hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700"
+              onClick={() => {
+                if (deleteAppId !== null) {
+                  handleDeleteApplication(deleteAppId);
+                  setDeleteAppId(null);
+                }
+              }}
+            >
+              Confirm Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

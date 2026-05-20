@@ -431,7 +431,7 @@ export default function LeadManagerPage() {
                   setStageDraft(val);
                   setCurrentPage(1);
                 }}>
-                  <SelectTrigger className="w-full h-9" size="sm">
+                  <SelectTrigger className="w-full h-10" size="lg">
                     <SelectValue placeholder="All Stages" />
                   </SelectTrigger>
 
@@ -453,7 +453,7 @@ export default function LeadManagerPage() {
                   setStatusDraft(val);
                   setCurrentPage(1);
                 }}>
-                  <SelectTrigger className="w-full h-9" size="sm">
+                  <SelectTrigger className="w-full h-10" size="lg">
                     <SelectValue placeholder="All Statuses" />
                   </SelectTrigger>
 
@@ -473,7 +473,7 @@ export default function LeadManagerPage() {
               <Button
                 variant="outline"
                 size="icon"
-                className="relative size-9 shrink-0"
+               className="relative h-[39px] w-[39px] shrink-0"
                 onClick={() => setAdvancedOpen(true)}
               >
                 <Filter className="size-4" />
@@ -489,7 +489,7 @@ export default function LeadManagerPage() {
             <Link href="/lead-manager/create" className="w-full sm:w-auto shrink-0">
               <Button
                 variant="outline"
-                className="w-full border border-border h-9 text-sm font-medium text-foreground  hover:bg-accent hover:text-accent-foreground"
+                className="w-full border border-border h-[39px] text-sm font-medium text-foreground  hover:bg-accent hover:text-accent-foreground"
               >
                 <Plus className="size-4" />
                 Add Lead
@@ -499,7 +499,7 @@ export default function LeadManagerPage() {
         </div>
 
         <Dialog open={advancedOpen} onOpenChange={setAdvancedOpen}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-md ">
             <DialogHeader>
               <DialogTitle>Advanced Filters</DialogTitle>
             </DialogHeader>
