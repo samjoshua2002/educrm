@@ -3,7 +3,7 @@
 import * as React from "react"
 import { Slot as SlotPrimitive } from "radix-ui"
 import { cva, VariantProps } from "class-variance-authority"
-import { PanelLeftIcon } from "lucide-react"
+import { PanelLeft, Menu } from "lucide-react"
 
 import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
@@ -88,11 +88,10 @@ function SidebarProvider({
     [setOpenProp, open]
   )
 
-  // Helper to toggle the sidebar.
+   // Helper to toggle the sidebar.
   const toggleSidebar = React.useCallback(() => {
     return isMobile ? setOpenMobile((open) => !open) : setOpen((open) => !open)
   }, [isMobile, setOpen, setOpenMobile])
-
   // Adds a keyboard shortcut to toggle the sidebar.
   React.useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -104,15 +103,51 @@ function SidebarProvider({
         toggleSidebar()
       }
     }
-
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [toggleSidebar])
-
+  // Adds swipe gesture to open/close sidebar on touch devices (iPad/Mobile)
+  React.useEffect(() => {
+    let touchStartX = 0
+    let touchEndX = 0
+    
+    const handleTouchStart = (e: TouchEvent) => {
+      touchStartX = e.changedTouches[0].screenX
+    }
+    
+    const handleTouchEnd = (e: TouchEvent) => {
+      touchEndX = e.changedTouches[0].screenX
+      
+      // If swipe right from the left edge of the screen (Open Sidebar)
+      if (touchEndX - touchStartX > 40 && touchStartX < 50) {
+        if (isMobile) {
+          setOpenMobile(true)
+        } else {
+          setOpen(true)
+        }
+      }
+      
+      // If swipe left (Close Sidebar)
+      if (touchStartX - touchEndX > 40) {
+        if (isMobile) {
+          setOpenMobile(false)
+        } else {
+          setOpen(false)
+        }
+      }
+    }
+    
+    window.addEventListener('touchstart', handleTouchStart)
+    window.addEventListener('touchend', handleTouchEnd)
+    
+    return () => {
+      window.removeEventListener('touchstart', handleTouchStart)
+      window.removeEventListener('touchend', handleTouchEnd)
+    }
+  }, [isMobile, setOpen, setOpenMobile])
   // We add a state so that we can do data-state="expanded" or "collapsed".
   // This makes it easier to style the sidebar with Tailwind classes.
   const state = open ? "expanded" : "collapsed"
-
   const contextValue = React.useMemo<SidebarContextProps>(
     () => ({
       state,
@@ -125,7 +160,6 @@ function SidebarProvider({
     }),
     [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar]
   )
-
   return (
     <SidebarContext.Provider value={contextValue}>
       <TooltipProvider delayDuration={0}>
@@ -259,21 +293,22 @@ function SidebarTrigger({
   ...props
 }: React.ComponentProps<typeof Button>) {
   const { toggleSidebar } = useSidebar()
-
   return (
     <Button
       data-sidebar="trigger"
       data-slot="sidebar-trigger"
       variant="ghost"
       size="icon"
-      className={cn("size-7", className)}
+      className={cn("size-7 text-sidebar-foreground hover:text-white group-hover/sidebar-wrapper:text-white hover:bg-sidebar-accent group-hover/sidebar-wrapper:bg-sidebar-accent rounded-md", className)}
       onClick={(event) => {
         onClick?.(event)
         toggleSidebar()
       }}
       {...props}
     >
-      <PanelLeftIcon />
+      {/* We use Tailwind CSS to switch icons to prevent Hydration Errors! */}
+     <Menu className="md:hidden text-current" />
+<PanelLeft className="hidden md:block text-current" />
       <span className="sr-only">Toggle Sidebar</span>
     </Button>
   )

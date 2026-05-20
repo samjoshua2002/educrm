@@ -62,14 +62,14 @@ export function AppSidebar({ users = [], ...props }: React.ComponentProps<typeof
       <SidebarHeader>
   <SidebarMenu>
     <SidebarMenuItem>
-      <div className="flex items-center justify-between pr-2"> {/* Add this wrapper */}
+      <div className="flex items-center justify-between pr-2 relative">
         <SidebarMenuButton asChild className="data-[slot=sidebar-menu-button]:!p-1.5 flex-1">
           <a href="#">
-            <Command />
+            <Command className="transition-opacity duration-300 group-data-[collapsible=icon]:opacity-0 lg:group-data-[collapsible=icon]:opacity-100 lg:group-data-[collapsible=icon]:group-hover:opacity-0" />
             <span className="text-base font-semibold">{APP_CONFIG.name}</span>
           </a>
         </SidebarMenuButton>
-        <SidebarTrigger /> {/* Add the trigger here */}
+        <SidebarTrigger className="transition-all duration-300 group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:left-1 lg:group-data-[collapsible=icon]:opacity-0 lg:group-data-[collapsible=icon]:group-hover:opacity-100" />
       </div>
     </SidebarMenuItem>
   </SidebarMenu>
@@ -78,10 +78,12 @@ export function AppSidebar({ users = [], ...props }: React.ComponentProps<typeof
         <NavMain items={sidebarItems} />
       </SidebarContent>
       {/* Add this section */}
-      <SidebarFooter>
-        <div className="p-4 flex items-center justify-start gap-3">
-           <AccountSwitcher users={users} />
-        </div>
+      <SidebarFooter className="pb-[3px]">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <AccountSwitcher users={users} />
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarFooter>
     </Sidebar>
   );
