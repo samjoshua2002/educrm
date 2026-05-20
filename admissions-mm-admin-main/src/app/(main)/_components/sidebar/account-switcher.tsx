@@ -17,6 +17,7 @@ import { cn, getInitials } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth-store";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import { SidebarMenuButton } from "@/components/ui/sidebar";
 
 export function AccountSwitcher({
   users = [],
@@ -46,15 +47,17 @@ export function AccountSwitcher({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <div className="flex items-center gap-3 cursor-pointer outline-none">
-  <Avatar className="size-9 rounded-full">
-    <AvatarImage src={activeUser.avatar || undefined} alt={activeUser.name} />
-    <AvatarFallback className="rounded-full">{getInitials(activeUser.name)}</AvatarFallback>
-  </Avatar>
-  <div className="grid flex-1 text-left text-sm leading-tight">
-    <span className="truncate font-semibold">{activeUser.name}</span>
-  </div>
-</div>
+        <SidebarMenuButton
+          size="lg"
+          className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
+          <Avatar className="h-8 w-8 rounded-full">
+            <AvatarImage src={activeUser.avatar || undefined} alt={activeUser.name} />
+            <AvatarFallback className="rounded-full">{getInitials(activeUser.name)}</AvatarFallback>
+          </Avatar>
+          <div className="grid flex-1 text-left text-sm leading-tight">
+            <span className="truncate font-semibold">{activeUser.name}</span>
+          </div>
+        </SidebarMenuButton>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="min-w-56 space-y-1 rounded-lg" side="bottom" align="end" sideOffset={4}>
         {users.map((user) => (

@@ -43,7 +43,7 @@ export function DynamicHeader() {
       <div className="flex w-full items-center justify-between px-4 lg:px-6">
         {/* Left Side: Sidebar Trigger + Dynamic Title */}
         <div className="flex items-center gap-4">
-         
+          <SidebarTrigger className="md:hidden" />
           <h1 className="text-lg font-semibold tracking-tight">{title}</h1>
         </div>
 
