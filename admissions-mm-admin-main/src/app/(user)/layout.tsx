@@ -28,7 +28,7 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
 
     return (
         <SidebarProvider defaultOpen={defaultOpen}>
-            <AppSidebar variant={sidebarVariant} collapsible={sidebarCollapsible} />
+            <AppSidebar variant={sidebarVariant} collapsible={sidebarCollapsible} users={users} />
             <SidebarInset
                 data-content-layout={contentLayout}
                 className={cn(

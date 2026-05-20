@@ -489,9 +489,9 @@ export default function LeadManagerPage() {
             <Link href="/lead-manager/create" className="w-full sm:w-auto shrink-0">
               <Button
                 variant="outline"
-                className="w-full sm:w-auto border-border bg-background text-foreground hover:bg-muted/30 transition-colors shadow-2xs font-medium h-9"
+                className="w-full border border-border h-9 text-sm font-medium text-foreground  hover:bg-accent hover:text-accent-foreground"
               >
-                <Plus className="size-4 text-muted-foreground" />
+                <Plus className="size-4" />
                 Add Lead
               </Button>
             </Link>

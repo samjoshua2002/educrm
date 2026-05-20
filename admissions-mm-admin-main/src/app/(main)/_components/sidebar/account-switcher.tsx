@@ -19,9 +19,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 
 export function AccountSwitcher({
-  users,
+  users = [],
 }: {
-  readonly users: ReadonlyArray<{
+  readonly users?: ReadonlyArray<{
     readonly id: string;
     readonly name: string;
     readonly email: string;
@@ -29,10 +29,14 @@ export function AccountSwitcher({
     readonly role: string;
   }>;
 }) {
-  const [activeUser, setActiveUser] = useState(users[0]);
+  const [activeUser, setActiveUser] = useState(users?.[0]);
   const logout = useAuthStore((state) => state.logout);
   const queryClient = useQueryClient();
   const router = useRouter();
+
+  if (!activeUser) {
+    return null;
+  }
 
   const handleLogout = () => {
     logout();

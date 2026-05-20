@@ -124,7 +124,7 @@ function EditLeadForm() {
 
   return (
     <>
-      <div className="sticky top-12 z-10 bg-background/40 backdrop-blur-md flex items-center px-4 md:px-6 py-3 gap-3 border-b border-border/80">
+      <div className="sticky top-12 z-10 bg-background/40 backdrop-blur-md flex items-center px-4 md:px-6 py-3 gap-3  border-border/80">
         <Link href="/lead-manager">
           <Button variant="ghost" size="icon">
             <ChevronLeft className="size-5" />
@@ -136,15 +136,15 @@ function EditLeadForm() {
       <div className="px-4 md:px-6 py-4 md:py-6">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
 
-          {/* Left — col 8 */}
-          <Card className="lg:col-span-8 bg-card border border-border rounded-[8px] shadow-sm overflow-hidden" >
-            <CardHeader className="border-b border-input px-6 py-4 bg-muted/20">
-              <CardTitle className="text-[18px] font-medium text-foreground">Lead Information</CardTitle>
-            </CardHeader>
-            <CardContent className="px-6 flex flex-col divide-y divide-input">
-
+     {/* Left — col 8 */}
+           <Card className="lg:col-span-8 bg-card border border-border rounded-[8px] shadow-sm overflow-hidden" >
+             <CardHeader className="border-b border-input px-6">
+               <CardTitle className="text-[18px] font-medium text-foreground">Lead Information</CardTitle>
+             </CardHeader>
+             <CardContent className="px-6 flex flex-col divide-y divide-input">
+ 
               {/* Personal Info */}
-              <section className="flex flex-col gap-5 pb-6 pt-6">
+        <section className="flex flex-col gap-5 pb-6">
                 <div className="flex flex-col gap-1 ">
                   <p className="text-[16px] font-medium text-foreground">Personal Information</p>
                   <p className="text-[14px] text-muted-foreground">Basic contact details of the lead.</p>

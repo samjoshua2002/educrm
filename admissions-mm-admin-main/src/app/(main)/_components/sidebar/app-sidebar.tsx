@@ -56,7 +56,7 @@ const data = {
   ],
 };
 
-export function AppSidebar({ users, ...props }: React.ComponentProps<typeof Sidebar> & { users: any[] }) {
+export function AppSidebar({ users = [], ...props }: React.ComponentProps<typeof Sidebar> & { users?: any[] }) {
   return (
     <Sidebar {...props}>
       <SidebarHeader>
