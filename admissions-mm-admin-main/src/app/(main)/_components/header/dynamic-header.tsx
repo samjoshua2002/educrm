@@ -1,12 +1,15 @@
 "use client";
 
-import { usePathname } from "next/navigation";
-import { SidebarTrigger } from "@/components/ui/sidebar";
-import { AccountSwitcher } from "../sidebar/account-switcher";
-import { users } from "@/data/users";
-import { Button } from "@/components/ui/button";
-import { Bell, Plus } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+import { Bell, Plus } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { SidebarTrigger } from "@/components/ui/sidebar";
+import { users } from "@/data/users";
+
+import { AccountSwitcher } from "../sidebar/account-switcher";
 
 export function DynamicHeader() {
   const pathname = usePathname();
@@ -20,7 +23,10 @@ export function DynamicHeader() {
 
     const segments = pathname.split("/").filter(Boolean);
     const lastSegment = segments[segments.length - 1] || "EDUCRM";
-    return lastSegment.charAt(0).toUpperCase() + lastSegment.slice(1).replace(/-/g, " ");
+    return (
+      lastSegment.charAt(0).toUpperCase() +
+      lastSegment.slice(1).replace(/-/g, " ")
+    );
   };
 
   const title = getTitle();
@@ -48,14 +54,8 @@ export function DynamicHeader() {
         </div>
 
         {/* Right Side: Common Actions + Account Switcher */}
-        <div className="flex items-center gap-4">
-          {commonActions}
-         
-        </div>
+        <div className="flex items-center gap-4">{commonActions}</div>
       </div>
     </header>
   );
 }
-
-
-

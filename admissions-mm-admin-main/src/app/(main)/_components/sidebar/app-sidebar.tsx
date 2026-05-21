@@ -1,7 +1,15 @@
 "use client";
 
-import { Settings, CircleHelp, Search, Database, ClipboardList, File, Command } from "lucide-react";
-import { AccountSwitcher } from "./account-switcher";
+import {
+  Settings,
+  CircleHelp,
+  Search,
+  Database,
+  ClipboardList,
+  File,
+  Command,
+} from "lucide-react";
+
 import {
   Sidebar,
   SidebarContent,
@@ -10,12 +18,13 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarTrigger, 
+  SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { APP_CONFIG } from "@/config/app-config";
 import { rootUser } from "@/data/users";
 import { sidebarItems } from "@/navigation/sidebar/sidebar-items";
 
+import { AccountSwitcher } from "./account-switcher";
 import { NavMain } from "./nav-main";
 import { NavUser } from "./nav-user";
 
@@ -56,24 +65,32 @@ const data = {
   ],
 };
 
-export function AppSidebar({ users = [], ...props }: React.ComponentProps<typeof Sidebar> & { users?: any[] }) {
+export function AppSidebar({
+  users = [],
+  ...props
+}: React.ComponentProps<typeof Sidebar> & { users?: any[] }) {
   return (
     <Sidebar {...props}>
       <SidebarHeader>
-  <SidebarMenu>
-    <SidebarMenuItem>
-      <div className="flex items-center justify-between pr-2 relative">
-        <SidebarMenuButton asChild className="data-[slot=sidebar-menu-button]:!p-1.5 flex-1">
-          <a href="#">
-            <Command className="transition-opacity duration-300 group-data-[collapsible=icon]:opacity-0 lg:group-data-[collapsible=icon]:opacity-100 lg:group-data-[collapsible=icon]:group-hover:opacity-0" />
-            <span className="text-base font-semibold">{APP_CONFIG.name}</span>
-          </a>
-        </SidebarMenuButton>
-        <SidebarTrigger className="transition-all duration-300 group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:left-1 lg:group-data-[collapsible=icon]:opacity-0 lg:group-data-[collapsible=icon]:group-hover:opacity-100" />
-      </div>
-    </SidebarMenuItem>
-  </SidebarMenu>
-</SidebarHeader>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <div className="flex items-center justify-between pr-2 relative">
+              <SidebarMenuButton
+                asChild
+                className="data-[slot=sidebar-menu-button]:!p-1.5 flex-1"
+              >
+                <a href="#">
+                  <Command className="transition-opacity duration-300 group-data-[collapsible=icon]:opacity-0 lg:group-data-[collapsible=icon]:opacity-100 lg:group-data-[collapsible=icon]:group-hover:opacity-0" />
+                  <span className="text-base font-semibold">
+                    {APP_CONFIG.name}
+                  </span>
+                </a>
+              </SidebarMenuButton>
+              <SidebarTrigger className="transition-all duration-300 group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:left-1 lg:group-data-[collapsible=icon]:opacity-0 lg:group-data-[collapsible=icon]:group-hover:opacity-100" />
+            </div>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarHeader>
       <SidebarContent>
         <NavMain items={sidebarItems} />
       </SidebarContent>

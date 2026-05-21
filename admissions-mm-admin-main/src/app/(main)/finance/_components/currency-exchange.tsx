@@ -4,14 +4,23 @@ import { ArrowLeftRight, RefreshCw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { formatCurrency } from "@/lib/utils";
 
 function CurrencySelector(props: { defaultValue: string }) {
   return (
     <Select defaultValue={props.defaultValue}>
-      <SelectTrigger size="sm" className="border-none shadow-none outline-none focus-visible:ring-0">
+      <SelectTrigger
+        size="sm"
+        className="border-none shadow-none outline-none focus-visible:ring-0"
+      >
         <SelectValue placeholder="Currency" />
       </SelectTrigger>
       <SelectContent>
@@ -50,7 +59,10 @@ export function CurrencyExchange() {
           <div className="space-y-2 py-6 text-center tabular-nums">
             <p className="text-4xl">{formatCurrency(100.0)}</p>
             <p className="text-muted-foreground text-xs font-medium">
-              Available: <span className="text-foreground">{formatCurrency(13100.06)}</span>
+              Available:{" "}
+              <span className="text-foreground">
+                {formatCurrency(13100.06)}
+              </span>
             </p>
           </div>
           <div className="bg-muted border-t py-1 text-center text-xs tabular-nums">
@@ -61,15 +73,21 @@ export function CurrencyExchange() {
         <div className="space-y-2 text-xs">
           <div className="flex items-center justify-between">
             <span>Tax (2%)</span>
-            <span className="font-medium tabular-nums">{formatCurrency(2)}</span>
+            <span className="font-medium tabular-nums">
+              {formatCurrency(2)}
+            </span>
           </div>
           <div className="flex items-center justify-between">
             <span>Exchange Fee (1%)</span>
-            <span className="font-medium tabular-nums">{formatCurrency(1)}</span>
+            <span className="font-medium tabular-nums">
+              {formatCurrency(1)}
+            </span>
           </div>
           <div className="flex items-center justify-between">
             <span>Total Amount</span>
-            <span className="font-medium">{formatCurrency(82.77, { currency: "EUR" })}</span>
+            <span className="font-medium">
+              {formatCurrency(82.77, { currency: "EUR" })}
+            </span>
           </div>
         </div>
         <Button variant="outline" className="w-full">

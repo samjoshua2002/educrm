@@ -1,9 +1,19 @@
 "use client";
 
 import * as React from "react";
+
 import { Pencil, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -12,15 +22,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 
 type GalleryCategory = {
   id: number;
@@ -36,7 +37,8 @@ const categories: GalleryCategory[] = [
 
 export default function GalleryCategoryPage() {
   const [categoryName, setCategoryName] = React.useState("");
-  const [categoryList, setCategoryList] = React.useState<GalleryCategory[]>(categories);
+  const [categoryList, setCategoryList] =
+    React.useState<GalleryCategory[]>(categories);
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,14 +84,19 @@ export default function GalleryCategoryPage() {
                 <TableBody>
                   {categoryList.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={2} className="text-center text-muted-foreground py-8">
+                      <TableCell
+                        colSpan={2}
+                        className="text-center text-muted-foreground py-8"
+                      >
                         No categories found
                       </TableCell>
                     </TableRow>
                   ) : (
                     categoryList.map((category) => (
                       <TableRow key={category.id}>
-                        <TableCell className="ps-4 font-medium">{category.name}</TableCell>
+                        <TableCell className="ps-4 font-medium">
+                          {category.name}
+                        </TableCell>
                         <TableCell className="text-right pe-4">
                           <div className="flex justify-end gap-2">
                             <Button
@@ -125,7 +132,9 @@ export default function GalleryCategoryPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Create Gallery Category</CardTitle>
-                <CardDescription>Add a new category for gallery items</CardDescription>
+                <CardDescription>
+                  Add a new category for gallery items
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSave} className="space-y-4">
@@ -151,4 +160,3 @@ export default function GalleryCategoryPage() {
     </>
   );
 }
-

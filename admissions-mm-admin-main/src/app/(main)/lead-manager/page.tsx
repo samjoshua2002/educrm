@@ -1,13 +1,37 @@
 "use client";
 
 import * as React from "react";
-import { EllipsisVertical, Pencil, Trash2, Plus, ChevronLeft, ChevronRight, Search, SlidersHorizontal, Filter, Check, SearchX } from "lucide-react";
+
 import Link from "next/link";
 
+import {
+  EllipsisVertical,
+  Pencil,
+  Trash2,
+  Plus,
+  ChevronLeft,
+  ChevronRight,
+  Search,
+  SlidersHorizontal,
+  Filter,
+  Check,
+  SearchX,
+} from "lucide-react";
+import { Funnel } from "recharts";
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -22,16 +46,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -49,7 +63,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Funnel } from "recharts";
+import { Textarea } from "@/components/ui/textarea";
 
 type Lead = {
   id: number;
@@ -235,30 +249,88 @@ const leads: Lead[] = [
     status: "Hot",
     assignedTo: "Carol Martinez",
   },
-  
 ];
 
-const STAGES = ["New", "Contacted", "Interested", "Qualified", "Converted", "Lost"] as const;
+const STAGES = [
+  "New",
+  "Contacted",
+  "Interested",
+  "Qualified",
+  "Converted",
+  "Lost",
+] as const;
 const STATUSES = ["Hot", "Warm", "Cold"] as const;
 
-const SOURCES = ["Google Ads", "Facebook", "Instagram", "LinkedIn", "Website", "Referral", "Other"] as const;
-const MEDIUMS = ["CPC", "Social", "Organic", "Word of Mouth", "Email", "Other"] as const;
-const CAMPAIGNS = ["Spring 2025", "Summer 2025", "Fall 2025", "Winter 2025", "Spring 2026"] as const;
+const SOURCES = [
+  "Google Ads",
+  "Facebook",
+  "Instagram",
+  "LinkedIn",
+  "Website",
+  "Referral",
+  "Other",
+] as const;
+const MEDIUMS = [
+  "CPC",
+  "Social",
+  "Organic",
+  "Word of Mouth",
+  "Email",
+  "Other",
+] as const;
+const CAMPAIGNS = [
+  "Spring 2025",
+  "Summer 2025",
+  "Fall 2025",
+  "Winter 2025",
+  "Spring 2026",
+] as const;
 
 const INDIAN_STATES = [
-  "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat",
-  "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh",
-  "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab",
-  "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh",
-  "Uttarakhand", "West Bengal", "Delhi", "Jammu and Kashmir", "Ladakh", "Puducherry",
+  "Andhra Pradesh",
+  "Arunachal Pradesh",
+  "Assam",
+  "Bihar",
+  "Chhattisgarh",
+  "Goa",
+  "Gujarat",
+  "Haryana",
+  "Himachal Pradesh",
+  "Jharkhand",
+  "Karnataka",
+  "Kerala",
+  "Madhya Pradesh",
+  "Maharashtra",
+  "Manipur",
+  "Meghalaya",
+  "Mizoram",
+  "Nagaland",
+  "Odisha",
+  "Punjab",
+  "Rajasthan",
+  "Sikkim",
+  "Tamil Nadu",
+  "Telangana",
+  "Tripura",
+  "Uttar Pradesh",
+  "Uttarakhand",
+  "West Bengal",
+  "Delhi",
+  "Jammu and Kashmir",
+  "Ladakh",
+  "Puducherry",
 ] as const;
 
 const stageStyles: Record<string, string> = {
   New: "bg-orange-500/10 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
-  Contacted: "bg-amber-500/10 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
-  Interested: "bg-purple-500/10 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
-  Qualified: "bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
-  Converted: "bg-green-500/10 text-green-700 dark:bg-green-500/20 dark:text-green-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
+  Contacted:
+    "bg-amber-500/10 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
+  Interested:
+    "bg-purple-500/10 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
+  Qualified:
+    "bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
+  Converted:
+    "bg-green-500/10 text-green-700 dark:bg-green-500/20 dark:text-green-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
   Lost: "bg-rose-500/10 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
 };
 
@@ -282,7 +354,7 @@ export default function LeadManagerPage() {
   function handleSaveEdit() {
     if (!editForm) return;
     setLeadsState((prev) =>
-      prev.map((lead) => (lead.id === editForm.id ? editForm : lead))
+      prev.map((lead) => (lead.id === editForm.id ? editForm : lead)),
     );
     setEditingLeadId(null);
     setEditForm(null);
@@ -329,7 +401,13 @@ export default function LeadManagerPage() {
   }
 
   function applyAdvancedFilters() {
-    setAppliedAdvanced({ city: advCity, state: advState, source: advSource, assignedTo: advAssignedTo, status: advStatus });
+    setAppliedAdvanced({
+      city: advCity,
+      state: advState,
+      source: advSource,
+      assignedTo: advAssignedTo,
+      status: advStatus,
+    });
     setAdvancedOpen(false);
     setCurrentPage(1);
   }
@@ -340,7 +418,13 @@ export default function LeadManagerPage() {
     setAdvSource("");
     setAdvAssignedTo("");
     setAdvStatus("all");
-    setAppliedAdvanced({ city: "", state: "", source: "", assignedTo: "", status: "all" });
+    setAppliedAdvanced({
+      city: "",
+      state: "",
+      source: "",
+      assignedTo: "",
+      status: "all",
+    });
     setCurrentPage(1);
   }
 
@@ -356,11 +440,35 @@ export default function LeadManagerPage() {
       }
       if (stageDraft !== "all" && lead.stage !== stageDraft) return false;
       if (statusDraft !== "all" && lead.status !== statusDraft) return false;
-      if (appliedAdvanced.city && !lead.city.toLowerCase().includes(appliedAdvanced.city.toLowerCase())) return false;
-      if (appliedAdvanced.state && !lead.state.toLowerCase().includes(appliedAdvanced.state.toLowerCase())) return false;
-      if (appliedAdvanced.source && !lead.source.toLowerCase().includes(appliedAdvanced.source.toLowerCase())) return false;
-      if (appliedAdvanced.assignedTo && !lead.assignedTo.toLowerCase().includes(appliedAdvanced.assignedTo.toLowerCase())) return false;
-      if (appliedAdvanced.status !== "all" && lead.status !== appliedAdvanced.status) return false;
+      if (
+        appliedAdvanced.city &&
+        !lead.city.toLowerCase().includes(appliedAdvanced.city.toLowerCase())
+      )
+        return false;
+      if (
+        appliedAdvanced.state &&
+        !lead.state.toLowerCase().includes(appliedAdvanced.state.toLowerCase())
+      )
+        return false;
+      if (
+        appliedAdvanced.source &&
+        !lead.source
+          .toLowerCase()
+          .includes(appliedAdvanced.source.toLowerCase())
+      )
+        return false;
+      if (
+        appliedAdvanced.assignedTo &&
+        !lead.assignedTo
+          .toLowerCase()
+          .includes(appliedAdvanced.assignedTo.toLowerCase())
+      )
+        return false;
+      if (
+        appliedAdvanced.status !== "all" &&
+        lead.status !== appliedAdvanced.status
+      )
+        return false;
       return true;
     });
   }, [leadsState, searchQuery, stageDraft, statusDraft, appliedAdvanced]);
@@ -374,7 +482,12 @@ export default function LeadManagerPage() {
     return filteredLeads.slice(0, mobileVisibleCount);
   }, [filteredLeads, mobileVisibleCount]);
 
-  const hasAdvancedFilters = appliedAdvanced.city !== "" || appliedAdvanced.state !== "" || appliedAdvanced.source !== "" || appliedAdvanced.assignedTo !== "" || appliedAdvanced.status !== "all";
+  const hasAdvancedFilters =
+    appliedAdvanced.city !== "" ||
+    appliedAdvanced.state !== "" ||
+    appliedAdvanced.source !== "" ||
+    appliedAdvanced.assignedTo !== "" ||
+    appliedAdvanced.status !== "all";
 
   const visiblePages = React.useMemo(() => {
     let startPage = 1;
@@ -391,7 +504,10 @@ export default function LeadManagerPage() {
         endPage = currentPage + 2;
       }
     }
-    return Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i);
+    return Array.from(
+      { length: endPage - startPage + 1 },
+      (_, i) => startPage + i,
+    );
   }, [currentPage, totalPages]);
 
   return (
@@ -427,10 +543,13 @@ export default function LeadManagerPage() {
             <div className="flex items-center gap-2 w-full sm:w-auto">
               {/* Stage Select Container */}
               <div className="flex-1 min-w-0 sm:w-[140px]">
-                <Select value={stageDraft} onValueChange={(val) => {
-                  setStageDraft(val);
-                  setCurrentPage(1);
-                }}>
+                <Select
+                  value={stageDraft}
+                  onValueChange={(val) => {
+                    setStageDraft(val);
+                    setCurrentPage(1);
+                  }}
+                >
                   <SelectTrigger className="w-full h-10" size="lg">
                     <SelectValue placeholder="All Stages" />
                   </SelectTrigger>
@@ -449,10 +568,13 @@ export default function LeadManagerPage() {
 
               {/* Status Select Container */}
               <div className="flex-1 min-w-0 sm:w-[130px]">
-                <Select value={statusDraft} onValueChange={(val) => {
-                  setStatusDraft(val);
-                  setCurrentPage(1);
-                }}>
+                <Select
+                  value={statusDraft}
+                  onValueChange={(val) => {
+                    setStatusDraft(val);
+                    setCurrentPage(1);
+                  }}
+                >
                   <SelectTrigger className="w-full h-10" size="lg">
                     <SelectValue placeholder="All Statuses" />
                   </SelectTrigger>
@@ -473,7 +595,7 @@ export default function LeadManagerPage() {
               <Button
                 variant="outline"
                 size="icon"
-               className="relative h-[39px] w-[39px] shrink-0"
+                className="relative h-[39px] w-[39px] shrink-0"
                 onClick={() => setAdvancedOpen(true)}
               >
                 <Filter className="size-4" />
@@ -486,7 +608,10 @@ export default function LeadManagerPage() {
             </div>
 
             {/* Add Lead Button */}
-            <Link href="/lead-manager/create" className="w-full sm:w-auto shrink-0">
+            <Link
+              href="/lead-manager/create"
+              className="w-full sm:w-auto shrink-0"
+            >
               <Button
                 variant="outline"
                 className="w-full border border-border h-[39px] text-sm font-medium text-foreground  hover:bg-accent hover:text-accent-foreground"
@@ -499,26 +624,46 @@ export default function LeadManagerPage() {
         </div>
 
         <Dialog open={advancedOpen} onOpenChange={setAdvancedOpen}>
-          <DialogContent className="sm:max-w-md ">
+          <DialogContent className="sm:max-w-md rounded-xl">
             <DialogHeader>
               <DialogTitle>Advanced Filters</DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-2">
               <div className="grid gap-2">
                 <Label htmlFor="adv-city">City</Label>
-                <Input id="adv-city" placeholder="Filter by city" value={advCity} onChange={(e) => setAdvCity(e.target.value)} />
+                <Input
+                  id="adv-city"
+                  placeholder="Filter by city"
+                  value={advCity}
+                  onChange={(e) => setAdvCity(e.target.value)}
+                />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="adv-state">State</Label>
-                <Input id="adv-state" placeholder="Filter by state" value={advState} onChange={(e) => setAdvState(e.target.value)} />
+                <Input
+                  id="adv-state"
+                  placeholder="Filter by state"
+                  value={advState}
+                  onChange={(e) => setAdvState(e.target.value)}
+                />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="adv-source">Source</Label>
-                <Input id="adv-source" placeholder="Filter by source" value={advSource} onChange={(e) => setAdvSource(e.target.value)} />
+                <Input
+                  id="adv-source"
+                  placeholder="Filter by source"
+                  value={advSource}
+                  onChange={(e) => setAdvSource(e.target.value)}
+                />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="adv-assigned">Assigned To</Label>
-                <Input id="adv-assigned" placeholder="Filter by counselor" value={advAssignedTo} onChange={(e) => setAdvAssignedTo(e.target.value)} />
+                <Input
+                  id="adv-assigned"
+                  placeholder="Filter by counselor"
+                  value={advAssignedTo}
+                  onChange={(e) => setAdvAssignedTo(e.target.value)}
+                />
               </div>
               <div className="grid gap-2">
                 <Label>Lead Status</Label>
@@ -529,14 +674,18 @@ export default function LeadManagerPage() {
                   <SelectContent>
                     <SelectItem value="all">All Statuses</SelectItem>
                     {STATUSES.map((s) => (
-                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                      <SelectItem key={s} value={s}>
+                        {s}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={resetAdvancedFilters}>Reset</Button>
+              <Button variant="outline" onClick={resetAdvancedFilters}>
+                Reset
+              </Button>
               <Button onClick={applyAdvancedFilters}>Apply Filters</Button>
             </DialogFooter>
           </DialogContent>
@@ -547,14 +696,30 @@ export default function LeadManagerPage() {
           <Table>
             <TableHeader className="bg-zinc-100 dark:bg-muted/5 border-b border-border/80">
               <TableRow className="hover:bg-transparent border-b border-border/80">
-                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">NAME</TableHead>
-                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">MOBILE</TableHead>
-                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">CITY</TableHead>
-                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">STAGE</TableHead>
-                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">STATUS</TableHead>
-                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">ASSIGNED TO</TableHead>
-                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">SOURCE</TableHead>
-                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto text-right w-[85px]">ACTION</TableHead>
+                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
+                  NAME
+                </TableHead>
+                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
+                  MOBILE
+                </TableHead>
+                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
+                  CITY
+                </TableHead>
+                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
+                  STAGE
+                </TableHead>
+                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
+                  STATUS
+                </TableHead>
+                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
+                  ASSIGNED TO
+                </TableHead>
+                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
+                  SOURCE
+                </TableHead>
+                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto text-right w-[85px]">
+                  ACTION
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -566,19 +731,30 @@ export default function LeadManagerPage() {
                         <SearchX className="size-6 text-muted-foreground/80" />
                       </div>
                       <div className="flex flex-col gap-0.5 text-center">
-                        <p className="text-sm font-semibold text-foreground">No results found</p>
-                        <p className="text-xs text-muted-foreground">Try adjusting your filters or search query.</p>
+                        <p className="text-sm font-semibold text-foreground">
+                          No results found
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Try adjusting your filters or search query.
+                        </p>
                       </div>
                     </div>
                   </TableCell>
                 </TableRow>
               ) : (
                 paginatedLeads.map((item) => (
-                  <TableRow key={item.id} className="border-b border-border/80 hover:bg-muted/15 dark:hover:bg-muted/5 transition-colors">
+                  <TableRow
+                    key={item.id}
+                    className="border-b border-border/80 hover:bg-muted/15 dark:hover:bg-muted/5 transition-colors"
+                  >
                     <TableCell className="py-5 px-6 align-middle">
                       <div className="flex flex-col gap-0.5">
-                        <div className="font-semibold text-foreground text-sm tracking-tight">{item.name}</div>
-                        <div className="text-xs text-muted-foreground font-normal">{item.email}</div>
+                        <div className="font-semibold text-foreground text-sm tracking-tight">
+                          {item.name}
+                        </div>
+                        <div className="text-xs text-muted-foreground font-normal">
+                          {item.email}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell className="py-5 px-6 align-middle text-sm text-foreground/80 font-normal">
@@ -602,15 +778,23 @@ export default function LeadManagerPage() {
                     </TableCell>
                     <TableCell className="py-5 px-6 align-middle">
                       <div className="flex flex-col gap-0.5">
-                        <div className="font-medium text-foreground text-sm tracking-tight">{item.source}</div>
-                        <div className="text-xs text-muted-foreground font-normal">{item.medium} · {item.campaign}</div>
+                        <div className="font-medium text-foreground text-sm tracking-tight">
+                          {item.source}
+                        </div>
+                        <div className="text-xs text-muted-foreground font-normal">
+                          {item.medium} · {item.campaign}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell className="py-5 px-6 align-middle text-right">
                       <div className="flex justify-end">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="data-[state=open]:bg-muted text-muted-foreground flex size-8 rounded-md hover:bg-muted" size="icon">
+                            <Button
+                              variant="ghost"
+                              className="data-[state=open]:bg-muted text-muted-foreground flex size-8 rounded-md hover:bg-muted"
+                              size="icon"
+                            >
                               <EllipsisVertical className="size-4" />
                               <span className="sr-only">Open menu</span>
                             </Button>
@@ -623,7 +807,11 @@ export default function LeadManagerPage() {
                               </Link>
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem variant="destructive" className="gap-2" onClick={() => setDeleteLeadId(item.id)}>
+                            <DropdownMenuItem
+                              variant="destructive"
+                              className="gap-2"
+                              onClick={() => setDeleteLeadId(item.id)}
+                            >
                               <Trash2 className="size-4" />
                               Delete
                             </DropdownMenuItem>
@@ -640,9 +828,19 @@ export default function LeadManagerPage() {
           {/* Desktop Pagination Footer */}
           <div className="flex flex-col sm:flex-row items-center justify-between border-t border-border/80 bg-zinc-100 dark:bg-muted/5 py-4 px-6 gap-4">
             <p className="text-sm text-muted-foreground font-normal">
-              Showing <span className="font-medium text-foreground">{startIndex + 1}</span> to{" "}
-              <span className="font-medium text-foreground">{Math.min(endIndex, filteredLeads.length)}</span> of{" "}
-              <span className="font-medium text-foreground">{filteredLeads.length}</span> entries
+              Showing{" "}
+              <span className="font-medium text-foreground">
+                {startIndex + 1}
+              </span>{" "}
+              to{" "}
+              <span className="font-medium text-foreground">
+                {Math.min(endIndex, filteredLeads.length)}
+              </span>{" "}
+              of{" "}
+              <span className="font-medium text-foreground">
+                {filteredLeads.length}
+              </span>{" "}
+              entries
             </p>
             {totalPages > 1 && (
               <div className="flex items-center gap-2 flex-wrap">
@@ -666,10 +864,11 @@ export default function LeadManagerPage() {
                       <Button
                         key={page}
                         variant={isActive ? "default" : "outline"}
-                        className={`h-9 w-9 p-0 text-sm border shadow-2xs rounded-[6px] transition-colors ${isActive
+                        className={`h-9 w-9 p-0 text-sm border shadow-2xs rounded-[6px] transition-colors ${
+                          isActive
                             ? "bg-background border-border text-foreground font-semibold hover:bg-muted/15 dark:hover:bg-muted/5 shadow-xs"
                             : "border-border/80 bg-transparent text-muted-foreground hover:bg-muted/30 dark:hover:bg-muted/10 hover:text-foreground font-normal"
-                          }`}
+                        }`}
                         onClick={() => setCurrentPage(page)}
                       >
                         {page}
@@ -683,7 +882,8 @@ export default function LeadManagerPage() {
                   variant="outline"
                   className="h-9 px-4 border border-border/80 bg-background text-foreground text-sm font-normal rounded-[6px] hover:bg-muted/30 dark:hover:bg-muted/10 transition-colors shadow-2xs"
                   onClick={() => {
-                    if (currentPage < totalPages) setCurrentPage(currentPage + 1);
+                    if (currentPage < totalPages)
+                      setCurrentPage(currentPage + 1);
                   }}
                   disabled={currentPage === totalPages}
                 >
@@ -694,139 +894,145 @@ export default function LeadManagerPage() {
           </div>
         </div>
 
-{/* Mobile View - Ultra-Compact List Layout displaying all requested details */}
-{filteredLeads.length === 0 ? (
-  <div className="flex flex-col items-center justify-center gap-3 py-16 border border-border/80 bg-card rounded-xl lg:hidden text-center px-4 w-full">
-    <div className="flex size-12 items-center justify-center rounded-full bg-muted/40">
-      <SearchX className="size-6 text-muted-foreground/80" />
-    </div>
-    <div className="flex flex-col gap-0.5">
-      <p className="text-sm font-semibold text-foreground">No results found</p>
-      <p className="text-xs text-muted-foreground">Try adjusting your filters or search query.</p>
-    </div>
-  </div>
-) : (
-  <div className="flex flex-col gap-3.5 lg:hidden w-full">
-    {mobileLeads.map((item) => {
-      // Generate initials for avatar
-      const initials = item.name
-        .split(" ")
-        .map((n: string) => n[0])
-        .join("")
-        .toUpperCase()
-        .slice(0, 2);
-
-      return (
-        <div
-          key={item.id}
-          className="bg-card border border-border/80 rounded-xl p-4 md:p-5 flex flex-col gap-4 hover:shadow-xs transition-all duration-200"
-        >
-          {/* Row 1: Avatar, Name, Email, Stage & Action */}
-          <div className="flex items-center justify-between gap-4 min-w-0">
-            {/* Avatar & Text block */}
-            <div className="flex items-center gap-3 min-w-0">
-              {/* Initials Avatar */}
-              <div className="flex size-10 items-center justify-center rounded-full bg-linear-to-br from-primary/10 to-primary/5 border border-primary/10 text-primary font-semibold text-sm shrink-0">
-                {initials}
-              </div>
-
-              <div className="min-w-0">
-                <span className="font-semibold text-foreground text-sm tracking-tight truncate block">
-                  {item.name}
-                </span>
-                <span className="text-xs text-muted-foreground truncate block mt-0.5">
-                  {item.email}
-                </span>
-              </div>
+        {/* Mobile View - Ultra-Compact List Layout displaying all requested details */}
+        {filteredLeads.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-3 py-16 border border-border/80 bg-card rounded-xl lg:hidden text-center px-4 w-full">
+            <div className="flex size-12 items-center justify-center rounded-full bg-muted/40">
+              <SearchX className="size-6 text-muted-foreground/80" />
             </div>
-
-            {/* Badge & Action */}
-            <div className="flex items-center gap-1.5 shrink-0 self-center">
-              <span className={stageStyles[item.stage] ?? ""}>
-                {item.stage}
-              </span>
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className="text-muted-foreground flex size-8 rounded-md hover:bg-muted p-0 shrink-0"
-                    size="icon"
-                  >
-                    <EllipsisVertical className="size-4" />
-                    <span className="sr-only">Open menu</span>
-                  </Button>
-                </DropdownMenuTrigger>
-
-                <DropdownMenuContent align="end" className="w-32">
-                  <DropdownMenuItem className="gap-2" asChild>
-                    <Link href={`/lead-manager/edit?id=${item.id}`}>
-                      <Pencil className="size-4" />
-                      Edit
-                    </Link>
-                  </DropdownMenuItem>
-
-                  <DropdownMenuSeparator />
-
-                  <DropdownMenuItem
-                    variant="destructive"
-                    className="gap-2"
-                    onClick={() => setDeleteLeadId(item.id)}
-                  >
-                    <Trash2 className="size-4" />
-                    Delete
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+            <div className="flex flex-col gap-0.5">
+              <p className="text-sm font-semibold text-foreground">
+                No results found
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Try adjusting your filters or search query.
+              </p>
             </div>
           </div>
+        ) : (
+          <div className="flex flex-col gap-3.5 lg:hidden w-full">
+            {mobileLeads.map((item) => {
+              // Generate initials for avatar
+              const initials = item.name
+                .split(" ")
+                .map((n: string) => n[0])
+                .join("")
+                .toUpperCase()
+                .slice(0, 2);
 
-          {/* Row 2: Two-column grid of key details (two 2: 2) */}
-          <div className="grid grid-cols-2 gap-x-4 gap-y-3.5 text-xs border-t border-border/40 pt-3 text-muted-foreground">
-            <div className="flex flex-col gap-1">
-              <span className="font-medium text-muted-foreground/80 block">
-                Mobile:
-              </span>
-              <span className="text-foreground/95 font-medium">{item.mobile}</span>
-            </div>
+              return (
+                <div
+                  key={item.id}
+                  className="bg-card border border-border/80 rounded-xl p-4 md:p-5 flex flex-col gap-4 hover:shadow-xs transition-all duration-200"
+                >
+                  {/* Row 1: Avatar, Name, Email, Stage & Action */}
+                  <div className="flex items-center justify-between gap-4 min-w-0">
+                    {/* Avatar & Text block */}
+                    <div className="flex items-center gap-3 min-w-0">
+                      {/* Initials Avatar */}
+                      <div className="flex size-10 items-center justify-center rounded-full bg-linear-to-br from-primary/10 to-primary/5 border border-primary/10 text-primary font-semibold text-sm shrink-0">
+                        {initials}
+                      </div>
 
-            <div className="flex flex-col gap-1">
-              <span className="font-medium text-muted-foreground/80 block">
-                Location:
-              </span>
-              <span className="text-foreground/95 font-medium truncate">
-                {item.city}, {item.state}
-              </span>
-            </div>
+                      <div className="min-w-0">
+                        <span className="font-semibold text-foreground text-sm tracking-tight truncate block">
+                          {item.name}
+                        </span>
+                        <span className="text-xs text-muted-foreground truncate block mt-0.5">
+                          {item.email}
+                        </span>
+                      </div>
+                    </div>
 
-            <div className="flex flex-col gap-1">
-              <span className="font-medium text-muted-foreground/80 block">
-                Status & Counselor:
-              </span>
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className={statusStyles[item.status] ?? ""}>
-                  {item.status}
-                </span>
-                <span className="text-foreground/95 font-medium">
-                  · {item.assignedTo}
-                </span>
-              </div>
-            </div>
+                    {/* Badge & Action */}
+                    <div className="flex items-center gap-1.5 shrink-0 self-center">
+                      <span className={stageStyles[item.stage] ?? ""}>
+                        {item.stage}
+                      </span>
 
-            <div className="flex flex-col gap-1">
-              <span className="font-medium text-muted-foreground/80 block">
-                Source:
-              </span>
-              <span className="text-foreground/95 font-medium truncate">
-                {item.source} · {item.medium}
-              </span>
-            </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            className="text-muted-foreground flex size-8 rounded-md hover:bg-muted p-0 shrink-0"
+                            size="icon"
+                          >
+                            <EllipsisVertical className="size-4" />
+                            <span className="sr-only">Open menu</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+
+                        <DropdownMenuContent align="end" className="w-32">
+                          <DropdownMenuItem className="gap-2" asChild>
+                            <Link href={`/lead-manager/edit?id=${item.id}`}>
+                              <Pencil className="size-4" />
+                              Edit
+                            </Link>
+                          </DropdownMenuItem>
+
+                          <DropdownMenuSeparator />
+
+                          <DropdownMenuItem
+                            variant="destructive"
+                            className="gap-2"
+                            onClick={() => setDeleteLeadId(item.id)}
+                          >
+                            <Trash2 className="size-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+
+                  {/* Row 2: Two-column grid of key details (two 2: 2) */}
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-3.5 text-xs border-t border-border/40 pt-3 text-muted-foreground">
+                    <div className="flex flex-col gap-1">
+                      <span className="font-medium text-muted-foreground/80 block">
+                        Mobile:
+                      </span>
+                      <span className="text-foreground/95 font-medium">
+                        {item.mobile}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <span className="font-medium text-muted-foreground/80 block">
+                        Location:
+                      </span>
+                      <span className="text-foreground/95 font-medium truncate">
+                        {item.city}, {item.state}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <span className="font-medium text-muted-foreground/80 block">
+                        Status & Counselor:
+                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className={statusStyles[item.status] ?? ""}>
+                          {item.status}
+                        </span>
+                        <span className="text-foreground/95 font-medium">
+                          · {item.assignedTo}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <span className="font-medium text-muted-foreground/80 block">
+                        Source:
+                      </span>
+                      <span className="text-foreground/95 font-medium truncate">
+                        {item.source} · {item.medium}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        </div>
-      );
-    })}
-  </div>
-)}
+        )}
 
         {/* Mobile & Tablet Load More Footer */}
         {mobileVisibleCount < filteredLeads.length ? (
@@ -839,27 +1045,49 @@ export default function LeadManagerPage() {
               Load More Leads
             </Button>
             <p className="text-xs text-muted-foreground font-normal">
-              Showing <span className="font-medium text-foreground">{Math.min(mobileVisibleCount, filteredLeads.length)}</span> of{" "}
-              <span className="font-medium text-foreground">{filteredLeads.length}</span> entries
+              Showing{" "}
+              <span className="font-medium text-foreground">
+                {Math.min(mobileVisibleCount, filteredLeads.length)}
+              </span>{" "}
+              of{" "}
+              <span className="font-medium text-foreground">
+                {filteredLeads.length}
+              </span>{" "}
+              entries
             </p>
           </div>
         ) : (
           <div className="text-center py-4 mt-2 lg:hidden border-t border-border/40">
             <p className="text-xs text-muted-foreground font-normal">
-              Showing all <span className="font-medium text-foreground">{filteredLeads.length}</span> of{" "}
-              <span className="font-medium text-foreground">{filteredLeads.length}</span> entries
+              Showing all{" "}
+              <span className="font-medium text-foreground">
+                {filteredLeads.length}
+              </span>{" "}
+              of{" "}
+              <span className="font-medium text-foreground">
+                {filteredLeads.length}
+              </span>{" "}
+              entries
             </p>
           </div>
         )}
       </div>
 
       {/* Shadcn Alert Dialog for Lead Deletion Warning Confirmation */}
-      <AlertDialog open={deleteLeadId !== null} onOpenChange={(open) => { if (!open) setDeleteLeadId(null); }}>
+      <AlertDialog
+        open={deleteLeadId !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteLeadId(null);
+        }}
+      >
         <AlertDialogContent className="w-[92%] sm:w-full sm:max-w-[400px] rounded-[12px] p-5 sm:p-6 gap-4">
           <AlertDialogHeader className="text-left">
-            <AlertDialogTitle className="text-base font-semibold text-foreground">Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle className="text-base font-semibold text-foreground">
+              Are you sure?
+            </AlertDialogTitle>
             <AlertDialogDescription className="text-xs text-muted-foreground leading-relaxed mt-1">
-              This action cannot be undone. This will permanently delete the lead from the system.
+              This action cannot be undone. This will permanently delete the
+              lead from the system.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="mt-5 gap-2 sm:gap-3 flex flex-col-reverse sm:flex-row sm:justify-end">

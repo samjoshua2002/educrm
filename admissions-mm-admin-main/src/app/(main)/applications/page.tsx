@@ -1,6 +1,9 @@
 "use client";
 
 import * as React from "react";
+
+import Link from "next/link";
+
 import {
   EllipsisVertical,
   Filter,
@@ -15,9 +18,6 @@ import {
   Download,
 } from "lucide-react";
 
-import Link from "next/link";
-
-import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,7 +28,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -248,7 +248,14 @@ const applications: Application[] = [
   },
 ];
 
-const FORM_STATUSES = ["Incomplete", "In Progress", "Submitted", "Under Review", "Accepted", "Rejected"] as const;
+const FORM_STATUSES = [
+  "Incomplete",
+  "In Progress",
+  "Submitted",
+  "Under Review",
+  "Accepted",
+  "Rejected",
+] as const;
 const PAYMENT_STATUSES = ["Pending", "Paid", "Refunded"] as const;
 const PROGRAMS = [
   "B.Tech Computer Science",
@@ -263,17 +270,36 @@ const PROGRAMS = [
   "M.Tech Data Science",
 ] as const;
 const CAMPUSES = ["Main Campus", "City Campus", "South Campus"] as const;
+const PAYMENT_MODES = [
+  "Online",
+  "UPI",
+  "Net Banking",
+  "Credit Card",
+  "Debit Card",
+] as const;
 
 const formStatusStyles: Record<string, string> = {
-  Incomplete: "bg-gray-500/10 text-gray-700 dark:bg-gray-500/20 dark:text-gray-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
-  "In Progress": "bg-amber-500/10 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
-  Submitted: "bg-blue-500/10 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
-  "Under Review": "bg-purple-500/10 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
-  Accepted: "bg-green-500/10 text-green-700 dark:bg-green-500/20 dark:text-green-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
-  Rejected: "bg-red-500/10 text-red-700 dark:bg-red-500/20 dark:text-red-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
+  Incomplete:
+    "bg-gray-500/10 text-gray-700 dark:bg-gray-500/20 dark:text-gray-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
+  "In Progress":
+    "bg-amber-500/10 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
+  Submitted:
+    "bg-blue-500/10 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
+  "Under Review":
+    "bg-purple-500/10 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
+  Accepted:
+    "bg-green-500/10 text-green-700 dark:bg-green-500/20 dark:text-green-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
+  Rejected:
+    "bg-red-500/10 text-red-700 dark:bg-red-500/20 dark:text-red-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
 };
 
-
+const paymentStatusStyles: Record<string, string> = {
+  Pending:
+    "bg-yellow-500/10 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
+  Paid: "bg-green-500/10 text-green-700 dark:bg-green-500/20 dark:text-green-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
+  Refunded:
+    "bg-red-500/10 text-red-700 dark:bg-red-500/20 dark:text-red-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
+};
 
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString("en-IN", {
@@ -283,10 +309,9 @@ function formatDate(dateStr: string) {
   });
 }
 
-
-
 export default function ApplicationsPage() {
-  const [applicationsState, setApplicationsState] = React.useState<Application[]>(applications);
+  const [applicationsState, setApplicationsState] =
+    React.useState<Application[]>(applications);
   const [deleteAppId, setDeleteAppId] = React.useState<number | null>(null);
 
   function handleDeleteApplication(id: number) {
@@ -310,6 +335,19 @@ export default function ApplicationsPage() {
   const [advDateFrom, setAdvDateFrom] = React.useState("");
   const [advDateTo, setAdvDateTo] = React.useState("");
   const [advApplicationNo, setAdvApplicationNo] = React.useState("");
+  const [showSuggestions, setShowSuggestions] = React.useState(false);
+
+  const appNoSuggestions = React.useMemo(() => {
+    if (!advApplicationNo.trim()) return [];
+    const q = advApplicationNo.toLowerCase();
+    const matches = applicationsState
+      .map((app) => app.applicationNo)
+      .filter(
+        (no, index, self) =>
+          self.indexOf(no) === index && no.toLowerCase().includes(q),
+      );
+    return matches.slice(0, 5);
+  }, [advApplicationNo, applicationsState]);
 
   const [appliedAdvanced, setAppliedAdvanced] = React.useState({
     campus: "all",
@@ -369,22 +407,58 @@ export default function ApplicationsPage() {
           app.applicationNo.toLowerCase().includes(q);
         if (!matchesSearch) return false;
       }
-      if (appliedFormStatus !== "all" && app.formStatus !== appliedFormStatus) return false;
-      if (appliedProgram !== "all" && app.program !== appliedProgram) return false;
-      if (appliedAdvanced.campus !== "all" && app.campus !== appliedAdvanced.campus) return false;
-      if (appliedAdvanced.paymentStatus !== "all" && app.paymentStatus !== appliedAdvanced.paymentStatus) return false;
-      if (appliedAdvanced.paymentMode && !app.paymentMode.toLowerCase().includes(appliedAdvanced.paymentMode.toLowerCase())) return false;
-      if (appliedAdvanced.applicationNo && !app.applicationNo.toLowerCase().includes(appliedAdvanced.applicationNo.toLowerCase())) return false;
-      if (appliedAdvanced.dateFrom && app.lastActivity < appliedAdvanced.dateFrom) return false;
-      if (appliedAdvanced.dateTo && app.lastActivity > appliedAdvanced.dateTo) return false;
+      if (appliedFormStatus !== "all" && app.formStatus !== appliedFormStatus)
+        return false;
+      if (appliedProgram !== "all" && app.program !== appliedProgram)
+        return false;
+      if (
+        appliedAdvanced.campus !== "all" &&
+        app.campus !== appliedAdvanced.campus
+      )
+        return false;
+      if (
+        appliedAdvanced.paymentStatus !== "all" &&
+        app.paymentStatus !== appliedAdvanced.paymentStatus
+      )
+        return false;
+      if (
+        appliedAdvanced.paymentMode &&
+        !app.paymentMode
+          .toLowerCase()
+          .includes(appliedAdvanced.paymentMode.toLowerCase())
+      )
+        return false;
+      if (
+        appliedAdvanced.applicationNo &&
+        !app.applicationNo
+          .toLowerCase()
+          .includes(appliedAdvanced.applicationNo.toLowerCase())
+      )
+        return false;
+      if (
+        appliedAdvanced.dateFrom &&
+        app.lastActivity < appliedAdvanced.dateFrom
+      )
+        return false;
+      if (appliedAdvanced.dateTo && app.lastActivity > appliedAdvanced.dateTo)
+        return false;
       return true;
     });
-  }, [appliedSearch, appliedFormStatus, appliedProgram, appliedAdvanced]);
+  }, [
+    appliedSearch,
+    appliedFormStatus,
+    appliedProgram,
+    appliedAdvanced,
+    applicationsState,
+  ]);
 
   const totalPages = Math.ceil(filteredApplications.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const paginatedApplications = filteredApplications.slice(startIndex, endIndex);
+  const paginatedApplications = filteredApplications.slice(
+    startIndex,
+    endIndex,
+  );
 
   const [mobileVisibleCount, setMobileVisibleCount] = React.useState(5);
 
@@ -411,7 +485,10 @@ export default function ApplicationsPage() {
         endPage = currentPage + 2;
       }
     }
-    return Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i);
+    return Array.from(
+      { length: endPage - startPage + 1 },
+      (_, i) => startPage + i,
+    );
   }, [currentPage, totalPages]);
 
   const hasAdvancedFilters =
@@ -424,7 +501,7 @@ export default function ApplicationsPage() {
 
   return (
     <>
-      <div className="flex flex-col gap-4 p-4 md:p-6">
+      <div className="flex flex-col gap-4 p-4 md:p-6 w-full max-w-full min-w-0 ">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
           {/* Search Section */}
           <div className="flex flex-1 w-full">
@@ -455,18 +532,23 @@ export default function ApplicationsPage() {
             <div className="flex items-center gap-2 w-full sm:w-auto">
               {/* Form Status Select */}
               <div className="flex-1 min-w-0 sm:w-[140px]">
-                <Select value={formStatusDraft} onValueChange={(val) => {
-                  setFormStatusDraft(val);
-                  setAppliedFormStatus(val);
-                  setCurrentPage(1);
-                }}>
+                <Select
+                  value={formStatusDraft}
+                  onValueChange={(val) => {
+                    setFormStatusDraft(val);
+                    setAppliedFormStatus(val);
+                    setCurrentPage(1);
+                  }}
+                >
                   <SelectTrigger className="w-full h-10" size="lg">
                     <SelectValue placeholder="All Statuses" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Statuses</SelectItem>
                     {FORM_STATUSES.map((s) => (
-                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                      <SelectItem key={s} value={s}>
+                        {s}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -474,18 +556,23 @@ export default function ApplicationsPage() {
 
               {/* Program Select */}
               <div className="flex-1 min-w-0 sm:w-[180px]">
-                <Select value={programDraft} onValueChange={(val) => {
-                  setProgramDraft(val);
-                  setAppliedProgram(val);
-                  setCurrentPage(1);
-                }}>
+                <Select
+                  value={programDraft}
+                  onValueChange={(val) => {
+                    setProgramDraft(val);
+                    setAppliedProgram(val);
+                    setCurrentPage(1);
+                  }}
+                >
                   <SelectTrigger className="w-full h-10" size="lg">
                     <SelectValue placeholder="All Programs" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Programs</SelectItem>
                     {PROGRAMS.map((p) => (
-                      <SelectItem key={p} value={p}>{p}</SelectItem>
+                      <SelectItem key={p} value={p}>
+                        {p}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -495,7 +582,7 @@ export default function ApplicationsPage() {
               <Button
                 variant="outline"
                 size="icon"
-              className="relative h-[39px] w-[39px] shrink-0"
+                className="relative h-[39px] w-[39px] shrink-0"
                 onClick={() => setAdvancedOpen(true)}
               >
                 <Filter className="size-4" />
@@ -519,19 +606,48 @@ export default function ApplicationsPage() {
 
         {/* Advanced Search Dialog */}
         <Dialog open={advancedOpen} onOpenChange={setAdvancedOpen}>
-          <DialogContent className="sm:max-w-lg">
+          <DialogContent className="sm:max-w-lg rounded-xl">
             <DialogHeader>
               <DialogTitle>Advanced Search</DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-2">
-              <div className="grid gap-2">
+              <div className="grid gap-2 relative">
                 <Label htmlFor="adv-app-no">Application No.</Label>
-                <Input
-                  id="adv-app-no"
-                  placeholder="e.g. APP-2026-0001"
-                  value={advApplicationNo}
-                  onChange={(e) => setAdvApplicationNo(e.target.value)}
-                />
+                <div className="relative">
+                  <Input
+                    id="adv-app-no"
+                    placeholder="e.g. APP-2026-0001"
+                    value={advApplicationNo}
+                    onChange={(e) => {
+                      setAdvApplicationNo(e.target.value);
+                      setShowSuggestions(true);
+                    }}
+                    onFocus={() => setShowSuggestions(true)}
+                    onBlur={() => {
+                      // Small timeout to allow mouseDown inside the suggestions popup to register first
+                      setTimeout(() => setShowSuggestions(false), 200);
+                    }}
+                    className="w-full h-10"
+                    autoComplete="off"
+                  />
+                  {showSuggestions && appNoSuggestions.length > 0 && (
+                    <div className="absolute z-50 w-full mt-1 bg-popover text-popover-foreground border border-border rounded-lg shadow-md max-h-48 overflow-y-auto py-1 animate-in fade-in duration-100">
+                      {appNoSuggestions.map((no) => (
+                        <button
+                          key={no}
+                          type="button"
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors font-medium text-foreground"
+                          onMouseDown={() => {
+                            setAdvApplicationNo(no);
+                            setShowSuggestions(false);
+                          }}
+                        >
+                          {no}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
@@ -543,21 +659,28 @@ export default function ApplicationsPage() {
                     <SelectContent>
                       <SelectItem value="all">All Campuses</SelectItem>
                       {CAMPUSES.map((c) => (
-                        <SelectItem key={c} value={c}>{c}</SelectItem>
+                        <SelectItem key={c} value={c}>
+                          {c}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="grid gap-2">
                   <Label>Payment Status</Label>
-                  <Select value={advPaymentStatus} onValueChange={setAdvPaymentStatus}>
+                  <Select
+                    value={advPaymentStatus}
+                    onValueChange={setAdvPaymentStatus}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="All" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All</SelectItem>
                       {PAYMENT_STATUSES.map((s) => (
-                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                        <SelectItem key={s} value={s}>
+                          {s}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -565,12 +688,24 @@ export default function ApplicationsPage() {
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="adv-payment-mode">Payment Mode</Label>
-                <Input
-                  id="adv-payment-mode"
-                  placeholder="e.g. Online, UPI, Net Banking"
-                  value={advPaymentMode}
-                  onChange={(e) => setAdvPaymentMode(e.target.value)}
-                />
+                <Select
+                  value={advPaymentMode || "all"}
+                  onValueChange={(val) =>
+                    setAdvPaymentMode(val === "all" ? "" : val)
+                  }
+                >
+                  <SelectTrigger id="adv-payment-mode" className="h-10">
+                    <SelectValue placeholder="All Payment Modes" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Payment Modes</SelectItem>
+                    {PAYMENT_MODES.map((m) => (
+                      <SelectItem key={m} value={m}>
+                        {m}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
@@ -594,7 +729,9 @@ export default function ApplicationsPage() {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={resetAdvancedFilters}>Reset</Button>
+              <Button variant="outline" onClick={resetAdvancedFilters}>
+                Reset
+              </Button>
               <Button onClick={applyAdvancedFilters}>Apply Filters</Button>
             </DialogFooter>
           </DialogContent>
@@ -605,13 +742,27 @@ export default function ApplicationsPage() {
           <Table>
             <TableHeader className="bg-zinc-100 dark:bg-muted/5 border-b border-border/80">
               <TableRow className="hover:bg-transparent border-b border-border/80">
-                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">APPLICANT DETAIL</TableHead>
-                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">APPLICATION NO.</TableHead>
-                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">PROGRAM</TableHead>
-                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">FORM STATUS</TableHead>
-                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">PAYMENT</TableHead>
-                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">LAST ACTIVITY</TableHead>
-                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto text-right w-[85px]">ACTIONS</TableHead>
+                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
+                  APPLICANT DETAIL
+                </TableHead>
+                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
+                  APPLICATION NO.
+                </TableHead>
+                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
+                  PROGRAM
+                </TableHead>
+                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
+                  FORM STATUS
+                </TableHead>
+                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
+                  PAYMENT STATUS
+                </TableHead>
+                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
+                  LAST ACTIVITY
+                </TableHead>
+                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto text-right w-[85px]">
+                  ACTIONS
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -623,19 +774,30 @@ export default function ApplicationsPage() {
                         <SearchX className="size-6 text-muted-foreground/80" />
                       </div>
                       <div className="flex flex-col gap-0.5 text-center">
-                        <p className="text-sm font-semibold text-foreground">No results found</p>
-                        <p className="text-xs text-muted-foreground">Try adjusting your filters or search query.</p>
+                        <p className="text-sm font-semibold text-foreground">
+                          No results found
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Try adjusting your filters or search query.
+                        </p>
                       </div>
                     </div>
                   </TableCell>
                 </TableRow>
               ) : (
                 paginatedApplications.map((app) => (
-                  <TableRow key={app.id} className="border-b border-border/80 hover:bg-muted/15 dark:hover:bg-muted/5 transition-colors">
+                  <TableRow
+                    key={app.id}
+                    className="border-b border-border/80 hover:bg-muted/15 dark:hover:bg-muted/5 transition-colors"
+                  >
                     <TableCell className="py-5 px-6 align-middle">
                       <div className="flex flex-col gap-0.5">
-                        <div className="font-semibold text-foreground text-sm tracking-tight">{app.name}</div>
-                        <div className="text-xs text-muted-foreground font-normal">{app.email} · {app.phone}</div>
+                        <div className="font-semibold text-foreground text-sm tracking-tight">
+                          {app.name}
+                        </div>
+                        <div className="text-xs text-muted-foreground font-normal">
+                          {app.email} · {app.phone}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell className="py-5 px-6 align-middle text-sm text-foreground/80 font-normal">
@@ -643,8 +805,12 @@ export default function ApplicationsPage() {
                     </TableCell>
                     <TableCell className="py-5 px-6 align-middle">
                       <div className="flex flex-col gap-0.5">
-                        <div className="font-medium text-foreground text-sm tracking-tight">{app.program}</div>
-                        <div className="text-xs text-muted-foreground font-normal">{app.campus}</div>
+                        <div className="font-medium text-foreground text-sm tracking-tight">
+                          {app.program}
+                        </div>
+                        <div className="text-xs text-muted-foreground font-normal">
+                          {app.campus}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell className="py-5 px-6 align-middle">
@@ -652,8 +818,12 @@ export default function ApplicationsPage() {
                         {app.formStatus}
                       </span>
                     </TableCell>
-                    <TableCell className="py-5 px-6 align-middle text-sm text-foreground/80 font-normal">
-                      {app.paymentMode !== "—" ? app.paymentMode : ""}
+                    <TableCell className="py-5 px-6 align-middle">
+                      <span
+                        className={paymentStatusStyles[app.paymentStatus] ?? ""}
+                      >
+                        {app.paymentStatus}
+                      </span>
                     </TableCell>
                     <TableCell className="py-5 px-6 align-middle text-sm text-muted-foreground font-normal">
                       {formatDate(app.lastActivity)}
@@ -662,7 +832,11 @@ export default function ApplicationsPage() {
                       <div className="flex justify-end">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="data-[state=open]:bg-muted text-muted-foreground flex size-8 rounded-md hover:bg-muted" size="icon">
+                            <Button
+                              variant="ghost"
+                              className="data-[state=open]:bg-muted text-muted-foreground flex size-8 rounded-md hover:bg-muted"
+                              size="icon"
+                            >
                               <EllipsisVertical className="size-4" />
                               <span className="sr-only">Open menu</span>
                             </Button>
@@ -679,7 +853,11 @@ export default function ApplicationsPage() {
                               Edit
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem variant="destructive" className="gap-2" onClick={() => setDeleteAppId(app.id)}>
+                            <DropdownMenuItem
+                              variant="destructive"
+                              className="gap-2"
+                              onClick={() => setDeleteAppId(app.id)}
+                            >
                               <Trash2 className="size-4" />
                               Delete
                             </DropdownMenuItem>
@@ -696,9 +874,19 @@ export default function ApplicationsPage() {
           {/* Desktop Pagination Footer */}
           <div className="flex flex-col sm:flex-row items-center justify-between border-t border-border/80 bg-zinc-100 dark:bg-muted/5 py-4 px-6 gap-4">
             <p className="text-sm text-muted-foreground font-normal">
-              Showing <span className="font-medium text-foreground">{filteredApplications.length === 0 ? 0 : startIndex + 1}</span> to{" "}
-              <span className="font-medium text-foreground">{Math.min(endIndex, filteredApplications.length)}</span> of{" "}
-              <span className="font-medium text-foreground">{filteredApplications.length}</span> entries
+              Showing{" "}
+              <span className="font-medium text-foreground">
+                {filteredApplications.length === 0 ? 0 : startIndex + 1}
+              </span>{" "}
+              to{" "}
+              <span className="font-medium text-foreground">
+                {Math.min(endIndex, filteredApplications.length)}
+              </span>{" "}
+              of{" "}
+              <span className="font-medium text-foreground">
+                {filteredApplications.length}
+              </span>{" "}
+              entries
             </p>
             {totalPages > 1 && (
               <div className="flex items-center gap-2 flex-wrap">
@@ -720,10 +908,11 @@ export default function ApplicationsPage() {
                       <Button
                         key={page}
                         variant={isActive ? "default" : "outline"}
-                        className={`h-9 w-9 p-0 text-sm border shadow-2xs rounded-[6px] transition-colors ${isActive
+                        className={`h-9 w-9 p-0 text-sm border shadow-2xs rounded-[6px] transition-colors ${
+                          isActive
                             ? "bg-background border-border text-foreground font-semibold hover:bg-muted/15 dark:hover:bg-muted/5 shadow-xs"
                             : "border-border/80 bg-transparent text-muted-foreground hover:bg-muted/30 dark:hover:bg-muted/10 hover:text-foreground font-normal"
-                          }`}
+                        }`}
                         onClick={() => setCurrentPage(page)}
                       >
                         {page}
@@ -736,7 +925,8 @@ export default function ApplicationsPage() {
                   variant="outline"
                   className="h-9 px-4 border border-border/80 bg-background text-foreground text-sm font-normal rounded-[6px] hover:bg-muted/30 dark:hover:bg-muted/10 transition-colors shadow-2xs"
                   onClick={() => {
-                    if (currentPage < totalPages) setCurrentPage(currentPage + 1);
+                    if (currentPage < totalPages)
+                      setCurrentPage(currentPage + 1);
                   }}
                   disabled={currentPage === totalPages}
                 >
@@ -754,8 +944,12 @@ export default function ApplicationsPage() {
               <SearchX className="size-6 text-muted-foreground/80" />
             </div>
             <div className="flex flex-col gap-0.5">
-              <p className="text-sm font-semibold text-foreground">No results found</p>
-              <p className="text-xs text-muted-foreground">Try adjusting your filters or search query.</p>
+              <p className="text-sm font-semibold text-foreground">
+                No results found
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Try adjusting your filters or search query.
+              </p>
             </div>
           </div>
         ) : (
@@ -819,7 +1013,11 @@ export default function ApplicationsPage() {
                             Edit
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem variant="destructive" className="gap-2" onClick={() => setDeleteAppId(app.id)}>
+                          <DropdownMenuItem
+                            variant="destructive"
+                            className="gap-2"
+                            onClick={() => setDeleteAppId(app.id)}
+                          >
                             <Trash2 className="size-4" />
                             Delete
                           </DropdownMenuItem>
@@ -834,7 +1032,9 @@ export default function ApplicationsPage() {
                       <span className="font-medium text-muted-foreground/80 block">
                         App No:
                       </span>
-                      <span className="text-foreground/95 font-medium">{app.applicationNo}</span>
+                      <span className="text-foreground/95 font-medium">
+                        {app.applicationNo}
+                      </span>
                     </div>
 
                     <div className="flex flex-col gap-1">
@@ -883,26 +1083,48 @@ export default function ApplicationsPage() {
               Load More Applications
             </Button>
             <p className="text-xs text-muted-foreground font-normal">
-              Showing <span className="font-medium text-foreground">{Math.min(mobileVisibleCount, filteredApplications.length)}</span> of{" "}
-              <span className="font-medium text-foreground">{filteredApplications.length}</span> entries
+              Showing{" "}
+              <span className="font-medium text-foreground">
+                {Math.min(mobileVisibleCount, filteredApplications.length)}
+              </span>{" "}
+              of{" "}
+              <span className="font-medium text-foreground">
+                {filteredApplications.length}
+              </span>{" "}
+              entries
             </p>
           </div>
         ) : (
           <div className="text-center py-4 mt-2 lg:hidden border-t border-border/40">
             <p className="text-xs text-muted-foreground font-normal">
-              Showing all <span className="font-medium text-foreground">{filteredApplications.length}</span> of{" "}
-              <span className="font-medium text-foreground">{filteredApplications.length}</span> entries
+              Showing all{" "}
+              <span className="font-medium text-foreground">
+                {filteredApplications.length}
+              </span>{" "}
+              of{" "}
+              <span className="font-medium text-foreground">
+                {filteredApplications.length}
+              </span>{" "}
+              entries
             </p>
           </div>
         )}
       </div>
       {/* Shadcn Alert Dialog for Application Deletion Warning Confirmation */}
-      <AlertDialog open={deleteAppId !== null} onOpenChange={(open) => { if (!open) setDeleteAppId(null); }}>
+      <AlertDialog
+        open={deleteAppId !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteAppId(null);
+        }}
+      >
         <AlertDialogContent className="w-[92%] sm:w-full sm:max-w-[400px] rounded-[12px] p-5 sm:p-6 gap-4">
           <AlertDialogHeader className="text-left">
-            <AlertDialogTitle className="text-base font-semibold text-foreground">Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle className="text-base font-semibold text-foreground">
+              Are you sure?
+            </AlertDialogTitle>
             <AlertDialogDescription className="text-xs text-muted-foreground leading-relaxed mt-1">
-              This action cannot be undone. This will permanently delete the application from the system.
+              This action cannot be undone. This will permanently delete the
+              application from the system.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="mt-5 gap-2 sm:gap-3 flex flex-col-reverse sm:flex-row sm:justify-end">

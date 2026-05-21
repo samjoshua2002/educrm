@@ -1,9 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { ChevronLeft, Check } from "lucide-react";
+
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+
+import { ChevronLeft, Check } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,19 +20,74 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
-const SOURCES = ["Google Ads", "Facebook", "Instagram", "LinkedIn", "Website", "Referral", "Other"] as const;
-const MEDIUMS = ["CPC", "Social", "Organic", "Word of Mouth", "Email", "Other"] as const;
-const CAMPAIGNS = ["Spring 2025", "Summer 2025", "Fall 2025", "Winter 2025", "Spring 2026"] as const;
+const SOURCES = [
+  "Google Ads",
+  "Facebook",
+  "Instagram",
+  "LinkedIn",
+  "Website",
+  "Referral",
+  "Other",
+] as const;
+const MEDIUMS = [
+  "CPC",
+  "Social",
+  "Organic",
+  "Word of Mouth",
+  "Email",
+  "Other",
+] as const;
+const CAMPAIGNS = [
+  "Spring 2025",
+  "Summer 2025",
+  "Fall 2025",
+  "Winter 2025",
+  "Spring 2026",
+] as const;
 
-const STAGES = ["New", "Contacted", "Interested", "Qualified", "Converted", "Lost"] as const;
+const STAGES = [
+  "New",
+  "Contacted",
+  "Interested",
+  "Qualified",
+  "Converted",
+  "Lost",
+] as const;
 const STATUSES = ["Hot", "Warm", "Cold"] as const;
 
 const INDIAN_STATES = [
-  "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat",
-  "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh",
-  "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab",
-  "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh",
-  "Uttarakhand", "West Bengal", "Delhi", "Jammu and Kashmir", "Ladakh", "Puducherry",
+  "Andhra Pradesh",
+  "Arunachal Pradesh",
+  "Assam",
+  "Bihar",
+  "Chhattisgarh",
+  "Goa",
+  "Gujarat",
+  "Haryana",
+  "Himachal Pradesh",
+  "Jharkhand",
+  "Karnataka",
+  "Kerala",
+  "Madhya Pradesh",
+  "Maharashtra",
+  "Manipur",
+  "Meghalaya",
+  "Mizoram",
+  "Nagaland",
+  "Odisha",
+  "Punjab",
+  "Rajasthan",
+  "Sikkim",
+  "Tamil Nadu",
+  "Telangana",
+  "Tripura",
+  "Uttar Pradesh",
+  "Uttarakhand",
+  "West Bengal",
+  "Delhi",
+  "Jammu and Kashmir",
+  "Ladakh",
+  "Puducherry",
 ] as const;
 
 // Comprehensive mock database matching page.tsx for direct ID lookup
@@ -79,7 +136,7 @@ const MOCK_LEADS = [
     status: "Hot",
     assignedTo: "Carol Martinez",
     notes: "Premium lead with high conversion rate.",
-  }
+  },
 ];
 
 function EditLeadForm() {
@@ -116,7 +173,7 @@ function EditLeadForm() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     console.log("Saving updated lead:", form);
-    
+
     // Save locally or execute callback logic (frontend focus)
     // We navigate back to the main manager page
     router.push("/lead-manager");
@@ -135,32 +192,71 @@ function EditLeadForm() {
 
       <div className="px-4 md:px-6 py-4 md:py-6">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-
-     {/* Left — col 8 */}
-           <Card className="lg:col-span-8 bg-card border border-border rounded-[8px] shadow-sm overflow-hidden" >
-             <CardHeader className="border-b border-input px-6">
-               <CardTitle className="text-[18px] font-medium text-foreground">Lead Information</CardTitle>
-             </CardHeader>
-             <CardContent className="px-6 flex flex-col divide-y divide-input">
- 
+          {/* Left — col 8 */}
+          <Card className="lg:col-span-8 bg-card border border-border rounded-[8px] shadow-sm overflow-hidden">
+            <CardHeader className="border-b border-input px-6">
+              <CardTitle className="text-[18px] font-medium text-foreground">
+                Lead Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-6 flex flex-col divide-y divide-input">
               {/* Personal Info */}
-        <section className="flex flex-col gap-5 pb-6">
+              <section className="flex flex-col gap-5 pb-6">
                 <div className="flex flex-col gap-1 ">
-                  <p className="text-[16px] font-medium text-foreground">Personal Information</p>
-                  <p className="text-[14px] text-muted-foreground">Basic contact details of the lead.</p>
+                  <p className="text-[16px] font-medium text-foreground">
+                    Personal Information
+                  </p>
+                  <p className="text-[14px] text-muted-foreground">
+                    Basic contact details of the lead.
+                  </p>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
                   <div className="flex flex-col gap-2">
-                    <Label htmlFor="name" className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">Full Name</Label>
-                    <Input id="name" placeholder="e.g., Sam Joshua" value={form.name} onChange={(e) => set("name", e.target.value)} className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground" />
+                    <Label
+                      htmlFor="name"
+                      className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground"
+                    >
+                      Full Name
+                    </Label>
+                    <Input
+                      id="name"
+                      placeholder="e.g., Sam Joshua"
+                      value={form.name}
+                      onChange={(e) => set("name", e.target.value)}
+                      className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground"
+                    />
                   </div>
                   <div className="flex flex-col gap-2">
-                    <Label htmlFor="email" className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">Email</Label>
-                    <Input id="email" type="email" placeholder="e.g., Sam@gmail.com" value={form.email} onChange={(e) => set("email", e.target.value)} className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground" />
+                    <Label
+                      htmlFor="email"
+                      className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground"
+                    >
+                      Email
+                    </Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="e.g., Sam@gmail.com"
+                      value={form.email}
+                      onChange={(e) => set("email", e.target.value)}
+                      className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground"
+                    />
                   </div>
                   <div className="flex flex-col gap-2">
-                    <Label htmlFor="mobile" className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">Mobile</Label>
-                    <Input id="mobile" type="tel" placeholder="e.g., +91 9876543210" value={form.mobile} onChange={(e) => set("mobile", e.target.value)} className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground" />
+                    <Label
+                      htmlFor="mobile"
+                      className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground"
+                    >
+                      Mobile
+                    </Label>
+                    <Input
+                      id="mobile"
+                      type="tel"
+                      placeholder="e.g., +91 9876543210"
+                      value={form.mobile}
+                      onChange={(e) => set("mobile", e.target.value)}
+                      className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground"
+                    />
                   </div>
                 </div>
               </section>
@@ -168,17 +264,43 @@ function EditLeadForm() {
               {/* Location */}
               <section className="flex flex-col gap-5 py-6">
                 <div className="flex flex-col gap-1">
-                  <p className="text-[16px] font-medium text-foreground">Location</p>
-                  <p className="text-[14px] text-muted-foreground">Where is the lead based</p>
+                  <p className="text-[16px] font-medium text-foreground">
+                    Location
+                  </p>
+                  <p className="text-[14px] text-muted-foreground">
+                    Where is the lead based
+                  </p>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
                   <div className="flex flex-col gap-2">
-                    <Label htmlFor="state" className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">State</Label>
-                    <Input id="state" placeholder="e.g., Kerala" value={form.state} onChange={(e) => set("state", e.target.value)} className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground" />
+                    <Label
+                      htmlFor="state"
+                      className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground"
+                    >
+                      State
+                    </Label>
+                    <Input
+                      id="state"
+                      placeholder="e.g., Kerala"
+                      value={form.state}
+                      onChange={(e) => set("state", e.target.value)}
+                      className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground"
+                    />
                   </div>
                   <div className="flex flex-col gap-2">
-                    <Label htmlFor="city" className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">City</Label>
-                    <Input id="city" placeholder="e.g., Mumbai" value={form.city} onChange={(e) => set("city", e.target.value)} className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground" />
+                    <Label
+                      htmlFor="city"
+                      className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground"
+                    >
+                      City
+                    </Label>
+                    <Input
+                      id="city"
+                      placeholder="e.g., Mumbai"
+                      value={form.city}
+                      onChange={(e) => set("city", e.target.value)}
+                      className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground"
+                    />
                   </div>
                 </div>
               </section>
@@ -186,45 +308,88 @@ function EditLeadForm() {
               {/* Lead Source */}
               <section className="flex flex-col gap-5 py-6">
                 <div className="flex flex-col gap-1">
-                  <p className="text-[16px] font-medium text-foreground">Lead Source</p>
-                  <p className="text-[14px] text-muted-foreground">Where did this lead come from?</p>
+                  <p className="text-[16px] font-medium text-foreground">
+                    Lead Source
+                  </p>
+                  <p className="text-[14px] text-muted-foreground">
+                    Where did this lead come from?
+                  </p>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                   <div className="flex flex-col gap-2">
-                    <Label htmlFor="source" className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">Source</Label>
-                    <Select value={form.source} onValueChange={(v) => set("source", v)}>
-                      <SelectTrigger id="source" className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full data-[placeholder]:text-foreground">
+                    <Label
+                      htmlFor="source"
+                      className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground"
+                    >
+                      Source
+                    </Label>
+                    <Select
+                      value={form.source}
+                      onValueChange={(v) => set("source", v)}
+                    >
+                      <SelectTrigger
+                        id="source"
+                        className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full data-[placeholder]:text-foreground"
+                      >
                         <SelectValue placeholder="Select Source" />
                       </SelectTrigger>
                       <SelectContent>
                         {SOURCES.map((s) => (
-                          <SelectItem key={s} value={s}>{s}</SelectItem>
+                          <SelectItem key={s} value={s}>
+                            {s}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="flex flex-col gap-2">
-                    <Label htmlFor="medium" className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">Medium</Label>
-                    <Select value={form.medium} onValueChange={(v) => set("medium", v)}>
-                      <SelectTrigger id="medium" className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full data-[placeholder]:text-foreground">
+                    <Label
+                      htmlFor="medium"
+                      className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground"
+                    >
+                      Medium
+                    </Label>
+                    <Select
+                      value={form.medium}
+                      onValueChange={(v) => set("medium", v)}
+                    >
+                      <SelectTrigger
+                        id="medium"
+                        className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full data-[placeholder]:text-foreground"
+                      >
                         <SelectValue placeholder="Select Medium" />
                       </SelectTrigger>
                       <SelectContent>
                         {MEDIUMS.map((m) => (
-                          <SelectItem key={m} value={m}>{m}</SelectItem>
+                          <SelectItem key={m} value={m}>
+                            {m}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="flex flex-col gap-2">
-                    <Label htmlFor="campaign" className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">Campaign</Label>
-                    <Select value={form.campaign} onValueChange={(v) => set("campaign", v)}>
-                      <SelectTrigger id="campaign" className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full data-[placeholder]:text-foreground">
+                    <Label
+                      htmlFor="campaign"
+                      className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground"
+                    >
+                      Campaign
+                    </Label>
+                    <Select
+                      value={form.campaign}
+                      onValueChange={(v) => set("campaign", v)}
+                    >
+                      <SelectTrigger
+                        id="campaign"
+                        className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full data-[placeholder]:text-foreground"
+                      >
                         <SelectValue placeholder="Select Campaign" />
                       </SelectTrigger>
                       <SelectContent>
                         {CAMPAIGNS.map((c) => (
-                          <SelectItem key={c} value={c}>{c}</SelectItem>
+                          <SelectItem key={c} value={c}>
+                            {c}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -235,8 +400,12 @@ function EditLeadForm() {
               {/* Notes */}
               <section className="flex flex-col gap-5 pt-6">
                 <div className="flex flex-col gap-1">
-                  <p className="text-[16px] font-medium text-foreground">Notes</p>
-                  <p className="text-[14px] text-muted-foreground">Any additional remarks about this lead.</p>
+                  <p className="text-[16px] font-medium text-foreground">
+                    Notes
+                  </p>
+                  <p className="text-[14px] text-muted-foreground">
+                    Any additional remarks about this lead.
+                  </p>
                 </div>
                 <div>
                   <Textarea
@@ -247,13 +416,11 @@ function EditLeadForm() {
                   />
                 </div>
               </section>
-
             </CardContent>
           </Card>
 
           {/* Right — col 4 */}
           <div className="lg:col-span-4 flex flex-col gap-6">
-
             {/* CRM Detail Card */}
             <div className="border border-border rounded-[8px] bg-card p-6 flex flex-col gap-6">
               <h2 className="text-[18px] font-medium text-foreground">
@@ -263,14 +430,27 @@ function EditLeadForm() {
               <div className="flex flex-col gap-5">
                 {/* Stage */}
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="crm-stage" className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">Stage</Label>
-                  <Select value={form.stage} onValueChange={(v) => set("stage", v)}>
-                    <SelectTrigger id="crm-stage" className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full data-[placeholder]:text-foreground">
+                  <Label
+                    htmlFor="crm-stage"
+                    className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground"
+                  >
+                    Stage
+                  </Label>
+                  <Select
+                    value={form.stage}
+                    onValueChange={(v) => set("stage", v)}
+                  >
+                    <SelectTrigger
+                      id="crm-stage"
+                      className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full data-[placeholder]:text-foreground"
+                    >
                       <SelectValue placeholder="Select Stage" />
                     </SelectTrigger>
                     <SelectContent>
                       {STAGES.map((s) => (
-                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                        <SelectItem key={s} value={s}>
+                          {s}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -278,14 +458,27 @@ function EditLeadForm() {
 
                 {/* Status */}
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="crm-status" className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">Status</Label>
-                  <Select value={form.status} onValueChange={(v) => set("status", v)}>
-                    <SelectTrigger id="crm-status" className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full data-[placeholder]:text-foreground">
+                  <Label
+                    htmlFor="crm-status"
+                    className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground"
+                  >
+                    Status
+                  </Label>
+                  <Select
+                    value={form.status}
+                    onValueChange={(v) => set("status", v)}
+                  >
+                    <SelectTrigger
+                      id="crm-status"
+                      className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full data-[placeholder]:text-foreground"
+                    >
                       <SelectValue placeholder="Select Status" />
                     </SelectTrigger>
                     <SelectContent>
                       {STATUSES.map((s) => (
-                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                        <SelectItem key={s} value={s}>
+                          {s}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -293,8 +486,19 @@ function EditLeadForm() {
 
                 {/* Assigned To */}
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="crm-assigned" className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">Assigned To</Label>
-                  <Input id="crm-assigned" placeholder="e.g., Carol Martinez" value={form.assignedTo} onChange={(e) => set("assignedTo", e.target.value)} className="border border-input h-[40px] rounded-[8px] text-[12px]" />
+                  <Label
+                    htmlFor="crm-assigned"
+                    className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground"
+                  >
+                    Assigned To
+                  </Label>
+                  <Input
+                    id="crm-assigned"
+                    placeholder="e.g., Carol Martinez"
+                    value={form.assignedTo}
+                    onChange={(e) => set("assignedTo", e.target.value)}
+                    className="border border-input h-[40px] rounded-[8px] text-[12px]"
+                  />
                 </div>
               </div>
 
@@ -307,7 +511,10 @@ function EditLeadForm() {
                   Save Lead
                 </Button>
                 <Link href="/lead-manager" className="w-full">
-                  <Button variant="outline" className="w-full border border-border h-11 text-base font-medium text-foreground rounded-[8px] hover:bg-accent hover:text-accent-foreground">
+                  <Button
+                    variant="outline"
+                    className="w-full border border-border h-11 text-base font-medium text-foreground rounded-[8px] hover:bg-accent hover:text-accent-foreground"
+                  >
                     Cancel
                   </Button>
                 </Link>
@@ -320,12 +527,11 @@ function EditLeadForm() {
                 Protip
               </p>
               <p className="text-foreground text-[12px] font-medium leading-[20px] tracking-[0.6px]">
-                Completing the Lead Source details helps the AI system better predict conversion rates for this campaign.
+                Completing the Lead Source details helps the AI system better
+                predict conversion rates for this campaign.
               </p>
             </div>
-
           </div>
-
         </div>
       </div>
     </>
@@ -334,11 +540,13 @@ function EditLeadForm() {
 
 export default function EditLeadPage() {
   return (
-    <React.Suspense fallback={
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    }>
+    <React.Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      }
+    >
       <EditLeadForm />
     </React.Suspense>
   );

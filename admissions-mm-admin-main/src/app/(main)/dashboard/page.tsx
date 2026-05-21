@@ -1,5 +1,6 @@
 import { OperationalCards } from "../crm/_components/operational-cards";
 import { TableCards } from "../crm/_components/table-cards";
+
 import { InsightCards } from "./_components/insight-cards";
 import { OverviewCards } from "./_components/overview-cards";
 import { RecentApplications } from "./_components/recent-applications";

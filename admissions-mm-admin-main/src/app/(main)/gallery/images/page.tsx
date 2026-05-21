@@ -1,8 +1,18 @@
 "use client";
 
 import * as React from "react";
-import { Image as ImageIcon, EllipsisVertical, Pencil, Trash2, Plus, ChevronLeft, ChevronRight } from "lucide-react";
 
+import {
+  Image as ImageIcon,
+  EllipsisVertical,
+  Pencil,
+  Trash2,
+  Plus,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
+
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,7 +22,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Table,
   TableBody,
@@ -100,7 +109,6 @@ export default function GalleryImagesPage() {
         </Button>
       </div>
       <div className="flex flex-col gap-6 p-4 md:p-6">
-        
         <div className="overflow-hidden rounded-lg border">
           <Table>
             <TableHeader className="bg-muted">
@@ -117,7 +125,11 @@ export default function GalleryImagesPage() {
                 <TableRow key={item.id}>
                   <TableCell className="ps-4">
                     <Avatar className="size-12 rounded-md">
-                      <AvatarImage src={item.imageUrl} alt={item.name} className="object-cover" />
+                      <AvatarImage
+                        src={item.imageUrl}
+                        alt={item.name}
+                        className="object-cover"
+                      />
                       <AvatarFallback className="rounded-md bg-muted">
                         <ImageIcon className="size-5" />
                       </AvatarFallback>
@@ -128,7 +140,10 @@ export default function GalleryImagesPage() {
                     <StatusBadge status={item.status} />
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline" className="text-muted-foreground px-1.5">
+                    <Badge
+                      variant="outline"
+                      className="text-muted-foreground px-1.5"
+                    >
                       {item.category}
                     </Badge>
                   </TableCell>
@@ -136,7 +151,11 @@ export default function GalleryImagesPage() {
                     <div className="flex justify-end">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="data-[state=open]:bg-muted text-muted-foreground flex size-8" size="icon">
+                          <Button
+                            variant="ghost"
+                            className="data-[state=open]:bg-muted text-muted-foreground flex size-8"
+                            size="icon"
+                          >
                             <EllipsisVertical />
                             <span className="sr-only">Open menu</span>
                           </Button>
@@ -147,7 +166,10 @@ export default function GalleryImagesPage() {
                             Edit
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem variant="destructive" className="gap-2">
+                          <DropdownMenuItem
+                            variant="destructive"
+                            className="gap-2"
+                          >
                             <Trash2 className="size-4" />
                             Delete
                           </DropdownMenuItem>
@@ -178,17 +200,19 @@ export default function GalleryImagesPage() {
                 <ChevronLeft className="h-4 w-4" />
                 <span className="sr-only">Previous page</span>
               </Button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                <Button
-                  key={page}
-                  variant={currentPage === page ? "default" : "outline"}
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => setCurrentPage(page)}
-                >
-                  {page}
-                </Button>
-              ))}
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                (page) => (
+                  <Button
+                    key={page}
+                    variant={currentPage === page ? "default" : "outline"}
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setCurrentPage(page)}
+                  >
+                    {page}
+                  </Button>
+                ),
+              )}
               <Button
                 variant="outline"
                 size="icon"

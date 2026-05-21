@@ -1,10 +1,31 @@
 "use client";
 
-import { XAxis, Label, Pie, PieChart, Bar, BarChart, CartesianGrid, LabelList, YAxis } from "recharts";
+import {
+  XAxis,
+  Label,
+  Pie,
+  PieChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  LabelList,
+  YAxis,
+} from "recharts";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend } from "@/components/ui/chart";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartLegend,
+} from "@/components/ui/chart";
 
 import {
   leadsBySourceChartData,
@@ -14,7 +35,10 @@ import {
 } from "./crm.config";
 
 export function InsightCards() {
-  const totalLeads = leadsBySourceChartData.reduce((acc, curr) => acc + curr.leads, 0);
+  const totalLeads = leadsBySourceChartData.reduce(
+    (acc, curr) => acc + curr.leads,
+    0,
+  );
 
   return (
     <div className="grid grid-cols-1 gap-4 *:data-[slot=card]:shadow-xs sm:grid-cols-2 xl:grid-cols-5">
@@ -23,7 +47,10 @@ export function InsightCards() {
           <CardTitle>Leads by Source</CardTitle>
         </CardHeader>
         <CardContent className="max-h-48">
-          <ChartContainer config={leadsBySourceChartConfig} className="size-full">
+          <ChartContainer
+            config={leadsBySourceChartConfig}
+            className="size-full"
+          >
             <PieChart
               className="m-0"
               margin={{
@@ -33,7 +60,10 @@ export function InsightCards() {
                 bottom: 0,
               }}
             >
-              <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
+              <ChartTooltip
+                cursor={false}
+                content={<ChartTooltipContent hideLabel />}
+              />
               <Pie
                 data={leadsBySourceChartData}
                 dataKey="leads"
@@ -47,7 +77,12 @@ export function InsightCards() {
                   content={({ viewBox }) => {
                     if (viewBox && "cx" in viewBox && "cy" in viewBox) {
                       return (
-                        <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
+                        <text
+                          x={viewBox.cx}
+                          y={viewBox.cy}
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                        >
                           <tspan
                             x={viewBox.cx}
                             y={viewBox.cy}
@@ -55,7 +90,11 @@ export function InsightCards() {
                           >
                             {totalLeads.toLocaleString()}
                           </tspan>
-                          <tspan x={viewBox.cx} y={(viewBox.cy ?? 0) + 24} className="fill-muted-foreground">
+                          <tspan
+                            x={viewBox.cx}
+                            y={(viewBox.cy ?? 0) + 24}
+                            className="fill-muted-foreground"
+                          >
                             Leads
                           </tspan>
                         </text>
@@ -71,9 +110,15 @@ export function InsightCards() {
                 content={() => (
                   <ul className="ml-8 flex flex-col gap-3">
                     {leadsBySourceChartData.map((item) => (
-                      <li key={item.source} className="flex w-36 items-center justify-between">
+                      <li
+                        key={item.source}
+                        className="flex w-36 items-center justify-between"
+                      >
                         <span className="flex items-center gap-2 capitalize">
-                          <span className="size-2.5 rounded-full" style={{ background: item.fill }} />
+                          <span
+                            className="size-2.5 rounded-full"
+                            style={{ background: item.fill }}
+                          />
                           {leadsBySourceChartConfig[item.source].label}
                         </span>
                         <span className="tabular-nums">{item.leads}</span>
@@ -100,8 +145,15 @@ export function InsightCards() {
           <CardTitle>Project Revenue vs. Target</CardTitle>
         </CardHeader>
         <CardContent className="size-full max-h-52">
-          <ChartContainer config={projectRevenueChartConfig} className="size-full">
-            <BarChart accessibilityLayer data={projectRevenueChartData} layout="vertical">
+          <ChartContainer
+            config={projectRevenueChartConfig}
+            className="size-full"
+          >
+            <BarChart
+              accessibilityLayer
+              data={projectRevenueChartData}
+              layout="vertical"
+            >
               <CartesianGrid horizontal={false} />
               <YAxis
                 dataKey="name"
@@ -113,8 +165,16 @@ export function InsightCards() {
                 hide
               />
               <XAxis dataKey="actual" type="number" hide />
-              <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="line" />} />
-              <Bar stackId="a" dataKey="actual" layout="vertical" fill="var(--color-actual)">
+              <ChartTooltip
+                cursor={false}
+                content={<ChartTooltipContent indicator="line" />}
+              />
+              <Bar
+                stackId="a"
+                dataKey="actual"
+                layout="vertical"
+                fill="var(--color-actual)"
+              >
                 <LabelList
                   dataKey="name"
                   position="insideLeft"
@@ -146,7 +206,9 @@ export function InsightCards() {
           </ChartContainer>
         </CardContent>
         <CardFooter>
-          <p className="text-muted-foreground text-xs">Average progress: 78% · 2 projects above target</p>
+          <p className="text-muted-foreground text-xs">
+            Average progress: 78% · 2 projects above target
+          </p>
         </CardFooter>
       </Card>
     </div>

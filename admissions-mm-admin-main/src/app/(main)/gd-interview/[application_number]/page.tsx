@@ -3,6 +3,7 @@
 
 import React from "react";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 
@@ -22,8 +23,6 @@ import {
   CheckCircle2,
   FileText,
 } from "lucide-react";
-
-import Image from "next/image";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -141,29 +140,29 @@ export default function GDInterviewDetailsPage() {
                   className="object-cover"
                 />
               </div>
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-3">
-                <h2 className="text-3xl font-bold text-slate-900">
-                  {interviewData.name}
-                </h2>
-                <Badge
-                  variant="secondary"
-                  className="font-mono text-sm px-2 text-slate-600 border-slate-200"
-                >
-                  {interviewData.applicationNo}
-                </Badge>
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-3">
+                  <h2 className="text-3xl font-bold text-slate-900">
+                    {interviewData.name}
+                  </h2>
+                  <Badge
+                    variant="secondary"
+                    className="font-mono text-sm px-2 text-slate-600 border-slate-200"
+                  >
+                    {interviewData.applicationNo}
+                  </Badge>
+                </div>
+                <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600">
+                  <span className="flex items-center gap-1.5 bg-white px-2 py-1 rounded-md border shadow-sm">
+                    <Mail className="h-4 w-4 text-slate-400" />
+                    {interviewData.email}
+                  </span>
+                  <span className="flex items-center gap-1.5 bg-white px-2 py-1 rounded-md border shadow-sm">
+                    <Phone className="h-4 w-4 text-slate-400" />
+                    {interviewData.phone}
+                  </span>
+                </div>
               </div>
-              <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600">
-                <span className="flex items-center gap-1.5 bg-white px-2 py-1 rounded-md border shadow-sm">
-                  <Mail className="h-4 w-4 text-slate-400" />
-                  {interviewData.email}
-                </span>
-                <span className="flex items-center gap-1.5 bg-white px-2 py-1 rounded-md border shadow-sm">
-                  <Phone className="h-4 w-4 text-slate-400" />
-                  {interviewData.phone}
-                </span>
-              </div>
-            </div>
             </div>
 
             {/* Time & Location Box */}

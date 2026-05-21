@@ -1,7 +1,17 @@
 "use client";
 
 import * as React from "react";
-import { EllipsisVertical, Pencil, Trash2, Plus, Search, Filter, ChevronDown, Check } from "lucide-react";
+
+import {
+  EllipsisVertical,
+  Pencil,
+  Trash2,
+  Plus,
+  Search,
+  Filter,
+  ChevronDown,
+  Check,
+} from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,13 +32,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   MultiSelect,
   MultiSelectContent,
   MultiSelectItem,
@@ -36,7 +39,13 @@ import {
   MultiSelectValue,
 } from "@/components/ui/multi-select";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { cn } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -45,6 +54,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 
 type TeamMember = {
   id: number;
@@ -52,7 +62,12 @@ type TeamMember = {
   email: string;
   phone: string;
   location: string;
-  role: "Lead Manager" | "Application Manager" | "Interview Manager" | "Admin" | "Full Access";
+  role:
+    | "Lead Manager"
+    | "Application Manager"
+    | "Interview Manager"
+    | "Admin"
+    | "Full Access";
   status: "Active" | "Inactive";
 };
 
@@ -95,16 +110,35 @@ const initialTeam: TeamMember[] = [
   },
 ];
 
-const LOCATIONS = ["New Delhi", "New York", "London", "Madrid", "Paris", "Dubai", "Singapore"] as const;
+const LOCATIONS = [
+  "New Delhi",
+  "New York",
+  "London",
+  "Madrid",
+  "Paris",
+  "Dubai",
+  "Singapore",
+] as const;
 
-const ROLES = ["Full Access", "Lead Manager", "Application Manager", "Interview Manager", "Admin"] as const;
+const ROLES = [
+  "Full Access",
+  "Lead Manager",
+  "Application Manager",
+  "Interview Manager",
+  "Admin",
+] as const;
 
 const roleStyles: Record<string, string> = {
-  "Lead Manager": "border-blue-300 text-blue-700 dark:border-blue-700 dark:text-blue-300",
-  "Application Manager": "border-purple-300 text-purple-700 dark:border-purple-700 dark:text-purple-300",
-  "Interview Manager": "border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-300",
-  Admin: "border-orange-300 text-orange-700 dark:border-orange-700 dark:text-orange-300",
-  "Full Access": "border-red-300 text-red-700 dark:border-red-700 dark:text-red-300",
+  "Lead Manager":
+    "border-blue-300 text-blue-700 dark:border-blue-700 dark:text-blue-300",
+  "Application Manager":
+    "border-purple-300 text-purple-700 dark:border-purple-700 dark:text-purple-300",
+  "Interview Manager":
+    "border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-300",
+  Admin:
+    "border-orange-300 text-orange-700 dark:border-orange-700 dark:text-orange-300",
+  "Full Access":
+    "border-red-300 text-red-700 dark:border-red-700 dark:text-red-300",
 };
 
 const statusStyles: Record<string, string> = {
@@ -136,7 +170,9 @@ export default function TeamPage() {
         member.name.toLowerCase().includes(appliedSearchQuery.toLowerCase()) ||
         member.email.toLowerCase().includes(appliedSearchQuery.toLowerCase()) ||
         member.phone.includes(appliedSearchQuery) ||
-        member.location.toLowerCase().includes(appliedSearchQuery.toLowerCase());
+        member.location
+          .toLowerCase()
+          .includes(appliedSearchQuery.toLowerCase());
 
       const matchesRole = roleFilter === "all" || member.role === roleFilter;
 
@@ -150,7 +186,8 @@ export default function TeamPage() {
       name: newName,
       email: newEmail,
       phone: newPhone,
-      location: newLocations.length > 0 ? newLocations.join(", ") : "Not Specified",
+      location:
+        newLocations.length > 0 ? newLocations.join(", ") : "Not Specified",
       role: newRole,
       status: "Active",
     };
@@ -253,7 +290,9 @@ export default function TeamPage() {
                   <Label htmlFor="role">Role</Label>
                   <Select
                     value={newRole}
-                    onValueChange={(val) => setNewRole(val as TeamMember["role"])}
+                    onValueChange={(val) =>
+                      setNewRole(val as TeamMember["role"])
+                    }
                   >
                     <SelectTrigger id="role" className="w-full">
                       <SelectValue placeholder="Select a role" />
@@ -269,9 +308,14 @@ export default function TeamPage() {
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="location">
-                    {newRole === "Interview Manager" ? "Interview Location" : "Center Location"}
+                    {newRole === "Interview Manager"
+                      ? "Interview Location"
+                      : "Center Location"}
                   </Label>
-                  <MultiSelect values={newLocations} onValuesChange={setNewLocations}>
+                  <MultiSelect
+                    values={newLocations}
+                    onValuesChange={setNewLocations}
+                  >
                     <MultiSelectTrigger id="location" className="w-full">
                       <MultiSelectValue placeholder="Select locations" />
                     </MultiSelectTrigger>
@@ -287,7 +331,10 @@ export default function TeamPage() {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setCreateDialogOpen(false)}
+              >
                 Cancel
               </Button>
               <Button onClick={handleCreateMember}>Create Member</Button>
@@ -312,12 +359,17 @@ export default function TeamPage() {
               {filteredTeam.length > 0 ? (
                 filteredTeam.map((member) => (
                   <TableRow key={member.id}>
-                    <TableCell className="ps-4 font-medium">{member.name}</TableCell>
+                    <TableCell className="ps-4 font-medium">
+                      {member.name}
+                    </TableCell>
                     <TableCell>{member.email}</TableCell>
                     <TableCell>{member.phone}</TableCell>
                     <TableCell>{member.location}</TableCell>
                     <TableCell>
-                      <Badge variant="outline" className={roleStyles[member.role] ?? ""}>
+                      <Badge
+                        variant="outline"
+                        className={roleStyles[member.role] ?? ""}
+                      >
                         {member.role}
                       </Badge>
                     </TableCell>
@@ -348,7 +400,10 @@ export default function TeamPage() {
                               Edit
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem variant="destructive" className="gap-2">
+                            <DropdownMenuItem
+                              variant="destructive"
+                              className="gap-2"
+                            >
                               <Trash2 className="size-4" />
                               Delete
                             </DropdownMenuItem>

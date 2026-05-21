@@ -2,10 +2,29 @@
 
 import { format, subMonths } from "date-fns";
 import { CheckCircle2, XCircle, Wallet } from "lucide-react";
-import { Bar, BarChart, Area, AreaChart, Line, LineChart, XAxis } from "recharts";
+import {
+  Bar,
+  BarChart,
+  Area,
+  AreaChart,
+  Line,
+  LineChart,
+  XAxis,
+} from "recharts";
 
-import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
 
 import {
   applicationsChartData,
@@ -30,22 +49,52 @@ export function OverviewCards() {
         {/* Total Applications — stacked bar */}
         <Card>
           <CardHeader className="px-4 pt-4 pb-2">
-            <CardTitle className="text-sm font-medium">Total Applications</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Total Applications
+            </CardTitle>
             <CardDescription className="text-xs">This Month</CardDescription>
           </CardHeader>
           <CardContent className="px-4 pb-0">
-            <ChartContainer className="h-16 w-full" config={applicationsChartConfig}>
-              <BarChart accessibilityLayer data={applicationsChartData} barSize={6}>
-                <XAxis dataKey="date" tickLine={false} tickMargin={10} axisLine={false} hide />
-                <ChartTooltip content={<ChartTooltipContent labelFormatter={(l) => `${lastMonth}: ${l}`} />} />
+            <ChartContainer
+              className="h-16 w-full"
+              config={applicationsChartConfig}
+            >
+              <BarChart
+                accessibilityLayer
+                data={applicationsChartData}
+                barSize={6}
+              >
+                <XAxis
+                  dataKey="date"
+                  tickLine={false}
+                  tickMargin={10}
+                  axisLine={false}
+                  hide
+                />
+                <ChartTooltip
+                  content={
+                    <ChartTooltipContent
+                      labelFormatter={(l) => `${lastMonth}: ${l}`}
+                    />
+                  }
+                />
                 <Bar
-                  background={{ fill: "var(--color-background)", radius: 4, opacity: 0.07 }}
+                  background={{
+                    fill: "var(--color-background)",
+                    radius: 4,
+                    opacity: 0.07,
+                  }}
                   dataKey="verified"
                   stackId="a"
                   fill="var(--color-verified)"
                   radius={[0, 0, 0, 0]}
                 />
-                <Bar dataKey="pending" stackId="a" fill="var(--color-pending)" radius={[4, 4, 0, 0]} />
+                <Bar
+                  dataKey="pending"
+                  stackId="a"
+                  fill="var(--color-pending)"
+                  radius={[4, 4, 0, 0]}
+                />
               </BarChart>
             </ChartContainer>
           </CardContent>
@@ -61,7 +110,9 @@ export function OverviewCards() {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-sm font-medium">Verified</CardTitle>
-                <CardDescription className="text-xs">This Month</CardDescription>
+                <CardDescription className="text-xs">
+                  This Month
+                </CardDescription>
               </div>
               <div className="w-fit rounded-md bg-green-500/10 p-1.5">
                 <CheckCircle2 className="size-4 text-green-500" />
@@ -69,10 +120,29 @@ export function OverviewCards() {
             </div>
           </CardHeader>
           <CardContent className="p-0">
-            <ChartContainer className="h-16 w-full" config={verifiedTrendConfig}>
-              <AreaChart data={verifiedTrendData} margin={{ left: 0, right: 0, top: 3 }}>
-                <XAxis dataKey="date" tickLine={false} tickMargin={10} axisLine={false} hide />
-                <ChartTooltip content={<ChartTooltipContent labelFormatter={(l) => `${lastMonth}: ${l}`} hideIndicator />} />
+            <ChartContainer
+              className="h-16 w-full"
+              config={verifiedTrendConfig}
+            >
+              <AreaChart
+                data={verifiedTrendData}
+                margin={{ left: 0, right: 0, top: 3 }}
+              >
+                <XAxis
+                  dataKey="date"
+                  tickLine={false}
+                  tickMargin={10}
+                  axisLine={false}
+                  hide
+                />
+                <ChartTooltip
+                  content={
+                    <ChartTooltipContent
+                      labelFormatter={(l) => `${lastMonth}: ${l}`}
+                      hideIndicator
+                    />
+                  }
+                />
                 <Area
                   dataKey="verified"
                   fill="var(--color-verified)"
@@ -96,7 +166,9 @@ export function OverviewCards() {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-sm font-medium">Rejected</CardTitle>
-                <CardDescription className="text-xs">This Month</CardDescription>
+                <CardDescription className="text-xs">
+                  This Month
+                </CardDescription>
               </div>
               <div className="w-fit rounded-md bg-destructive/10 p-1.5">
                 <XCircle className="size-4 text-destructive" />
@@ -104,10 +176,29 @@ export function OverviewCards() {
             </div>
           </CardHeader>
           <CardContent className="p-0">
-            <ChartContainer className="h-16 w-full" config={rejectedTrendConfig}>
-              <AreaChart data={rejectedTrendData} margin={{ left: 0, right: 0, top: 3 }}>
-                <XAxis dataKey="date" tickLine={false} tickMargin={10} axisLine={false} hide />
-                <ChartTooltip content={<ChartTooltipContent labelFormatter={(l) => `${lastMonth}: ${l}`} hideIndicator />} />
+            <ChartContainer
+              className="h-16 w-full"
+              config={rejectedTrendConfig}
+            >
+              <AreaChart
+                data={rejectedTrendData}
+                margin={{ left: 0, right: 0, top: 3 }}
+              >
+                <XAxis
+                  dataKey="date"
+                  tickLine={false}
+                  tickMargin={10}
+                  axisLine={false}
+                  hide
+                />
+                <ChartTooltip
+                  content={
+                    <ChartTooltipContent
+                      labelFormatter={(l) => `${lastMonth}: ${l}`}
+                      hideIndicator
+                    />
+                  }
+                />
                 <Area
                   dataKey="rejected"
                   fill="var(--color-rejected)"
@@ -133,8 +224,12 @@ export function OverviewCards() {
           <CardHeader className="px-4 pt-4 pb-2">
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-sm font-medium">Fee Collected</CardTitle>
-                <CardDescription className="text-xs">Last 6 Months</CardDescription>
+                <CardTitle className="text-sm font-medium">
+                  Fee Collected
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Last 6 Months
+                </CardDescription>
               </div>
               <div className="w-fit rounded-md bg-primary/10 p-1.5">
                 <Wallet className="size-4 text-primary" />
@@ -142,9 +237,21 @@ export function OverviewCards() {
             </div>
           </CardHeader>
           <CardContent className="px-4 pb-0">
-            <ChartContainer config={feeCollectionConfig} className="h-16 w-full">
-              <LineChart data={feeCollectionData} margin={{ top: 3, right: 4, left: 4, bottom: 0 }}>
-                <XAxis dataKey="month" tickLine={false} tickMargin={10} axisLine={false} hide />
+            <ChartContainer
+              config={feeCollectionConfig}
+              className="h-16 w-full"
+            >
+              <LineChart
+                data={feeCollectionData}
+                margin={{ top: 3, right: 4, left: 4, bottom: 0 }}
+              >
+                <XAxis
+                  dataKey="month"
+                  tickLine={false}
+                  tickMargin={10}
+                  axisLine={false}
+                  hide
+                />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Line
                   type="monotone"
@@ -165,14 +272,32 @@ export function OverviewCards() {
         {/* Pending Review — area chart */}
         <Card className="overflow-hidden">
           <CardHeader className="px-4 pt-4 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Review</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Pending Review
+            </CardTitle>
             <CardDescription className="text-xs">This Month</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             <ChartContainer className="h-16 w-full" config={pendingTrendConfig}>
-              <AreaChart data={pendingTrendData} margin={{ left: 0, right: 0, top: 3 }}>
-                <XAxis dataKey="date" tickLine={false} tickMargin={10} axisLine={false} hide />
-                <ChartTooltip content={<ChartTooltipContent labelFormatter={(l) => `${lastMonth}: ${l}`} hideIndicator />} />
+              <AreaChart
+                data={pendingTrendData}
+                margin={{ left: 0, right: 0, top: 3 }}
+              >
+                <XAxis
+                  dataKey="date"
+                  tickLine={false}
+                  tickMargin={10}
+                  axisLine={false}
+                  hide
+                />
+                <ChartTooltip
+                  content={
+                    <ChartTooltipContent
+                      labelFormatter={(l) => `${lastMonth}: ${l}`}
+                      hideIndicator
+                    />
+                  }
+                />
                 <Area
                   dataKey="pending"
                   fill="var(--color-pending)"

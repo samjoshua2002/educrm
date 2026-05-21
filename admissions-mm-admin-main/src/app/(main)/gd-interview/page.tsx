@@ -3,6 +3,8 @@
 
 import * as React from "react";
 
+import Link from "next/link";
+
 import {
   EllipsisVertical,
   Pencil,
@@ -13,8 +15,6 @@ import {
   Search,
   Download,
 } from "lucide-react";
-
-import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -112,6 +112,19 @@ const gdInterviews: GDInterview[] = [
   {
     id: 5,
     applicationNo: "CHN-2026-1105",
+    name: "Karan Singh",
+    email: "karan.singh@example.com",
+    phone: "+91 90123 45678",
+    interviewLocation: "Hyderabad",
+    date: "2026-03-18",
+    time: "09:30 AM",
+    course: "PGDM 2026-28",
+    selectionStatus: "Pending",
+    confirmedCampus: "—",
+  },
+  {
+    id: 6,
+    applicationNo: "APP-2026-0005",
     name: "Karan Singh",
     email: "karan.singh@example.com",
     phone: "+91 90123 45678",

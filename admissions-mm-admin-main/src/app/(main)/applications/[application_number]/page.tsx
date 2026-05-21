@@ -505,8 +505,8 @@ export default function ApplicationDetailsPage() {
             </CardContent>
           </Card>
         </div>
-     
-{/* Left/Main Column - Academic & Test Details */}
+
+        {/* Left/Main Column - Academic & Test Details */}
         <div className="lg:col-span-2 space-y-6">
           {/* Preferences */}
           <Card className="shadow-sm">
@@ -772,8 +772,7 @@ export default function ApplicationDetailsPage() {
             </CardContent>
           </Card>
         </div>
-
-         </div>
+      </div>
     </div>
   );
 }
