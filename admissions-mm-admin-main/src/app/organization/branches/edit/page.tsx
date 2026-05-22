@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ChevronLeft, Check, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { useCreateBranch } from "@/hooks/use-branches";
+import { useBranch, useUpdateBranch } from "@/hooks/use-branches";
 
 const INDIAN_STATES = [
   "Andhra Pradesh",
@@ -54,9 +54,13 @@ const INDIAN_STATES = [
   "Puducherry",
 ] as const;
 
-export default function AddBranchPage() {
+export default function EditBranchPage() {
   const router = useRouter();
-  const createBranch = useCreateBranch();
+  const searchParams = useSearchParams();
+  const branchId = searchParams.get("id");
+
+  const { data: branchResponse, isLoading } = useBranch(branchId);
+  const updateBranch = useUpdateBranch();
 
   const [form, setForm] = React.useState({
     name: "",
@@ -64,8 +68,23 @@ export default function AddBranchPage() {
     address: "",
     city: "",
     state: "",
-    status: "Active", // UI-only field, converted to isActive boolean for API
+    status: "Active",
   });
+
+  // Populate form when data is loaded
+  React.useEffect(() => {
+    if (branchResponse) {
+      const b = branchResponse;
+      setForm({
+        name: b.name || "",
+        code: b.code || "",
+        address: b.address || "",
+        city: b.city || "",
+        state: b.state || "",
+        status: b.isActive ? "Active" : "Inactive",
+      });
+    }
+  }, [branchResponse]);
 
   function set(key: keyof typeof form, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -73,21 +92,44 @@ export default function AddBranchPage() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.name.trim()) return;
-    createBranch.mutate(
+    if (!branchId) return;
+
+    updateBranch.mutate(
       {
-        name: form.name,
-        code: form.code || undefined,
-        address: form.address || undefined,
-        city: form.city || undefined,
-        state: form.state || undefined,
-        isActive: form.status === "Active",
+        id: branchId,
+        data: {
+          name: form.name,
+          code: form.code || undefined,
+          address: form.address || undefined,
+          city: form.city || undefined,
+          state: form.state || undefined,
+          isActive: form.status === "Active",
+        },
       },
       {
         onSuccess: () => {
           router.push("/organization/branches");
         },
       }
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex h-[400px] items-center justify-center">
+        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!branchId) {
+    return (
+      <div className="flex h-[400px] flex-col items-center justify-center gap-4">
+        <p className="text-muted-foreground">Branch ID is missing.</p>
+        <Button onClick={() => router.push("/organization/branches")}>
+          Go Back
+        </Button>
+      </div>
     );
   }
 
@@ -99,7 +141,7 @@ export default function AddBranchPage() {
             <ChevronLeft className="size-5" />
           </Button>
         </Link>
-        <h1 className="text-xl font-semibold">Add Branch</h1>
+        <h1 className="text-xl font-semibold">Edit Branch</h1>
       </div>
 
       <div className="px-4 md:px-6 py-4 md:py-6">
@@ -271,16 +313,16 @@ export default function AddBranchPage() {
 
               <div className="flex flex-col gap-3 mt-4">
                 <Button
-                  disabled={createBranch.isPending}
+                  disabled={updateBranch.isPending}
                   className="w-full bg-primary hover:bg-primary/90 text-primary-foreground flex items-center justify-center gap-2 h-11 text-base font-medium rounded-[8px]"
                   onClick={handleSubmit}
                 >
-                  {createBranch.isPending ? (
+                  {updateBranch.isPending ? (
                     <Loader2 className="size-5 animate-spin" />
                   ) : (
                     <Check className="size-5" />
                   )}
-                  Save Branch
+                  Save Changes
                 </Button>
                 <Link href="/organization/branches" className="w-full">
                   <Button

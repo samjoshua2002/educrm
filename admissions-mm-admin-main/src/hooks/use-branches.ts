@@ -5,23 +5,24 @@ import { useAuthStore } from "@/stores/auth-store";
 import { toast } from "sonner";
 
 export interface Branch {
+  status: string;
   id: string;
   name: string;
   code: string;
   address: string;
   city: string;
   state: string;
-  status: "Active" | "Inactive";
+  isActive: boolean;
   createdAt: string;
 }
 
 export interface CreateBranchInput {
   name: string;
-  code: string;
-  address: string;
-  city: string;
-  state: string;
-  isActive: boolean;
+  code?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  isActive?: boolean;
 }
 
 export function useBranches(page: number = 1, limit: number = 10) {
@@ -48,6 +49,53 @@ export function useCreateBranch() {
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || "Failed to create branch");
+    },
+  });
+}
+
+export function useBranch(id: string | null) {
+  const user = useAuthStore((state) => state.user);
+  const orgId = user?.organizationId;
+
+  return useQuery({
+    queryKey: ["branch", id, { orgId }],
+    queryFn: () => apiGet<Branch>(`/organizations/${orgId}/branches/${id}`),
+    enabled: !!orgId && !!id,
+  });
+}
+
+export function useUpdateBranch() {
+  const queryClient = useQueryClient();
+  const user = useAuthStore((state) => state.user);
+  const orgId = user?.organizationId;
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<CreateBranchInput> }) => 
+      apiPatch<Branch>(`/organizations/${orgId}/branches/${id}`, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["branches"] });
+      queryClient.invalidateQueries({ queryKey: ["branch", variables.id] });
+      toast.success("Branch updated successfully");
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || "Failed to update branch");
+    },
+  });
+}
+
+export function useDeleteBranch() {
+  const queryClient = useQueryClient();
+  const user = useAuthStore((state) => state.user);
+  const orgId = user?.organizationId;
+
+  return useMutation({
+    mutationFn: (id: string) => apiDelete(`/organizations/${orgId}/branches/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["branches"] });
+      toast.success("Branch deleted successfully");
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || "Failed to delete branch");
     },
   });
 }

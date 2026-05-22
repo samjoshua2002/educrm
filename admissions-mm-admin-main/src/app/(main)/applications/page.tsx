@@ -745,7 +745,7 @@ export default function ApplicationsPage() {
                 <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
                   APPLICANT DETAIL
                 </TableHead>
-                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
+                <TableHead className="py-4 px-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
                   APPLICATION NO.
                 </TableHead>
                 <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
@@ -760,8 +760,8 @@ export default function ApplicationsPage() {
                 <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
                   LAST ACTIVITY
                 </TableHead>
-                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto text-right w-[85px]">
-                  ACTIONS
+                <TableHead className="py-4 px-3 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto text-right w-[85px]">
+                  ACTION
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -828,7 +828,7 @@ export default function ApplicationsPage() {
                     <TableCell className="py-5 px-6 align-middle text-sm text-muted-foreground font-normal">
                       {formatDate(app.lastActivity)}
                     </TableCell>
-                    <TableCell className="py-5 px-6 align-middle text-right">
+                    <TableCell className="py-5 px-3 align-middle text-right">
                       <div className="flex justify-end">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>

@@ -15,10 +15,10 @@ import { LeadsModule } from './modules/leads/leads.module.js';
     // Global config — reads .env automatically
     ConfigModule.forRoot({ isGlobal: true }),
     
-    // Rate Limiting — 10 requests per minute
+    // Rate Limiting — 100 requests per minute for development
     ThrottlerModule.forRoot([{
       ttl: 60000,
-      limit: 10,
+      limit: 100,
     }]),
 
     // PostgreSQL via TypeORM
