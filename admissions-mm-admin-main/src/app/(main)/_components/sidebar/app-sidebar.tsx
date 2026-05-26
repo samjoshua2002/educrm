@@ -1,15 +1,9 @@
 "use client";
 
-import {
-  Settings,
-  CircleHelp,
-  Search,
-  Database,
-  ClipboardList,
-  File,
-  Command,
-} from "lucide-react";
-
+import * as React from "react";
+import { Command, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { AccountSwitcher } from "./account-switcher";
 import {
   Sidebar,
   SidebarContent,
@@ -19,83 +13,47 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarTrigger,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { APP_CONFIG } from "@/config/app-config";
-import { rootUser } from "@/data/users";
 import { sidebarItems } from "@/navigation/sidebar/sidebar-items";
-
-import { AccountSwitcher } from "./account-switcher";
 import { NavMain } from "./nav-main";
-import { NavUser } from "./nav-user";
 
-const data = {
-  navSecondary: [
-    {
-      title: "Settings",
-      url: "#",
-      icon: Settings,
-    },
-    {
-      title: "Get Help",
-      url: "#",
-      icon: CircleHelp,
-    },
-    {
-      title: "Search",
-      url: "#",
-      icon: Search,
-    },
-  ],
-  documents: [
-    {
-      name: "Data Library",
-      url: "#",
-      icon: Database,
-    },
-    {
-      name: "Reports",
-      url: "#",
-      icon: ClipboardList,
-    },
-    {
-      name: "Word Assistant",
-      url: "#",
-      icon: File,
-    },
-  ],
-};
+export function AppSidebar({ users = [], ...props }: React.ComponentProps<typeof Sidebar> & { users?: any[] }) {
+  const { isMobile } = useSidebar();
 
-export function AppSidebar({
-  users = [],
-  ...props
-}: React.ComponentProps<typeof Sidebar> & { users?: any[] }) {
   return (
     <Sidebar {...props}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <div className="flex items-center justify-between pr-2 relative">
+            <div className="flex items-center justify-between pr-2 relative min-h-8">
               <SidebarMenuButton
                 asChild
-                className="data-[slot=sidebar-menu-button]:!p-1.5 flex-1"
+                className="data-[slot=sidebar-menu-button]:!p-1.5 flex-1 transition-opacity duration-300 group-data-[collapsible=icon]:opacity-0 lg:group-data-[collapsible=icon]:opacity-100 lg:group-data-[collapsible=icon]:group-hover:opacity-0 lg:group-data-[collapsible=icon]:group-hover:pointer-events-none"
               >
                 <a href="#">
-                  <Command className="transition-opacity duration-300 group-data-[collapsible=icon]:opacity-0 lg:group-data-[collapsible=icon]:opacity-100 lg:group-data-[collapsible=icon]:group-hover:opacity-0" />
-                  <span className="text-base font-semibold">
-                    {APP_CONFIG.name}
-                  </span>
+                  <Command />
+                  <span className="text-base font-semibold">{APP_CONFIG.name}</span>
                 </a>
               </SidebarMenuButton>
-              <SidebarTrigger className="transition-all duration-300 group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:left-1 lg:group-data-[collapsible=icon]:opacity-0 lg:group-data-[collapsible=icon]:group-hover:opacity-100" />
+              {!isMobile && (
+                <SidebarTrigger className="size-8 !p-1.5 text-sidebar-foreground transition-all duration-300 group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:left-1 group-data-[collapsible=icon]:opacity-100 lg:group-data-[collapsible=icon]:opacity-0 lg:group-data-[collapsible=icon]:group-hover:opacity-100" />
+              )}
             </div>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={sidebarItems} />
+        <div className="px-3 mt-4 mb-2 md:hidden">
+          <Button className="w-full rounded-[8px] bg-[#2563EA] hover:bg-[#1D4ED8] text-white">
+            <Plus className="size-4 mr-2" />
+            New applications
+          </Button>
+        </div>
       </SidebarContent>
-      {/* Add this section */}
-      <SidebarFooter className="pb-[3px]">
+      <SidebarFooter className="pb-4">
         <SidebarMenu>
           <SidebarMenuItem>
             <AccountSwitcher users={users} />
