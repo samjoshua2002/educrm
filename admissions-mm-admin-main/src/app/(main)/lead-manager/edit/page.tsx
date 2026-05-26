@@ -504,7 +504,7 @@ function EditLeadForm() {
 
               <div className="flex flex-col gap-3 mt-4">
                 <Button
-                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground flex items-center justify-center gap-2 h-11 text-base font-medium rounded-[8px]"
+                  className="w-full bg-ring hover:bg-ring/90 text-primary-foreground flex items-center justify-center gap-2 h-11 text-base font-medium rounded-[8px]"
                   onClick={handleSubmit}
                 >
                   <Check className="size-5" />

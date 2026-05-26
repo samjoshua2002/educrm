@@ -18,7 +18,7 @@ export function DynamicHeader() {
   const getTitle = () => {
     if (pathname.startsWith("/dashboard")) return "Dashboard Overview";
     if (pathname.startsWith("/lead-manager")) return "Lead Management";
-    if (pathname.startsWith("/gd-interview")) return "GD Interview";
+    if (pathname.startsWith("/gd-interview")) return "GD & Interview";
     if (pathname.startsWith("/payments")) return "Payments testing";
 
     const segments = pathname.split("/").filter(Boolean);

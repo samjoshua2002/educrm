@@ -370,7 +370,7 @@ export default function LeadManagerPage() {
   }
 
   const [currentPage, setCurrentPage] = React.useState(1);
-  const itemsPerPage = 8;
+  const itemsPerPage = 7;
   const [mobileVisibleCount, setMobileVisibleCount] = React.useState(5);
 
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -846,49 +846,47 @@ export default function LeadManagerPage() {
               <div className="flex items-center gap-2 flex-wrap">
                 {/* Previous button */}
                 <Button
-                  variant="outline"
-                  className="h-9 px-4 border border-border/80 bg-background text-foreground text-sm font-normal rounded-[6px] hover:bg-muted/30 dark:hover:bg-muted/10 transition-colors shadow-2xs"
-                  onClick={() => {
-                    if (currentPage > 1) setCurrentPage(currentPage - 1);
-                  }}
-                  disabled={currentPage === 1}
-                >
-                  Previous
-                </Button>
-
-                {/* Page numbers */}
-                <div className="flex items-center gap-1">
-                  {visiblePages.map((page) => {
-                    const isActive = currentPage === page;
-                    return (
-                      <Button
-                        key={page}
-                        variant={isActive ? "default" : "outline"}
-                        className={`h-9 w-9 p-0 text-sm border shadow-2xs rounded-[6px] transition-colors ${
-                          isActive
-                            ? "bg-background border-border text-foreground font-semibold hover:bg-muted/15 dark:hover:bg-muted/5 shadow-xs"
-                            : "border-border/80 bg-transparent text-muted-foreground hover:bg-muted/30 dark:hover:bg-muted/10 hover:text-foreground font-normal"
-                        }`}
-                        onClick={() => setCurrentPage(page)}
-                      >
-                        {page}
-                      </Button>
-                    );
-                  })}
-                </div>
-
-                {/* Next button */}
-                <Button
-                  variant="outline"
-                  className="h-9 px-4 border border-border/80 bg-background text-foreground text-sm font-normal rounded-[6px] hover:bg-muted/30 dark:hover:bg-muted/10 transition-colors shadow-2xs"
-                  onClick={() => {
-                    if (currentPage < totalPages)
-                      setCurrentPage(currentPage + 1);
-                  }}
-                  disabled={currentPage === totalPages}
-                >
-                  Next
-                </Button>
+                 variant="outline"
+                 className="h-9 px-4 border border-border/80 bg-background text-foreground text-sm font-normal rounded-[6px] hover:bg-muted/30 hover:text-[var(--primary)] dark:hover:bg-muted/10 transition-colors shadow-2xs"
+                 onClick={() => {
+                   if (currentPage > 1) setCurrentPage(currentPage - 1);
+                 }}
+                 disabled={currentPage === 1}
+               >
+                 Previous
+               </Button>
+               
+                               <div className="flex items-center gap-1">
+                                 {visiblePages.map((page) => {
+                                   const isActive = currentPage === page;
+                                   return (
+                                     <Button
+                                       key={page}
+                                       variant={isActive ? "default" : "outline"}
+                                       className={`h-9 w-9 p-0 text-sm border shadow-2xs rounded-[6px] transition-colors ${
+                                         isActive
+                                           ? "bg-[#EA2525] border-[#EA2525] text-white font-semibold hover:bg-[#D61F1F] shadow-xs"
+                                           : "border-border/80 bg-background text-muted-foreground hover:bg-muted/30 dark:hover:bg-muted/10 hover:text-foreground font-normal"
+                                       }`}
+                                       onClick={() => setCurrentPage(page)}
+                                     >
+                                       {page}
+                                     </Button>
+                                   );
+                                 })}
+                               </div>
+               
+                 <Button
+                 variant="outline"
+                 className="h-9 px-4 border border-border/80 bg-background text-foreground text-sm font-normal rounded-[6px] hover:bg-muted/30 hover:text-[var(--primary)] dark:hover:bg-muted/10 transition-colors shadow-2xs"
+                 onClick={() => {
+                   if (currentPage < totalPages)
+                     setCurrentPage(currentPage + 1);
+                 }}
+                 disabled={currentPage === totalPages}
+               >
+                 Next
+               </Button>
               </div>
             )}
           </div>

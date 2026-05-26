@@ -61,6 +61,9 @@
   --shadow-2xl: 0px 0px 0px 0px hsl(236.5829 64.2250% 21.4383% / 0.00);
   --tracking-normal: -0.025em;
   --spacing: 0.25rem;
+  --primary: #EA2525;
+  --primary-hover: #D61F1F;
+  --primary-foreground: #ffffff;
 }
 
 .dark {
