@@ -50,13 +50,11 @@ export function AccountSwitcher({
         <SidebarMenuButton
           size="lg"
           className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
-          <Avatar className="h-8 w-8 rounded-full">
+          <Avatar className="h-5 w-5 rounded-full">
             <AvatarImage src={activeUser.avatar || undefined} alt={activeUser.name} />
-            <AvatarFallback className="rounded-full">{getInitials(activeUser.name)}</AvatarFallback>
+            <AvatarFallback className="rounded-full text-[10px]">{getInitials(activeUser.name)}</AvatarFallback>
           </Avatar>
-          <div className="grid flex-1 text-left text-sm leading-tight">
-            <span className="truncate font-semibold">{activeUser.name}</span>
-          </div>
+          <span className="truncate">{activeUser.name}</span>
         </SidebarMenuButton>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="min-w-56 space-y-1 rounded-lg" side="bottom" align="end" sideOffset={4}>
