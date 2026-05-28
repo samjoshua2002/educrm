@@ -9,6 +9,32 @@ import {
 import { Organization } from '../../organizations/entities/organization.entity.js';
 import { Branch } from '../../branches/entities/branch.entity.js';
 
+export enum LeadStatus {
+  UNVERIFIED = 'unverified',
+  VERIFIED = 'verified',
+  DISQUALIFIED = 'disqualified',
+  WORKING = 'working',
+  CONVERTED = 'converted',
+  CLOSED = 'closed',
+}
+
+export enum LeadScoreBand {
+  HOT = 'hot',
+  WARM = 'warm',
+  COLD = 'cold',
+}
+
+export enum LeadClosureReason {
+  NOT_INTERESTED = 'not_interested',
+  ENROLLED_ELSEWHERE = 'enrolled_elsewhere',
+  UNREACHABLE = 'unreachable',
+  INVALID_CONTACT = 'invalid_contact',
+  DO_NOT_CALL = 'do_not_call',
+  FINANCIAL_CONSTRAINTS = 'financial_constraints',
+  TIMING_MISMATCH = 'timing_mismatch',
+  OTHER = 'other',
+}
+
 @Entity('leads')
 export class Lead {
   @PrimaryGeneratedColumn('uuid')
@@ -79,6 +105,34 @@ export class Lead {
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
+
+  @Column({
+    type: 'varchar',
+    length: 50,
+    default: LeadStatus.UNVERIFIED,
+  })
+  status: LeadStatus;
+
+  @Column({ name: 'verified_by', type: 'uuid', nullable: true })
+  verifiedBy: string;
+
+  @Column({ name: 'verified_at', nullable: true })
+  verifiedAt: Date;
+
+  @Column({ type: 'int', nullable: true })
+  score: number;
+
+  @Column({ name: 'score_band', type: 'varchar', length: 20, nullable: true })
+  scoreBand: LeadScoreBand;
+
+  @Column({ name: 'next_follow_up_at', nullable: true })
+  nextFollowUpAt: Date;
+
+  @Column({ name: 'closure_reason', type: 'varchar', length: 100, nullable: true })
+  closureReason: LeadClosureReason | null;
+
+  @Column({ name: 'closure_notes', type: 'text', nullable: true })
+  closureNotes: string | null;
 
   @ManyToOne(() => Organization, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'organization_id' })

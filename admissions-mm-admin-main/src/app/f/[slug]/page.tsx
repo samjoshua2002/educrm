@@ -168,9 +168,15 @@ export default function PublicFormPage({ params }: { params: Promise<{ slug: str
                           <SelectValue placeholder={field.placeholder || "Please select..."} />
                         </SelectTrigger>
                         <SelectContent>
-                          {field.options?.map(opt => (
-                            <SelectItem key={opt.id} value={opt.id}>{opt.label}</SelectItem>
-                          ))}
+                          {field.id === "location" ? (
+                            (form as any).organization?.branches?.filter((b: any) => b.isActive !== false).map((b: any) => (
+                              <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                            ))
+                          ) : (
+                            field.options?.map(opt => (
+                              <SelectItem key={opt.id} value={opt.id}>{opt.label}</SelectItem>
+                            ))
+                          )}
                         </SelectContent>
                       </Select>
                     ) : field.type === 'radio' ? (

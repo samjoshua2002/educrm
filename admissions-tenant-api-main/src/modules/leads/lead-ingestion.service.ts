@@ -38,6 +38,7 @@ export class LeadIngestionService {
     // 1. Fetch Form by Slug
     const form = await this.formRepository.findOne({
       where: { slug },
+      relations: ['organization', 'organization.branches'],
     });
 
     if (!form) {
@@ -107,21 +108,27 @@ export class LeadIngestionService {
       });
       await manager.save(submission);
 
-      // 9. Store/Update Lead
+      // 9. location field value = organization branch UUID → leads.branch_id
+      const branchId = dto.data?.location || null;
+      const { firstName, lastName } = this.extractFullName(form, dto.data);
+
+      // 10. Store/Update Lead
       if (existingLead) {
         existingLead.duplicateCount += 1;
         existingLead.isDuplicate = true;
         existingLead.rawPayload = dto.data;
+        if (branchId) existingLead.branchId = branchId;
+        if (firstName) existingLead.firstName = firstName;
+        if (lastName) existingLead.lastName = lastName;
         await manager.save(existingLead);
       } else {
         const lead = manager.create(Lead, {
           organizationId: form.organizationId,
+          branchId: branchId,
           formId: form.id,
           campaignId: form.campaignId,
-          firstName: this.extractFieldByType(form, dto.data, 'first_name') || 
-                    this.extractFieldByType(form, dto.data, 'name') ||
-                    this.extractFieldByType(form, dto.data, 'fullname'),
-          lastName: this.extractFieldByType(form, dto.data, 'last_name'),
+          firstName,
+          lastName,
           email,
           phone,
           source: dto.source || 'public_form',
@@ -171,7 +178,12 @@ export class LeadIngestionService {
 
         // 3. Option-based fields validation (Check both id and label for compatibility)
         if (['select', 'radio', 'checkbox'].includes(field.type)) {
-          const options = field.options || [];
+          let options = field.options || [];
+          if (field.id === 'location' && form.organization?.branches) {
+            options = form.organization.branches
+              .filter((b: any) => b.isActive)
+              .map((b: any) => ({ id: b.id, label: b.name }));
+          }
           const optionIds = options.map((opt: any) => String(opt.id || opt).trim());
           const optionLabels = options.map((opt: any) => String(opt.label || opt).trim().toLowerCase());
           
@@ -215,6 +227,28 @@ export class LeadIngestionService {
         }
       }
     }
+  }
+
+  private extractFullName(form: any, data: Record<string, any>): { firstName?: string; lastName?: string } {
+    const raw =
+      data.full_name ??
+      this.extractFieldByType(form, data, 'first_name') ??
+      this.extractFieldByType(form, data, 'name') ??
+      this.extractFieldByType(form, data, 'fullname');
+
+    if (!raw) {
+      const last = this.extractFieldByType(form, data, 'last_name');
+      return { firstName: undefined, lastName: last };
+    }
+
+    const parts = String(raw).trim().split(/\s+/);
+    if (parts.length === 1) {
+      return { firstName: parts[0] };
+    }
+    return {
+      firstName: parts[0],
+      lastName: parts.slice(1).join(' '),
+    };
   }
 
   private extractFieldByType(form: any, data: Record<string, any>, targetType: string): string | undefined {

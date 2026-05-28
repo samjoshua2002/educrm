@@ -25,13 +25,34 @@ export interface CreateBranchInput {
   isActive?: boolean;
 }
 
-export function useBranches(page: number = 1, limit: number = 10) {
+export function useBranches(
+  pageOrOrgId?: number | string,
+  limitOrPage?: number,
+  limit?: number
+) {
   const user = useAuthStore((state) => state.user);
-  const orgId = user?.organizationId;
+  let page = 1;
+  let orgId = user?.organizationId;
+  let finalLimit = 10;
+
+  if (typeof pageOrOrgId === "string") {
+    orgId = pageOrOrgId;
+    if (typeof limitOrPage === "number") {
+      page = limitOrPage;
+    }
+    if (typeof limit === "number") {
+      finalLimit = limit;
+    }
+  } else if (typeof pageOrOrgId === "number") {
+    page = pageOrOrgId;
+    if (typeof limitOrPage === "number") {
+      finalLimit = limitOrPage;
+    }
+  }
 
   return useQuery({
-    queryKey: ["branches", { orgId, page, limit }],
-    queryFn: () => apiGet<PaginatedResponse<Branch>>(`/organizations/${orgId}/branches`, { page, limit }),
+    queryKey: ["branches", { orgId, page, limit: finalLimit }],
+    queryFn: () => apiGet<PaginatedResponse<Branch>>(`/organizations/${orgId}/branches`, { page, limit: finalLimit }),
     enabled: !!orgId,
   });
 }

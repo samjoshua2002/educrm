@@ -284,6 +284,14 @@ CREATE TABLE IF NOT EXISTS leads (
     assigned_at     TIMESTAMP,
 
     created_at      TIMESTAMP           NOT NULL DEFAULT NOW(),
+    status          VARCHAR(50)         NOT NULL DEFAULT 'unverified',
+    verified_by     UUID,
+    verified_at     TIMESTAMP,
+    score           INTEGER,
+    score_band      VARCHAR(20),
+    next_follow_up_at TIMESTAMP,
+    closure_reason  VARCHAR(100),
+    closure_notes   TEXT,
 
     CONSTRAINT fk_leads_organization
         FOREIGN KEY (organization_id)
@@ -294,6 +302,33 @@ CREATE TABLE IF NOT EXISTS leads (
         FOREIGN KEY (branch_id)
         REFERENCES branches(id)
         ON DELETE SET NULL
+);
+
+-- ============================================================
+-- TABLE: lead_activities (Timeline / Audit Trail)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS lead_activities (
+    id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    lead_id             UUID                NOT NULL,
+    organization_id     UUID                NOT NULL,
+    actor_id            UUID,
+    action              VARCHAR(50)         NOT NULL,
+    content             TEXT,
+    disposition         VARCHAR(100),
+    previous_status     VARCHAR(50),
+    new_status          VARCHAR(50),
+    previous_assigned_to UUID,
+    new_assigned_to     UUID,
+    created_at          TIMESTAMP           NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_activities_lead
+        FOREIGN KEY (lead_id)
+        REFERENCES leads(id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_activities_org
+        FOREIGN KEY (organization_id)
+        REFERENCES organizations(id)
+        ON DELETE CASCADE
 );
 
 
@@ -368,6 +403,10 @@ CREATE INDEX IF NOT EXISTS idx_submissions_form_id ON form_submissions(form_id);
 CREATE INDEX IF NOT EXISTS idx_leads_org_id        ON leads(organization_id);
 CREATE INDEX IF NOT EXISTS idx_leads_email         ON leads(email);
 CREATE INDEX IF NOT EXISTS idx_leads_phone         ON leads(phone);
+CREATE INDEX IF NOT EXISTS idx_leads_status        ON leads(status);
+CREATE INDEX IF NOT EXISTS idx_leads_assigned_to   ON leads(assigned_to);
+CREATE INDEX IF NOT EXISTS idx_activities_lead_id  ON lead_activities(lead_id);
+CREATE INDEX IF NOT EXISTS idx_activities_org_id   ON lead_activities(organization_id);
 CREATE INDEX IF NOT EXISTS idx_templates_active    ON form_templates(is_active);
 
 -- ============================================================
@@ -380,6 +419,15 @@ BEGIN
         ALTER TABLE forms ADD CONSTRAINT unique_form_slug_per_org UNIQUE (organization_id, slug);
     END IF;
 END $$;
+
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS status VARCHAR(50) NOT NULL DEFAULT 'unverified';
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS verified_by UUID;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS verified_at TIMESTAMP;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS score INTEGER;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS score_band VARCHAR(20);
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS next_follow_up_at TIMESTAMP;
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS closure_reason VARCHAR(100);
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS closure_notes TEXT;
 
 -- ============================================================
 -- END OF SCHEMA

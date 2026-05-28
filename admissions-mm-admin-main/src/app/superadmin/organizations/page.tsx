@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Plus, Search, Filter, EllipsisVertical, Pencil, Trash2, CalendarDays, ExternalLink, Loader2 } from "lucide-react";
+import { Plus, Search, Filter, EllipsisVertical, Pencil, Trash2, CalendarDays, ExternalLink, Loader2, Users } from "lucide-react";
 import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
@@ -179,6 +179,12 @@ export default function OrganizationsPage() {
                               <Link href={`/superadmin/organizations/create?id=${org.id}`}>
                                 <Pencil className="size-4" />
                                 Edit Settings
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="gap-2" asChild>
+                              <Link href={`/superadmin/organizations/${org.id}/users`}>
+                                <Users className="size-4" />
+                                Manage Users
                               </Link>
                             </DropdownMenuItem>
                             <DropdownMenuItem className="gap-2">
