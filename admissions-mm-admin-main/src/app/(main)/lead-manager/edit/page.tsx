@@ -181,7 +181,7 @@ function EditLeadForm() {
 
   return (
     <>
-      <div className="sticky top-12 z-10 bg-background/40 backdrop-blur-md flex items-center px-4 md:px-6 py-3 gap-3  border-border/80">
+      <div className="sticky top-0 z-10 bg-background/40 backdrop-blur-md flex items-center px-4 md:px-6 py-3 gap-3  border-border/80">
         <Link href="/lead-manager">
           <Button variant="ghost" size="icon">
             <ChevronLeft className="size-5" />

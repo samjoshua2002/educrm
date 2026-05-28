@@ -320,7 +320,7 @@ export default function GDInterviewPage() {
   }
 
   const [currentPage, setCurrentPage] = React.useState(1);
-  const itemsPerPage = 7;
+  const itemsPerPage = 8;
 
   const [searchQuery, setSearchQuery] = React.useState("");
   const [statusDraft, setStatusDraft] = React.useState("all");

@@ -368,7 +368,7 @@ export default function ApplicationsPage() {
     setApplicationsState((prev) => prev.filter((app) => app.id !== id));
   }
   const [currentPage, setCurrentPage] = React.useState(1);
-  const itemsPerPage = 7;
+  const itemsPerPage = 8;
 
   const [searchQuery, setSearchQuery] = React.useState("");
   const [formStatusDraft, setFormStatusDraft] = React.useState("all");
