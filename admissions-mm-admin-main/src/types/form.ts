@@ -15,6 +15,7 @@ export interface FormField {
     max?: number;
     regex?: string;
   };
+  systemField?: boolean;
 }
 
 export interface Form {

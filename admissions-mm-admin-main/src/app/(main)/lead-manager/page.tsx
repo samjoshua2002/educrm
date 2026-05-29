@@ -16,8 +16,8 @@ import {
   Filter,
   Check,
   SearchX,
+  Loader2,
 } from "lucide-react";
-import { Funnel } from "recharts";
 
 import {
   AlertDialog,
@@ -64,9 +64,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { useLeads, useDeleteLead, useUpdateLeadStatus } from "@/hooks/use-leads";
+import { toast } from "sonner";
 
 type Lead = {
-  id: number;
+  id: string;
   name: string;
   email: string;
   mobile: string;
@@ -342,34 +344,6 @@ const statusStyles: Record<string, string> = {
 };
 
 export default function LeadManagerPage() {
-  const [leadsState, setLeadsState] = React.useState<any[]>(leads);
-  const [editingLeadId, setEditingLeadId] = React.useState<number | null>(null);
-  const [editForm, setEditForm] = React.useState<any | null>(null);
-  const [deleteLeadId, setDeleteLeadId] = React.useState<number | null>(null);
-
-  function handleStartEdit(lead: any) {
-    setEditingLeadId(lead.id);
-    setEditForm({ ...lead, notes: lead.notes || "" });
-  }
-
-  function handleSaveEdit() {
-    if (!editForm) return;
-    setLeadsState((prev) =>
-      prev.map((lead) => (lead.id === editForm.id ? editForm : lead)),
-    );
-    setEditingLeadId(null);
-    setEditForm(null);
-  }
-
-  function setEditField(key: string, value: any) {
-    if (!editForm) return;
-    setEditForm((prev: any) => (prev ? { ...prev, [key]: value } : null));
-  }
-
-  function handleDeleteLead(id: number) {
-    setLeadsState((prev) => prev.filter((lead) => lead.id !== id));
-  }
-
   const [currentPage, setCurrentPage] = React.useState(1);
   const itemsPerPage = 8;
   const [mobileVisibleCount, setMobileVisibleCount] = React.useState(5);
@@ -385,6 +359,41 @@ export default function LeadManagerPage() {
   const [advAssignedTo, setAdvAssignedTo] = React.useState("");
   const [advStatus, setAdvStatus] = React.useState("all");
 
+  const [editingLeadId, setEditingLeadId] = React.useState<string | null>(null);
+  const [editForm, setEditForm] = React.useState<any | null>(null);
+  const [deleteLeadId, setDeleteLeadId] = React.useState<string | null>(null);
+
+  // Hook API Calls
+  const { data: leadsResponse, isLoading, error } = useLeads(
+    currentPage,
+    itemsPerPage,
+    searchQuery || undefined,
+    undefined,
+    "unverified"
+  );
+
+  const { mutate: updateStatus } = useUpdateLeadStatus();
+  const { mutate: deleteLead } = useDeleteLead();
+
+  const leadsState = React.useMemo(() => {
+    const raw = leadsResponse?.data || [];
+    return raw.map((item: any) => ({
+      id: item.id,
+      name: `${item.firstName || ""} ${item.lastName || ""}`.trim() || "N/A",
+      email: item.email || "N/A",
+      mobile: item.phone || "N/A",
+      state: item.state || "N/A",
+      city: item.city || "N/A",
+      source: item.source || "Direct",
+      medium: item.utmMedium || "N/A",
+      campaign: item.utmCampaign || "N/A",
+      stage: item.isDuplicate ? "Duplicate" : "New",
+      status: item.status || "unverified",
+      assignedTo: item.assignedTo || "Unassigned",
+      rawLead: item
+    }));
+  }, [leadsResponse]);
+
   const [appliedAdvanced, setAppliedAdvanced] = React.useState({
     city: "",
     state: "",
@@ -396,6 +405,30 @@ export default function LeadManagerPage() {
   React.useEffect(() => {
     setMobileVisibleCount(5);
   }, [searchQuery, stageDraft, statusDraft, appliedAdvanced]);
+
+  function handleStartEdit(lead: any) {
+    setEditingLeadId(lead.id);
+    setEditForm({ ...lead, notes: lead.notes || "" });
+  }
+
+  function handleSaveEdit() {
+    // Left as mock visual modal placeholder
+    setEditingLeadId(null);
+    setEditForm(null);
+  }
+
+  function setEditField(key: string, value: any) {
+    if (!editForm) return;
+    setEditForm((prev: any) => (prev ? { ...prev, [key]: value } : null));
+  }
+
+  function handleDeleteLead(id: string) {
+    deleteLead(id, {
+      onSuccess: () => {
+        setDeleteLeadId(null);
+      }
+    });
+  }
 
   function applyFilters() {
     setCurrentPage(1);
@@ -429,55 +462,13 @@ export default function LeadManagerPage() {
     setCurrentPage(1);
   }
 
-  const filteredLeads = React.useMemo(() => {
-    return leadsState.filter((lead) => {
-      if (searchQuery) {
-        const q = searchQuery.toLowerCase();
-        const matchesSearch =
-          lead.name.toLowerCase().includes(q) ||
-          lead.email.toLowerCase().includes(q) ||
-          lead.mobile.toLowerCase().includes(q);
-        if (!matchesSearch) return false;
-      }
-      if (stageDraft !== "all" && lead.stage !== stageDraft) return false;
-      if (statusDraft !== "all" && lead.status !== statusDraft) return false;
-      if (
-        appliedAdvanced.city &&
-        !lead.city.toLowerCase().includes(appliedAdvanced.city.toLowerCase())
-      )
-        return false;
-      if (
-        appliedAdvanced.state &&
-        !lead.state.toLowerCase().includes(appliedAdvanced.state.toLowerCase())
-      )
-        return false;
-      if (
-        appliedAdvanced.source &&
-        !lead.source
-          .toLowerCase()
-          .includes(appliedAdvanced.source.toLowerCase())
-      )
-        return false;
-      if (
-        appliedAdvanced.assignedTo &&
-        !lead.assignedTo
-          .toLowerCase()
-          .includes(appliedAdvanced.assignedTo.toLowerCase())
-      )
-        return false;
-      if (
-        appliedAdvanced.status !== "all" &&
-        lead.status !== appliedAdvanced.status
-      )
-        return false;
-      return true;
-    });
-  }, [leadsState, searchQuery, stageDraft, statusDraft, appliedAdvanced]);
+  const filteredLeads = leadsState;
+  const paginatedLeads = leadsState;
 
-  const totalPages = Math.ceil(filteredLeads.length / itemsPerPage);
+  const totalPages = leadsResponse?.pagination?.totalPages || 1;
+  const totalCount = leadsResponse?.pagination?.total || 0;
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedLeads = filteredLeads.slice(startIndex, endIndex);
+  const endIndex = startIndex + paginatedLeads.length;
 
   const mobileLeads = React.useMemo(() => {
     return filteredLeads.slice(0, mobileVisibleCount);
@@ -807,10 +798,24 @@ export default function LeadManagerPage() {
                                 Edit
                               </Link>
                             </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              className="gap-2 text-emerald-600 focus:text-emerald-600 cursor-pointer font-medium"
+                              onClick={() => updateStatus({ leadId: String(item.id), status: "verified" })}
+                            >
+                              <Check className="size-4 text-emerald-600" />
+                              Verify
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              className="gap-2 text-rose-600 focus:text-rose-600 cursor-pointer font-medium"
+                              onClick={() => updateStatus({ leadId: String(item.id), status: "disqualified" })}
+                            >
+                              <Trash2 className="size-4 text-rose-600" />
+                              Disqualify
+                            </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               variant="destructive"
-                              className="gap-2"
+                              className="gap-2 cursor-pointer"
                               onClick={() => setDeleteLeadId(item.id)}
                             >
                               <Trash2 className="size-4" />
@@ -968,12 +973,24 @@ export default function LeadManagerPage() {
                               Edit
                             </Link>
                           </DropdownMenuItem>
-
+                          <DropdownMenuItem 
+                            className="gap-2 text-emerald-600 focus:text-emerald-600 cursor-pointer font-medium"
+                            onClick={() => updateStatus({ leadId: String(item.id), status: "verified" })}
+                          >
+                            <Check className="size-4 text-emerald-600" />
+                            Verify
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            className="gap-2 text-rose-600 focus:text-rose-600 cursor-pointer font-medium"
+                            onClick={() => updateStatus({ leadId: String(item.id), status: "disqualified" })}
+                          >
+                            <Trash2 className="size-4 text-rose-600" />
+                            Disqualify
+                          </DropdownMenuItem>
                           <DropdownMenuSeparator />
-
                           <DropdownMenuItem
                             variant="destructive"
-                            className="gap-2"
+                            className="gap-2 cursor-pointer"
                             onClick={() => setDeleteLeadId(item.id)}
                           >
                             <Trash2 className="size-4" />

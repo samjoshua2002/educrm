@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Lead } from './entities/lead.entity.js';
+import { LeadActivity } from './entities/lead-activity.entity.js';
 import { LeadsService } from './leads.service.js';
 import { LeadIngestionService } from './lead-ingestion.service.js';
 import { LeadAssignmentService } from './lead-assignment.service.js';
@@ -15,6 +16,7 @@ import { User } from '../users/entities/user.entity.js';
   imports: [
     TypeOrmModule.forFeature([
       Lead,
+      LeadActivity,
       Form,
       FormSubmission,
       FormStats,
