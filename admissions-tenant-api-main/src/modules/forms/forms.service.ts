@@ -9,6 +9,7 @@ import { UpdateFormDto } from './dto/update-form.dto.js';
 import { SubmitFormDto } from './dto/submit-form.dto.js';
 import { UpdateResponseStatusDto } from './dto/update-response-status.dto.js';
 import { PaginationDto } from '../../common/dto/pagination.dto.js';
+import { mergeDefaultFormFields } from './form-default-fields.js';
 
 @Injectable()
 export class FormsService {
@@ -28,6 +29,7 @@ export class FormsService {
       slug,
       organizationId: orgId,
       createdBy: userId,
+      fields: mergeDefaultFormFields([]),
     });
     return this.formRepository.save(form);
   }
@@ -61,21 +63,27 @@ export class FormsService {
     if (!form) {
       throw new NotFoundException(`Form with ID ${id} not found`);
     }
+    form.fields = mergeDefaultFormFields(form.fields);
     return form;
   }
 
   async findBySlug(slug: string): Promise<Form> {
     const form = await this.formRepository.findOne({
       where: { slug, status: FormStatus.ACTIVE },
+      relations: ['organization', 'organization.branches'],
     });
     if (!form) {
       throw new NotFoundException(`Form with slug ${slug} not found or not active`);
     }
+    form.fields = mergeDefaultFormFields(form.fields);
     return form;
   }
 
   async update(id: string, orgId: string, dto: UpdateFormDto): Promise<Form> {
     const form = await this.findOne(id, orgId);
+    if (dto.fields) {
+      dto.fields = mergeDefaultFormFields(dto.fields);
+    }
     Object.assign(form, dto);
     return this.formRepository.save(form);
   }
@@ -94,6 +102,7 @@ export class FormsService {
       name: `${originalForm.name} (Copy)`,
       status: FormStatus.DRAFT,
       createdBy: userId,
+      fields: mergeDefaultFormFields(originalForm.fields),
     });
     return this.formRepository.save(duplicatedForm);
   }

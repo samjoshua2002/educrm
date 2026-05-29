@@ -14,9 +14,16 @@ export interface CreateUserInput {
   branchId?: string;
 }
 
-export function useTeam(page: number = 1, limit: number = 10) {
+export function useTeam(pageOrOrgId?: number | string, limit: number = 10) {
   const currentUser = useAuthStore((state) => state.user);
-  const orgId = currentUser?.organizationId;
+  let page = 1;
+  let orgId = currentUser?.organizationId;
+
+  if (typeof pageOrOrgId === "string") {
+    orgId = pageOrOrgId;
+  } else if (typeof pageOrOrgId === "number") {
+    page = pageOrOrgId;
+  }
 
   return useQuery({
     queryKey: ["team", { orgId, page, limit }],
@@ -25,10 +32,10 @@ export function useTeam(page: number = 1, limit: number = 10) {
   });
 }
 
-export function useCreateUser() {
+export function useCreateUser(explicitOrgId?: string) {
   const queryClient = useQueryClient();
   const currentUser = useAuthStore((state) => state.user);
-  const orgId = currentUser?.organizationId;
+  const orgId = explicitOrgId || currentUser?.organizationId;
 
   return useMutation({
     mutationFn: (data: CreateUserInput) => apiPost<User>(`/organizations/${orgId}/users`, data),
@@ -42,10 +49,10 @@ export function useCreateUser() {
   });
 }
 
-export function useUpdateUser() {
+export function useUpdateUser(explicitOrgId?: string) {
   const queryClient = useQueryClient();
   const currentUser = useAuthStore((state) => state.user);
-  const orgId = currentUser?.organizationId;
+  const orgId = explicitOrgId || currentUser?.organizationId;
 
   return useMutation({
     mutationFn: ({ userId, data }: { userId: string; data: Partial<CreateUserInput> & { isActive?: boolean } }) =>

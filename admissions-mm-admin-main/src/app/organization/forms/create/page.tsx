@@ -15,6 +15,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useFormTemplates, useCreateForm, useUpdateForm } from "@/hooks/use-forms";
+import { FormField } from "@/types/form";
+import { DEFAULT_FORM_FIELDS, ensureDefaultFormFields } from "@/lib/default-form-fields";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -38,20 +40,23 @@ export default function OrganizationCreateFormPage() {
       const templates = templatesResponse?.data || [];
       const template = templates.find(t => t.id === templateId);
       const name = template ? `${template.name}` : "Untitled Form";
-      
+
       // 1. Create the basic form
       const newForm = await createForm({ 
         name,
         slug: name.toLowerCase().trim().replace(/\s+/g, '-') + '-' + Math.floor(Math.random() * 1000)
       });
 
-      // 2. If template selected, update with template fields
+      // 2. Initialize with locked system fields + template fields (no duplicates)
+      let fields: FormField[] = [...DEFAULT_FORM_FIELDS];
       if (template && template.fields.length > 0) {
-        await updateForm({
-          id: newForm.id,
-          data: { fields: template.fields }
-        });
+        fields = ensureDefaultFormFields(template.fields);
       }
+
+      await updateForm({
+        id: newForm.id,
+        data: { fields }
+      });
 
       toast.success("Form initialized successfully");
       router.push(`/organization/forms/${newForm.id}/edit`);

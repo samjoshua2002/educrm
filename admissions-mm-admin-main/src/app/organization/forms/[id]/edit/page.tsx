@@ -65,6 +65,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { useForm, useUpdateForm } from "@/hooks/use-forms";
 import { FormField, Form, UpdateFormInput } from "@/types/form";
+import { ensureDefaultFormFields, isSystemField } from "@/lib/default-form-fields";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Loader2 } from "lucide-react";
 
@@ -103,7 +104,7 @@ function SortableField({
     transform,
     transition,
     isDragging
-  } = useSortable({ id: field.id });
+  } = useSortable({ id: field.id, disabled: field.systemField });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -141,22 +142,26 @@ function SortableField({
           </Label>
           {isSelected && (
             <div className="flex items-center gap-1">
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-6 w-6 text-slate-400 hover:text-primary"
-                onClick={(e) => { e.stopPropagation(); onDuplicate(field); }}
-              >
-                <Copy className="h-3 w-3"/>
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-6 w-6 text-slate-400 hover:text-destructive"
-                onClick={(e) => { e.stopPropagation(); onRemove(field.id); }}
-              >
-                <Trash2 className="h-3 w-3"/>
-              </Button>
+              {!field.systemField && (
+                <>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-6 w-6 text-slate-400 hover:text-primary"
+                    onClick={(e) => { e.stopPropagation(); onDuplicate(field); }}
+                  >
+                    <Copy className="h-3 w-3"/>
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-6 w-6 text-slate-400 hover:text-destructive"
+                    onClick={(e) => { e.stopPropagation(); onRemove(field.id); }}
+                  >
+                    <Trash2 className="h-3 w-3"/>
+                  </Button>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -204,7 +209,7 @@ export default function OrganizationFormBuilderPage({ params }: { params: Promis
   React.useEffect(() => {
     if (form) {
       // Normalize fields to ensure options are objects {id, label}
-      const normalizedFields = (form.fields || []).map(field => {
+      let normalizedFields = (form.fields || []).map(field => {
         if (field.options && Array.isArray(field.options)) {
           return {
             ...field,
@@ -217,7 +222,8 @@ export default function OrganizationFormBuilderPage({ params }: { params: Promis
         }
         return field;
       });
-      setLocalFields(normalizedFields);
+
+      setLocalFields(ensureDefaultFormFields(normalizedFields));
       setLocalName(form.name);
       setLocalSlug(form.slug);
       setLocalStatus(form.status);
@@ -246,11 +252,20 @@ export default function OrganizationFormBuilderPage({ params }: { params: Promis
   };
 
   const removeField = (fieldId: string) => {
+    const target = localFields.find((f) => f.id === fieldId);
+    if (target?.systemField || isSystemField(target ?? { id: fieldId, label: "" })) {
+      toast.error("System fields cannot be removed");
+      return;
+    }
     setLocalFields(prev => prev.filter(f => f.id !== fieldId));
     if (selectedFieldId === fieldId) setSelectedFieldId(null);
   };
 
   const duplicateField = (field: FormField) => {
+    if (field.systemField || isSystemField(field)) {
+      toast.error("System fields cannot be duplicated");
+      return;
+    }
     const newField: FormField = {
       ...field,
       id: Math.random().toString(36).substr(2, 9),
@@ -264,12 +279,21 @@ export default function OrganizationFormBuilderPage({ params }: { params: Promis
   };
 
   const updateField = (fieldId: string, updates: Partial<FormField>) => {
+    const target = localFields.find((f) => f.id === fieldId);
+    if (target?.systemField || isSystemField(target ?? { id: fieldId, label: "" })) {
+      return;
+    }
     setLocalFields(prev => prev.map(f => f.id === fieldId ? { ...f, ...updates } : f));
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (over && active.id !== over.id) {
+      const activeField = localFields.find((i) => i.id === active.id);
+      const overField = localFields.find((i) => i.id === over.id);
+      if (activeField?.systemField || overField?.systemField) {
+        return;
+      }
       const oldIndex = localFields.findIndex((i) => i.id === active.id);
       const newIndex = localFields.findIndex((i) => i.id === over.id);
       setLocalFields(prev => arrayMove(prev, oldIndex, newIndex));
@@ -283,7 +307,7 @@ export default function OrganizationFormBuilderPage({ params }: { params: Promis
       data: {
         name: localName,
         slug: localSlug,
-        fields: localFields,
+        fields: ensureDefaultFormFields(localFields),
         status: status as any
       }
     });
@@ -468,6 +492,11 @@ export default function OrganizationFormBuilderPage({ params }: { params: Promis
               {selectedField ? (
                 <ScrollArea className="flex-1">
                   <div className="p-6 space-y-8">
+                    {selectedField.systemField && (
+                      <div className="p-3 bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-300 text-xs rounded-lg border border-amber-200">
+                        This is a system-default field required for lead processing and cannot be deleted or modified.
+                      </div>
+                    )}
                     <div>
                       <h3 className="text-sm font-bold text-slate-900 mb-6 flex items-center gap-2">
                         <Settings className="h-4 w-4 text-primary" />
@@ -481,6 +510,7 @@ export default function OrganizationFormBuilderPage({ params }: { params: Promis
                             value={selectedField.label}
                             onChange={(e) => updateField(selectedField.id, { label: e.target.value })}
                             className="bg-muted/30 focus-visible:ring-primary/20"
+                            disabled={selectedField.systemField}
                           />
                         </div>
                         <div className="space-y-2">
@@ -490,6 +520,7 @@ export default function OrganizationFormBuilderPage({ params }: { params: Promis
                             value={selectedField.placeholder || ""}
                             onChange={(e) => updateField(selectedField.id, { placeholder: e.target.value })}
                             className="bg-muted/30 focus-visible:ring-primary/20"
+                            disabled={selectedField.systemField}
                           />
                         </div>
                       </div>
@@ -502,45 +533,56 @@ export default function OrganizationFormBuilderPage({ params }: { params: Promis
                         <div className="space-y-4">
                           <div className="flex items-center justify-between">
                             <Label className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Options</Label>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="h-6 text-[10px] font-bold uppercase p-0"
-                              onClick={() => {
-                                const currentOptions = selectedField.options || [];
-                                updateField(selectedField.id, { 
-                                  options: [...currentOptions, { id: Math.random().toString(36).substr(2, 6), label: `Option ${currentOptions.length + 1}` }] 
-                                });
-                              }}
-                            >
-                              <Plus className="h-3 w-3 mr-1" /> Add Option
-                            </Button>
+                            {!selectedField.systemField && (
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-6 text-[10px] font-bold uppercase p-0"
+                                onClick={() => {
+                                  const currentOptions = selectedField.options || [];
+                                  updateField(selectedField.id, { 
+                                    options: [...currentOptions, { id: Math.random().toString(36).substr(2, 6), label: `Option ${currentOptions.length + 1}` }] 
+                                  });
+                                }}
+                              >
+                                <Plus className="h-3 w-3 mr-1" /> Add Option
+                              </Button>
+                            )}
                           </div>
                           <div className="space-y-2">
-                            {(selectedField.options || []).map((option, idx) => (
-                              <div key={idx} className="flex items-center gap-2">
-                                <Input 
-                                  value={option.label}
-                                  onChange={(e) => {
-                                    const newOptions = [...(selectedField.options || [])];
-                                    newOptions[idx] = { ...newOptions[idx], label: e.target.value };
-                                    updateField(selectedField.id, { options: newOptions });
-                                  }}
-                                  className="h-8 text-xs bg-muted/30"
-                                />
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon" 
-                                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                  onClick={() => {
-                                    const newOptions = (selectedField.options || []).filter((_, i) => i !== idx);
-                                    updateField(selectedField.id, { options: newOptions });
-                                  }}
-                                >
-                                  <X className="h-3 w-3" />
-                                </Button>
+                            {selectedField.systemField && selectedField.id === "location" ? (
+                              <div className="text-xs text-muted-foreground italic p-2 bg-slate-50 border rounded-lg">
+                                Loaded dynamically from organization branches.
                               </div>
-                            ))}
+                            ) : (
+                              (selectedField.options || []).map((option, idx) => (
+                                <div key={idx} className="flex items-center gap-2">
+                                  <Input 
+                                    value={option.label}
+                                    onChange={(e) => {
+                                      const newOptions = [...(selectedField.options || [])];
+                                      newOptions[idx] = { ...newOptions[idx], label: e.target.value };
+                                      updateField(selectedField.id, { options: newOptions });
+                                    }}
+                                    className="h-8 text-xs bg-muted/30"
+                                    disabled={selectedField.systemField}
+                                  />
+                                  {!selectedField.systemField && (
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                      onClick={() => {
+                                        const newOptions = (selectedField.options || []).filter((_, i) => i !== idx);
+                                        updateField(selectedField.id, { options: newOptions });
+                                      }}
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </Button>
+                                  )}
+                                </div>
+                              ))
+                            )}
                           </div>
                         </div>
                       </>
@@ -559,6 +601,7 @@ export default function OrganizationFormBuilderPage({ params }: { params: Promis
                         <Switch 
                           checked={selectedField.required}
                           onCheckedChange={(val) => updateField(selectedField.id, { required: val })}
+                          disabled={selectedField.systemField}
                         />
                       </div>
                     </div>
