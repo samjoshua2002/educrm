@@ -309,6 +309,56 @@ function formatDate(dateStr: string) {
   });
 }
 
+function exportToCSV(data: Application[], filename = "applications.csv") {
+  const headers = [
+    "Application No",
+    "Name",
+    "Email",
+    "Phone",
+    "Program",
+    "Campus",
+    "Form Status",
+    "Payment Status",
+    "Payment Mode",
+    "Payment Amount (₹)",
+    "Last Activity",
+  ];
+
+  const escape = (val: string | number) => {
+    const str = String(val);
+    if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  };
+
+  const rows = data.map((app) => [
+    escape(app.applicationNo),
+    escape(app.name),
+    escape(app.email),
+    escape(app.phone),
+    escape(app.program),
+    escape(app.campus),
+    escape(app.formStatus),
+    escape(app.paymentStatus),
+    escape(app.paymentMode),
+    escape(app.paymentAmount),
+    escape(app.lastActivity),
+  ]);
+
+  const csvContent = [headers.join(","), ...rows.map((r) => r.join(","))].join(
+    "\n",
+  );
+
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function ApplicationsPage() {
   const [applicationsState, setApplicationsState] =
     React.useState<Application[]>(applications);
@@ -318,7 +368,7 @@ export default function ApplicationsPage() {
     setApplicationsState((prev) => prev.filter((app) => app.id !== id));
   }
   const [currentPage, setCurrentPage] = React.useState(1);
-  const itemsPerPage = 10;
+  const itemsPerPage = 8;
 
   const [searchQuery, setSearchQuery] = React.useState("");
   const [formStatusDraft, setFormStatusDraft] = React.useState("all");
@@ -597,6 +647,8 @@ export default function ApplicationsPage() {
             <Button
               variant="outline"
               className="w-full sm:w-auto shrink-0 border border-border h-[39px] text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground"
+              onClick={() => exportToCSV(filteredApplications)}
+              disabled={filteredApplications.length === 0}
             >
               <Download className="size-4 mr-2" />
               Export
@@ -745,7 +797,7 @@ export default function ApplicationsPage() {
                 <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
                   APPLICANT DETAIL
                 </TableHead>
-                <TableHead className="py-4 px-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
+                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
                   APPLICATION NO.
                 </TableHead>
                 <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
@@ -875,7 +927,7 @@ export default function ApplicationsPage() {
           <div className="flex flex-col sm:flex-row items-center justify-between border-t border-border/80 bg-zinc-100 dark:bg-muted/5 py-4 px-6 gap-4">
             <p className="text-sm text-muted-foreground font-normal">
               Showing{" "}
-              <span className="font-medium text-foreground">
+              <span className="font-medium text-foreground ">
                 {filteredApplications.length === 0 ? 0 : startIndex + 1}
               </span>{" "}
               to{" "}
@@ -890,16 +942,16 @@ export default function ApplicationsPage() {
             </p>
             {totalPages > 1 && (
               <div className="flex items-center gap-2 flex-wrap">
-                <Button
-                  variant="outline"
-                  className="h-9 px-4 border border-border/80 bg-background text-foreground text-sm font-normal rounded-[6px] hover:bg-muted/30 dark:hover:bg-muted/10 transition-colors shadow-2xs"
-                  onClick={() => {
-                    if (currentPage > 1) setCurrentPage(currentPage - 1);
-                  }}
-                  disabled={currentPage === 1}
-                >
-                  Previous
-                </Button>
+    <Button
+  variant="outline"
+  className="h-9 px-4 border border-border/80 bg-background text-foreground text-sm font-normal rounded-[6px] hover:bg-muted/30 hover:text-[var(--primary)] dark:hover:bg-muted/10 transition-colors shadow-2xs"
+  onClick={() => {
+    if (currentPage > 1) setCurrentPage(currentPage - 1);
+  }}
+  disabled={currentPage === 1}
+>
+  Previous
+</Button>
 
                 <div className="flex items-center gap-1">
                   {visiblePages.map((page) => {
@@ -910,8 +962,8 @@ export default function ApplicationsPage() {
                         variant={isActive ? "default" : "outline"}
                         className={`h-9 w-9 p-0 text-sm border shadow-2xs rounded-[6px] transition-colors ${
                           isActive
-                            ? "bg-background border-border text-foreground font-semibold hover:bg-muted/15 dark:hover:bg-muted/5 shadow-xs"
-                            : "border-border/80 bg-transparent text-muted-foreground hover:bg-muted/30 dark:hover:bg-muted/10 hover:text-foreground font-normal"
+                            ? "bg-[#EA2525] border-[#EA2525] text-white font-semibold hover:bg-[#D61F1F] shadow-xs"
+                            : "border-border/80 bg-background text-muted-foreground hover:bg-muted/30 dark:hover:bg-muted/10 hover:text-foreground font-normal"
                         }`}
                         onClick={() => setCurrentPage(page)}
                       >
@@ -921,17 +973,17 @@ export default function ApplicationsPage() {
                   })}
                 </div>
 
-                <Button
-                  variant="outline"
-                  className="h-9 px-4 border border-border/80 bg-background text-foreground text-sm font-normal rounded-[6px] hover:bg-muted/30 dark:hover:bg-muted/10 transition-colors shadow-2xs"
-                  onClick={() => {
-                    if (currentPage < totalPages)
-                      setCurrentPage(currentPage + 1);
-                  }}
-                  disabled={currentPage === totalPages}
-                >
-                  Next
-                </Button>
+  <Button
+  variant="outline"
+  className="h-9 px-4 border border-border/80 bg-background text-foreground text-sm font-normal rounded-[6px] hover:bg-muted/30 hover:text-[var(--primary)] dark:hover:bg-muted/10 transition-colors shadow-2xs"
+  onClick={() => {
+    if (currentPage < totalPages)
+      setCurrentPage(currentPage + 1);
+  }}
+  disabled={currentPage === totalPages}
+>
+  Next
+</Button>
               </div>
             )}
           </div>

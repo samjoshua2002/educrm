@@ -18,7 +18,7 @@ export function DynamicHeader() {
   const getTitle = () => {
     if (pathname.startsWith("/dashboard")) return "Dashboard Overview";
     if (pathname.startsWith("/lead-manager")) return "Lead Management";
-    if (pathname.startsWith("/gd-interview")) return "GD Interview";
+    if (pathname.startsWith("/gd-interview")) return "GD & Interview";
     if (pathname.startsWith("/payments")) return "Payments testing";
 
     const segments = pathname.split("/").filter(Boolean);
@@ -37,7 +37,7 @@ export function DynamicHeader() {
       <Button variant="ghost" size="icon" className="size-9 rounded-full">
         <Bell className="size-5" />
       </Button>
-      <Button className="rounded-[8px] bg-[#2563EA] hover:bg-[#1D4ED8]">
+      <Button className="hidden md:flex rounded-[8px] bg-[#2563EA] hover:bg-[#1D4ED8]">
         <Plus className="size-4 mr-2" />
         New applications
       </Button>
@@ -49,7 +49,7 @@ export function DynamicHeader() {
       <div className="flex w-full items-center justify-between px-4 lg:px-6">
         {/* Left Side: Sidebar Trigger + Dynamic Title */}
         <div className="flex items-center gap-4">
-          <SidebarTrigger className="md:hidden" />
+          <SidebarTrigger className="lg:hidden !text-[#120352] hover:!text-[#120352]/80 hover:bg-zinc-100/50 dark:hover:bg-zinc-800/50" />
           <h1 className="text-lg font-semibold tracking-tight">{title}</h1>
         </div>
 

@@ -91,7 +91,7 @@ export function SaasLoginForm() {
                   type="email" 
                   placeholder="" 
                   autoComplete="email" 
-                  className="h-12 border-[#66666659] rounded-[10px] bg-white focus-visible:ring-[#2563EB]/20 focus-visible:border-[#2563EB]"
+                  className="h-12 border-[#66666659] rounded-[10px] bg-white focus-visible:ring-[var(--ring)]/20 focus-visible:border-[var(--ring)]"
                   suppressHydrationWarning={true}
                   {...field} 
                 />
@@ -127,7 +127,7 @@ export function SaasLoginForm() {
                   type={showPassword ? "text" : "password"}
                   placeholder=""
                   autoComplete="current-password"
-                  className="h-12 border-[#66666659] rounded-[10px] bg-white focus-visible:ring-[#2563EB]/20 focus-visible:border-[#2563EB]"
+                  className="h-12 border-[#66666659] rounded-[10px] bg-white focus-visible:ring-[var(--ring)]/20 focus-visible:border-[var(--ring)]"
                   suppressHydrationWarning={true}
                   {...field}
                 />
@@ -139,14 +139,12 @@ export function SaasLoginForm() {
 
      
 
-        <Button 
-          className="w-full h-12 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-[25px] font-medium text-base shadow-lg transition-all mt-1" 
-          type="submit" 
-          disabled={form.formState.isSubmitting}
-          suppressHydrationWarning={true}
-        >
-          {form.formState.isSubmitting ? "Signing in..." : "Sign in"}
-        </Button>
+      <Button 
+  className="w-full h-12 bg-primary hover:bg-[var(--primary-hover)] text-primary-foreground rounded-[25px] font-medium text-base shadow-lg transition-all mt-1"
+  type="submit"
+>
+  Sign in
+</Button>
            <div className="flex items-center justify-between pt-1">
           <FormField
             control={form.control}

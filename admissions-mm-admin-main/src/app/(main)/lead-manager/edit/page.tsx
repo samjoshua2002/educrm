@@ -181,7 +181,7 @@ function EditLeadForm() {
 
   return (
     <>
-      <div className="sticky top-12 z-10 bg-background/40 backdrop-blur-md flex items-center px-4 md:px-6 py-3 gap-3  border-border/80">
+      <div className="sticky top-0 z-10 bg-background/40 backdrop-blur-md flex items-center px-4 md:px-6 py-3 gap-3  border-border/80">
         <Link href="/lead-manager">
           <Button variant="ghost" size="icon">
             <ChevronLeft className="size-5" />
@@ -504,7 +504,7 @@ function EditLeadForm() {
 
               <div className="flex flex-col gap-3 mt-4">
                 <Button
-                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground flex items-center justify-center gap-2 h-11 text-base font-medium rounded-[8px]"
+                  className="w-full bg-ring hover:bg-ring/90 text-primary-foreground flex items-center justify-center gap-2 h-11 text-base font-medium rounded-[8px]"
                   onClick={handleSubmit}
                 >
                   <Check className="size-5" />
