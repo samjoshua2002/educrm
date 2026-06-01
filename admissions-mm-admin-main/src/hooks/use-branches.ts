@@ -12,6 +12,7 @@ export interface Branch {
   address: string;
   city: string;
   state: string;
+  description?: string;
   isActive: boolean;
   createdAt: string;
 }
@@ -22,6 +23,7 @@ export interface CreateBranchInput {
   address?: string;
   city?: string;
   state?: string;
+  description?: string;
   isActive?: boolean;
 }
 
@@ -77,11 +79,12 @@ export function useCreateBranch() {
 export function useBranch(id: string | null) {
   const user = useAuthStore((state) => state.user);
   const orgId = user?.organizationId;
+  const isValidUuid = id ? /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) : false;
 
   return useQuery({
     queryKey: ["branch", id, { orgId }],
     queryFn: () => apiGet<Branch>(`/organizations/${orgId}/branches/${id}`),
-    enabled: !!orgId && !!id,
+    enabled: !!orgId && isValidUuid,
   });
 }
 

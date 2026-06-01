@@ -47,7 +47,10 @@ api.interceptors.response.use(
   },
   (error: AxiosError<ApiError>) => {
     const status = error.response?.status;
-    const message = error.response?.data?.message || error.message || "An unexpected error occurred.";
+    let message = error.response?.data?.message || error.message || "An unexpected error occurred.";
+    if (Array.isArray(message)) {
+      message = message.join(", ");
+    }
 
     switch (status) {
       case 401:

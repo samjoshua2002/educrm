@@ -92,7 +92,7 @@ export default function TeamPage() {
     createUser({
       name: newName,
       email: newEmail,
-      phone: newPhone,
+      phone: newPhone || undefined,
       role: newRole,
       branchId: newBranch !== "none" ? newBranch : undefined,
       password: "initialPassword123", // Ideally handled by an invite flow or system default
@@ -113,6 +113,11 @@ export default function TeamPage() {
       data: { isActive: user.isActive === false } // If it's false, set to true. If undefined/true, set to false.
     });
   };
+
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   if (error) {
      return (
@@ -179,7 +184,7 @@ export default function TeamPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading && team.length === 0 ? (
+              {(!mounted || isLoading) && team.length === 0 ? (
                  Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={i}>
                     <TableCell colSpan={6} className="h-16">
