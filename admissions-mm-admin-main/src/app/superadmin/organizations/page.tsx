@@ -62,7 +62,8 @@ export default function OrganizationsPage() {
     <>
       <div className="sticky top-12 z-10 bg-background/40 backdrop-blur-md flex items-center justify-between px-4 md:px-6 py-3 border-b">
         <div className="flex items-center gap-2">
-          <h1 className="text-xl font-semibold">Organizations</h1>
+          <h1 className="text-xl font-semibold">Organizationss</h1> 
+          {/* testing */}
           {isLoading && <Loader2 className="animate-spin size-4 text-muted-foreground" />}
         </div>
         <Link href="/superadmin/organizations/create">
