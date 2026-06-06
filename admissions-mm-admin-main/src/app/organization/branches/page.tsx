@@ -100,7 +100,7 @@ export default function BranchesPage() {
   const [deleteBranchId, setDeleteBranchId] = React.useState<string | null>(null);
 
   const { data: branchesResponse, isLoading, error } = useBranches(1, 50); // fetch 50 per request
-  const { data: teamResponse } = useTeam(1, 1000); // Fetch staff to compute counts
+  const { data: teamResponse } = useTeam(1, 100); // Fetch staff to compute counts (backend max is 100)
   const deleteBranch = useDeleteBranch();
 
   const allStaff = teamResponse?.data || [];
@@ -567,7 +567,12 @@ export default function BranchesPage() {
         </div>
 
         {/* Mobile View - Ultra-Compact List Layout */}
-        {filteredBranches.length === 0 && !isLoading ? (
+        {(!mounted || isLoading) && allBranches.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-3 py-16 border border-border/80 bg-card rounded-xl lg:hidden text-center px-4 w-full">
+            <div className="size-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            <p className="text-sm text-muted-foreground">Loading branches...</p>
+          </div>
+        ) : filteredBranches.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 py-16 border border-border/80 bg-card rounded-xl lg:hidden text-center px-4 w-full">
             <div className="flex size-12 items-center justify-center rounded-full bg-muted/40">
               <SearchX className="size-6 text-muted-foreground/80" />
@@ -669,16 +674,7 @@ export default function BranchesPage() {
                         </Badge>
                       </span>
                     </div>
-
-                    <div className="flex flex-col gap-1">
-                      <span className="font-medium text-muted-foreground/80 block flex items-center gap-1">
-                        <Users className="size-3" /> Staff:
-                      </span>
-                      <span className="text-foreground/95 font-medium">
-                        {allStaff.filter((u) => u.branchId === item.id).length}
-                      </span>
-                    </div>
-
+                    
                     <div className="flex flex-col gap-1 col-span-2">
                       <span className="font-medium text-muted-foreground/80 block flex items-center gap-1">
                         <Calendar className="size-3" /> Created:
@@ -691,6 +687,9 @@ export default function BranchesPage() {
                         })}
                       </span>
                     </div>
+
+                
+
                   </div>
                 </div>
               );

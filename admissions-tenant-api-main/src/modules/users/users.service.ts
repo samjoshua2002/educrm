@@ -183,4 +183,18 @@ export class UsersService {
     }
     await this.userRepo.remove(user);
   }
+
+  async deactivateStaffInBranch(branchId: string, organizationId: string, actorId: string): Promise<void> {
+    const staff = await this.userRepo.find({
+      where: { branchId, organizationId, isActive: true },
+    });
+    for (const user of staff) {
+      user.isActive = false;
+      user.tokenVersion += 1;
+      user.updatedBy = actorId;
+    }
+    if (staff.length > 0) {
+      await this.userRepo.save(staff);
+    }
+  }
 }

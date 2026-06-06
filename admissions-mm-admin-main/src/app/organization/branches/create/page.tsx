@@ -59,7 +59,7 @@ const INDIAN_STATES = [
 export default function AddBranchPage() {
   const router = useRouter();
   const createBranch = useCreateBranch();
-  const { data: branchesRes } = useBranches(1, 1000);
+  const { data: branchesRes } = useBranches(1, 100);
   const allBranches = branchesRes?.data || [];
 
   const [form, setForm] = React.useState({

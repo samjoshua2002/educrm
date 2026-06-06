@@ -65,8 +65,8 @@ export default function EditBranchPage() {
 
   const { data: branchResponse, isLoading } = useBranch(branchId);
   const updateBranch = useUpdateBranch();
-  const { data: branchesRes } = useBranches(1, 1000);
-  const { data: teamRes } = useTeam(1, 1000);
+  const { data: branchesRes } = useBranches(1, 100);
+  const { data: teamRes } = useTeam(1, 100);
   const allBranches = branchesRes?.data || [];
   const assignedStaffCount = teamRes?.data?.filter(u => u.branchId === branchId).length || 0;
 
@@ -357,7 +357,7 @@ export default function EditBranchPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="rounded-[8px] p-4 bg-[#F8F9FA] flex flex-col gap-1">
                     <span className="text-2xl font-bold text-blue-900">{assignedStaffCount}</span>
-                    <span className="text-[10px] uppercase font-semibold tracking-wider text-muted-foreground">No of members in {form.name || "this branch"}</span>
+                    <span className="text-[10px] uppercase font-semibold tracking-wider text-muted-foreground">Assigned Staff</span>
                   </div>
                   <div className="rounded-[8px] p-4 bg-[#F8F9FA] flex flex-col gap-1">
                     <span className="text-2xl font-bold text-blue-900">0</span>

@@ -5,12 +5,14 @@ import { Branch } from './entities/branch.entity.js';
 import { CreateBranchDto } from './dto/create-branch.dto.js';
 import { UpdateBranchDto } from './dto/update-branch.dto.js';
 import { PaginationDto } from '../../common/dto/pagination.dto.js';
+import { UsersService } from '../users/users.service.js';
 
 @Injectable()
 export class BranchesService {
   constructor(
     @InjectRepository(Branch)
     private readonly branchRepo: Repository<Branch>,
+    private readonly usersService: UsersService,
   ) {}
 
   async create(
@@ -58,9 +60,16 @@ export class BranchesService {
     actorId: string,
   ): Promise<Branch> {
     const branch = await this.findOne(id, organizationId);
+    const wasActive = branch.isActive;
     Object.assign(branch, dto);
     branch.updatedBy = actorId;
-    return this.branchRepo.save(branch);
+    const savedBranch = await this.branchRepo.save(branch);
+
+    if (wasActive && !savedBranch.isActive) {
+      await this.usersService.deactivateStaffInBranch(id, organizationId, actorId);
+    }
+
+    return savedBranch;
   }
 
   async remove(id: string, organizationId: string): Promise<void> {
