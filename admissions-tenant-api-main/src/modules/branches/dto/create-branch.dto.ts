@@ -25,6 +25,10 @@ export class CreateBranchDto {
   state?: string;
 
   @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
   @IsBoolean()
   isActive?: boolean;
 }

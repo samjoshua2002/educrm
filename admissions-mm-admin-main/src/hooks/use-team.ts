@@ -70,3 +70,21 @@ export function useUpdateUser(explicitOrgId?: string) {
     },
   });
 }
+
+export function useDeleteUser(explicitOrgId?: string) {
+  const queryClient = useQueryClient();
+  const currentUser = useAuthStore((state) => state.user);
+  const orgId = explicitOrgId || currentUser?.organizationId;
+
+  return useMutation({
+    mutationFn: (userId: string) => apiDelete(`/organizations/${orgId}/users/${userId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["team"] });
+      toast.success("Team member deleted successfully");
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || "Failed to delete team member");
+    },
+  });
+}
+

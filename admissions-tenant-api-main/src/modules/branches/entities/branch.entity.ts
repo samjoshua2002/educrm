@@ -29,6 +29,9 @@ export class Branch {
   @Column({ length: 100, nullable: true })
   state: string;
 
+  @Column({ type: 'text', nullable: true })
+  description: string;
+
   @Column({ name: 'is_active', default: true })
   isActive: boolean;
 
