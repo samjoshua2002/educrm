@@ -1,7 +1,12 @@
 import { FormField } from "@/types/form";
 
 /** Stable IDs used in submissions and lead ingestion (location → leads.branch_id). */
-export const SYSTEM_FIELD_IDS = ["full_name", "phone", "location", "email"] as const;
+export const SYSTEM_FIELD_IDS = [
+  "full_name",
+  "phone",
+  "location",
+  "email",
+] as const;
 
 export type SystemFieldId = (typeof SYSTEM_FIELD_IDS)[number];
 

@@ -5,7 +5,10 @@ export default function SuperadminDashboardPage() {
         <h1 className="text-xl font-semibold">Superadmin Dashboard</h1>
       </div>
       <div className="flex flex-col gap-4 p-4 md:p-6">
-        <p>Welcome to the Superadmin Dashboard. Here you can monitor all organizations and platform metrics.</p>
+        <p>
+          Welcome to the Superadmin Dashboard. Here you can monitor all
+          organizations and platform metrics.
+        </p>
       </div>
     </>
   );

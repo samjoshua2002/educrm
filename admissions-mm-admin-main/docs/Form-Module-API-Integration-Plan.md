@@ -6,13 +6,13 @@
 
 # 1. Current State (What We Have)
 
-| Layer | Current | Target |
-| :--- | :--- | :--- |
-| **State** | `useFormStore` (Zustand, `mockStore.ts`) | React Query hooks (`use-forms.ts`) |
-| **Data Source** | Hardcoded arrays in memory | Backend API (`/organizations/:orgId/forms`) |
-| **Templates** | Hardcoded in `mockStore.ts` | Backend API (`/form-templates`) |
-| **Responses** | Hardcoded in `mockStore.ts` | Backend API (`/organizations/:orgId/forms/:id/responses`) |
-| **Public Form** | Not implemented | Backend API (`/public/forms/:slug`) |
+| Layer           | Current                                  | Target                                                    |
+| :-------------- | :--------------------------------------- | :-------------------------------------------------------- |
+| **State**       | `useFormStore` (Zustand, `mockStore.ts`) | React Query hooks (`use-forms.ts`)                        |
+| **Data Source** | Hardcoded arrays in memory               | Backend API (`/organizations/:orgId/forms`)               |
+| **Templates**   | Hardcoded in `mockStore.ts`              | Backend API (`/form-templates`)                           |
+| **Responses**   | Hardcoded in `mockStore.ts`              | Backend API (`/organizations/:orgId/forms/:id/responses`) |
+| **Public Form** | Not implemented                          | Backend API (`/public/forms/:slug`)                       |
 
 ---
 
@@ -20,34 +20,34 @@
 
 ## 2.1 Forms (Admin — Authenticated)
 
-| Action | Method | Endpoint | Used In |
-| :--- | :--- | :--- | :--- |
-| List Forms | `GET` | `/organizations/:orgId/forms` | Listing Page |
-| Create Form | `POST` | `/organizations/:orgId/forms` | Create Page |
-| Update Form | `PATCH` | `/organizations/:orgId/forms/:id` | Builder (Save/Publish) |
-| Duplicate Form | `POST` | `/organizations/:orgId/forms/:id/duplicate` | Listing Page |
+| Action         | Method  | Endpoint                                    | Used In                |
+| :------------- | :------ | :------------------------------------------ | :--------------------- |
+| List Forms     | `GET`   | `/organizations/:orgId/forms`               | Listing Page           |
+| Create Form    | `POST`  | `/organizations/:orgId/forms`               | Create Page            |
+| Update Form    | `PATCH` | `/organizations/:orgId/forms/:id`           | Builder (Save/Publish) |
+| Duplicate Form | `POST`  | `/organizations/:orgId/forms/:id/duplicate` | Listing Page           |
 
 > **Note**: Delete Form endpoint is not listed in the API docs. Confirm with backend if `DELETE /organizations/:orgId/forms/:id` exists or if forms should only be set to "expired" status via PATCH.
 
 ## 2.2 Templates (Admin — Authenticated)
 
-| Action | Method | Endpoint | Used In |
-| :--- | :--- | :--- | :--- |
-| List Templates | `GET` | `/form-templates` | Create Page (Step 2) |
+| Action         | Method | Endpoint          | Used In              |
+| :------------- | :----- | :---------------- | :------------------- |
+| List Templates | `GET`  | `/form-templates` | Create Page (Step 2) |
 
 ## 2.3 Responses (Admin — Authenticated)
 
-| Action | Method | Endpoint | Used In |
-| :--- | :--- | :--- | :--- |
-| List Responses | `GET` | `/organizations/:orgId/forms/:id/responses` | Responses Page |
-| Update Status | `PATCH` | `/responses/:id` | Responses Page |
+| Action         | Method  | Endpoint                                    | Used In        |
+| :------------- | :------ | :------------------------------------------ | :------------- |
+| List Responses | `GET`   | `/organizations/:orgId/forms/:id/responses` | Responses Page |
+| Update Status  | `PATCH` | `/responses/:id`                            | Responses Page |
 
 ## 2.4 Public Form (Unauthenticated)
 
-| Action | Method | Endpoint | Used In |
-| :--- | :--- | :--- | :--- |
-| Get Form Config | `GET` | `/public/forms/:slug` | Public Form Page |
-| Submit Form | `POST` | `/public/forms/:slug/submit` | Public Form Page |
+| Action          | Method | Endpoint                     | Used In          |
+| :-------------- | :----- | :--------------------------- | :--------------- |
+| Get Form Config | `GET`  | `/public/forms/:slug`        | Public Form Page |
+| Submit Form     | `POST` | `/public/forms/:slug/submit` | Public Form Page |
 
 ---
 
@@ -66,6 +66,7 @@ src/
 # 4. Hook Definitions (`use-forms.ts`)
 
 Follow the exact pattern used in `use-branches.ts`:
+
 - `useAuthStore` for `orgId`
 - `apiGet`, `apiPost`, `apiPatch` from `@/lib/api`
 - `useQuery` for reads, `useMutation` for writes
@@ -74,7 +75,12 @@ Follow the exact pattern used in `use-branches.ts`:
 ## 4.1 `useForms` — List Forms (Paginated)
 
 ```ts
-function useForms(page: number, limit: number, search?: string, status?: string)
+function useForms(
+  page: number,
+  limit: number,
+  search?: string,
+  status?: string,
+);
 ```
 
 - **API**: `GET /organizations/:orgId/forms?page=&limit=&search=&status=`
@@ -85,7 +91,7 @@ function useForms(page: number, limit: number, search?: string, status?: string)
 ## 4.2 `useCreateForm` — Create Form
 
 ```ts
-function useCreateForm()
+function useCreateForm();
 ```
 
 - **API**: `POST /organizations/:orgId/forms`
@@ -96,7 +102,7 @@ function useCreateForm()
 ## 4.3 `useUpdateForm` — Update Form (Fields, Name, Status)
 
 ```ts
-function useUpdateForm()
+function useUpdateForm();
 ```
 
 - **API**: `PATCH /organizations/:orgId/forms/:id`
@@ -105,6 +111,7 @@ function useUpdateForm()
 - **Used by**: `organization/forms/[id]/edit/page.tsx` (Save Draft, Publish)
 
 > **CRITICAL**: This single endpoint replaces THREE mock store actions:
+>
 > - `updateForm(id, { name })` → rename
 > - `updateForm(id, { fields })` → save builder state
 > - `updateForm(id, { status: "active" })` → publish
@@ -112,7 +119,7 @@ function useUpdateForm()
 ## 4.4 `useDuplicateForm` — Duplicate Form
 
 ```ts
-function useDuplicateForm()
+function useDuplicateForm();
 ```
 
 - **API**: `POST /organizations/:orgId/forms/:id/duplicate`
@@ -122,7 +129,7 @@ function useDuplicateForm()
 ## 4.5 `useFormTemplates` — List Templates
 
 ```ts
-function useFormTemplates()
+function useFormTemplates();
 ```
 
 - **API**: `GET /form-templates`
@@ -133,7 +140,12 @@ function useFormTemplates()
 ## 4.6 `useFormResponses` — List Responses for a Form
 
 ```ts
-function useFormResponses(formId: string, page: number, limit: number, status?: string)
+function useFormResponses(
+  formId: string,
+  page: number,
+  limit: number,
+  status?: string,
+);
 ```
 
 - **API**: `GET /organizations/:orgId/forms/:formId/responses?page=&limit=&status=`
@@ -144,7 +156,7 @@ function useFormResponses(formId: string, page: number, limit: number, status?: 
 ## 4.7 `useUpdateResponseStatus` — Update Response Status
 
 ```ts
-function useUpdateResponseStatus()
+function useUpdateResponseStatus();
 ```
 
 - **API**: `PATCH /responses/:id`
@@ -155,7 +167,7 @@ function useUpdateResponseStatus()
 ## 4.8 `usePublicForm` — Get Public Form (No Auth)
 
 ```ts
-function usePublicForm(slug: string)
+function usePublicForm(slug: string);
 ```
 
 - **API**: `GET /public/forms/:slug`
@@ -166,7 +178,7 @@ function usePublicForm(slug: string)
 ## 4.9 `useSubmitPublicForm` — Submit Public Form (No Auth)
 
 ```ts
-function useSubmitPublicForm()
+function useSubmitPublicForm();
 ```
 
 - **API**: `POST /public/forms/:slug/submit`
@@ -182,9 +194,17 @@ Update existing types to match actual API response shape:
 
 ```ts
 export type FieldType =
-  | 'text' | 'email' | 'phone' | 'number' | 'date'
-  | 'select' | 'checkbox' | 'radio' | 'file' | 'payment'
-  | 'textarea';
+  | "text"
+  | "email"
+  | "phone"
+  | "number"
+  | "date"
+  | "select"
+  | "checkbox"
+  | "radio"
+  | "file"
+  | "payment"
+  | "textarea";
 
 export interface FormField {
   id: string;
@@ -199,7 +219,7 @@ export interface Form {
   id: string;
   name: string;
   slug: string;
-  status: 'draft' | 'active' | 'expired';
+  status: "draft" | "active" | "expired";
   campaignId?: string | null;
   fields: FormField[];
   createdAt: string;
@@ -215,8 +235,8 @@ export interface Template {
 export interface FormResponse {
   id: string;
   formId: string;
-  data: Record<string, any>;   // key = fieldId
-  status: 'verified' | 'pending' | 'rejected';
+  data: Record<string, any>; // key = fieldId
+  status: "verified" | "pending" | "rejected";
   isDuplicate: boolean;
   submittedAt: string;
   utmData?: Record<string, string>;
@@ -231,7 +251,7 @@ export interface CreateFormInput {
 export interface UpdateFormInput {
   name?: string;
   fields?: FormField[];
-  status?: 'draft' | 'active' | 'expired';
+  status?: "draft" | "active" | "expired";
 }
 
 export interface SubmitFormInput {
@@ -249,14 +269,15 @@ export interface SubmitFormInput {
 
 ## 6.1 Forms Listing (`organization/forms/page.tsx`)
 
-| Current (Mock) | Target (API) |
-| :--- | :--- |
-| `useFormStore().forms` | `useForms(page, limit, search, status)` |
-| `useFormStore().duplicateForm(id)` | `useDuplicateForm().mutate(id)` |
-| `useFormStore().deleteForm(id)` | `useUpdateForm().mutate({ id, status: 'expired' })` or confirm DELETE endpoint |
-| Stats computed from `forms` array | Stats from `pagination.total` + filtered counts |
+| Current (Mock)                     | Target (API)                                                                   |
+| :--------------------------------- | :----------------------------------------------------------------------------- |
+| `useFormStore().forms`             | `useForms(page, limit, search, status)`                                        |
+| `useFormStore().duplicateForm(id)` | `useDuplicateForm().mutate(id)`                                                |
+| `useFormStore().deleteForm(id)`    | `useUpdateForm().mutate({ id, status: 'expired' })` or confirm DELETE endpoint |
+| Stats computed from `forms` array  | Stats from `pagination.total` + filtered counts                                |
 
 ### Changes Required:
+
 1. Remove `useFormStore` import
 2. Add `useForms`, `useDuplicateForm` hooks
 3. Add loading/error states (skeleton, error banner)
@@ -267,13 +288,14 @@ export interface SubmitFormInput {
 
 ## 6.2 Create Form (`organization/forms/create/page.tsx`)
 
-| Current (Mock) | Target (API) |
-| :--- | :--- |
-| `useFormStore().addForm(form)` | `useCreateForm().mutate({ name })` |
-| `useFormStore().templates` | `useFormTemplates().data` |
+| Current (Mock)                              | Target (API)                             |
+| :------------------------------------------ | :--------------------------------------- |
+| `useFormStore().addForm(form)`              | `useCreateForm().mutate({ name })`       |
+| `useFormStore().templates`                  | `useFormTemplates().data`                |
 | `useFormStore().updateForm(id, { fields })` | `useUpdateForm().mutate({ id, fields })` |
 
 ### Changes Required:
+
 1. **Step 1** (Create): Call `useCreateForm`, get back `{ id, slug }` from response
 2. **Step 2** (Template): Fetch templates via `useFormTemplates`
 3. On template select: Call `useUpdateForm` to assign fields, then redirect to builder
@@ -283,14 +305,15 @@ export interface SubmitFormInput {
 
 ## 6.3 Form Builder (`organization/forms/[id]/edit/page.tsx`)
 
-| Current (Mock) | Target (API) |
-| :--- | :--- |
+| Current (Mock)                                | Target (API)                                         |
+| :-------------------------------------------- | :--------------------------------------------------- |
 | `useFormStore().forms.find(f => f.id === id)` | `useForm(id)` (single form query) or from list cache |
-| `useFormStore().updateForm(id, { fields })` | `useUpdateForm().mutate({ id, fields })` |
-| `useFormStore().updateForm(id, { status })` | `useUpdateForm().mutate({ id, status })` |
-| `useFormStore().updateForm(id, { name })` | `useUpdateForm().mutate({ id, name })` |
+| `useFormStore().updateForm(id, { fields })`   | `useUpdateForm().mutate({ id, fields })`             |
+| `useFormStore().updateForm(id, { status })`   | `useUpdateForm().mutate({ id, status })`             |
+| `useFormStore().updateForm(id, { name })`     | `useUpdateForm().mutate({ id, name })`               |
 
 ### Changes Required:
+
 1. Load form data via API on mount (need a `useForm(id)` single-fetch hook or use cache)
 2. Keep **local state** for builder canvas (fields array) — do NOT call API on every drag/add
 3. On "Save Draft" → call `useUpdateForm` with full fields array
@@ -300,22 +323,25 @@ export interface SubmitFormInput {
 7. Handle "Form not found" from API 404
 
 ### Builder State Strategy:
+
 ```
 API Load → Local State (editing) → API Save (on button click)
 ```
+
 **Do NOT** call the API on every field add/remove/reorder. Batch changes and save on explicit user action.
 
 ---
 
 ## 6.4 Responses Page (`organization/forms/[id]/responses/page.tsx`)
 
-| Current (Mock) | Target (API) |
-| :--- | :--- |
-| `useFormStore().responses.filter(r => r.formId === id)` | `useFormResponses(id, page, limit, status)` |
-| `useFormStore().updateResponseStatus(id, status)` | `useUpdateResponseStatus().mutate({ id, status })` |
-| `useFormStore().forms.find(f => f.id === id)` | Included in responses query or separate `useForm(id)` |
+| Current (Mock)                                          | Target (API)                                          |
+| :------------------------------------------------------ | :---------------------------------------------------- |
+| `useFormStore().responses.filter(r => r.formId === id)` | `useFormResponses(id, page, limit, status)`           |
+| `useFormStore().updateResponseStatus(id, status)`       | `useUpdateResponseStatus().mutate({ id, status })`    |
+| `useFormStore().forms.find(f => f.id === id)`           | Included in responses query or separate `useForm(id)` |
 
 ### Changes Required:
+
 1. Replace mock store with `useFormResponses` hook
 2. Add server-side pagination
 3. Add status filter via query param
@@ -329,6 +355,7 @@ API Load → Local State (editing) → API Save (on button click)
 This page does not exist yet. Must be created from scratch.
 
 ### Implementation:
+
 1. Route: `src/app/f/[slug]/page.tsx`
 2. On mount: call `usePublicForm(slug)`
 3. Status handling:
@@ -341,7 +368,9 @@ This page does not exist yet. Must be created from scratch.
 7. Show success message (never show duplicate error to user)
 
 ### Public API Client:
+
 The public endpoints (`/public/*`) must NOT attach the auth token. Options:
+
 - Create a separate axios instance without the auth interceptor
 - Or use raw `fetch()` for public calls
 - Or add a flag to skip auth in the existing interceptor
@@ -352,16 +381,16 @@ The public endpoints (`/public/*`) must NOT attach the auth token. Options:
 
 Execute in this order to minimize breakage:
 
-| Step | Task | Depends On |
-| :--- | :--- | :--- |
-| **1** | Update `types/form.ts` with final types | Nothing |
-| **2** | Create `hooks/use-forms.ts` with all hooks | Step 1 |
-| **3** | Migrate **Forms Listing** page | Step 2 |
-| **4** | Migrate **Create Form** flow | Step 2 |
-| **5** | Migrate **Form Builder** page | Step 2 |
-| **6** | Migrate **Responses** page | Step 2 |
-| **7** | Build **Public Form** page (new) | Step 2 |
-| **8** | Remove `mockStore.ts` | Steps 3–7 complete |
+| Step  | Task                                       | Depends On         |
+| :---- | :----------------------------------------- | :----------------- |
+| **1** | Update `types/form.ts` with final types    | Nothing            |
+| **2** | Create `hooks/use-forms.ts` with all hooks | Step 1             |
+| **3** | Migrate **Forms Listing** page             | Step 2             |
+| **4** | Migrate **Create Form** flow               | Step 2             |
+| **5** | Migrate **Form Builder** page              | Step 2             |
+| **6** | Migrate **Responses** page                 | Step 2             |
+| **7** | Build **Public Form** page (new)           | Step 2             |
+| **8** | Remove `mockStore.ts`                      | Steps 3–7 complete |
 
 ---
 
@@ -370,7 +399,9 @@ Execute in this order to minimize breakage:
 The builder (`/organization/forms/[id]/edit`) needs to load a **single form by ID**. The API docs only show the list endpoint. Two options:
 
 ### Option A: Add `useForm(id)` hook
+
 If backend supports `GET /organizations/:orgId/forms/:id`:
+
 ```ts
 function useForm(id: string) {
   return useQuery({
@@ -381,6 +412,7 @@ function useForm(id: string) {
 ```
 
 ### Option B: Use list cache
+
 Extract form from the `useForms` query cache. **Not recommended** — breaks if user navigates directly to builder URL.
 
 > **Action Required**: Confirm with backend team if `GET /organizations/:orgId/forms/:id` exists.
@@ -392,6 +424,7 @@ Extract form from the `useForms` query cache. **Not recommended** — breaks if 
 The listing page has a "Delete" action. The API docs don't list a `DELETE /organizations/:orgId/forms/:id` endpoint.
 
 ### Options:
+
 - **Soft delete**: Use `PATCH` to set `status: 'expired'` (safest)
 - **Hard delete**: Confirm if `DELETE` endpoint exists
 
@@ -401,14 +434,14 @@ The listing page has a "Delete" action. The API docs don't list a `DELETE /organ
 
 # 10. Key Differences from Mock Store
 
-| Behavior | Mock Store | API |
-| :--- | :--- | :--- |
-| Form ID generation | Client-side (`Math.random()`) | Server-side (UUID) |
-| Slug generation | Not implemented | Server-side (from name) |
-| Duplicate detection | Client-side JSON compare | Server-side (email/phone) |
-| Template assignment | Direct field copy | Create form → PATCH with template fields |
-| Field ID generation | Client-side | Client-side (stable IDs, server stores as-is) |
-| Pagination | None (all in memory) | Server-side with `page`, `limit`, `total` |
+| Behavior            | Mock Store                    | API                                           |
+| :------------------ | :---------------------------- | :-------------------------------------------- |
+| Form ID generation  | Client-side (`Math.random()`) | Server-side (UUID)                            |
+| Slug generation     | Not implemented               | Server-side (from name)                       |
+| Duplicate detection | Client-side JSON compare      | Server-side (email/phone)                     |
+| Template assignment | Direct field copy             | Create form → PATCH with template fields      |
+| Field ID generation | Client-side                   | Client-side (stable IDs, server stores as-is) |
+| Pagination          | None (all in memory)          | Server-side with `page`, `limit`, `total`     |
 
 ---
 
@@ -416,12 +449,12 @@ The listing page has a "Delete" action. The API docs don't list a `DELETE /organ
 
 Every page migration must add:
 
-| State | UI |
-| :--- | :--- |
-| **Loading** | Skeleton/spinner (never blank page) |
-| **Empty** | "No forms yet" illustration + CTA |
-| **Error** | Error banner with retry button |
-| **Saving** | Disabled buttons + spinner icon |
+| State          | UI                                   |
+| :------------- | :----------------------------------- |
+| **Loading**    | Skeleton/spinner (never blank page)  |
+| **Empty**      | "No forms yet" illustration + CTA    |
+| **Error**      | Error banner with retry button       |
+| **Saving**     | Disabled buttons + spinner icon      |
 | **Optimistic** | Not needed for Phase 1 (keep simple) |
 
 ---

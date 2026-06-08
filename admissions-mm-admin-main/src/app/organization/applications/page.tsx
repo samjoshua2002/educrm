@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/ui/status-badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -115,21 +116,11 @@ const DUMMY_APPLICATIONS: Application[] = [
   },
 ];
 
-const statusPill: Record<Application["formStatus"], string> = {
-  Rejected:
-    "bg-rose-500/10 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
-  "In Progress":
-    "bg-amber-500/10 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
-  Accepted:
-    "bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
-  Submitted:
-    "bg-purple-500/10 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
-};
-
 export default function OrganizationApplicationsPage() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
-  const allowed = user?.role === Role.ORG_ADMIN || user?.role === Role.APPLICATION_MANAGER;
+  const allowed =
+    user?.role === Role.ORG_ADMIN || user?.role === Role.APPLICATION_MANAGER;
 
   React.useEffect(() => {
     if (user && !allowed) router.replace("/unauthorized");
@@ -147,8 +138,10 @@ export default function OrganizationApplicationsPage() {
         a.name.toLowerCase().includes(q) ||
         a.email.toLowerCase().includes(q) ||
         a.applicationNo.toLowerCase().includes(q);
-      const matchesStage = stageFilter === "all" || a.formStatus === stageFilter;
-      const matchesStatus = statusFilter === "all" || a.formStatus === statusFilter;
+      const matchesStage =
+        stageFilter === "all" || a.formStatus === stageFilter;
+      const matchesStatus =
+        statusFilter === "all" || a.formStatus === statusFilter;
       return matchesSearch && matchesStage && matchesStatus;
     });
   }, [searchQuery, stageFilter, statusFilter]);
@@ -215,13 +208,20 @@ export default function OrganizationApplicationsPage() {
               </Select>
             </div>
 
-            <Button variant="outline" size="icon" className="relative h-[39px] w-[39px] shrink-0">
+            <Button
+              variant="outline"
+              size="icon"
+              className="relative h-[39px] w-[39px] shrink-0"
+            >
               <Filter className="size-4" />
               <span className="sr-only">Advanced Filters</span>
             </Button>
           </div>
 
-          <Button variant="outline" className="w-full sm:w-auto shrink-0 h-[39px] gap-2">
+          <Button
+            variant="outline"
+            className="w-full sm:w-auto shrink-0 h-[39px] gap-2"
+          >
             <Download className="size-4" />
             Export
           </Button>
@@ -263,7 +263,9 @@ export default function OrganizationApplicationsPage() {
                     <div className="flex size-12 items-center justify-center rounded-full bg-muted/40">
                       <SearchX className="size-6 text-muted-foreground/80" />
                     </div>
-                    <p className="text-sm font-semibold text-foreground">No results found</p>
+                    <p className="text-sm font-semibold text-foreground">
+                      No results found
+                    </p>
                   </div>
                 </TableCell>
               </TableRow>
@@ -274,33 +276,55 @@ export default function OrganizationApplicationsPage() {
                   className="border-b border-border/80 hover:bg-muted/15 dark:hover:bg-muted/5 transition-colors"
                 >
                   <TableCell className="py-5 px-6">
-                    <div className="font-semibold text-foreground text-sm tracking-tight">{row.name}</div>
-                    <div className="text-xs text-muted-foreground">{row.email}</div>
+                    <div className="font-semibold text-foreground text-sm tracking-tight">
+                      {row.name}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {row.email}
+                    </div>
                   </TableCell>
-                  <TableCell className="py-5 px-6 text-sm text-foreground/80">{row.applicationNo}</TableCell>
+                  <TableCell className="py-5 px-6 text-sm text-foreground/80">
+                    {row.applicationNo}
+                  </TableCell>
                   <TableCell className="py-5 px-6">
-                    <div className="font-medium text-foreground text-sm tracking-tight">{row.program}</div>
-                    <div className="text-xs text-muted-foreground">{row.email}</div>
+                    <div className="font-medium text-foreground text-sm tracking-tight">
+                      {row.program}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {row.email}
+                    </div>
                   </TableCell>
                   <TableCell className="py-5 px-6">
-                    <span className={statusPill[row.formStatus]}>{row.formStatus}</span>
+                    <StatusBadge status={row.formStatus} />
                   </TableCell>
-                  <TableCell className="py-5 px-6 text-sm text-foreground/80">{row.payment}</TableCell>
-                  <TableCell className="py-5 px-6 text-sm text-foreground/80">{row.lastActivity}</TableCell>
+                  <TableCell className="py-5 px-6 text-sm text-foreground/80">
+                    {row.payment}
+                  </TableCell>
+                  <TableCell className="py-5 px-6 text-sm text-foreground/80">
+                    {row.lastActivity}
+                  </TableCell>
                   <TableCell className="py-5 px-6 text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="size-8 rounded-md hover:bg-muted" size="icon">
+                        <Button
+                          variant="ghost"
+                          className="size-8 rounded-md hover:bg-muted"
+                          size="icon"
+                        >
                           <EllipsisVertical className="size-4" />
                           <span className="sr-only">Open menu</span>
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-44">
                         <DropdownMenuItem asChild>
-                          <Link href={`/organization/applications/${row.id}`}>View Details</Link>
+                          <Link href={`/organization/applications/${row.id}`}>
+                            View Details
+                          </Link>
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-muted-foreground">More actions later</DropdownMenuItem>
+                        <DropdownMenuItem className="text-muted-foreground">
+                          More actions later
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>

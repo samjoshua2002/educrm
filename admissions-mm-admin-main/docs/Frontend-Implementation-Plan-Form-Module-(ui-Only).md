@@ -6,10 +6,10 @@
 
 # 1. Core Principles
 
-* No API calls (use local mock store)
-* UI must reflect **real-world system behavior**
-* Structure must be API-ready (no future rewrite)
-* Cover **complete flow** (Admin → Public User → Submission → Responses)
+- No API calls (use local mock store)
+- UI must reflect **real-world system behavior**
+- Structure must be API-ready (no future rewrite)
+- Cover **complete flow** (Admin → Public User → Submission → Responses)
 
 ---
 
@@ -18,7 +18,7 @@
 Use centralized store (`mockStore.ts`)
 
 ```ts
-{ 
+{
   forms: Form[];
   templates: Template[];
   responses: Record<formId, Response[]>;
@@ -36,7 +36,7 @@ interface Form {
   id: string;
   name: string;
   slug: string; // for public URL
-  status: 'draft' | 'active' | 'expired';
+  status: "draft" | "active" | "expired";
   campaignId?: string | null;
   fields: FormField[];
   createdAt: string;
@@ -83,7 +83,7 @@ interface Response {
   // key = fieldId (NOT label)
   data: Record<string, any>;
 
-  status: 'verified' | 'pending' | 'rejected';
+  status: "verified" | "pending" | "rejected";
   isDuplicate: boolean;
 
   submittedAt: string;
@@ -121,15 +121,15 @@ View in Responses
 
 ## Features
 
-* List forms from store
-* Search + status filter
-* Campaign column (optional)
-* Actions: Edit / Duplicate / Delete
+- List forms from store
+- Search + status filter
+- Campaign column (optional)
+- Actions: Edit / Duplicate / Delete
 
 ## Enhancements
 
-* Show campaign badge or "—"
-* Response count from mock data
+- Show campaign badge or "—"
+- Response count from mock data
 
 ---
 
@@ -139,25 +139,25 @@ View in Responses
 
 Inputs:
 
-* Form Name (required)
-* Campaign (optional)
+- Form Name (required)
+- Campaign (optional)
 
 On submit:
 
-* Create form
-* Generate slug:
+- Create form
+- Generate slug:
 
 ```ts
-slug = name.toLowerCase().replace(/\s+/g, "-")
+slug = name.toLowerCase().replace(/\s+/g, "-");
 ```
 
 ---
 
 ## Step 2: Template Selection
 
-* Load templates
-* Assign fields
-* Redirect to builder
+- Load templates
+- Assign fields
+- Redirect to builder
 
 ---
 
@@ -173,44 +173,43 @@ Field Library | Canvas | Field Settings
 
 ## Header
 
-* Editable form name
-* Status badge
-* Buttons:
-
-  * Save Draft
-  * Publish
-  * Preview
-  * Copy Link (NEW)
-  * Open Form (NEW)
+- Editable form name
+- Status badge
+- Buttons:
+  - Save Draft
+  - Publish
+  - Preview
+  - Copy Link (NEW)
+  - Open Form (NEW)
 
 ---
 
 ## Copy Link Logic
 
 ```ts
-url = `/f/${form.slug}`
+url = `/f/${form.slug}`;
 ```
 
 ---
 
 ## MUST Features
 
-* Add field
-* Delete field
-* Duplicate field
-* Options editor
-* Drag reorder
+- Add field
+- Delete field
+- Duplicate field
+- Options editor
+- Drag reorder
 
 ---
 
 ## Settings Tab (NEW - REQUIRED)
 
-* Campaign (readonly)
-* Status control
-* Start / End date (UI only)
-* Redirect URL
-* Success message
-* CAPTCHA toggle (UI only)
+- Campaign (readonly)
+- Status control
+- Start / End date (UI only)
+- Redirect URL
+- Success message
+- CAPTCHA toggle (UI only)
 
 ---
 
@@ -219,7 +218,7 @@ url = `/f/${form.slug}`
 Route:
 
 ```ts
-/f/[slug]
+/f/[slug];
 ```
 
 ---
@@ -240,8 +239,8 @@ Route:
 
 ## Render Form Dynamically
 
-* Loop fields
-* Render based on type
+- Loop fields
+- Render based on type
 
 ---
 
@@ -250,10 +249,10 @@ Route:
 ### Step 1: Extract email (or fallback)
 
 ```ts
-emailField = find(field.type === "email")
-phoneField = find(field.type === "phone")
+emailField = find(field.type === "email");
+phoneField = find(field.type === "phone");
 
-uniqueKey = email || phone
+uniqueKey = email || phone;
 ```
 
 ---
@@ -275,11 +274,11 @@ response = {
   id,
   formId,
   data: {
-    [fieldId]: value
+    [fieldId]: value,
   },
   isDuplicate,
-  status: "pending"
-}
+  status: "pending",
+};
 ```
 
 ---
@@ -297,12 +296,12 @@ response = {
 ## UTM Capture (Simulated)
 
 ```ts
-const params = new URLSearchParams(window.location.search)
+const params = new URLSearchParams(window.location.search);
 
 utm = {
   source: params.get("utm_source"),
-  campaign: params.get("utm_campaign")
-}
+  campaign: params.get("utm_campaign"),
+};
 ```
 
 ---
@@ -311,9 +310,9 @@ utm = {
 
 ## Features
 
-* Load responses
-* Search/filter
-* Pagination
+- Load responses
+- Search/filter
+- Pagination
 
 ---
 
@@ -322,7 +321,7 @@ utm = {
 Generate from:
 
 ```ts
-form.fields
+form.fields;
 ```
 
 ---
@@ -337,15 +336,15 @@ fieldId → label
 
 ## Row Click
 
-* Open sheet panel
-* Show full data
+- Open sheet panel
+- Show full data
 
 ---
 
 ## Actions
 
-* Verify
-* Reject
+- Verify
+- Reject
 
 ---
 
@@ -363,13 +362,13 @@ Same uniqueKey + same form → insert + mark duplicate
 
 ## UI
 
-* Show badge if exists
-* Otherwise "—"
+- Show badge if exists
+- Otherwise "—"
 
 ## Behavior
 
-* Optional (non-blocking)
-* Future-ready for analytics
+- Optional (non-blocking)
+- Future-ready for analytics
 
 ---
 
@@ -377,9 +376,9 @@ Same uniqueKey + same form → insert + mark duplicate
 
 | Status  | Submission |
 | ------- | ---------- |
-| draft   | ❌ blocked  |
-| active  | ✅ allowed  |
-| expired | ❌ blocked  |
+| draft   | ❌ blocked |
+| active  | ✅ allowed |
+| expired | ❌ blocked |
 
 ---
 
@@ -422,11 +421,11 @@ Same uniqueKey + same form → insert + mark duplicate
 
 After this phase:
 
-* Full admin flow works
-* Public form works
-* Duplicate logic works
-* Data structure is stable
-* Ready for backend integration
+- Full admin flow works
+- Public form works
+- Duplicate logic works
+- Data structure is stable
+- Ready for backend integration
 
 ---
 
@@ -447,11 +446,11 @@ If you skip public form or field IDs:
 
 # 13. Final System Strength
 
-* Real-world ready flow
-* Public usage supported
-* Stable data structure (field IDs)
-* Duplicate-safe logic
-* Campaign-ready (optional)
+- Real-world ready flow
+- Public usage supported
+- Stable data structure (field IDs)
+- Duplicate-safe logic
+- Campaign-ready (optional)
 
 ---
 

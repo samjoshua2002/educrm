@@ -3,10 +3,12 @@
 ## Goal
 
 Make both organization-facing pages fully dynamic using the tenant backend APIs:
+
 - `http://localhost:3001/organization/lead-manager`
 - `http://localhost:3001/organization/leads`
 
 This plan maps frontend work to:
+
 - `admissions-tenant-api-main/API_DOCUMENTATION.md`
 - `admissions-tenant-api-main/docs/Lead-Processing-Workflow.md`
 
@@ -42,6 +44,7 @@ Current terminology conflicts are the biggest risk. The frontend must treat thes
 `invalidateQueries(["leads"])` will not scale once we add tabs, detail sheets, and counters/widgets.
 
 **Plan**:
+
 - **Targeted invalidation** by queryKey params (status/filter scoped keys)
 - For high-frequency actions (verify/disqualify/assign), prefer **optimistic updates** on the affected lists:
   - remove from unverified list
@@ -51,6 +54,7 @@ Current terminology conflicts are the biggest risk. The frontend must treat thes
 ### 3) Avoid over-abstracting “one table for everything”
 
 We will keep:
+
 - **Shared core**: table row rendering + filter bar primitives + action menu components
 - **Separate page composition**: each page defines its own action set and default scopes
 
@@ -59,6 +63,7 @@ This prevents prop explosions like `allowVerify/allowAssign/allowClose/...`.
 ### 4) URL filter synchronization: URL is the source of truth
 
 To avoid hydration/double-fetch issues in Next.js App Router:
+
 - Use a single filter state manager where **URL search params drive state**
 - Derive query inputs from URL params only (local state is only for draft inputs before “Apply”)
 
@@ -67,6 +72,7 @@ To avoid hydration/double-fetch issues in Next.js App Router:
 Avoid `if (role === "lead_manager")` scattered across pages.
 
 **Plan**:
+
 - Create a `can(permission: string)` helper (e.g., `can("lead.verify")`)
 - Centralize permission mapping per role in one place (frontend-only)
 - UI gates actions via `can(...)` and still relies on backend errors as final enforcement
@@ -76,6 +82,7 @@ Avoid `if (role === "lead_manager")` scattered across pages.
 We will not manage modal state per-row.
 
 **Plan**:
+
 - Use a single centralized modal/action state:
   - `selectedLeadId`
   - `activeAction` (verify/assign/note/close)
@@ -85,6 +92,7 @@ We will not manage modal state per-row.
 ### 7) Follow-up datetime + timezone standard
 
 To prevent “date changed” bugs:
+
 - store/send timestamps as **UTC ISO strings**
 - display in **local timezone**
 - keep `followUpDate=YYYY-MM-DD` handling consistent across UI and API expectations
@@ -94,6 +102,7 @@ To prevent “date changed” bugs:
 `DELETE /leads/:id` is risky for audit/history.
 
 **Plan**:
+
 - Hide “Delete” by default in org UI unless explicitly required
 - If shown, require strong confirmation and show an irreversible warning
 - Prefer “Close”/“Disqualify” for operational workflows
@@ -101,6 +110,7 @@ To prevent “date changed” bugs:
 ### 9) Transition validation (UI + backend)
 
 **Plan**:
+
 - Implement frontend “allowed actions by state” matrix
 - Handle backend rejections gracefully (toast + no optimistic mutation on failure)
 
@@ -109,12 +119,14 @@ To prevent “date changed” bugs:
 Notes/assignment/status/closure events should feed a unified timeline UI later.
 
 **Plan**:
+
 - Keep modal payload shapes aligned with future timeline fields (content, reason, timestamps)
 - Design mutations/components so timeline UI can subscribe later without refactors
 
 ### 11) Workload definition (for assignment UI)
 
 Before building “smart assignment” UI, define what workload means:
+
 - **Default**: active assigned leads count (status != closed/converted)
 - Keep this as a configurable assumption until backend provides a metric endpoint
 
@@ -123,12 +135,14 @@ Before building “smart assignment” UI, define what workload means:
 Score/scoring may evolve.
 
 **Plan**:
+
 - Treat `scoreBand` as optional filter; hide it if no data present
 - Avoid computing score client-side; display only what backend returns
 
 ### 13) Org-scoped action safety
 
 **Plan**:
+
 - orgId for requests must come from authenticated user context (store), not from URL
 - if mismatch occurs, hard fail with a safe error state
 
@@ -137,6 +151,7 @@ Score/scoring may evolve.
 If user’s role/permissions change, stale cached data must not remain visible.
 
 **Plan**:
+
 - on auth user change (role/org), clear react-query cache (or namespace keys by orgId + role)
 
 ---
@@ -144,6 +159,7 @@ If user’s role/permissions change, stale cached data must not remain visible.
 ## Target Product Behavior
 
 ### `/organization/lead-manager` (Verification Queue)
+
 - Primary queue for `unverified` leads (verification status queue).
 - Lead Manager / Org Admin can:
   - Verify (`PATCH /leads/:id/verify`)
@@ -155,6 +171,7 @@ If user’s role/permissions change, stale cached data must not remain visible.
 - Supports filters: search, status, assignedTo, followUpDate, scoreBand.
 
 ### `/organization/leads` (Processed/Working Pipeline)
+
 - Focus on post-verification leads and their lifecycle stages (verified/working/converted/closed).
 - Supports counselor operational workflows:
   - Add notes and schedule follow-up
@@ -167,11 +184,13 @@ If user’s role/permissions change, stale cached data must not remain visible.
 ## API Mapping (Frontend Consumption)
 
 ### List + Detail
+
 - `GET /api/organizations/:orgId/leads`
   - Query params: `page`, `limit`, `search`, `status`, `assignedTo`, `followUpDate`, `scoreBand`
 - `GET /api/organizations/:orgId/leads/:id`
 
 ### Actions
+
 - `PATCH /api/organizations/:orgId/leads/:id/status` (compat/basic update)
 - `PATCH /api/organizations/:orgId/leads/:id/verify`
 - `PATCH /api/organizations/:orgId/leads/:id/assign`
@@ -185,6 +204,7 @@ If user’s role/permissions change, stale cached data must not remain visible.
 ## Workflow Alignment (from Lead Processing Workflow doc)
 
 ### Stage 2: Verification
+
 - Queue = unverified leads.
 - Actions:
   - Qualify -> verified
@@ -192,16 +212,19 @@ If user’s role/permissions change, stale cached data must not remain visible.
 - Enforce status guard in UI: verification actions visible only for unverified records.
 
 ### Stage 3: Assignment
+
 - Reassign only to active counselors in same org.
 - Track and display assigned counselor in table and lead details sheet.
 
 ### Stage 4: Counselor Work
+
 - Add Note modal with optional:
   - `disposition`
   - `nextFollowUpAt`
 - On note add success, refresh table and current lead details.
 
 ### Stage 5: Status Progression
+
 - Reflect status transitions in UI action menu (show only valid actions for current status).
 - Render **verification** and **lifecycle** as separate UI concepts (two badges or two filter groups), to avoid terminology conflicts.
 
@@ -210,6 +233,7 @@ If user’s role/permissions change, stale cached data must not remain visible.
 ## Frontend Architecture Plan
 
 ### 1) Shared Data Layer
+
 - Extend or reuse `src/hooks/use-leads.ts` as the single source for:
   - list query
   - detail query
@@ -225,6 +249,7 @@ If user’s role/permissions change, stale cached data must not remain visible.
 - Use targeted invalidation and/or optimistic updates instead of a single broad `invalidateQueries(["leads"])` (see cache strategy above).
 
 ### 2) Route-level Composition
+
 - Build one reusable lead table view component with props for:
   - default status scope
   - visible actions
@@ -234,6 +259,7 @@ If user’s role/permissions change, stale cached data must not remain visible.
   - `/organization/leads` (default status tabs for verified/working/converted/closed)
 
 ### 3) Type Safety
+
 - Add/align types for:
   - lead status enum values
   - verify payload
@@ -248,6 +274,7 @@ If user’s role/permissions change, stale cached data must not remain visible.
 ## UI/UX Implementation Plan
 
 ### A. `/organization/lead-manager`
+
 1. Replace dummy data source with `useLeads(...)`.
 2. Default filter:
    - `status=unverified`
@@ -268,6 +295,7 @@ If user’s role/permissions change, stale cached data must not remain visible.
    - Close modal (closure reason + notes)
 
 ### B. `/organization/leads`
+
 1. Convert page to same dynamic lead table shell.
 2. Default scope:
    - show verified + working by default (configurable tab/filter)
@@ -316,6 +344,7 @@ If user’s role/permissions change, stale cached data must not remain visible.
 Avoid role checks inside components. Gate UI actions via `can("lead.verify")`, `can("lead.assign")`, etc.
 
 Use RBAC matrix in API doc as the source to build the frontend permission mapping:
+
 - Lead Manager / Org Admin: verify, assign, close, status updates, notes
 - Staff: notes, workflow-status, close (as allowed)
 - Superadmin: all organization-scoped actions
@@ -327,21 +356,25 @@ UI should hide unavailable actions, but backend remains the ultimate enforcement
 ## Implementation Phases
 
 ### Phase 1: Data and Hooks
+
 - Finalize hook contracts in `use-leads.ts`.
 - Add all required mutations and query params support.
 - Add list/detail key invalidation strategy.
 
 ### Phase 2: `/organization/lead-manager`
+
 - Replace dummy dataset with API.
 - Wire filters, pagination, and search.
 - Implement verify/disqualify/assign/note/close action modals.
 
 ### Phase 3: `/organization/leads`
+
 - Implement dynamic pipeline list.
 - Add status tabs and advanced filters.
 - Reuse modal/action components where possible.
 
 ### Phase 4: Polish and Validation
+
 - Loading/empty/error states.
 - Permission-based action visibility.
 - Mobile responsiveness and consistency with existing lead-manager style.
@@ -351,6 +384,7 @@ UI should hide unavailable actions, but backend remains the ultimate enforcement
 ## QA / Verification Checklist
 
 ### Functional
+
 - Unverified leads appear on `/organization/lead-manager`.
 - Verify action moves lead out of unverified queue and into `/organization/leads` verified scope.
 - Disqualify action removes lead from main queue and marks as disqualified.
@@ -359,12 +393,14 @@ UI should hide unavailable actions, but backend remains the ultimate enforcement
 - Close action requires reason and reflects closed status.
 
 ### Filters
+
 - Search works for name/email/phone.
 - `assignedTo=me` query works for current user.
 - `followUpDate` filter returns expected subset.
 - `scoreBand` filter works if values are present.
 
 ### UX
+
 - No API actions trigger full page reload.
 - Toasts and disabled buttons behave correctly during pending actions.
 - Empty states are clear and actionable.
@@ -402,4 +438,3 @@ UI should hide unavailable actions, but backend remains the ultimate enforcement
 - Lead conversion to application flow UI.
 - Activity timeline read APIs (if not yet exposed).
 - Automation/scoring engine implementation.
-

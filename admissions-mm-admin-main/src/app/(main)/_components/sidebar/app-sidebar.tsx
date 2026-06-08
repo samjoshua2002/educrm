@@ -19,7 +19,10 @@ import { APP_CONFIG } from "@/config/app-config";
 import { sidebarItems } from "@/navigation/sidebar/sidebar-items";
 import { NavMain } from "./nav-main";
 
-export function AppSidebar({ users = [], ...props }: React.ComponentProps<typeof Sidebar> & { users?: any[] }) {
+export function AppSidebar({
+  users = [],
+  ...props
+}: React.ComponentProps<typeof Sidebar> & { users?: any[] }) {
   const { isMobile } = useSidebar();
 
   return (
@@ -27,18 +30,20 @@ export function AppSidebar({ users = [], ...props }: React.ComponentProps<typeof
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <div className="flex items-center justify-between pr-2 relative min-h-8">
+            <div className="flex items-center justify-between pr-2 group-data-[collapsible=icon]:pr-0 relative min-h-8">
               <SidebarMenuButton
                 asChild
                 className="data-[slot=sidebar-menu-button]:!p-1.5 flex-1 transition-opacity duration-300 group-data-[collapsible=icon]:opacity-0 lg:group-data-[collapsible=icon]:opacity-100 lg:group-data-[collapsible=icon]:group-hover:opacity-0 lg:group-data-[collapsible=icon]:group-hover:pointer-events-none"
               >
                 <a href="#">
                   <Command />
-                  <span className="text-base font-semibold">{APP_CONFIG.name}</span>
+                  <span className="text-base font-semibold">
+                    {APP_CONFIG.name}
+                  </span>
                 </a>
               </SidebarMenuButton>
               {!isMobile && (
-                <SidebarTrigger className="size-8 !p-1.5 text-sidebar-foreground transition-all duration-300 group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:left-1 group-data-[collapsible=icon]:opacity-100 lg:group-data-[collapsible=icon]:opacity-0 lg:group-data-[collapsible=icon]:group-hover:opacity-100" />
+                <SidebarTrigger className="size-8 !p-1.5 text-sidebar-foreground transition-all duration-300 group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:left-0 group-data-[collapsible=icon]:opacity-100 lg:group-data-[collapsible=icon]:opacity-0 lg:group-data-[collapsible=icon]:group-hover:opacity-100" />
               )}
             </div>
           </SidebarMenuItem>

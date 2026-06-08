@@ -64,7 +64,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import { useLeads, useDeleteLead, useUpdateLeadStatus } from "@/hooks/use-leads";
+import {
+  useLeads,
+  useDeleteLead,
+  useUpdateLeadStatus,
+} from "@/hooks/use-leads";
 import { useBranches } from "@/hooks/use-branches";
 import { toast } from "sonner";
 
@@ -164,16 +168,20 @@ const stageStyles: Record<string, string> = {
   Converted:
     "bg-green-500/10 text-green-700 dark:bg-green-500/20 dark:text-green-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
   Lost: "bg-rose-500/10 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
-  Duplicate: "bg-slate-500/10 text-slate-700 dark:bg-slate-500/20 dark:text-slate-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
+  Duplicate:
+    "bg-slate-500/10 text-slate-700 dark:bg-slate-500/20 dark:text-slate-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
 };
 
 const statusStyles: Record<string, string> = {
   Hot: "bg-rose-500/10 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
   Warm: "bg-amber-500/10 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
   Cold: "bg-cyan-500/10 text-cyan-700 dark:bg-cyan-500/20 dark:text-cyan-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
-  unverified: "bg-orange-500/10 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
-  verified: "bg-green-500/10 text-green-700 dark:bg-green-500/20 dark:text-green-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
-  disqualified: "bg-rose-500/10 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
+  unverified:
+    "bg-orange-500/10 text-orange-700 dark:bg-orange-500/20 dark:text-orange-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
+  verified:
+    "bg-green-500/10 text-green-700 dark:bg-green-500/20 dark:text-green-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
+  disqualified:
+    "bg-rose-500/10 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
 };
 
 export default function LeadsPage() {
@@ -197,12 +205,16 @@ export default function LeadsPage() {
   const [deleteLeadId, setDeleteLeadId] = React.useState<string | null>(null);
 
   // Hook API Calls
-  const { data: leadsResponse, isLoading, error } = useLeads(
+  const {
+    data: leadsResponse,
+    isLoading,
+    error,
+  } = useLeads(
     currentPage,
     itemsPerPage,
     searchQuery || undefined,
     undefined,
-    "verified"
+    "verified",
   );
 
   const { mutate: updateStatus } = useUpdateLeadStatus();
@@ -230,7 +242,7 @@ export default function LeadsPage() {
       stage: item.isDuplicate ? "Duplicate" : "New",
       status: item.status || "verified",
       assignedTo: item.assignedTo || "Unassigned",
-      rawLead: item
+      rawLead: item,
     }));
   }, [branchNameById, leadsResponse]);
 
@@ -265,7 +277,7 @@ export default function LeadsPage() {
     deleteLead(id, {
       onSuccess: () => {
         setDeleteLeadId(null);
-      }
+      },
     });
   }
 
@@ -559,7 +571,9 @@ export default function LeadsPage() {
                   <TableCell colSpan={8} className="h-64 text-center">
                     <div className="flex flex-col items-center justify-center gap-3">
                       <Loader2 className="size-8 animate-spin text-primary" />
-                      <p className="text-sm text-muted-foreground">Loading leads...</p>
+                      <p className="text-sm text-muted-foreground">
+                        Loading leads...
+                      </p>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -646,9 +660,14 @@ export default function LeadsPage() {
                                 Edit
                               </Link>
                             </DropdownMenuItem>
-                            <DropdownMenuItem 
+                            <DropdownMenuItem
                               className="gap-2 text-rose-600 focus:text-rose-600 cursor-pointer font-medium"
-                              onClick={() => updateStatus({ leadId: String(item.id), status: "disqualified" })}
+                              onClick={() =>
+                                updateStatus({
+                                  leadId: String(item.id),
+                                  status: "disqualified",
+                                })
+                              }
                             >
                               <Trash2 className="size-4 text-rose-600" />
                               Disqualify
@@ -684,9 +703,7 @@ export default function LeadsPage() {
                 {Math.min(endIndex, totalCount)}
               </span>{" "}
               of{" "}
-              <span className="font-medium text-foreground">
-                {totalCount}
-              </span>{" "}
+              <span className="font-medium text-foreground">{totalCount}</span>{" "}
               entries
             </p>
             {totalPages > 1 && (
@@ -821,9 +838,14 @@ export default function LeadsPage() {
                               Edit
                             </Link>
                           </DropdownMenuItem>
-                          <DropdownMenuItem 
+                          <DropdownMenuItem
                             className="gap-2 text-rose-600 focus:text-rose-600 cursor-pointer font-medium"
-                            onClick={() => updateStatus({ leadId: String(item.id), status: "disqualified" })}
+                            onClick={() =>
+                              updateStatus({
+                                leadId: String(item.id),
+                                status: "disqualified",
+                              })
+                            }
                           >
                             <Trash2 className="size-4 text-rose-600" />
                             Disqualify

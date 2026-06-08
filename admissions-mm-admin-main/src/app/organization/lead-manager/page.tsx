@@ -369,7 +369,7 @@ export default function LeadManagerPage() {
     itemsPerPage,
     searchQuery || undefined,
     undefined,
-    "unverified"
+    "unverified",
   );
 
   const { mutate: updateStatus } = useUpdateLeadStatus();
@@ -995,14 +995,24 @@ export default function LeadManagerPage() {
                           </DropdownMenuItem>
                           <DropdownMenuItem 
                             className="gap-2 text-emerald-600 focus:text-emerald-600 cursor-pointer font-medium"
-                            onClick={() => updateStatus({ leadId: String(item.id), status: "verified" })}
+                            onClick={() =>
+                              updateStatus({
+                                leadId: String(item.id),
+                                status: "verified",
+                              })
+                            }
                           >
                             <Check className="size-4 text-emerald-600" />
                             Verify
                           </DropdownMenuItem>
                           <DropdownMenuItem 
                             className="gap-2 text-rose-600 focus:text-rose-600 cursor-pointer font-medium"
-                            onClick={() => updateStatus({ leadId: String(item.id), status: "disqualified" })}
+                            onClick={() =>
+                              updateStatus({
+                                leadId: String(item.id),
+                                status: "disqualified",
+                              })
+                            }
                           >
                             <Trash2 className="size-4 text-rose-600" />
                             Disqualify

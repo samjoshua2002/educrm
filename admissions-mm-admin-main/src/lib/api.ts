@@ -37,7 +37,12 @@ api.interceptors.response.use(
   (response) => {
     // Return the data field, and include pagination if it exists
     const body = response.data;
-    if (body && typeof body === "object" && body.pagination && Array.isArray(body.data)) {
+    if (
+      body &&
+      typeof body === "object" &&
+      body.pagination &&
+      Array.isArray(body.data)
+    ) {
       return {
         data: body.data,
         pagination: body.pagination,
@@ -81,30 +86,29 @@ api.interceptors.response.use(
         toast.error(message);
     }
     return Promise.reject(error);
-  }
+  },
 );
 
 // Typed Helper Functions
-export const apiGet = <T>(url: string, params?: object): Promise<T> => 
+export const apiGet = <T>(url: string, params?: object): Promise<T> =>
   api.get(url, { params });
 
-export const apiPost = <T>(url: string, data?: object): Promise<T> => 
+export const apiPost = <T>(url: string, data?: object): Promise<T> =>
   api.post(url, data);
 
-export const apiPut = <T>(url: string, data?: object): Promise<T> => 
+export const apiPut = <T>(url: string, data?: object): Promise<T> =>
   api.put(url, data);
 
-export const apiPatch = <T>(url: string, data?: object): Promise<T> => 
+export const apiPatch = <T>(url: string, data?: object): Promise<T> =>
   api.patch(url, data);
 
-export const apiDelete = <T>(url: string): Promise<T> => 
-  api.delete(url);
+export const apiDelete = <T>(url: string): Promise<T> => api.delete(url);
 
 // Public Typed Helpers
-export const publicGet = <T>(url: string, params?: object): Promise<T> => 
-  publicApi.get(url, { params }).then(res => res.data.data);
+export const publicGet = <T>(url: string, params?: object): Promise<T> =>
+  publicApi.get(url, { params }).then((res) => res.data.data);
 
-export const publicPost = <T>(url: string, data?: object): Promise<T> => 
-  publicApi.post(url, data).then(res => res.data.data);
+export const publicPost = <T>(url: string, data?: object): Promise<T> =>
+  publicApi.post(url, data).then((res) => res.data.data);
 
 export default api;

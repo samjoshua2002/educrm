@@ -1,7 +1,18 @@
 "use client";
 
 import * as React from "react";
-import { Plus, Search, Filter, EllipsisVertical, Pencil, Trash2, CalendarDays, ExternalLink, Loader2, Users } from "lucide-react";
+import {
+  Plus,
+  Search,
+  Filter,
+  EllipsisVertical,
+  Pencil,
+  Trash2,
+  CalendarDays,
+  ExternalLink,
+  Loader2,
+  Users,
+} from "lucide-react";
 import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
@@ -43,7 +54,11 @@ export default function OrganizationsPage() {
   const [searchQuery, setSearchQuery] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState("all");
 
-  const { data: orgsResponse, isLoading, error } = useOrganizations(page, limit);
+  const {
+    data: orgsResponse,
+    isLoading,
+    error,
+  } = useOrganizations(page, limit);
 
   const organizations = orgsResponse?.data || [];
   const pagination = orgsResponse?.pagination;
@@ -51,9 +66,19 @@ export default function OrganizationsPage() {
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-6">
-        <p className="text-destructive font-semibold mb-2">Failed to load organizations</p>
-        <p className="text-muted-foreground text-sm">Please check your connection or contact support.</p>
-        <Button variant="outline" className="mt-4" onClick={() => window.location.reload()}>Retry</Button>
+        <p className="text-destructive font-semibold mb-2">
+          Failed to load organizations
+        </p>
+        <p className="text-muted-foreground text-sm">
+          Please check your connection or contact support.
+        </p>
+        <Button
+          variant="outline"
+          className="mt-4"
+          onClick={() => window.location.reload()}
+        >
+          Retry
+        </Button>
       </div>
     );
   }
@@ -63,7 +88,9 @@ export default function OrganizationsPage() {
       <div className="sticky top-12 z-10 bg-background/40 backdrop-blur-md flex items-center justify-between px-4 md:px-6 py-3 border-b">
         <div className="flex items-center gap-2">
           <h1 className="text-xl font-semibold">Organizations</h1>
-          {isLoading && <Loader2 className="animate-spin size-4 text-muted-foreground" />}
+          {isLoading && (
+            <Loader2 className="animate-spin size-4 text-muted-foreground" />
+          )}
         </div>
         <Link href="/superadmin/organizations/create">
           <Button size="sm">
@@ -141,7 +168,9 @@ export default function OrganizationsPage() {
                     <TableCell>
                       <div className="text-sm">
                         <div>{org.email}</div>
-                        <div className="text-xs text-muted-foreground">{org.phone}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {org.phone}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -176,13 +205,17 @@ export default function OrganizationsPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-40">
                             <DropdownMenuItem className="gap-2" asChild>
-                              <Link href={`/superadmin/organizations/create?id=${org.id}`}>
+                              <Link
+                                href={`/superadmin/organizations/create?id=${org.id}`}
+                              >
                                 <Pencil className="size-4" />
                                 Edit Settings
                               </Link>
                             </DropdownMenuItem>
                             <DropdownMenuItem className="gap-2" asChild>
-                              <Link href={`/superadmin/organizations/${org.id}/users`}>
+                              <Link
+                                href={`/superadmin/organizations/${org.id}/users`}
+                              >
                                 <Users className="size-4" />
                                 Manage Users
                               </Link>
@@ -192,7 +225,10 @@ export default function OrganizationsPage() {
                               Extend Subscription
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem variant="destructive" className="gap-2">
+                            <DropdownMenuItem
+                              variant="destructive"
+                              className="gap-2"
+                            >
                               <Trash2 className="size-4" />
                               Deactivate
                             </DropdownMenuItem>
@@ -204,7 +240,10 @@ export default function OrganizationsPage() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                  <TableCell
+                    colSpan={6}
+                    className="h-24 text-center text-muted-foreground"
+                  >
                     No organizations found.
                   </TableCell>
                 </TableRow>
@@ -212,7 +251,7 @@ export default function OrganizationsPage() {
             </TableBody>
           </Table>
         </div>
-        
+
         {/* Pagination bar could be wired here with setPage(page) and pagination.page/totalPages */}
         {pagination && pagination.totalPages > 1 && (
           <div className="flex items-center justify-between mt-auto">
@@ -220,10 +259,10 @@ export default function OrganizationsPage() {
               Total {pagination.total} records
             </p>
             <div className="flex items-center gap-2">
-               <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => setPage(p => Math.max(1, p - 1))}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
               >
                 Previous
@@ -231,10 +270,12 @@ export default function OrganizationsPage() {
               <div className="text-sm text-muted-foreground font-medium px-2">
                 Page {page} of {pagination.totalPages}
               </div>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  setPage((p) => Math.min(pagination.totalPages, p + 1))
+                }
                 disabled={page === pagination.totalPages}
               >
                 Next

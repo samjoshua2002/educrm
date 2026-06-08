@@ -11,6 +11,13 @@ import {
   FileText,
   Settings,
 } from "lucide-react";
+import { LeadManagerIcon } from "@/components/icons/lead-manager-icon";
+import { ApplicationsIcon } from "@/components/icons/applications-icon";
+import { GdInterviewIcon } from "@/components/icons/gd-interview-icon";
+import { CommunicationIcon } from "@/components/icons/communication-icon";
+import { PaymentsIcon } from "@/components/icons/payments-icon";
+import { TeamIcon } from "@/components/icons/team-icon";
+import { FormsIcon } from "@/components/icons/forms-icon";
 import { NavGroup } from "./sidebar/sidebar-items";
 
 export const organizationNavItems: NavGroup[] = [
@@ -26,7 +33,7 @@ export const organizationNavItems: NavGroup[] = [
       {
         title: "Lead Manager",
         url: "/organization/lead-manager",
-        icon: Users,
+        icon: LeadManagerIcon,
       },
       {
         title: "Leads",
@@ -36,22 +43,22 @@ export const organizationNavItems: NavGroup[] = [
       {
         title: "Applications",
         url: "/organization/applications",
-        icon: NotepadText,
+        icon: ApplicationsIcon,
       },
       {
         title: "GD & Interview",
         url: "/organization/gd-interview",
-        icon: UserPen,
+        icon: GdInterviewIcon,
       },
       {
         title: "Communications",
         url: "/organization/communications",
-        icon: MessageSquareText,
+        icon: CommunicationIcon,
       },
       {
         title: "Payments",
         url: "/organization/payments",
-        icon: Wallet,
+        icon: PaymentsIcon,
       },
       {
         title: "Events",
@@ -72,7 +79,7 @@ export const organizationNavItems: NavGroup[] = [
       {
         title: "Team",
         url: "/organization/team",
-        icon: Users,
+        icon: TeamIcon,
       },
       {
         title: "Students",
@@ -82,7 +89,7 @@ export const organizationNavItems: NavGroup[] = [
       {
         title: "Forms",
         url: "/organization/forms",
-        icon: FileText,
+        icon: FormsIcon,
       },
       {
         title: "Settings",

@@ -131,7 +131,7 @@ export default function EditBranchPage() {
         onSuccess: () => {
           router.push("/organization/branches");
         },
-      }
+      },
     );
   }
 

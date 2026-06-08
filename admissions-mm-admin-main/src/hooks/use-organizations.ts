@@ -7,7 +7,11 @@ import { toast } from "sonner";
 export function useOrganizations(page: number = 1, limit: number = 10) {
   return useQuery({
     queryKey: ["organizations", { page, limit }],
-    queryFn: () => apiGet<PaginatedResponse<Organization>>("/organizations", { page, limit }),
+    queryFn: () =>
+      apiGet<PaginatedResponse<Organization>>("/organizations", {
+        page,
+        limit,
+      }),
   });
 }
 
@@ -23,13 +27,16 @@ export function useCreateOrganization() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: CreateOrganizationInput) => apiPost<Organization>("/organizations", data),
+    mutationFn: (data: CreateOrganizationInput) =>
+      apiPost<Organization>("/organizations", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["organizations"] });
       toast.success("Organization created successfully");
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || "Failed to create organization");
+      toast.error(
+        error.response?.data?.message || "Failed to create organization",
+      );
     },
   });
 }
@@ -38,15 +45,18 @@ export function useUpdateOrganization(id: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: Partial<CreateOrganizationInput> & { status?: string }) => 
-      apiPatch<Organization>(`/organizations/${id}`, data),
+    mutationFn: (
+      data: Partial<CreateOrganizationInput> & { status?: string },
+    ) => apiPatch<Organization>(`/organizations/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["organizations"] });
       queryClient.invalidateQueries({ queryKey: ["organization", id] });
       toast.success("Organization updated successfully");
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || "Failed to update organization");
+      toast.error(
+        error.response?.data?.message || "Failed to update organization",
+      );
     },
   });
 }

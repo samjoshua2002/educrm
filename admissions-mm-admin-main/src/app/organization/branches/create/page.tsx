@@ -99,7 +99,7 @@ export default function AddBranchPage() {
         onSuccess: () => {
           router.push("/organization/branches");
         },
-      }
+      },
     );
   }
 

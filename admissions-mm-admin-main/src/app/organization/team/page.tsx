@@ -73,7 +73,13 @@ import { useBranches } from "@/hooks/use-branches";
 import { Role, User } from "@/types/auth";
 import { cn } from "@/lib/utils";
 
-const ROLES = [Role.ORG_ADMIN, Role.COUNSELOR, Role.LEAD_MANAGER, Role.APPLICATION_MANAGER, Role.EXAM_MANAGER] as const;
+const ROLES = [
+  Role.ORG_ADMIN,
+  Role.COUNSELOR,
+  Role.LEAD_MANAGER,
+  Role.APPLICATION_MANAGER,
+  Role.EXAM_MANAGER,
+] as const;
 
 const roleStyles: Record<string, string> = {
   [Role.LEAD_MANAGER]: "bg-[#4F46E533] text-[#4F46E5] font-medium px-[10px] py-[2px] rounded-[9999px] text-[12px] border-0",
@@ -252,9 +258,19 @@ export default function TeamPage() {
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-6">
-        <p className="text-destructive font-semibold mb-2">Failed to load team</p>
-        <p className="text-muted-foreground text-sm">Please check your connection or contact support.</p>
-        <Button variant="outline" className="mt-4" onClick={() => window.location.reload()}>Retry</Button>
+        <p className="text-destructive font-semibold mb-2">
+          Failed to load team
+        </p>
+        <p className="text-muted-foreground text-sm">
+          Please check your connection or contact support.
+        </p>
+        <Button
+          variant="outline"
+          className="mt-4"
+          onClick={() => window.location.reload()}
+        >
+          Retry
+        </Button>
       </div>
     );
   }

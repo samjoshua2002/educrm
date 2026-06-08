@@ -10,9 +10,26 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { users } from "@/data/users";
 
 import { AccountSwitcher } from "../sidebar/account-switcher";
+import { useAuthStore } from "@/stores/auth-store";
+import { getStoredApplications } from "@/hooks/use-applications";
 
 export function DynamicHeader() {
   const pathname = usePathname();
+  const user = useAuthStore((state) => state.user);
+  const userName = user?.name?.split(" ")[0] || "User";
+
+  const getApplicantName = () => {
+    const segments = pathname.split("/").filter(Boolean);
+    const appNo = segments[segments.length - 1];
+    if (appNo) {
+      const appsList = getStoredApplications();
+      const app = appsList.find((a) => a.applicationNo === appNo);
+      if (app) return app.name.toUpperCase();
+    }
+    return "MS. ANBUKARASI A";
+  };
+
+  const applicantName = getApplicantName();
 
   // Dynamic title based on pathname
   const getTitle = () => {
@@ -20,6 +37,7 @@ export function DynamicHeader() {
     if (pathname.startsWith("/lead-manager")) return "Lead Management";
     if (pathname.startsWith("/gd-interview")) return "GD & Interview";
     if (pathname.startsWith("/payments")) return "Payments testing";
+    if (pathname.includes("/applications/")) return "Application Details";
 
     const segments = pathname.split("/").filter(Boolean);
     const lastSegment = segments[segments.length - 1] || "EDUCRM";
@@ -50,7 +68,21 @@ export function DynamicHeader() {
         {/* Left Side: Sidebar Trigger + Dynamic Title */}
         <div className="flex items-center gap-4">
           <SidebarTrigger className="lg:hidden !text-[#120352] hover:!text-[#120352]/80 hover:bg-zinc-100/50 dark:hover:bg-zinc-800/50" />
-          <h1 className="text-lg font-semibold tracking-tight">{title}</h1>
+          <div className="flex flex-col">
+            <h1 className="text-lg font-semibold tracking-tight leading-tight">
+              {title}
+            </h1>
+            {pathname.includes("/applications/") && (
+              <p className="text-[10px] text-slate-500 font-normal leading-none mt-0.5">
+                View and manage application information for {applicantName}
+              </p>
+            )}
+            {pathname.includes("/dashboard") && (
+              <p className="text-[10px] text-slate-500 font-normal leading-none mt-0.5">
+                Welcome back, {userName}. Here's what's happening today.
+              </p>
+            )}
+          </div>
         </div>
 
         {/* Right Side: Common Actions + Account Switcher */}

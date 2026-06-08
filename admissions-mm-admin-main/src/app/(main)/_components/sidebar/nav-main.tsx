@@ -135,7 +135,6 @@ const NavItemCollapsed = ({
           >
             {item.icon && <item.icon />}
             <span>{item.title}</span>
-            <ChevronRight />
           </SidebarMenuButton>
         </DropdownMenuTrigger>
         <DropdownMenuContent

@@ -97,7 +97,9 @@ export default function BranchesPage() {
   // Mobile load more
   const [mobileVisibleCount, setMobileVisibleCount] = React.useState(5);
 
-  const [deleteBranchId, setDeleteBranchId] = React.useState<string | null>(null);
+  const [deleteBranchId, setDeleteBranchId] = React.useState<string | null>(
+    null,
+  );
 
   const { data: branchesResponse, isLoading, error } = useBranches(1, 50); // fetch 50 per request
   const { data: teamResponse } = useTeam(1, 100); // Fetch staff to compute counts (backend max is 100)
@@ -164,7 +166,9 @@ export default function BranchesPage() {
         return false;
       if (
         appliedAdvanced.state &&
-        !branch.state.toLowerCase().includes(appliedAdvanced.state.toLowerCase())
+        !branch.state
+          .toLowerCase()
+          .includes(appliedAdvanced.state.toLowerCase())
       )
         return false;
       if (
@@ -223,9 +227,19 @@ export default function BranchesPage() {
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-6">
-        <p className="text-destructive font-semibold mb-2">Failed to load branches</p>
-        <p className="text-muted-foreground text-sm">Please check your connection or contact support.</p>
-        <Button variant="outline" className="mt-4" onClick={() => window.location.reload()}>Retry</Button>
+        <p className="text-destructive font-semibold mb-2">
+          Failed to load branches
+        </p>
+        <p className="text-muted-foreground text-sm">
+          Please check your connection or contact support.
+        </p>
+        <Button
+          variant="outline"
+          className="mt-4"
+          onClick={() => window.location.reload()}
+        >
+          Retry
+        </Button>
       </div>
     );
   }
@@ -474,9 +488,14 @@ export default function BranchesPage() {
                               <span className="sr-only">Open menu</span>
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-40 z-50">
+                          <DropdownMenuContent
+                            align="end"
+                            className="w-40 z-50"
+                          >
                             <DropdownMenuItem className="gap-2" asChild>
-                              <Link href={`/organization/branches/edit?id=${item.id}`}>
+                              <Link
+                                href={`/organization/branches/edit?id=${item.id}`}
+                              >
                                 <Pencil className="size-4" />
                                 Edit
                               </Link>
@@ -631,7 +650,9 @@ export default function BranchesPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-32">
                           <DropdownMenuItem className="gap-2" asChild>
-                            <Link href={`/organization/branches/edit?id=${item.id}`}>
+                            <Link
+                              href={`/organization/branches/edit?id=${item.id}`}
+                            >
                               <Pencil className="size-4" />
                               Edit
                             </Link>

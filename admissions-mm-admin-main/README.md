@@ -21,17 +21,17 @@ I’ve taken design inspiration from various sources. Feel free to open an issue
 - Multiple layout options (collapsible sidebar, content width variations)
 - Authentication layouts and screens
 - Dashboard screens for analytics, reports, and overview
-- Prebuilt dashboard screens and reusable UI components  
+- Prebuilt dashboard screens and reusable UI components
 - Includes 5 out of 15 planned screens
-- RBAC (Role-Based Access Control) with config-driven UI and multi-tenant support *(planned)*
+- RBAC (Role-Based Access Control) with config-driven UI and multi-tenant support _(planned)_
 
 > [!NOTE]
 > The default version of the dashboard uses the **shadcn neutral** theme.  
 > It also supports multiple color themes inspired by [Tweakcn](https://tweakcn.com), including:
 >
-> - Tangerine  
-> - Neo Brutalism  
-> - Soft Pop  
+> - Tangerine
+> - Neo Brutalism
+> - Soft Pop
 >
 > You can add more presets by following the same structure as the existing ones.
 
@@ -41,11 +41,11 @@ I’ve taken design inspiration from various sources. Feel free to open an issue
 
 ## Tech Stack
 
-- **Framework**: Next.js 15 (App Router), TypeScript, Tailwind CSS v4  
-- **Components**: Shadcn UI  
-- **Validation**: Zod  
-- **Forms & State**: React Hook Form, Zustand  
-- **Data Table**: TanStack Table  
+- **Framework**: Next.js 15 (App Router), TypeScript, Tailwind CSS v4
+- **Components**: Shadcn UI
+- **Validation**: Zod
+- **Forms & State**: React Hook Form, Zustand
+- **Data Table**: TanStack Table
 - **Tooling**: ESLint, Prettier, Husky
 
 ## Screens
@@ -54,6 +54,7 @@ I’ve taken design inspiration from various sources. Feel free to open an issue
 🚧 Coming Soon
 
 ### Dashboards
+
 - ✅ Default
 - ✅ CRM
 - ✅ Finance
@@ -63,6 +64,7 @@ I’ve taken design inspiration from various sources. Feel free to open an issue
 - 🚧 Logistics
 
 ### Pages
+
 - 🚧 Email
 - 🚧 Chat
 - 🚧 Calendar
@@ -94,8 +96,8 @@ _Clone and deploy your own copy of this project in one click._
    ```bash
    git clone https://github.com/arhamkhnz/next-shadcn-admin-dashboard.git
    ```
-   
 2. **Install dependencies**
+
    ```bash
     npm install
    ```
@@ -115,6 +117,5 @@ Once running, the app will be available at [http://localhost:3000](http://localh
 ---
 
 Feel free to open issues, feature requests, or start a discussion if you'd like to contribute or suggest improvements.
-
 
 **Happy Vibe Coding.!**

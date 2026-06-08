@@ -60,20 +60,26 @@ import { useOrganization } from "@/hooks/use-organizations";
 import { Role, User } from "@/types/auth";
 
 const ROLES = [
-  Role.ORG_ADMIN, 
-  Role.COUNSELOR, 
-  Role.LEAD_MANAGER, 
-  Role.APPLICATION_MANAGER, 
-  Role.EXAM_MANAGER
+  Role.ORG_ADMIN,
+  Role.COUNSELOR,
+  Role.LEAD_MANAGER,
+  Role.APPLICATION_MANAGER,
+  Role.EXAM_MANAGER,
 ] as const;
 
 const roleStyles: Record<string, string> = {
-  [Role.LEAD_MANAGER]: "border-blue-300 text-blue-700 dark:border-blue-700 dark:text-blue-300 bg-blue-50/50 dark:bg-blue-950/20",
-  [Role.APPLICATION_MANAGER]: "border-purple-300 text-purple-700 dark:border-purple-700 dark:text-purple-300 bg-purple-50/50 dark:bg-purple-950/20",
-  [Role.EXAM_MANAGER]: "border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/20",
-  [Role.ORG_ADMIN]: "border-orange-300 text-orange-700 dark:border-orange-700 dark:text-orange-300 bg-orange-50/50 dark:bg-orange-950/20",
-  [Role.SUPERADMIN]: "border-red-300 text-red-700 dark:border-red-700 dark:text-red-300 bg-red-50/50 dark:bg-red-950/20",
-  [Role.COUNSELOR]: "border-slate-300 text-slate-700 dark:border-slate-700 dark:text-slate-300 bg-slate-50/50 dark:bg-slate-950/20",
+  [Role.LEAD_MANAGER]:
+    "border-blue-300 text-blue-700 dark:border-blue-700 dark:text-blue-300 bg-blue-50/50 dark:bg-blue-950/20",
+  [Role.APPLICATION_MANAGER]:
+    "border-purple-300 text-purple-700 dark:border-purple-700 dark:text-purple-300 bg-purple-50/50 dark:bg-purple-950/20",
+  [Role.EXAM_MANAGER]:
+    "border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/20",
+  [Role.ORG_ADMIN]:
+    "border-orange-300 text-orange-700 dark:border-orange-700 dark:text-orange-300 bg-orange-50/50 dark:bg-orange-950/20",
+  [Role.SUPERADMIN]:
+    "border-red-300 text-red-700 dark:border-red-700 dark:text-red-300 bg-red-50/50 dark:bg-red-950/20",
+  [Role.COUNSELOR]:
+    "border-slate-300 text-slate-700 dark:border-slate-700 dark:text-slate-300 bg-slate-50/50 dark:bg-slate-950/20",
 };
 
 const statusStyles: Record<string, string> = {
@@ -81,10 +87,10 @@ const statusStyles: Record<string, string> = {
   Inactive: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
 };
 
-export default function SuperadminOrganizationUsersPage({ 
-  params 
-}: { 
-  params: Promise<{ orgId: string }> 
+export default function SuperadminOrganizationUsersPage({
+  params,
+}: {
+  params: Promise<{ orgId: string }>;
 }) {
   const unwrappedParams = React.use(params);
   const orgId = unwrappedParams.orgId;
@@ -93,7 +99,7 @@ export default function SuperadminOrganizationUsersPage({
   const [page, setPage] = React.useState(1);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [roleFilter, setRoleFilter] = React.useState("all");
-  
+
   // Dialog State
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [editingUser, setEditingUser] = React.useState<User | null>(null);
@@ -109,7 +115,11 @@ export default function SuperadminOrganizationUsersPage({
 
   // API Hooks with explicit orgId
   const { data: orgData, isLoading: isLoadingOrg } = useOrganization(orgId);
-  const { data: teamResponse, isLoading: isLoadingTeam, error } = useTeam(orgId, page);
+  const {
+    data: teamResponse,
+    isLoading: isLoadingTeam,
+    error,
+  } = useTeam(orgId, page);
   const { data: branchesResponse } = useBranches(orgId, 1, 100);
   const { mutate: createUser, isPending: isCreating } = useCreateUser(orgId);
   const { mutate: updateUser, isPending: isUpdating } = useUpdateUser(orgId);
@@ -148,9 +158,26 @@ export default function SuperadminOrganizationUsersPage({
   // Submit Handler
   const handleSaveUser = () => {
     if (editingUser) {
-      updateUser({
-        userId: editingUser.id,
-        data: {
+      updateUser(
+        {
+          userId: editingUser.id,
+          data: {
+            name,
+            email,
+            phone,
+            role,
+            branchId: branch !== "none" ? branch : undefined,
+          },
+        },
+        {
+          onSuccess: () => {
+            setDialogOpen(false);
+          },
+        },
+      );
+    } else {
+      createUser(
+        {
           name,
           email,
           phone,
@@ -180,21 +207,21 @@ export default function SuperadminOrganizationUsersPage({
 
   // Toggle user state active/inactive
   const handleToggleStatus = (user: User) => {
-    updateUser({ 
-      userId: user.id, 
-      data: { isActive: user.isActive === false }
+    updateUser({
+      userId: user.id,
+      data: { isActive: user.isActive === false },
     });
   };
 
   // Client-side filtering fallback for search/roles filter on page records
   const filteredTeam = team.filter((user) => {
-    const matchesSearch = 
+    const matchesSearch =
       user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (user.phone && user.phone.includes(searchQuery));
-      
+
     const matchesRole = roleFilter === "all" || user.role === roleFilter;
-    
+
     return matchesSearch && matchesRole;
   });
 
@@ -202,9 +229,19 @@ export default function SuperadminOrganizationUsersPage({
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-6 bg-background">
         <ShieldAlert className="size-12 text-destructive mb-3" />
-        <p className="text-destructive font-semibold mb-2">Failed to load organization staff</p>
-        <p className="text-muted-foreground text-sm">Please check authorization rights or network connection.</p>
-        <Button variant="outline" className="mt-4" onClick={() => window.location.reload()}>Retry</Button>
+        <p className="text-destructive font-semibold mb-2">
+          Failed to load organization staff
+        </p>
+        <p className="text-muted-foreground text-sm">
+          Please check authorization rights or network connection.
+        </p>
+        <Button
+          variant="outline"
+          className="mt-4"
+          onClick={() => window.location.reload()}
+        >
+          Retry
+        </Button>
       </div>
     );
   }
@@ -227,10 +264,16 @@ export default function SuperadminOrganizationUsersPage({
               <span>/</span>
               <span className="text-foreground font-bold">{orgName}</span>
             </div>
-            <h1 className="text-xl font-bold tracking-tight mt-0.5">Staff Management</h1>
+            <h1 className="text-xl font-bold tracking-tight mt-0.5">
+              Staff Management
+            </h1>
           </div>
         </div>
-        <Button size="sm" onClick={handleOpenCreate} className="shadow-lg shadow-primary/10">
+        <Button
+          size="sm"
+          onClick={handleOpenCreate}
+          className="shadow-lg shadow-primary/10"
+        >
           <Plus className="size-4 mr-1.5" />
           Add Staff Member
         </Button>
@@ -258,7 +301,8 @@ export default function SuperadminOrganizationUsersPage({
                 <SelectItem value="all">All Roles</SelectItem>
                 {ROLES.map((role) => (
                   <SelectItem key={role} value={role}>
-                    {role.charAt(0).toUpperCase() + role.slice(1).replace("_", " ")}
+                    {role.charAt(0).toUpperCase() +
+                      role.slice(1).replace("_", " ")}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -298,7 +342,9 @@ export default function SuperadminOrganizationUsersPage({
                 filteredTeam.map((user) => (
                   <TableRow key={user.id} className="hover:bg-primary/[0.01]">
                     <TableCell className="ps-4 font-medium">
-                      <div className="font-semibold text-slate-800 dark:text-slate-100">{user.name}</div>
+                      <div className="font-semibold text-slate-800 dark:text-slate-100">
+                        {user.name}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <div className="text-xs space-y-0.5">
@@ -314,18 +360,30 @@ export default function SuperadminOrganizationUsersPage({
                     </TableCell>
                     <TableCell>
                       <span className="text-sm font-medium">
-                        {branches.find((b) => b.id === user.branchId)?.name || "Central (No Branch)"}
+                        {branches.find((b) => b.id === user.branchId)?.name ||
+                          "Central (No Branch)"}
                       </span>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className={cn("capitalize font-semibold rounded-full px-2.5 py-0.5", roleStyles[user.role] ?? "")}>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "capitalize font-semibold rounded-full px-2.5 py-0.5",
+                          roleStyles[user.role] ?? "",
+                        )}
+                      >
                         {user.role.replace("_", " ")}
                       </Badge>
                     </TableCell>
                     <TableCell>
                       <Badge
                         variant="secondary"
-                        className={cn("border-0 rounded-full font-bold px-3 py-0.5", user.isActive !== false ? statusStyles.Active : statusStyles.Inactive)}
+                        className={cn(
+                          "border-0 rounded-full font-bold px-3 py-0.5",
+                          user.isActive !== false
+                            ? statusStyles.Active
+                            : statusStyles.Inactive,
+                        )}
                       >
                         {user.isActive !== false ? "Active" : "Inactive"}
                       </Badge>
@@ -344,21 +402,31 @@ export default function SuperadminOrganizationUsersPage({
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-44 p-1">
-                            <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => handleOpenEdit(user)}>
+                            <DropdownMenuItem
+                              className="gap-2 cursor-pointer"
+                              onClick={() => handleOpenEdit(user)}
+                            >
                               <Pencil className="size-4 text-muted-foreground" />
                               Edit Profile
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem className="gap-2 cursor-pointer font-medium" onClick={() => handleToggleStatus(user)}>
+                            <DropdownMenuItem
+                              className="gap-2 cursor-pointer font-medium"
+                              onClick={() => handleToggleStatus(user)}
+                            >
                               {user.isActive !== false ? (
                                 <>
                                   <UserX className="size-4 text-destructive" />
-                                  <span className="text-destructive">Deactivate Staff</span>
+                                  <span className="text-destructive">
+                                    Deactivate Staff
+                                  </span>
                                 </>
                               ) : (
                                 <>
                                   <UserCheck className="size-4 text-emerald-600" />
-                                  <span className="text-emerald-600">Activate Staff</span>
+                                  <span className="text-emerald-600">
+                                    Activate Staff
+                                  </span>
                                 </>
                               )}
                             </DropdownMenuItem>
@@ -372,8 +440,14 @@ export default function SuperadminOrganizationUsersPage({
                 <TableRow>
                   <TableCell colSpan={6} className="h-32 text-center">
                     <div className="flex flex-col items-center justify-center p-6 space-y-2">
-                      <p className="text-sm text-muted-foreground italic">No staff members found.</p>
-                      <Button variant="outline" size="sm" onClick={handleOpenCreate}>
+                      <p className="text-sm text-muted-foreground italic">
+                        No staff members found.
+                      </p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleOpenCreate}
+                      >
                         Create first staff
                       </Button>
                     </div>
@@ -388,7 +462,8 @@ export default function SuperadminOrganizationUsersPage({
         {pagination && pagination.totalPages > 1 && (
           <div className="flex items-center justify-between mt-auto pt-2">
             <p className="text-sm text-muted-foreground">
-              Showing page {page} of {pagination.totalPages} ({pagination.total} staff members)
+              Showing page {page} of {pagination.totalPages} ({pagination.total}{" "}
+              staff members)
             </p>
             <div className="flex items-center gap-2">
               <Button
@@ -403,7 +478,9 @@ export default function SuperadminOrganizationUsersPage({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
+                onClick={() =>
+                  setPage((p) => Math.min(pagination.totalPages, p + 1))
+                }
                 disabled={page === pagination.totalPages}
               >
                 Next
@@ -423,7 +500,12 @@ export default function SuperadminOrganizationUsersPage({
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="name" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Full Name</Label>
+              <Label
+                htmlFor="name"
+                className="text-xs font-bold uppercase tracking-wider text-muted-foreground"
+              >
+                Full Name
+              </Label>
               <Input
                 id="name"
                 placeholder="Jane Doe"
@@ -433,7 +515,12 @@ export default function SuperadminOrganizationUsersPage({
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="email" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Email Address</Label>
+              <Label
+                htmlFor="email"
+                className="text-xs font-bold uppercase tracking-wider text-muted-foreground"
+              >
+                Email Address
+              </Label>
               <Input
                 id="email"
                 type="email"
@@ -444,7 +531,12 @@ export default function SuperadminOrganizationUsersPage({
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="phone" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Phone Number</Label>
+              <Label
+                htmlFor="phone"
+                className="text-xs font-bold uppercase tracking-wider text-muted-foreground"
+              >
+                Phone Number
+              </Label>
               <Input
                 id="phone"
                 placeholder="+91 99887 76655"
@@ -483,7 +575,12 @@ export default function SuperadminOrganizationUsersPage({
             )}
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="role" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Role</Label>
+                <Label
+                  htmlFor="role"
+                  className="text-xs font-bold uppercase tracking-wider text-muted-foreground"
+                >
+                  Role
+                </Label>
                 <Select value={role} onValueChange={(val) => setRole(val)}>
                   <SelectTrigger id="role" className="w-full">
                     <SelectValue placeholder="Select a role" />
@@ -491,14 +588,20 @@ export default function SuperadminOrganizationUsersPage({
                   <SelectContent>
                     {ROLES.map((role) => (
                       <SelectItem key={role} value={role}>
-                        {role.charAt(0).toUpperCase() + role.slice(1).replace("_", " ")}
+                        {role.charAt(0).toUpperCase() +
+                          role.slice(1).replace("_", " ")}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="branch" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Primary Branch</Label>
+                <Label
+                  htmlFor="branch"
+                  className="text-xs font-bold uppercase tracking-wider text-muted-foreground"
+                >
+                  Primary Branch
+                </Label>
                 <Select value={branch} onValueChange={setBranch}>
                   <SelectTrigger id="branch" className="w-full">
                     <SelectValue placeholder="Central" />
@@ -516,16 +619,16 @@ export default function SuperadminOrganizationUsersPage({
             </div>
           </div>
           <DialogFooter className="gap-2">
-            <Button 
-              variant="outline" 
-              onClick={() => setDialogOpen(false)} 
+            <Button
+              variant="outline"
+              onClick={() => setDialogOpen(false)}
               disabled={isPending}
             >
               Cancel
             </Button>
-            <Button 
-              onClick={handleSaveUser} 
-              disabled={isPending} 
+            <Button
+              onClick={handleSaveUser}
+              disabled={isPending}
               className="font-semibold shadow-lg shadow-primary/10"
             >
               {isPending && <Loader2 className="animate-spin size-4 mr-2" />}
