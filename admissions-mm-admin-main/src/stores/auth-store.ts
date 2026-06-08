@@ -15,10 +15,10 @@ const ROLE_COOKIE_NAME = "user_role";
 
 const getInitialUser = (): User | null => {
   if (typeof window === "undefined") return null;
-  
+
   const token = Cookies.get(COOKIE_NAME);
   const role = Cookies.get(ROLE_COOKIE_NAME);
-  
+
   if (!token || !role) return null;
 
   try {
@@ -51,10 +51,10 @@ export const useAuthStore = create<AuthState>((set) => ({
     Cookies.remove(ROLE_COOKIE_NAME);
     set({ user: null });
     queryClient.clear();
-    
+
     // Clear potentially sensitive data from localStorage if any
     if (typeof window !== "undefined") {
-       // Optional: sessionStorage.clear();
+      // Optional: sessionStorage.clear();
     }
   },
 }));

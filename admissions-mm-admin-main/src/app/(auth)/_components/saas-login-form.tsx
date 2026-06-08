@@ -14,13 +14,22 @@ import { User, Role } from "@/types/auth";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Eye, EyeOff } from "lucide-react";
 
 const FormSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
-  password: z.string().min(6, { message: "Password must be at least 6 characters." }),
+  password: z
+    .string()
+    .min(6, { message: "Password must be at least 6 characters." }),
   remember: z.boolean().optional(),
 });
 
@@ -74,8 +83,8 @@ export function SaasLoginForm() {
 
   return (
     <Form {...form}>
-      <form 
-        onSubmit={form.handleSubmit(onSubmit)} 
+      <form
+        onSubmit={form.handleSubmit(onSubmit)}
         className="space-y-5"
         suppressHydrationWarning={true}
       >
@@ -84,16 +93,18 @@ export function SaasLoginForm() {
           name="email"
           render={({ field }) => (
             <FormItem className="space-y-1">
-              <FormLabel className="text-[#64748B] text-base font-medium">Email or phone number</FormLabel>
+              <FormLabel className="text-[#64748B] text-base font-medium">
+                Email or phone number
+              </FormLabel>
               <FormControl>
-                <Input 
-                  id="email" 
-                  type="email" 
-                  placeholder="" 
-                  autoComplete="email" 
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder=""
+                  autoComplete="email"
                   className="h-12 border-[#66666659] rounded-[10px] bg-white focus-visible:ring-[var(--ring)]/20 focus-visible:border-[var(--ring)]"
                   suppressHydrationWarning={true}
-                  {...field} 
+                  {...field}
                 />
               </FormControl>
               <FormMessage />
@@ -106,7 +117,9 @@ export function SaasLoginForm() {
           render={({ field }) => (
             <FormItem className="space-y-1">
               <div className="flex items-center justify-between">
-                <FormLabel className="text-[#64748B] text-base font-medium">Password</FormLabel>
+                <FormLabel className="text-[#64748B] text-base font-medium">
+                  Password
+                </FormLabel>
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
@@ -137,15 +150,13 @@ export function SaasLoginForm() {
           )}
         />
 
-     
-
-      <Button 
-  className="w-full h-12 bg-primary hover:bg-[var(--primary-hover)] text-primary-foreground rounded-[25px] font-medium text-base shadow-lg transition-all mt-1"
-  type="submit"
->
-  Sign in
-</Button>
-           <div className="flex items-center justify-between pt-1">
+        <Button
+          className="w-full h-12 bg-primary hover:bg-[var(--primary-hover)] text-primary-foreground rounded-[25px] font-medium text-base shadow-lg transition-all mt-1"
+          type="submit"
+        >
+          Sign in
+        </Button>
+        <div className="flex items-center justify-between pt-1">
           <FormField
             control={form.control}
             name="remember"
@@ -160,13 +171,19 @@ export function SaasLoginForm() {
                     suppressHydrationWarning={true}
                   />
                 </FormControl>
-                <FormLabel htmlFor="login-remember" className="text-[#4B5563] text-base font-medium cursor-pointer">
+                <FormLabel
+                  htmlFor="login-remember"
+                  className="text-[#4B5563] text-base font-medium cursor-pointer"
+                >
                   Remember me
                 </FormLabel>
               </FormItem>
             )}
           />
-          <Link href="#" className="text-[#4B5563] text-base font-medium hover:text-[#2563EB]">
+          <Link
+            href="#"
+            className="text-[#4B5563] text-base font-medium hover:text-[#2563EB]"
+          >
             Need help?
           </Link>
         </div>

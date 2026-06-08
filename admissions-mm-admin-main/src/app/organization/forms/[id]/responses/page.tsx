@@ -45,7 +45,11 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
-import { useForm, useFormResponses, useUpdateResponseStatus } from "@/hooks/use-forms";
+import {
+  useForm,
+  useFormResponses,
+  useUpdateResponseStatus,
+} from "@/hooks/use-forms";
 import { FormResponse } from "@/types/form";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
@@ -53,7 +57,8 @@ import { toast } from "sonner";
 
 const statusStyles = {
   verified: "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300",
-  pending: "bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300",
+  pending:
+    "bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300",
   rejected: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300",
 };
 
@@ -63,28 +68,37 @@ const statusIcons = {
   rejected: <XCircle className="h-3 w-3" />,
 };
 
-export default function OrganizationResponsesPage({ params }: { params: Promise<{ id: string }> }) {
+export default function OrganizationResponsesPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const unwrappedParams = React.use(params);
   const id = unwrappedParams.id;
-  
+
   // State
   const [page, setPage] = React.useState(1);
   const [searchQuery, setSearchQuery] = React.useState("");
-  const [selectedResponse, setSelectedResponse] = React.useState<FormResponse | null>(null);
+  const [selectedResponse, setSelectedResponse] =
+    React.useState<FormResponse | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = React.useState(false);
 
   // API Hooks
   const { data: form, isLoading: isLoadingForm } = useForm(id);
-  const { data: paginatedResponses, isLoading: isLoadingResponses } = useFormResponses(id, page, 10);
+  const { data: paginatedResponses, isLoading: isLoadingResponses } =
+    useFormResponses(id, page, 10);
   const { mutate: updateStatus } = useUpdateResponseStatus();
 
   const responses = paginatedResponses?.data || [];
   const pagination = paginatedResponses?.pagination;
 
-  const handleStatusUpdate = (resId: string, status: FormResponse['status']) => {
+  const handleStatusUpdate = (
+    resId: string,
+    status: FormResponse["status"],
+  ) => {
     updateStatus({ id: resId, status });
     if (selectedResponse?.id === resId) {
-      setSelectedResponse(prev => prev ? { ...prev, status } : null);
+      setSelectedResponse((prev) => (prev ? { ...prev, status } : null));
     }
   };
 
@@ -115,17 +129,24 @@ export default function OrganizationResponsesPage({ params }: { params: Promise<
   }
 
   // Logic to find "Applicant Name" and "Email" from dynamic data for display
-  const getDisplayValue = (res: FormResponse, type: 'name' | 'email') => {
-    const field = form.fields.find(f => f.type === (type === 'name' ? 'text' : 'email'));
+  const getDisplayValue = (res: FormResponse, type: "name" | "email") => {
+    const field = form.fields.find(
+      (f) => f.type === (type === "name" ? "text" : "email"),
+    );
     if (field && res.data[field.id]) return res.data[field.id];
-    
+
     // Fallback search
     const entries = Object.entries(res.data);
-    if (type === 'name') {
-      const nameKey = Object.keys(res.data).find(k => k.toLowerCase().includes('name') || k.toLowerCase().includes('full'));
+    if (type === "name") {
+      const nameKey = Object.keys(res.data).find(
+        (k) =>
+          k.toLowerCase().includes("name") || k.toLowerCase().includes("full"),
+      );
       return nameKey ? res.data[nameKey] : "Applicant";
     } else {
-      const emailKey = Object.keys(res.data).find(k => k.toLowerCase().includes('email'));
+      const emailKey = Object.keys(res.data).find((k) =>
+        k.toLowerCase().includes("email"),
+      );
       return emailKey ? res.data[emailKey] : "—";
     }
   };
@@ -149,7 +170,11 @@ export default function OrganizationResponsesPage({ params }: { params: Promise<
           <Button variant="outline" size="sm">
             <Filter className="mr-2 h-4 w-4" /> Filters
           </Button>
-          <Button variant="outline" size="sm" onClick={() => toast.info("Exporting CSV...")}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => toast.info("Exporting CSV...")}
+          >
             <Download className="mr-2 h-4 w-4" /> Export CSV
           </Button>
         </div>
@@ -175,9 +200,9 @@ export default function OrganizationResponsesPage({ params }: { params: Promise<
             </div>
           </div>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-             <span className="text-xs italic">
-               {pagination ? `Total ${pagination.total} submissions` : ""}
-             </span>
+            <span className="text-xs italic">
+              {pagination ? `Total ${pagination.total} submissions` : ""}
+            </span>
           </div>
         </div>
 
@@ -189,7 +214,7 @@ export default function OrganizationResponsesPage({ params }: { params: Promise<
                 <TableHead className="ps-4">Applicant</TableHead>
                 <TableHead>Submitted On</TableHead>
                 <TableHead>Status</TableHead>
-                {form.fields.slice(0, 2).map(field => (
+                {form.fields.slice(0, 2).map((field) => (
                   <TableHead key={field.id}>{field.label}</TableHead>
                 ))}
                 <TableHead className="text-right pe-4">Actions</TableHead>
@@ -199,7 +224,10 @@ export default function OrganizationResponsesPage({ params }: { params: Promise<
               {isLoadingResponses ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={i}>
-                    <TableCell colSpan={form.fields.slice(0, 2).length + 4} className="py-4 ps-4">
+                    <TableCell
+                      colSpan={form.fields.slice(0, 2).length + 4}
+                      className="py-4 ps-4"
+                    >
                       <div className="flex items-center gap-3">
                         <Skeleton className="h-8 w-8 rounded-full" />
                         <div className="space-y-2">
@@ -212,25 +240,38 @@ export default function OrganizationResponsesPage({ params }: { params: Promise<
                 ))
               ) : responses.length > 0 ? (
                 responses.map((res) => {
-                  const applicantName = getDisplayValue(res, 'name');
-                  const applicantEmail = getDisplayValue(res, 'email');
+                  const applicantName = getDisplayValue(res, "name");
+                  const applicantEmail = getDisplayValue(res, "email");
                   return (
                     <TableRow key={res.id} className="hover:bg-primary/[0.01]">
                       <TableCell className="ps-4">
                         <div className="flex items-center gap-3">
                           <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-[10px] uppercase">
-                            {String(applicantName).split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
+                            {String(applicantName)
+                              .split(" ")
+                              .map((n: string) => n[0])
+                              .join("")
+                              .slice(0, 2)}
                           </div>
                           <div className="flex flex-col">
-                            <span className="font-semibold text-sm">{applicantName}</span>
-                            <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-tighter">{applicantEmail}</span>
+                            <span className="font-semibold text-sm">
+                              {applicantName}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-tighter">
+                              {applicantEmail}
+                            </span>
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1.5 text-muted-foreground text-[11px] font-medium uppercase">
                           <Calendar className="h-3 w-3" />
-                          {res.submittedAt ? format(new Date(res.submittedAt), 'MMM dd, hh:mm a') : '—'}
+                          {res.submittedAt
+                            ? format(
+                                new Date(res.submittedAt),
+                                "MMM dd, hh:mm a",
+                              )
+                            : "—"}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -242,11 +283,19 @@ export default function OrganizationResponsesPage({ params }: { params: Promise<
                           {res.status}
                         </Badge>
                         {res.isDuplicate && (
-                          <Badge variant="destructive" className="ml-2 text-[9px] h-3.5 px-1 font-black">DUP</Badge>
+                          <Badge
+                            variant="destructive"
+                            className="ml-2 text-[9px] h-3.5 px-1 font-black"
+                          >
+                            DUP
+                          </Badge>
                         )}
                       </TableCell>
-                      {form.fields.slice(0, 2).map(field => (
-                        <TableCell key={field.id} className="text-xs font-medium">
+                      {form.fields.slice(0, 2).map((field) => (
+                        <TableCell
+                          key={field.id}
+                          className="text-xs font-medium"
+                        >
                           {res.data[field.id] || "—"}
                         </TableCell>
                       ))}
@@ -274,18 +323,40 @@ export default function OrganizationResponsesPage({ params }: { params: Promise<
                                 <MoreVertical className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-52 p-1">
-                              <DropdownMenuLabel className="px-2 py-1.5 text-[10px] font-bold uppercase text-muted-foreground">Set Status</DropdownMenuLabel>
+                            <DropdownMenuContent
+                              align="end"
+                              className="w-52 p-1"
+                            >
+                              <DropdownMenuLabel className="px-2 py-1.5 text-[10px] font-bold uppercase text-muted-foreground">
+                                Set Status
+                              </DropdownMenuLabel>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem className="gap-2 focus:bg-emerald-600 focus:text-white rounded-md cursor-pointer" onClick={() => handleStatusUpdate(res.id, 'verified')}>
-                                <CheckCircle2 className="h-4 w-4" /> Mark as Verified
+                              <DropdownMenuItem
+                                className="gap-2 focus:bg-emerald-600 focus:text-white rounded-md cursor-pointer"
+                                onClick={() =>
+                                  handleStatusUpdate(res.id, "verified")
+                                }
+                              >
+                                <CheckCircle2 className="h-4 w-4" /> Mark as
+                                Verified
                               </DropdownMenuItem>
-                              <DropdownMenuItem className="gap-2 focus:bg-orange-600 focus:text-white rounded-md cursor-pointer" onClick={() => handleStatusUpdate(res.id, 'pending')}>
+                              <DropdownMenuItem
+                                className="gap-2 focus:bg-orange-600 focus:text-white rounded-md cursor-pointer"
+                                onClick={() =>
+                                  handleStatusUpdate(res.id, "pending")
+                                }
+                              >
                                 <Clock className="h-4 w-4" /> Set to Pending
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem className="gap-2 focus:bg-destructive focus:text-white rounded-md cursor-pointer text-destructive" onClick={() => handleStatusUpdate(res.id, 'rejected')}>
-                                <XCircle className="h-4 w-4" /> Reject Application
+                              <DropdownMenuItem
+                                className="gap-2 focus:bg-destructive focus:text-white rounded-md cursor-pointer text-destructive"
+                                onClick={() =>
+                                  handleStatusUpdate(res.id, "rejected")
+                                }
+                              >
+                                <XCircle className="h-4 w-4" /> Reject
+                                Application
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -296,10 +367,15 @@ export default function OrganizationResponsesPage({ params }: { params: Promise<
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={form.fields.slice(0, 2).length + 4} className="h-32 text-center">
+                  <TableCell
+                    colSpan={form.fields.slice(0, 2).length + 4}
+                    className="h-32 text-center"
+                  >
                     <div className="flex flex-col items-center justify-center space-y-2 opacity-40">
                       <Database className="h-8 w-8 text-muted-foreground" />
-                      <p className="text-sm font-medium italic">No submissions found for this form.</p>
+                      <p className="text-sm font-medium italic">
+                        No submissions found for this form.
+                      </p>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -319,7 +395,7 @@ export default function OrganizationResponsesPage({ params }: { params: Promise<
                 variant="outline"
                 size="sm"
                 className="h-8 text-xs font-bold uppercase"
-                onClick={() => setPage(prev => Math.max(1, prev - 1))}
+                onClick={() => setPage((prev) => Math.max(1, prev - 1))}
                 disabled={page === 1}
               >
                 Prev
@@ -331,7 +407,9 @@ export default function OrganizationResponsesPage({ params }: { params: Promise<
                 variant="outline"
                 size="sm"
                 className="h-8 text-xs font-bold uppercase"
-                onClick={() => setPage(prev => Math.min(pagination.totalPages, prev + 1))}
+                onClick={() =>
+                  setPage((prev) => Math.min(pagination.totalPages, prev + 1))
+                }
                 disabled={page === pagination.totalPages}
               >
                 Next
@@ -349,10 +427,12 @@ export default function OrganizationResponsesPage({ params }: { params: Promise<
               <SheetHeader className="pb-6 border-b">
                 <div className="flex items-center gap-2 text-primary mb-2">
                   <FileType className="h-4 w-4" />
-                  <span className="text-xs font-semibold uppercase tracking-widest">Application Summary</span>
+                  <span className="text-xs font-semibold uppercase tracking-widest">
+                    Application Summary
+                  </span>
                 </div>
                 <SheetTitle className="text-xl font-bold">
-                  {getDisplayValue(selectedResponse, 'name')}
+                  {getDisplayValue(selectedResponse, "name")}
                 </SheetTitle>
                 <div className="flex items-center gap-2 mt-1">
                   <Badge
@@ -361,7 +441,9 @@ export default function OrganizationResponsesPage({ params }: { params: Promise<
                   >
                     {selectedResponse.status}
                   </Badge>
-                  <span className="text-xs text-muted-foreground">ID: {selectedResponse.id}</span>
+                  <span className="text-xs text-muted-foreground">
+                    ID: {selectedResponse.id}
+                  </span>
                 </div>
               </SheetHeader>
 
@@ -371,10 +453,17 @@ export default function OrganizationResponsesPage({ params }: { params: Promise<
                     <Database className="h-3 w-3" /> Form Data
                   </h3>
                   <div className="grid grid-cols-1 gap-2 bg-muted/20 p-4 rounded-lg border border-dashed">
-                    {form.fields.map(field => (
-                      <div key={field.id} className="grid grid-cols-3 py-1 border-b border-muted last:border-0 items-center">
-                        <p className="text-[10px] uppercase font-bold text-muted-foreground col-span-1">{field.label}</p>
-                        <p className="text-sm font-medium col-span-2">{selectedResponse.data[field.id] || "—"}</p>
+                    {form.fields.map((field) => (
+                      <div
+                        key={field.id}
+                        className="grid grid-cols-3 py-1 border-b border-muted last:border-0 items-center"
+                      >
+                        <p className="text-[10px] uppercase font-bold text-muted-foreground col-span-1">
+                          {field.label}
+                        </p>
+                        <p className="text-sm font-medium col-span-2">
+                          {selectedResponse.data[field.id] || "—"}
+                        </p>
                       </div>
                     ))}
                   </div>
@@ -386,12 +475,25 @@ export default function OrganizationResponsesPage({ params }: { params: Promise<
                   </h3>
                   <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg">
                     <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground">Submitted At</p>
-                      <p className="text-sm font-medium">{format(new Date(selectedResponse.submittedAt), 'PPpp')}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Submitted At
+                      </p>
+                      <p className="text-sm font-medium">
+                        {format(new Date(selectedResponse.submittedAt), "PPpp")}
+                      </p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground font-bold">Is Potential Duplicate?</p>
-                      <Badge variant={selectedResponse.isDuplicate ? "destructive" : "outline"} className="text-[10px]">
+                      <p className="text-xs text-muted-foreground font-bold">
+                        Is Potential Duplicate?
+                      </p>
+                      <Badge
+                        variant={
+                          selectedResponse.isDuplicate
+                            ? "destructive"
+                            : "outline"
+                        }
+                        className="text-[10px]"
+                      >
                         {selectedResponse.isDuplicate ? "YES" : "NO"}
                       </Badge>
                     </div>
@@ -404,13 +506,17 @@ export default function OrganizationResponsesPage({ params }: { params: Promise<
                   <Button
                     variant="outline"
                     className="flex-1 text-destructive hover:bg-destructive/5 border-destructive/20 hover:text-destructive"
-                    onClick={() => handleStatusUpdate(selectedResponse.id, 'rejected')}
+                    onClick={() =>
+                      handleStatusUpdate(selectedResponse.id, "rejected")
+                    }
                   >
                     <XCircle className="h-4 w-4 mr-2" /> Reject
                   </Button>
-                  <Button 
+                  <Button
                     className="flex-1 bg-emerald-600 hover:bg-emerald-700"
-                    onClick={() => handleStatusUpdate(selectedResponse.id, 'verified')}
+                    onClick={() =>
+                      handleStatusUpdate(selectedResponse.id, "verified")
+                    }
                   >
                     <CheckCircle2 className="h-4 w-4 mr-2" /> Verify & Approve
                   </Button>

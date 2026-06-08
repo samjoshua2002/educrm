@@ -1,7 +1,6 @@
 import {
   Users,
   LayoutDashboard,
-  type LucideIcon,
   MessageSquareText,
   Wallet,
   NotepadText,
@@ -9,11 +8,18 @@ import {
   FileText,
   Settings,
 } from "lucide-react";
+import { LeadManagerIcon } from "@/components/icons/lead-manager-icon";
+import { ApplicationsIcon } from "@/components/icons/applications-icon";
+import { GdInterviewIcon } from "@/components/icons/gd-interview-icon";
+import { CommunicationIcon } from "@/components/icons/communication-icon";
+import { PaymentsIcon } from "@/components/icons/payments-icon";
+import { TeamIcon } from "@/components/icons/team-icon";
+import { FormsIcon } from "@/components/icons/forms-icon";
 
 export interface NavSubItem {
   title: string;
   url: string;
-  icon?: LucideIcon;
+  icon?: any;
   comingSoon?: boolean;
   newTab?: boolean;
   isNew?: boolean;
@@ -22,7 +28,7 @@ export interface NavSubItem {
 export interface NavMainItem {
   title: string;
   url: string;
-  icon?: LucideIcon;
+  icon?: any;
   subItems?: NavSubItem[];
   comingSoon?: boolean;
   newTab?: boolean;
@@ -48,27 +54,27 @@ export const sidebarItems: NavGroup[] = [
       {
         title: "Lead Manager",
         url: "/lead-manager",
-        icon: Users,
+        icon: LeadManagerIcon,
       },
       {
         title: "Applications",
         url: "/applications",
-        icon: NotepadText,
+        icon: ApplicationsIcon,
       },
       {
         title: "GD & Interview",
         url: "/gd-interview",
-        icon: UserPen,
+        icon: GdInterviewIcon,
       },
       {
         title: "Communications",
         url: "/communications",
-        icon: MessageSquareText,
+        icon: CommunicationIcon,
       },
       {
         title: "Payments",
         url: "/payments",
-        icon: Wallet,
+        icon: PaymentsIcon,
       },
     ],
   },
@@ -79,12 +85,12 @@ export const sidebarItems: NavGroup[] = [
       {
         title: "Team",
         url: "/team",
-        icon: UserPen,
+        icon: TeamIcon,
       },
       {
         title: "Forms",
         url: "/organization/forms",
-        icon: FileText,
+        icon: FormsIcon,
       },
       // {
       //   title: "Notices",

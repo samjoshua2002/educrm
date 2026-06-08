@@ -27,7 +27,11 @@ export function useTeam(pageOrOrgId?: number | string, limit: number = 10) {
 
   return useQuery({
     queryKey: ["team", { orgId, page, limit }],
-    queryFn: () => apiGet<PaginatedResponse<User>>(`/organizations/${orgId}/users`, { page, limit }),
+    queryFn: () =>
+      apiGet<PaginatedResponse<User>>(`/organizations/${orgId}/users`, {
+        page,
+        limit,
+      }),
     enabled: !!orgId,
   });
 }
@@ -38,13 +42,16 @@ export function useCreateUser(explicitOrgId?: string) {
   const orgId = explicitOrgId || currentUser?.organizationId;
 
   return useMutation({
-    mutationFn: (data: CreateUserInput) => apiPost<User>(`/organizations/${orgId}/users`, data),
+    mutationFn: (data: CreateUserInput) =>
+      apiPost<User>(`/organizations/${orgId}/users`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["team"] });
       toast.success("Team member created successfully");
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || "Failed to create team member");
+      toast.error(
+        error.response?.data?.message || "Failed to create team member",
+      );
     },
   });
 }
@@ -55,8 +62,13 @@ export function useUpdateUser(explicitOrgId?: string) {
   const orgId = explicitOrgId || currentUser?.organizationId;
 
   return useMutation({
-    mutationFn: ({ userId, data }: { userId: string; data: Partial<CreateUserInput> & { isActive?: boolean } }) =>
-      apiPatch<User>(`/organizations/${orgId}/users/${userId}`, data),
+    mutationFn: ({
+      userId,
+      data,
+    }: {
+      userId: string;
+      data: Partial<CreateUserInput> & { isActive?: boolean };
+    }) => apiPatch<User>(`/organizations/${orgId}/users/${userId}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["team"] });
       toast.success("User updated successfully");

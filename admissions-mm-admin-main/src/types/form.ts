@@ -1,7 +1,15 @@
 export type FieldType =
-  | 'text' | 'email' | 'phone' | 'number' | 'date'
-  | 'select' | 'checkbox' | 'radio' | 'file' | 'payment'
-  | 'textarea';
+  | "text"
+  | "email"
+  | "phone"
+  | "number"
+  | "date"
+  | "select"
+  | "checkbox"
+  | "radio"
+  | "file"
+  | "payment"
+  | "textarea";
 
 export interface FormField {
   id: string;
@@ -23,7 +31,7 @@ export interface Form {
   organizationId: string;
   name: string;
   slug: string;
-  status: 'draft' | 'active' | 'expired';
+  status: "draft" | "active" | "expired";
   campaignId?: string | null;
   fields: FormField[];
   createdBy: string;
@@ -41,7 +49,7 @@ export interface FormResponse {
   id: string;
   formId: string;
   data: Record<string, any>; // key = fieldId
-  status: 'verified' | 'pending' | 'rejected';
+  status: "verified" | "pending" | "rejected";
   isDuplicate: boolean;
   submittedAt: string;
   utmData?: Record<string, string>;
@@ -59,7 +67,7 @@ export interface UpdateFormInput {
   name?: string;
   slug?: string;
   fields?: FormField[];
-  status?: 'draft' | 'active' | 'expired';
+  status?: "draft" | "active" | "expired";
 }
 
 export interface SubmitFormInput {

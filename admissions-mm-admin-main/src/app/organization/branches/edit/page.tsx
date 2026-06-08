@@ -110,7 +110,7 @@ export default function EditBranchPage() {
         onSuccess: () => {
           router.push("/organization/branches");
         },
-      }
+      },
     );
   }
 
@@ -208,7 +208,7 @@ export default function EditBranchPage() {
                     Where is this branch located?
                   </p>
                 </div>
-                
+
                 <div className="flex flex-col gap-2">
                   <Label
                     htmlFor="address"
@@ -275,12 +275,8 @@ export default function EditBranchPage() {
           {/* Right — col 4 */}
           <div className="lg:col-span-4 flex flex-col gap-6">
             {/* Action Card */}
-            <div
-              className="border border-border rounded-[8px] bg-card p-6 flex flex-col gap-6"
-            >
-              <h2
-                className="text-[18px] font-medium text-foreground"
-              >
+            <div className="border border-border rounded-[8px] bg-card p-6 flex flex-col gap-6">
+              <h2 className="text-[18px] font-medium text-foreground">
                 Settings
               </h2>
 
@@ -336,14 +332,13 @@ export default function EditBranchPage() {
             </div>
 
             {/* Protip Card */}
-            <div
-              className="bg-accent flex flex-col gap-4 p-6 rounded-[8px]"
-            >
+            <div className="bg-accent flex flex-col gap-4 p-6 rounded-[8px]">
               <p className="text-accent-foreground text-[18px] font-semibold leading-normal">
                 Protip
               </p>
               <p className="text-foreground text-[12px] font-medium leading-[20px] tracking-[0.6px]">
-                Organizing branches correctly allows you to assign leads accurately and track performance by location.
+                Organizing branches correctly allows you to assign leads
+                accurately and track performance by location.
               </p>
             </div>
           </div>

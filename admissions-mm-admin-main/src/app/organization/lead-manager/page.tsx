@@ -1,7 +1,14 @@
 "use client";
 
 import * as React from "react";
-import { Search, SearchX, Filter, Check, Trash2, EllipsisVertical } from "lucide-react";
+import {
+  Search,
+  SearchX,
+  Filter,
+  Check,
+  Trash2,
+  EllipsisVertical,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -27,7 +34,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useBranches } from "@/hooks/use-branches";
-import { useDeleteLead, useLeads, useUpdateLeadStatus } from "@/hooks/use-leads";
+import {
+  useDeleteLead,
+  useLeads,
+  useUpdateLeadStatus,
+} from "@/hooks/use-leads";
 import { toast } from "sonner";
 
 type Lead = {
@@ -73,7 +84,7 @@ export default function OrganizationLeadManagerPage() {
     itemsPerPage,
     searchQuery || undefined,
     undefined,
-    "unverified"
+    "unverified",
   );
 
   const { mutate: updateStatus } = useUpdateLeadStatus();
@@ -105,7 +116,8 @@ export default function OrganizationLeadManagerPage() {
         lead.name.toLowerCase().includes(q) ||
         lead.email.toLowerCase().includes(q) ||
         lead.mobile.includes(q);
-      const matchesStatus = statusFilter === "all" || lead.status === statusFilter;
+      const matchesStatus =
+        statusFilter === "all" || lead.status === statusFilter;
       return matchesSearch && matchesStatus;
     });
   }, [rows, searchQuery, statusFilter]);
@@ -149,7 +161,11 @@ export default function OrganizationLeadManagerPage() {
                 </SelectContent>
               </Select>
             </div>
-            <Button variant="outline" size="icon" className="h-[39px] w-[39px] shrink-0">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-[39px] w-[39px] shrink-0"
+            >
               <Filter className="size-4" />
             </Button>
           </div>
@@ -188,7 +204,10 @@ export default function OrganizationLeadManagerPage() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="h-40 text-center text-sm text-muted-foreground">
+                  <TableCell
+                    colSpan={8}
+                    className="h-40 text-center text-sm text-muted-foreground"
+                  >
                     Loading...
                   </TableCell>
                 </TableRow>
@@ -199,7 +218,9 @@ export default function OrganizationLeadManagerPage() {
                       <div className="flex size-12 items-center justify-center rounded-full bg-muted/40">
                         <SearchX className="size-6 text-muted-foreground/80" />
                       </div>
-                      <p className="text-sm font-semibold text-foreground">No results found</p>
+                      <p className="text-sm font-semibold text-foreground">
+                        No results found
+                      </p>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -210,38 +231,70 @@ export default function OrganizationLeadManagerPage() {
                     className="border-b border-border/80 hover:bg-muted/15 dark:hover:bg-muted/5 transition-colors"
                   >
                     <TableCell className="py-5 px-6">
-                      <div className="font-semibold text-foreground text-sm tracking-tight">{item.name}</div>
-                      <div className="text-xs text-muted-foreground">{item.email}</div>
+                      <div className="font-semibold text-foreground text-sm tracking-tight">
+                        {item.name}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {item.email}
+                      </div>
                     </TableCell>
-                    <TableCell className="py-5 px-6 text-sm text-foreground/80">{item.mobile}</TableCell>
-                    <TableCell className="py-5 px-6 text-sm text-foreground/80">{item.location}</TableCell>
-                    <TableCell className="py-5 px-6 text-sm text-foreground/80">{item.stage}</TableCell>
-                    <TableCell className="py-5 px-6">
-                      <span className={statusStyles[item.status]}>{item.status}</span>
+                    <TableCell className="py-5 px-6 text-sm text-foreground/80">
+                      {item.mobile}
                     </TableCell>
-                    <TableCell className="py-5 px-6 text-sm text-foreground/80">{item.assignedTo}</TableCell>
+                    <TableCell className="py-5 px-6 text-sm text-foreground/80">
+                      {item.location}
+                    </TableCell>
+                    <TableCell className="py-5 px-6 text-sm text-foreground/80">
+                      {item.stage}
+                    </TableCell>
                     <TableCell className="py-5 px-6">
-                      <div className="font-medium text-foreground text-sm tracking-tight">{item.source}</div>
-                      <div className="text-xs text-muted-foreground">{item.medium} · {item.campaign}</div>
+                      <span className={statusStyles[item.status]}>
+                        {item.status}
+                      </span>
+                    </TableCell>
+                    <TableCell className="py-5 px-6 text-sm text-foreground/80">
+                      {item.assignedTo}
+                    </TableCell>
+                    <TableCell className="py-5 px-6">
+                      <div className="font-medium text-foreground text-sm tracking-tight">
+                        {item.source}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {item.medium} · {item.campaign}
+                      </div>
                     </TableCell>
                     <TableCell className="py-5 px-6 text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="size-8 rounded-md hover:bg-muted" size="icon">
+                          <Button
+                            variant="ghost"
+                            className="size-8 rounded-md hover:bg-muted"
+                            size="icon"
+                          >
                             <EllipsisVertical className="size-4" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-36">
                           <DropdownMenuItem
                             className="gap-2 text-emerald-600 focus:text-emerald-600 cursor-pointer font-medium"
-                            onClick={() => updateStatus({ leadId: String(item.id), status: "verified" })}
+                            onClick={() =>
+                              updateStatus({
+                                leadId: String(item.id),
+                                status: "verified",
+                              })
+                            }
                           >
                             <Check className="size-4 text-emerald-600" />
                             Verify
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             className="gap-2 text-rose-600 focus:text-rose-600 cursor-pointer font-medium"
-                            onClick={() => updateStatus({ leadId: String(item.id), status: "disqualified" })}
+                            onClick={() =>
+                              updateStatus({
+                                leadId: String(item.id),
+                                status: "disqualified",
+                              })
+                            }
                           >
                             <Trash2 className="size-4 text-rose-600" />
                             Disqualify

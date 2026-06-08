@@ -3,6 +3,7 @@
 import * as React from "react";
 
 import Link from "next/link";
+import { StatusBadge } from "@/components/ui/status-badge";
 
 import {
   EllipsisVertical,
@@ -62,191 +63,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-type Application = {
-  id: number;
-  applicationNo: string;
-  name: string;
-  email: string;
-  phone: string;
-  formStatus: string;
-  paymentStatus: string;
-  paymentMode: string;
-  paymentAmount: number;
-  lastActivity: string;
-  program: string;
-  campus: string;
-};
-
-const applications: Application[] = [
-  {
-    id: 1,
-    applicationNo: "APP-2026-0001",
-    name: "Aarav Mehta",
-    email: "aarav.mehta@example.com",
-    phone: "+91 98765 43210",
-    formStatus: "Submitted",
-    paymentStatus: "Paid",
-    paymentMode: "Online",
-    paymentAmount: 1500,
-    lastActivity: "2026-02-18",
-    program: "B.Tech Computer Science",
-    campus: "Main Campus",
-  },
-  {
-    id: 2,
-    applicationNo: "APP-2026-0002",
-    name: "Sneha Iyer",
-    email: "sneha.iyer@example.com",
-    phone: "+91 91234 56780",
-    formStatus: "In Progress",
-    paymentStatus: "Pending",
-    paymentMode: "—",
-    paymentAmount: 0,
-    lastActivity: "2026-02-17",
-    program: "MBA Finance",
-    campus: "City Campus",
-  },
-  {
-    id: 3,
-    applicationNo: "APP-2026-0003",
-    name: "Rohan Desai",
-    email: "rohan.desai@example.com",
-    phone: "+91 99876 54321",
-    formStatus: "Submitted",
-    paymentStatus: "Paid",
-    paymentMode: "UPI",
-    paymentAmount: 1500,
-    lastActivity: "2026-02-16",
-    program: "B.Sc Physics",
-    campus: "South Campus",
-  },
-  {
-    id: 4,
-    applicationNo: "APP-2026-0004",
-    name: "Priya Nair",
-    email: "priya.nair@example.com",
-    phone: "+91 87654 32109",
-    formStatus: "Under Review",
-    paymentStatus: "Paid",
-    paymentMode: "Net Banking",
-    paymentAmount: 2000,
-    lastActivity: "2026-02-15",
-    program: "M.Tech AI & ML",
-    campus: "Main Campus",
-  },
-  {
-    id: 5,
-    applicationNo: "APP-2026-0005",
-    name: "Karan Singh",
-    email: "karan.singh@example.com",
-    phone: "+91 90123 45678",
-    formStatus: "Incomplete",
-    paymentStatus: "Pending",
-    paymentMode: "—",
-    paymentAmount: 0,
-    lastActivity: "2026-02-14",
-    program: "BBA",
-    campus: "City Campus",
-  },
-  {
-    id: 6,
-    applicationNo: "APP-2026-0006",
-    name: "Ananya Sharma",
-    email: "ananya.sharma@example.com",
-    phone: "+91 78901 23456",
-    formStatus: "Submitted",
-    paymentStatus: "Paid",
-    paymentMode: "Credit Card",
-    paymentAmount: 1500,
-    lastActivity: "2026-02-13",
-    program: "B.Tech Electronics",
-    campus: "South Campus",
-  },
-  {
-    id: 7,
-    applicationNo: "APP-2026-0007",
-    name: "Vikram Joshi",
-    email: "vikram.joshi@example.com",
-    phone: "+91 81234 56789",
-    formStatus: "Rejected",
-    paymentStatus: "Refunded",
-    paymentMode: "Online",
-    paymentAmount: 1500,
-    lastActivity: "2026-02-12",
-    program: "MBA Marketing",
-    campus: "Main Campus",
-  },
-  {
-    id: 8,
-    applicationNo: "APP-2026-0008",
-    name: "Meera Gupta",
-    email: "meera.gupta@example.com",
-    phone: "+91 92345 67890",
-    formStatus: "Accepted",
-    paymentStatus: "Paid",
-    paymentMode: "Debit Card",
-    paymentAmount: 2000,
-    lastActivity: "2026-02-11",
-    program: "B.Sc Mathematics",
-    campus: "City Campus",
-  },
-  {
-    id: 9,
-    applicationNo: "APP-2026-0009",
-    name: "Arjun Patel",
-    email: "arjun.patel@example.com",
-    phone: "+91 85678 90123",
-    formStatus: "Submitted",
-    paymentStatus: "Paid",
-    paymentMode: "UPI",
-    paymentAmount: 1500,
-    lastActivity: "2026-02-10",
-    program: "B.Tech Mechanical",
-    campus: "South Campus",
-  },
-  {
-    id: 10,
-    applicationNo: "APP-2026-0010",
-    name: "Diya Reddy",
-    email: "diya.reddy@example.com",
-    phone: "+91 93456 78901",
-    formStatus: "In Progress",
-    paymentStatus: "Pending",
-    paymentMode: "—",
-    paymentAmount: 0,
-    lastActivity: "2026-02-09",
-    program: "M.Tech Data Science",
-    campus: "Main Campus",
-  },
-  {
-    id: 11,
-    applicationNo: "APP-2026-0011",
-    name: "Ishaan Kumar",
-    email: "ishaan.kumar@example.com",
-    phone: "+91 76543 21098",
-    formStatus: "Under Review",
-    paymentStatus: "Paid",
-    paymentMode: "Net Banking",
-    paymentAmount: 2000,
-    lastActivity: "2026-02-08",
-    program: "BBA",
-    campus: "City Campus",
-  },
-  {
-    id: 12,
-    applicationNo: "APP-2026-0012",
-    name: "Tanya Bose",
-    email: "tanya.bose@example.com",
-    phone: "+91 88765 43210",
-    formStatus: "Accepted",
-    paymentStatus: "Paid",
-    paymentMode: "Online",
-    paymentAmount: 1500,
-    lastActivity: "2026-02-07",
-    program: "B.Tech Computer Science",
-    campus: "Main Campus",
-  },
-];
+import { type Application } from "@/data/mock-applications";
+import {
+  useApplications,
+  useDeleteApplication,
+} from "@/hooks/use-applications";
 
 const FORM_STATUSES = [
   "Incomplete",
@@ -277,21 +98,6 @@ const PAYMENT_MODES = [
   "Credit Card",
   "Debit Card",
 ] as const;
-
-const formStatusStyles: Record<string, string> = {
-  Incomplete:
-    "bg-gray-500/10 text-gray-700 dark:bg-gray-500/20 dark:text-gray-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
-  "In Progress":
-    "bg-amber-500/10 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
-  Submitted:
-    "bg-blue-500/10 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
-  "Under Review":
-    "bg-purple-500/10 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
-  Accepted:
-    "bg-green-500/10 text-green-700 dark:bg-green-500/20 dark:text-green-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
-  Rejected:
-    "bg-red-500/10 text-red-700 dark:bg-red-500/20 dark:text-red-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
-};
 
 const paymentStatusStyles: Record<string, string> = {
   Pending:
@@ -360,12 +166,17 @@ function exportToCSV(data: Application[], filename = "applications.csv") {
 }
 
 export default function ApplicationsPage() {
-  const [applicationsState, setApplicationsState] =
-    React.useState<Application[]>(applications);
+  const { data: applicationsResponse, isLoading } = useApplications();
+  const deleteMutation = useDeleteApplication();
+
+  const applicationsState = React.useMemo(() => {
+    return applicationsResponse?.data || [];
+  }, [applicationsResponse]);
+
   const [deleteAppId, setDeleteAppId] = React.useState<number | null>(null);
 
   function handleDeleteApplication(id: number) {
-    setApplicationsState((prev) => prev.filter((app) => app.id !== id));
+    deleteMutation.mutate(id);
   }
   const [currentPage, setCurrentPage] = React.useState(1);
   const itemsPerPage = 8;
@@ -548,6 +359,19 @@ export default function ApplicationsPage() {
     appliedAdvanced.dateFrom !== "" ||
     appliedAdvanced.dateTo !== "" ||
     appliedAdvanced.applicationNo !== "";
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px] w-full">
+        <div className="flex flex-col items-center gap-2">
+          <div className="size-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <p className="text-sm text-muted-foreground font-medium animate-pulse">
+            Loading applications...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -848,7 +672,7 @@ export default function ApplicationsPage() {
                           {app.name}
                         </div>
                         <div className="text-xs text-muted-foreground font-normal">
-                          {app.email} · {app.phone}
+                          {app.email}
                         </div>
                       </div>
                     </TableCell>
@@ -866,9 +690,7 @@ export default function ApplicationsPage() {
                       </div>
                     </TableCell>
                     <TableCell className="py-5 px-6 align-middle">
-                      <span className={formStatusStyles[app.formStatus] ?? ""}>
-                        {app.formStatus}
-                      </span>
+                      <StatusBadge status={app.formStatus} />
                     </TableCell>
                     <TableCell className="py-5 px-6 align-middle">
                       <span
@@ -899,10 +721,6 @@ export default function ApplicationsPage() {
                                 <Eye className="size-4" />
                                 View
                               </Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="gap-2">
-                              <Pencil className="size-4" />
-                              Edit
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
@@ -942,16 +760,16 @@ export default function ApplicationsPage() {
             </p>
             {totalPages > 1 && (
               <div className="flex items-center gap-2 flex-wrap">
-    <Button
-  variant="outline"
-  className="h-9 px-4 border border-border/80 bg-background text-foreground text-sm font-normal rounded-[6px] hover:bg-muted/30 hover:text-[var(--primary)] dark:hover:bg-muted/10 transition-colors shadow-2xs"
-  onClick={() => {
-    if (currentPage > 1) setCurrentPage(currentPage - 1);
-  }}
-  disabled={currentPage === 1}
->
-  Previous
-</Button>
+                <Button
+                  variant="outline"
+                  className="h-9 px-4 border border-border/80 bg-background text-foreground text-sm font-normal rounded-[6px] hover:bg-muted/30 hover:text-[var(--primary)] dark:hover:bg-muted/10 transition-colors shadow-2xs"
+                  onClick={() => {
+                    if (currentPage > 1) setCurrentPage(currentPage - 1);
+                  }}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </Button>
 
                 <div className="flex items-center gap-1">
                   {visiblePages.map((page) => {
@@ -973,17 +791,17 @@ export default function ApplicationsPage() {
                   })}
                 </div>
 
-  <Button
-  variant="outline"
-  className="h-9 px-4 border border-border/80 bg-background text-foreground text-sm font-normal rounded-[6px] hover:bg-muted/30 hover:text-[var(--primary)] dark:hover:bg-muted/10 transition-colors shadow-2xs"
-  onClick={() => {
-    if (currentPage < totalPages)
-      setCurrentPage(currentPage + 1);
-  }}
-  disabled={currentPage === totalPages}
->
-  Next
-</Button>
+                <Button
+                  variant="outline"
+                  className="h-9 px-4 border border-border/80 bg-background text-foreground text-sm font-normal rounded-[6px] hover:bg-muted/30 hover:text-[var(--primary)] dark:hover:bg-muted/10 transition-colors shadow-2xs"
+                  onClick={() => {
+                    if (currentPage < totalPages)
+                      setCurrentPage(currentPage + 1);
+                  }}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                </Button>
               </div>
             )}
           </div>
@@ -1037,9 +855,7 @@ export default function ApplicationsPage() {
                     </div>
 
                     <div className="flex items-center gap-1.5 shrink-0 self-center">
-                      <span className={formStatusStyles[app.formStatus] ?? ""}>
-                        {app.formStatus}
-                      </span>
+                      <StatusBadge status={app.formStatus} />
 
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -1059,10 +875,6 @@ export default function ApplicationsPage() {
                               <Eye className="size-4" />
                               View
                             </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="gap-2">
-                            <Pencil className="size-4" />
-                            Edit
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem

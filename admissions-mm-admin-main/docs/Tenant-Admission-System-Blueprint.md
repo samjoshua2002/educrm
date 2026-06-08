@@ -8,16 +8,16 @@ The product is designed to support large-scale operations, with 100+ organizatio
 
 The system covers the full journey:
 
-* Lead capture
-* Lead verification
-* Lead assignment
-* Lead follow-up and scoring
-* Lead conversion into application
-* Manual application verification
-* Payment tracking and gateway collection
-* Exam / interview / GD planning
-* Final admission decisions
-* Future student self-service access
+- Lead capture
+- Lead verification
+- Lead assignment
+- Lead follow-up and scoring
+- Lead conversion into application
+- Manual application verification
+- Payment tracking and gateway collection
+- Exam / interview / GD planning
+- Final admission decisions
+- Future student self-service access
 
 The platform should be stable, scalable, auditable, and easy to maintain across all tenants.
 
@@ -37,23 +37,23 @@ Each organization manages only its own leads, students, staff, applications, pay
 
 Every important action must be trackable in business terms:
 
-* Who verified the lead
-* Who assigned the lead
-* Who contacted the lead
-* Who reopened, converted, rejected, or closed it
-* Who reviewed the application
-* Who approved or rejected documents
-* Who handled payment status updates
-* Who scheduled exam or interview events
+- Who verified the lead
+- Who assigned the lead
+- Who contacted the lead
+- Who reopened, converted, rejected, or closed it
+- Who reviewed the application
+- Who approved or rejected documents
+- Who handled payment status updates
+- Who scheduled exam or interview events
 
 ### 2.4 Controlled Manual Operations
 
 Certain high-value actions are intentionally manual:
 
-* Lead verification is done by the Lead Manager
-* Application verification is manual
-* Document review is manual
-* Lead closure is manual by counselors
+- Lead verification is done by the Lead Manager
+- Application verification is manual
+- Document review is manual
+- Lead closure is manual by counselors
 
 ### 2.5 Flexible but Disciplined Lead Handling
 
@@ -73,13 +73,13 @@ The Superadmin owns the platform and manages the SaaS business itself.
 
 Main responsibilities:
 
-* Create organization accounts
-* Edit, suspend, reactivate, or delete organizations
-* Define subscription duration and pricing
-* Monitor active and expired organizations
-* View revenue and usage across all tenants
-* Access tenant support view
-* Fully impersonate an organization user for troubleshooting
+- Create organization accounts
+- Edit, suspend, reactivate, or delete organizations
+- Define subscription duration and pricing
+- Monitor active and expired organizations
+- View revenue and usage across all tenants
+- Access tenant support view
+- Fully impersonate an organization user for troubleshooting
 
 ### 3.2 Organization Layer
 
@@ -87,13 +87,13 @@ Each organization is an independent institute using the SaaS.
 
 Main responsibilities:
 
-* Manage branches/campuses
-* Create and manage forms
-* Handle leads and applications
-* Manage staff and roles
-* Track payments and admissions
-* Conduct exam/interview planning
-* Report internal activity
+- Manage branches/campuses
+- Create and manage forms
+- Handle leads and applications
+- Manage staff and roles
+- Track payments and admissions
+- Conduct exam/interview planning
+- Report internal activity
 
 ### 3.3 Branch / Campus Layer
 
@@ -101,11 +101,11 @@ Each organization can have multiple branches or campuses.
 
 Branch is used for:
 
-* Staff assignment
-* Lead routing
-* Operational ownership
-* Venue planning
-* Reporting later on
+- Staff assignment
+- Lead routing
+- Operational ownership
+- Venue planning
+- Reporting later on
 
 A lead belongs to the organization and is linked to a branch where relevant. The branch is part of the organizational structure, not a separate tenant.
 
@@ -119,19 +119,19 @@ The Superadmin is the platform owner and operator.
 
 What they do:
 
-* Create organizations
-* Set plans, pricing, and duration
-* Track subscription expiry
-* Review platform-wide performance
-* Access tenant dashboards in support mode
-* Resolve tenant issues without needing tenant credentials
+- Create organizations
+- Set plans, pricing, and duration
+- Track subscription expiry
+- Review platform-wide performance
+- Access tenant dashboards in support mode
+- Resolve tenant issues without needing tenant credentials
 
 Work environment:
 
-* A central SaaS control dashboard
-* Organization management area
-* Subscription and billing oversight
-* Support/impersonation access area
+- A central SaaS control dashboard
+- Organization management area
+- Subscription and billing oversight
+- Support/impersonation access area
 
 ### 4.2 Organization Admin
 
@@ -139,18 +139,18 @@ The Organization Admin manages the institute-level setup and staff coordination.
 
 What they do:
 
-* Configure institute details and branding
-* Create and manage branches
-* Manage roles and staff access
-* Oversee forms and pipeline behavior
-* Monitor all operational stages inside the organization
+- Configure institute details and branding
+- Create and manage branches
+- Manage roles and staff access
+- Oversee forms and pipeline behavior
+- Monitor all operational stages inside the organization
 
 Work environment:
 
-* Organization dashboard
-* Staff management area
-* Configuration panels
-* Summary views for leads, students, payments, and events
+- Organization dashboard
+- Staff management area
+- Configuration panels
+- Summary views for leads, students, payments, and events
 
 ### 4.3 Lead Manager
 
@@ -158,19 +158,19 @@ The Lead Manager is the quality gatekeeper for incoming leads.
 
 What they do:
 
-* Review raw leads
-* Perform soft duplicate checks
-* Decide whether a lead is qualified or not
-* Reopen a previously verified lead if needed
-* Manage lead assignment coordination
-* Review counselor performance and lead movement behavior
+- Review raw leads
+- Perform soft duplicate checks
+- Decide whether a lead is qualified or not
+- Reopen a previously verified lead if needed
+- Manage lead assignment coordination
+- Review counselor performance and lead movement behavior
 
 Work environment:
 
-* Verification queue
-* Lead review workspace
-* Duplicate handling screen
-* Assignment oversight panel
+- Verification queue
+- Lead review workspace
+- Duplicate handling screen
+- Assignment oversight panel
 
 ### 4.4 Lead Assistant / Admission Counselor
 
@@ -178,20 +178,20 @@ The Counselor is the execution-level user who converts interest into application
 
 What they do:
 
-* Work only on assigned leads
-* Contact students and update notes
-* Change lead progress based on interaction
-* Add follow-up dates where needed
-* Continue lead nurturing when students are not ready
-* Close leads manually when appropriate
-* Push interested students toward application submission
+- Work only on assigned leads
+- Contact students and update notes
+- Change lead progress based on interaction
+- Add follow-up dates where needed
+- Continue lead nurturing when students are not ready
+- Close leads manually when appropriate
+- Push interested students toward application submission
 
 Work environment:
 
-* Assigned lead list
-* Follow-up queue
-* Lead interaction timeline
-* Lead scoring and status update workspace
+- Assigned lead list
+- Follow-up queue
+- Lead interaction timeline
+- Lead scoring and status update workspace
 
 ### 4.5 Application Manager
 
@@ -199,19 +199,19 @@ The Application Manager handles the formal application side.
 
 What they do:
 
-* Review submitted applications
-* Manually verify application data
-* Review uploaded documents
-* Mark applications as approved, rejected, or corrected
-* Track application-level status changes
-* Coordinate with payment and exam flow
+- Review submitted applications
+- Manually verify application data
+- Review uploaded documents
+- Mark applications as approved, rejected, or corrected
+- Track application-level status changes
+- Coordinate with payment and exam flow
 
 Work environment:
 
-* Application review screen
-* Document verification area
-* Approval/rejection workspace
-* Application tracking dashboard
+- Application review screen
+- Document verification area
+- Approval/rejection workspace
+- Application tracking dashboard
 
 ### 4.6 Interview / Exam Manager
 
@@ -219,19 +219,19 @@ The Interview / Exam Manager handles event planning and student allocation.
 
 What they do:
 
-* Create exam, interview, and GD events
-* Add venues and multiple centers
-* Plan temporary external venues
-* Allocate students to venues
-* Maintain venue capacity and event planning
-* Publish results later
+- Create exam, interview, and GD events
+- Add venues and multiple centers
+- Plan temporary external venues
+- Allocate students to venues
+- Maintain venue capacity and event planning
+- Publish results later
 
 Work environment:
 
-* Event creation panel
-* Venue planning view
-* Student allocation screen
-* Result management workspace
+- Event creation panel
+- Venue planning view
+- Student allocation screen
+- Result management workspace
 
 ---
 
@@ -243,24 +243,24 @@ The lead capture system is the entry point for all inquiries.
 
 Leads can come from multiple inbound sources:
 
-* Web forms
-* Landing pages
-* Social media lead ads
-* Education portals / partner sources
-* Events and seminars
-* Chatbots
-* Manual entry by staff
+- Web forms
+- Landing pages
+- Social media lead ads
+- Education portals / partner sources
+- Events and seminars
+- Chatbots
+- Manual entry by staff
 
 ### 5.2 Form Behavior
 
 Organizations can create forms that support:
 
-* Multi-step flow
-* Conditional logic
-* File uploads
-* Consent checkboxes
-* Hidden fields
-* Cloning of older forms
+- Multi-step flow
+- Conditional logic
+- File uploads
+- Consent checkboxes
+- Hidden fields
+- Cloning of older forms
 
 ### 5.3 Capture Goal
 
@@ -279,44 +279,39 @@ The lead lifecycle is fixed for all organizations.
 ### 6.1 Lead Stages
 
 1. **New**
-
-   * Fresh lead captured from any source
-   * No trust established yet
-   * The lead is waiting for verification
+   - Fresh lead captured from any source
+   - No trust established yet
+   - The lead is waiting for verification
 
 2. **Working**
-
-   * The lead is being actively handled by a counselor
-   * Calls, notes, and contact attempts are happening
-   * The lead may move through conversation and persuasion phases
+   - The lead is being actively handled by a counselor
+   - Calls, notes, and contact attempts are happening
+   - The lead may move through conversation and persuasion phases
 
 3. **Qualified**
-
-   * Passed soft deduplication and basic validity checks
-   * Phone or email is usable
-   * Ready for assignment or already assigned
+   - Passed soft deduplication and basic validity checks
+   - Phone or email is usable
+   - Ready for assignment or already assigned
 
 4. **Unqualified**
-
-   * Invalid, duplicate, non-serious, or not fit for continuation
-   * Not suitable for the active funnel
+   - Invalid, duplicate, non-serious, or not fit for continuation
+   - Not suitable for the active funnel
 
 5. **Closed**
-
-   * The lead has reached the end of the pipeline manually
-   * It may have been converted into an application, rejected, or closed for other business reasons
+   - The lead has reached the end of the pipeline manually
+   - It may have been converted into an application, rejected, or closed for other business reasons
 
 ### 6.2 Extended Operational Flow
 
 Even though the main fixed stages are New, Working, Qualified, Unqualified, and Closed, the business flow beneath them includes these internal states:
 
-* Raw / New capture
-* Verification review
-* Assignment
-* In-progress / Contacted
-* Nurturing
-* Converted to application
-* Lost / rejected
+- Raw / New capture
+- Verification review
+- Assignment
+- In-progress / Contacted
+- Nurturing
+- Converted to application
+- Lost / rejected
 
 These are the operational meanings behind the fixed workflow.
 
@@ -326,22 +321,22 @@ Disposition codes describe the result of a contact attempt or the reason for a s
 
 Common options include:
 
-* Contacted / Interested
-* No Answer / Voicemail
-* Busy
-* Wrong Number / Disconnected
-* Not Interested
-* Do Not Call
+- Contacted / Interested
+- No Answer / Voicemail
+- Busy
+- Wrong Number / Disconnected
+- Not Interested
+- Do Not Call
 
 These codes help classify the interaction without changing the overall workflow structure.
 
 ### 6.4 Lead Ownership Rules
 
-* A lead belongs to one organization only
-* A lead can be linked to a branch inside that organization
-* A lead may be reassigned internally between counselors
-* A lead may be reopened after verification if needed
-* Duplicate lead records can exist, but they must be handled carefully
+- A lead belongs to one organization only
+- A lead can be linked to a branch inside that organization
+- A lead may be reassigned internally between counselors
+- A lead may be reopened after verification if needed
+- Duplicate lead records can exist, but they must be handled carefully
 
 ---
 
@@ -355,10 +350,10 @@ The Lead Manager alone verifies leads. No second approval layer is required.
 
 Verification exists to:
 
-* Check if the lead data is usable
-* Detect duplicates softly
-* Reduce junk or repeated entries
-* Decide whether the lead is fit for assignment
+- Check if the lead data is usable
+- Detect duplicates softly
+- Reduce junk or repeated entries
+- Decide whether the lead is fit for assignment
 
 ### 7.3 Duplicate Handling
 
@@ -366,10 +361,10 @@ Duplicate detection is soft.
 
 This means:
 
-* Duplicate records can be identified
-* History should be preserved
-* The system should not permanently destroy useful lead context
-* The manager can decide how to handle the duplicates
+- Duplicate records can be identified
+- History should be preserved
+- The system should not permanently destroy useful lead context
+- The manager can decide how to handle the duplicates
 
 ### 7.4 Merge Logic
 
@@ -393,35 +388,35 @@ Lead assignment is one of the most important parts of the system.
 
 Leads are assigned based on:
 
-* Geographic location
-* Program or course interest
-* Workload balancing
-* Staff availability information if needed for operational logic
+- Geographic location
+- Program or course interest
+- Workload balancing
+- Staff availability information if needed for operational logic
 
 ### 8.2 Routing Factors
 
 The system may use one or more of these factors together:
 
-* Country, region, state, city
-* Course or program type
-* Lead volume distribution among counselors
-* Lead score thresholds
-* Branch relevance
+- Country, region, state, city
+- Course or program type
+- Lead volume distribution among counselors
+- Lead score thresholds
+- Branch relevance
 
 ### 8.3 Routing Outcomes
 
 A lead can be routed to:
 
-* A general counselor
-* A program specialist
-* A senior counselor for high-priority leads
-* A branch-linked counselor if operationally needed
+- A general counselor
+- A program specialist
+- A senior counselor for high-priority leads
+- A branch-linked counselor if operationally needed
 
 ### 8.4 Assignment Modes
 
-* Automatic assignment
-* Manual reassignment
-* Reassignment from the manager side when necessary
+- Automatic assignment
+- Manual reassignment
+- Reassignment from the manager side when necessary
 
 ### 8.5 Workload Logic
 
@@ -449,12 +444,12 @@ Counselors are the active conversion team. Their job is not only to call the lea
 
 ### 9.2 Counselor Actions
 
-* Make contact attempts
-* Add call or follow-up notes
-* Update the lead status
-* Move the lead through working, qualified, nurturing, or closed states
-* Encourage the student to complete the application
-* Close the lead manually when the journey ends
+- Make contact attempts
+- Add call or follow-up notes
+- Update the lead status
+- Move the lead through working, qualified, nurturing, or closed states
+- Encourage the student to complete the application
+- Close the lead manually when the journey ends
 
 ### 9.3 Follow-Up Dates
 
@@ -462,17 +457,17 @@ Some leads will have a next follow-up date.
 
 This means:
 
-* The counselor has decided to revisit the lead later
-* The lead is not dead, only delayed
-* Follow-up reminders are part of the operating logic
+- The counselor has decided to revisit the lead later
+- The lead is not dead, only delayed
+- Follow-up reminders are part of the operating logic
 
 ### 9.4 Lead Aging
 
 When leads are untouched for days:
 
-* They can be auto reassigned
-* They can also be manually assigned elsewhere
-* The global no-action period governs this rule across all organizations
+- They can be auto reassigned
+- They can also be manually assigned elsewhere
+- The global no-action period governs this rule across all organizations
 
 ### 9.5 Lead Closure by Counselors
 
@@ -486,28 +481,28 @@ Lead scoring is used to prioritize leads after assignment or during counseling.
 
 ### 10.1 Why Lead Scoring Exists
 
-* To identify high-intent leads
-* To help counselors prioritize effort
-* To route stronger leads to more experienced team members if needed
-* To separate hot, warm, and cold opportunities
+- To identify high-intent leads
+- To help counselors prioritize effort
+- To route stronger leads to more experienced team members if needed
+- To separate hot, warm, and cold opportunities
 
 ### 10.2 Scoring Inputs
 
 The score may use:
 
-* Academic profile
-* Work experience or background relevance
-* Engagement level
-* Program fit
-* Geographic fit
-* Response quality
-* Invalid or bounced contact data penalties
+- Academic profile
+- Work experience or background relevance
+- Engagement level
+- Program fit
+- Geographic fit
+- Response quality
+- Invalid or bounced contact data penalties
 
 ### 10.3 Score Bands
 
-* **Hot**: Strong fit and high engagement
-* **Warm**: Potential interest, needs nurturing
-* **Cold**: Low urgency or weak engagement
+- **Hot**: Strong fit and high engagement
+- **Warm**: Potential interest, needs nurturing
+- **Cold**: Low urgency or weak engagement
 
 ### 10.4 Scoring Outcome
 
@@ -525,11 +520,11 @@ A lead may be closed when the counselor determines the interaction is complete.
 
 A lead may be rejected or lost because:
 
-* It is invalid
-* It is a duplicate
-* It is unresponsive
-* It is not interested
-* It failed suitability or assessment
+- It is invalid
+- It is a duplicate
+- It is unresponsive
+- It is not interested
+- It failed suitability or assessment
 
 ### 11.3 Mandatory Reason Field
 
@@ -549,19 +544,19 @@ The student is created at the time of application.
 
 ### 12.2 Student Identity Scope
 
-* One student belongs to one organization only
-* A person may exist in another organization, but only as a separate profile and separate student ID
-* There is no shared identity between organizations
+- One student belongs to one organization only
+- A person may exist in another organization, but only as a separate profile and separate student ID
+- There is no shared identity between organizations
 
 ### 12.3 Student Purpose
 
 The student becomes the master entity after application submission and will later support:
 
-* Profile viewing
-* Payment checking
-* Result viewing
-* Notices
-* Future login access
+- Profile viewing
+- Payment checking
+- Result viewing
+- Notices
+- Future login access
 
 ---
 
@@ -579,10 +574,10 @@ One student can have multiple applications for different programs or sessions.
 
 When the counselor successfully convinces the student to apply:
 
-* The application form is filled
-* A student record is created at that point
-* The application is linked to that student
-* The lead may then be closed manually by the counselor
+- The application form is filled
+- A student record is created at that point
+- The application is linked to that student
+- The lead may then be closed manually by the counselor
 
 ### 13.4 Application Editing
 
@@ -606,10 +601,10 @@ Application verification is manual.
 
 ### 14.2 Verification Objectives
 
-* Ensure form data is correct
-* Confirm documents are present
-* Confirm business eligibility
-* Check whether the application is ready for the next step
+- Ensure form data is correct
+- Confirm documents are present
+- Confirm business eligibility
+- Check whether the application is ready for the next step
 
 ### 14.3 Document Review
 
@@ -617,10 +612,10 @@ Documents are checked manually by the responsible staff.
 
 ### 14.4 Possible Outcomes
 
-* Approved
-* Rejected
-* Correction required
-* Pending review
+- Approved
+- Rejected
+- Correction required
+- Pending review
 
 ---
 
@@ -648,24 +643,24 @@ The system should track and collect payments related to admissions.
 
 ### 16.2 Supported Payment Behavior
 
-* Payment status tracking
-* Payment collection through gateways
-* Recording of payment dates and amounts
+- Payment status tracking
+- Payment collection through gateways
+- Recording of payment dates and amounts
 
 ### 16.3 What Is Not Included in This Version
 
-* Installment planning
-* Partial payment handling
-* Refund management
+- Installment planning
+- Partial payment handling
+- Refund management
 
 ### 16.4 Organization-Level Gateway Selection
 
 Each organization can configure one or more gateways from supported providers such as:
 
-* Stripe
-* Razorpay
-* PayPal
-* PhonePe
+- Stripe
+- Razorpay
+- PayPal
+- PhonePe
 
 Organizations choose which payment gateway they want to use and configure it with their own credentials.
 
@@ -679,9 +674,9 @@ These gateways are for student payment collection within the organization flow.
 
 ### 17.1 Event Types
 
-* Exam
-* Interview
-* GD
+- Exam
+- Interview
+- GD
 
 ### 17.2 Venue Planning
 
@@ -697,9 +692,9 @@ The organization may choose a venue based on where students are concentrated.
 
 Example:
 
-* Many students come from Delhi
-* The main campus is in Kolkata
-* The organization can create a temporary event venue in Delhi
+- Many students come from Delhi
+- The main campus is in Kolkata
+- The organization can create a temporary event venue in Delhi
 
 ### 17.5 Event Management Goal
 
@@ -721,9 +716,9 @@ There is one fixed subscription plan globally with expiration.
 
 The Superadmin decides:
 
-* Price
-* Duration
-* Organization activation window
+- Price
+- Duration
+- Organization activation window
 
 ### 18.3 No Free Trial
 
@@ -743,12 +738,12 @@ Each role should only see what is appropriate for its work.
 
 ### Role boundaries:
 
-* Superadmin controls the platform
-* Organization Admin controls institute setup and operations
-* Lead Manager controls verification and lead quality
-* Counselor controls assigned lead conversion work
-* Application Manager controls application verification
-* Exam Manager controls event and venue planning
+- Superadmin controls the platform
+- Organization Admin controls institute setup and operations
+- Lead Manager controls verification and lead quality
+- Counselor controls assigned lead conversion work
+- Application Manager controls application verification
+- Exam Manager controls event and venue planning
 
 ---
 
@@ -826,16 +821,16 @@ The Superadmin logs in as a tenant user in support mode to troubleshoot directly
 
 The following gaps have been folded into the blueprint:
 
-* Student creation happens at application time
-* Leads can stay in conversation or nurturing while counselors work on conversion
-* Counselors close the lead manually
-* Untouched leads are auto reassigned after a global number of days
-* Follow-up dates are supported for some leads
-* Lead belongs to organization and can be linked to a branch
-* Reporting structure is postponed to a later version
-* Notification system is postponed to a later version
-* Deletion is allowed
-* Excel import/export is future scope, not first version
+- Student creation happens at application time
+- Leads can stay in conversation or nurturing while counselors work on conversion
+- Counselors close the lead manually
+- Untouched leads are auto reassigned after a global number of days
+- Follow-up dates are supported for some leads
+- Lead belongs to organization and can be linked to a branch
+- Reporting structure is postponed to a later version
+- Notification system is postponed to a later version
+- Deletion is allowed
+- Excel import/export is future scope, not first version
 
 ---
 
@@ -843,15 +838,15 @@ The following gaps have been folded into the blueprint:
 
 These are not required for the first release but are natural future additions:
 
-* Student login panel
-* Result checking by students
-* Payment status viewing by students
-* Personal profile view for students
-* Important notices for students
-* Reporting and analytics layer
-* Notification system
-* Excel import/export
-* More advanced admission and event planning tools
+- Student login panel
+- Result checking by students
+- Payment status viewing by students
+- Personal profile view for students
+- Important notices for students
+- Reporting and analytics layer
+- Notification system
+- Excel import/export
+- More advanced admission and event planning tools
 
 ---
 

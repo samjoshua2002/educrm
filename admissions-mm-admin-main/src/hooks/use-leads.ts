@@ -36,7 +36,7 @@ export function useLeads(
   limit: number = 10,
   search?: string,
   explicitOrgId?: string,
-  status?: string
+  status?: string,
 ) {
   const currentUser = useAuthStore((state) => state.user);
   const orgId = explicitOrgId || currentUser?.organizationId;
@@ -67,7 +67,9 @@ export function useUpdateLeadStatus() {
       toast.success("Lead status updated successfully");
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || "Failed to update lead status");
+      toast.error(
+        error.response?.data?.message || "Failed to update lead status",
+      );
     },
   });
 }

@@ -1,25 +1,43 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiGet, apiPost, apiPatch, apiDelete, publicGet, publicPost } from "@/lib/api";
+import {
+  apiGet,
+  apiPost,
+  apiPatch,
+  apiDelete,
+  publicGet,
+  publicPost,
+} from "@/lib/api";
 import { PaginatedResponse } from "@/types/api";
-import { 
-  Form, 
-  Template, 
-  FormResponse, 
-  CreateFormInput, 
-  UpdateFormInput, 
-  SubmitFormInput 
+import {
+  Form,
+  Template,
+  FormResponse,
+  CreateFormInput,
+  UpdateFormInput,
+  SubmitFormInput,
 } from "@/types/form";
 import { useAuthStore } from "@/stores/auth-store";
 import { toast } from "sonner";
 
 // 1. List Forms
-export function useForms(page: number = 1, limit: number = 10, search?: string, status?: string) {
+export function useForms(
+  page: number = 1,
+  limit: number = 10,
+  search?: string,
+  status?: string,
+) {
   const user = useAuthStore((state) => state.user);
   const orgId = user?.organizationId;
 
   return useQuery({
     queryKey: ["forms", { orgId, page, limit, search, status }],
-    queryFn: () => apiGet<PaginatedResponse<Form>>(`/organizations/${orgId}/forms`, { page, limit, search, status }),
+    queryFn: () =>
+      apiGet<PaginatedResponse<Form>>(`/organizations/${orgId}/forms`, {
+        page,
+        limit,
+        search,
+        status,
+      }),
     enabled: !!orgId,
   });
 }
@@ -43,7 +61,8 @@ export function useCreateForm() {
   const orgId = user?.organizationId;
 
   return useMutation({
-    mutationFn: (data: CreateFormInput) => apiPost<Form>(`/organizations/${orgId}/forms`, data),
+    mutationFn: (data: CreateFormInput) =>
+      apiPost<Form>(`/organizations/${orgId}/forms`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["forms"] });
       toast.success("Form created successfully");
@@ -61,7 +80,7 @@ export function useUpdateForm() {
   const orgId = user?.organizationId;
 
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: UpdateFormInput }) => 
+    mutationFn: ({ id, data }: { id: string; data: UpdateFormInput }) =>
       apiPatch<Form>(`/organizations/${orgId}/forms/${id}`, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["forms"] });
@@ -81,7 +100,8 @@ export function useDeleteForm() {
   const orgId = user?.organizationId;
 
   return useMutation({
-    mutationFn: (id: string) => apiDelete(`/organizations/${orgId}/forms/${id}`),
+    mutationFn: (id: string) =>
+      apiDelete(`/organizations/${orgId}/forms/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["forms"] });
       toast.success("Form deleted successfully");
@@ -99,7 +119,8 @@ export function useDuplicateForm() {
   const orgId = user?.organizationId;
 
   return useMutation({
-    mutationFn: (id: string) => apiPost<Form>(`/organizations/${orgId}/forms/${id}/duplicate`),
+    mutationFn: (id: string) =>
+      apiPost<Form>(`/organizations/${orgId}/forms/${id}/duplicate`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["forms"] });
       toast.success("Form duplicated successfully");
@@ -119,14 +140,22 @@ export function useFormTemplates() {
 }
 
 // 8. Form Responses
-export function useFormResponses(formId: string, page: number = 1, limit: number = 10, status?: string) {
+export function useFormResponses(
+  formId: string,
+  page: number = 1,
+  limit: number = 10,
+  status?: string,
+) {
   const user = useAuthStore((state) => state.user);
   const orgId = user?.organizationId;
 
   return useQuery({
     queryKey: ["form-responses", { orgId, formId, page, limit, status }],
-    queryFn: () => 
-      apiGet<PaginatedResponse<FormResponse>>(`/organizations/${orgId}/forms/${formId}/responses`, { page, limit, status }),
+    queryFn: () =>
+      apiGet<PaginatedResponse<FormResponse>>(
+        `/organizations/${orgId}/forms/${formId}/responses`,
+        { page, limit, status },
+      ),
     enabled: !!orgId && !!formId,
   });
 }
@@ -136,8 +165,13 @@ export function useUpdateResponseStatus() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, status }: { id: string; status: FormResponse["status"] }) => 
-      apiPatch<FormResponse>(`/responses/${id}`, { status }),
+    mutationFn: ({
+      id,
+      status,
+    }: {
+      id: string;
+      status: FormResponse["status"];
+    }) => apiPatch<FormResponse>(`/responses/${id}`, { status }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["form-responses"] });
       toast.success("Response status updated");
@@ -160,7 +194,12 @@ export function usePublicForm(slug: string) {
 // 11. Submit Public Form (No Auth)
 export function useSubmitPublicForm() {
   return useMutation({
-    mutationFn: ({ slug, data, utmData, source }: { slug: string } & SubmitFormInput) => 
+    mutationFn: ({
+      slug,
+      data,
+      utmData,
+      source,
+    }: { slug: string } & SubmitFormInput) =>
       publicPost(`/public/forms/${slug}/submit`, { data, utmData, source }),
     onSuccess: () => {
       toast.success("Form submitted successfully");

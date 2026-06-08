@@ -50,7 +50,13 @@ const applicationData = {
   entranceTests: [
     { exam: "XAT", rollNo: "-", month: "-", status: "-", percentile: "-" },
     { exam: "CAT", rollNo: "-", month: "-", status: "-", percentile: "-" },
-    { exam: "CMAT", rollNo: "TN01000014", month: "01/2025", status: "Declared", percentile: "58.22" },
+    {
+      exam: "CMAT",
+      rollNo: "TN01000014",
+      month: "01/2025",
+      status: "Declared",
+      percentile: "58.22",
+    },
     { exam: "MAT", rollNo: "-", month: "-", status: "-", percentile: "-" },
     { exam: "GMAT", rollNo: "-", month: "-", status: "-", percentile: "-" },
   ],
@@ -84,7 +90,8 @@ const applicationData = {
 export default function OrganizationApplicationDetailsPage() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
-  const allowed = user?.role === Role.ORG_ADMIN || user?.role === Role.APPLICATION_MANAGER;
+  const allowed =
+    user?.role === Role.ORG_ADMIN || user?.role === Role.APPLICATION_MANAGER;
 
   React.useEffect(() => {
     if (user && !allowed) router.replace("/unauthorized");
@@ -147,8 +154,13 @@ export default function OrganizationApplicationDetailsPage() {
               </Avatar>
               <div className="space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-xl font-semibold">{applicationData.applicant.name}</h2>
-                  <Badge variant="outline" className="text-[10px] font-bold uppercase">
+                  <h2 className="text-xl font-semibold">
+                    {applicationData.applicant.name}
+                  </h2>
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] font-bold uppercase"
+                  >
                     {applicationData.status}
                   </Badge>
                 </div>
@@ -181,20 +193,26 @@ export default function OrganizationApplicationDetailsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-1">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold">Contact Information</CardTitle>
+            <CardTitle className="text-base font-semibold">
+              Contact Information
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-1">
               <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Primary Mobile
               </div>
-              <div className="text-sm font-medium">{applicationData.applicant.primaryMobile}</div>
+              <div className="text-sm font-medium">
+                {applicationData.applicant.primaryMobile}
+              </div>
             </div>
             <div className="space-y-1">
               <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Alt Mobile
               </div>
-              <div className="text-sm font-medium">{applicationData.applicant.alternateMobile}</div>
+              <div className="text-sm font-medium">
+                {applicationData.applicant.alternateMobile}
+              </div>
             </div>
             <Separator />
             <div className="space-y-2">
@@ -212,49 +230,77 @@ export default function OrganizationApplicationDetailsPage() {
         <div className="lg:col-span-2 space-y-6">
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold">Course and Campus Preferences</CardTitle>
+              <CardTitle className="text-base font-semibold">
+                Course and Campus Preferences
+              </CardTitle>
             </CardHeader>
             <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="rounded-lg border bg-muted/20 p-4">
                 <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   Preference 1
                 </div>
-                <div className="mt-1 text-sm font-semibold">{applicationData.preferences.preference1}</div>
+                <div className="mt-1 text-sm font-semibold">
+                  {applicationData.preferences.preference1}
+                </div>
               </div>
               <div className="rounded-lg border bg-muted/20 p-4">
                 <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   Preference 2
                 </div>
-                <div className="mt-1 text-sm font-semibold">{applicationData.preferences.preference2}</div>
+                <div className="mt-1 text-sm font-semibold">
+                  {applicationData.preferences.preference2}
+                </div>
               </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold">Educational Details</CardTitle>
+              <CardTitle className="text-base font-semibold">
+                Educational Details
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="rounded-lg border p-4">
-                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">10th</div>
+                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    10th
+                  </div>
                   <div className="mt-2 space-y-1 text-sm">
-                    <div className="font-semibold">{applicationData.education.tenth.institute}</div>
-                    <div className="text-muted-foreground">{applicationData.education.tenth.board}</div>
-                    <div className="text-muted-foreground">Year: {applicationData.education.tenth.year}</div>
-                    <div className="font-semibold">{applicationData.education.tenth.percentage}</div>
+                    <div className="font-semibold">
+                      {applicationData.education.tenth.institute}
+                    </div>
+                    <div className="text-muted-foreground">
+                      {applicationData.education.tenth.board}
+                    </div>
+                    <div className="text-muted-foreground">
+                      Year: {applicationData.education.tenth.year}
+                    </div>
+                    <div className="font-semibold">
+                      {applicationData.education.tenth.percentage}
+                    </div>
                   </div>
                 </div>
                 <div className="rounded-lg border p-4">
-                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">12th</div>
+                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    12th
+                  </div>
                   <div className="mt-2 space-y-1 text-sm">
-                    <div className="font-semibold">{applicationData.education.twelfth.institute}</div>
-                    <div className="text-muted-foreground">{applicationData.education.twelfth.board}</div>
+                    <div className="font-semibold">
+                      {applicationData.education.twelfth.institute}
+                    </div>
+                    <div className="text-muted-foreground">
+                      {applicationData.education.twelfth.board}
+                    </div>
                     <div className="text-muted-foreground">
                       Stream: {applicationData.education.twelfth.stream}
                     </div>
-                    <div className="text-muted-foreground">Year: {applicationData.education.twelfth.year}</div>
-                    <div className="font-semibold">{applicationData.education.twelfth.percentage}</div>
+                    <div className="text-muted-foreground">
+                      Year: {applicationData.education.twelfth.year}
+                    </div>
+                    <div className="font-semibold">
+                      {applicationData.education.twelfth.percentage}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -263,7 +309,9 @@ export default function OrganizationApplicationDetailsPage() {
 
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold">Entrance Test Details</CardTitle>
+              <CardTitle className="text-base font-semibold">
+                Entrance Test Details
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <Table>
@@ -283,7 +331,9 @@ export default function OrganizationApplicationDetailsPage() {
                       <TableCell>{t.rollNo}</TableCell>
                       <TableCell>{t.month}</TableCell>
                       <TableCell>{t.status}</TableCell>
-                      <TableCell className="text-right">{t.percentile}</TableCell>
+                      <TableCell className="text-right">
+                        {t.percentile}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -293,7 +343,9 @@ export default function OrganizationApplicationDetailsPage() {
 
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold">Additional Information</CardTitle>
+              <CardTitle className="text-base font-semibold">
+                Additional Information
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
@@ -310,13 +362,17 @@ export default function OrganizationApplicationDetailsPage() {
                   <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                     How did you know about us?
                   </div>
-                  <div className="mt-1 text-sm font-medium">{applicationData.other.source}</div>
+                  <div className="mt-1 text-sm font-medium">
+                    {applicationData.other.source}
+                  </div>
                 </div>
                 <div>
                   <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                     Medical Conditions
                   </div>
-                  <div className="mt-1 text-sm font-medium">{applicationData.other.medicalConditions}</div>
+                  <div className="mt-1 text-sm font-medium">
+                    {applicationData.other.medicalConditions}
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -326,4 +382,3 @@ export default function OrganizationApplicationDetailsPage() {
     </div>
   );
 }
-

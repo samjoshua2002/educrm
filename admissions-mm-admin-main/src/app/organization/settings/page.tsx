@@ -5,7 +5,10 @@ export default function OrganizationSettingsPage() {
         <h1 className="text-xl font-semibold">Settings</h1>
       </div>
       <div className="flex flex-col gap-4 p-4 md:p-6">
-        <p>Manage your organization&apos;s profile, gateway configuration, and regional setup.</p>
+        <p>
+          Manage your organization&apos;s profile, gateway configuration, and
+          regional setup.
+        </p>
       </div>
     </>
   );

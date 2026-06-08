@@ -1,4 +1,5 @@
 # 🚀 Frontend Implementation Plan (Enhanced)
+
 ## Tenant Admission System (SaaS)
 
 ---
@@ -23,7 +24,6 @@ You already have an admin panel with:
 
 # 2. Existing Structure (Current State)
 
-
 src/
 ├── app/
 ├── components/
@@ -32,7 +32,6 @@ src/
 ├── stores/
 ├── navigation/
 
-
 ### Key Insight
 
 You already have a **design system** → DO NOT REBUILD UI
@@ -40,7 +39,6 @@ You already have a **design system** → DO NOT REBUILD UI
 ---
 
 # 3. Final Folder Structure (SaaS Ready)
-
 
 src/app/
 ├── (auth)/
@@ -61,17 +59,16 @@ src/app/
 │ ├── payments/
 │ ├── events/
 
-
 ---
 
 # 4. Routing Strategy
 
 ### Role-Based Routing
 
-| Role          | Route Prefix        |
-|---------------|-------------------|
-| Superadmin    | /superadmin/*     |
-| Organization  | /organization/*   |
+| Role         | Route Prefix     |
+| ------------ | ---------------- |
+| Superadmin   | /superadmin/\*   |
+| Organization | /organization/\* |
 
 ---
 
@@ -80,7 +77,6 @@ src/app/
 ### Existing Page:
 
 (main)/auth/v1/login
-
 
 ### Tasks:
 
@@ -91,10 +87,8 @@ src/app/
 
 ### Redirect Logic:
 
-
 Superadmin → /superadmin/dashboard
 Organization → /organization/dashboard
-
 
 ---
 
@@ -102,11 +96,10 @@ Organization → /organization/dashboard
 
 ## Superadmin Layout
 
-
 app/(superadmin)/layout.tsx
 
-
 Includes:
+
 - Sidebar (Superadmin navigation)
 - Header
 - Content wrapper
@@ -115,11 +108,10 @@ Includes:
 
 ## Organization Layout
 
-
 app/(organization)/layout.tsx
 
-
 Includes:
+
 - Sidebar (Organization modules)
 - Header
 - Content wrapper
@@ -130,19 +122,15 @@ Includes:
 
 Create:
 
-
 src/navigation/
 ├── superadmin-nav.ts
 ├── organization-nav.ts
-
 
 ---
 
 # 8. API Layer Setup
 
-
 src/lib/api.ts
-
 
 ### Responsibilities:
 
@@ -157,9 +145,7 @@ src/lib/api.ts
 
 ## Auth Store
 
-
 src/stores/auth-store.ts
-
 
 Store:
 
@@ -172,9 +158,7 @@ Store:
 
 ## Middleware Protection
 
-
 src/middleware/
-
 
 ### Rules:
 
@@ -277,42 +261,45 @@ Before writing code, answer:
 
 ### Workflow:
 
-1. Define page goal  
-2. Identify required data  
-3. Map API → UI  
-4. Decide state  
-5. Select components  
+1. Define page goal
+2. Identify required data
+3. Map API → UI
+4. Decide state
+5. Select components
 
 ---
 
 # 13. Important Rules While Coding
 
 ## 1. One Responsibility Per Page
+
 Each page should handle only one function.
 
 ---
 
 ## 2. Never Mix Roles
+
 Do NOT combine Superadmin & Organization logic.
 
 ---
 
 ## 3. Normalize API Data
+
 Always transform API response before using.
 
 ---
 
 ## 4. Reuse First, Build Later
+
 Check existing components before creating new ones.
 
 ---
 
 ## 5. Centralize API Calls
+
 All API calls must go through:
 
-
 lib/api.ts
-
 
 ---
 
@@ -358,51 +345,61 @@ Even small features should follow scalable structure.
 ---
 
 ## ❌ UI First Approach
+
 Building UI without data planning
 
 ---
 
 ## ❌ Mixing Logic in Components
+
 Putting API + logic inside UI files
 
 ---
 
 ## ❌ Copy-Paste Development
+
 Duplicating pages instead of reusing
 
 ---
 
 ## ❌ Role Mixing
+
 Using same page for multiple roles
 
 ---
 
 ## ❌ No Error Handling
+
 Ignoring loading and error states
 
 ---
 
 ## ❌ Poor State Management
+
 Random useState usage everywhere
 
 ---
 
 ## ❌ Over Engineering
+
 Adding complexity too early
 
 ---
 
 ## ❌ Breaking UI System
+
 Ignoring existing design system
 
 ---
 
 ## ❌ Bad Naming
+
 Using unclear variable names
 
 ---
 
 ## ❌ No Route Protection
+
 Skipping middleware setup
 
 ---
@@ -426,6 +423,7 @@ Start with:
 You are NOT building UI.
 
 You are building:
+
 - A structured SaaS frontend
 - A role-based system
 - A scalable architecture

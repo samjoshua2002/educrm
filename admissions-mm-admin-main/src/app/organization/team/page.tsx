@@ -1,7 +1,18 @@
 "use client";
 
 import * as React from "react";
-import { EllipsisVertical, Pencil, Trash2, Plus, Search, Filter, Loader2, Mail, Phone, MapPin } from "lucide-react";
+import {
+  EllipsisVertical,
+  Pencil,
+  Trash2,
+  Plus,
+  Search,
+  Filter,
+  Loader2,
+  Mail,
+  Phone,
+  MapPin,
+} from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -49,15 +60,27 @@ import { useTeam, useCreateUser, useUpdateUser } from "@/hooks/use-team";
 import { useBranches } from "@/hooks/use-branches";
 import { Role, User } from "@/types/auth";
 
-const ROLES = [Role.ORG_ADMIN, Role.COUNSELOR, Role.LEAD_MANAGER, Role.APPLICATION_MANAGER, Role.EXAM_MANAGER] as const;
+const ROLES = [
+  Role.ORG_ADMIN,
+  Role.COUNSELOR,
+  Role.LEAD_MANAGER,
+  Role.APPLICATION_MANAGER,
+  Role.EXAM_MANAGER,
+] as const;
 
 const roleStyles: Record<string, string> = {
-  [Role.LEAD_MANAGER]: "border-blue-300 text-blue-700 dark:border-blue-700 dark:text-blue-300",
-  [Role.APPLICATION_MANAGER]: "border-purple-300 text-purple-700 dark:border-purple-700 dark:text-purple-300",
-  [Role.EXAM_MANAGER]: "border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-300",
-  [Role.ORG_ADMIN]: "border-orange-300 text-orange-700 dark:border-orange-700 dark:text-orange-300",
-  [Role.SUPERADMIN]: "border-red-300 text-red-700 dark:border-red-700 dark:text-red-300",
-  [Role.COUNSELOR]: "border-slate-300 text-slate-700 dark:border-slate-700 dark:text-slate-300",
+  [Role.LEAD_MANAGER]:
+    "border-blue-300 text-blue-700 dark:border-blue-700 dark:text-blue-300",
+  [Role.APPLICATION_MANAGER]:
+    "border-purple-300 text-purple-700 dark:border-purple-700 dark:text-purple-300",
+  [Role.EXAM_MANAGER]:
+    "border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-300",
+  [Role.ORG_ADMIN]:
+    "border-orange-300 text-orange-700 dark:border-orange-700 dark:text-orange-300",
+  [Role.SUPERADMIN]:
+    "border-red-300 text-red-700 dark:border-red-700 dark:text-red-300",
+  [Role.COUNSELOR]:
+    "border-slate-300 text-slate-700 dark:border-slate-700 dark:text-slate-300",
 };
 
 const statusStyles: Record<string, string> = {
@@ -89,37 +112,50 @@ export default function TeamPage() {
   const branches = branchesResponse?.data || [];
 
   const handleCreateMember = () => {
-    createUser({
-      name: newName,
-      email: newEmail,
-      phone: newPhone,
-      role: newRole,
-      branchId: newBranch !== "none" ? newBranch : undefined,
-      password: "initialPassword123", // Ideally handled by an invite flow or system default
-    }, {
-      onSuccess: () => {
-        setCreateDialogOpen(false);
-        setNewName("");
-        setNewEmail("");
-        setNewPhone("");
-        setNewBranch("none");
-      }
-    });
+    createUser(
+      {
+        name: newName,
+        email: newEmail,
+        phone: newPhone,
+        role: newRole,
+        branchId: newBranch !== "none" ? newBranch : undefined,
+        password: "initialPassword123", // Ideally handled by an invite flow or system default
+      },
+      {
+        onSuccess: () => {
+          setCreateDialogOpen(false);
+          setNewName("");
+          setNewEmail("");
+          setNewPhone("");
+          setNewBranch("none");
+        },
+      },
+    );
   };
 
   const handleToggleStatus = (user: User) => {
-    updateUser({ 
-      userId: user.id, 
-      data: { isActive: user.isActive === false } // If it's false, set to true. If undefined/true, set to false.
+    updateUser({
+      userId: user.id,
+      data: { isActive: user.isActive === false }, // If it's false, set to true. If undefined/true, set to false.
     });
   };
 
   if (error) {
-     return (
+    return (
       <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-6">
-        <p className="text-destructive font-semibold mb-2">Failed to load team</p>
-        <p className="text-muted-foreground text-sm">Please check your connection or contact support.</p>
-        <Button variant="outline" className="mt-4" onClick={() => window.location.reload()}>Retry</Button>
+        <p className="text-destructive font-semibold mb-2">
+          Failed to load team
+        </p>
+        <p className="text-muted-foreground text-sm">
+          Please check your connection or contact support.
+        </p>
+        <Button
+          variant="outline"
+          className="mt-4"
+          onClick={() => window.location.reload()}
+        >
+          Retry
+        </Button>
       </div>
     );
   }
@@ -129,7 +165,9 @@ export default function TeamPage() {
       <div className="sticky top-12 z-10 bg-background/40 backdrop-blur-md flex items-center justify-between px-4 md:px-6 py-3 border-b">
         <div className="flex items-center gap-2">
           <h1 className="text-xl font-semibold">Team Management</h1>
-          {isLoading && <Loader2 className="animate-spin size-4 text-muted-foreground" />}
+          {isLoading && (
+            <Loader2 className="animate-spin size-4 text-muted-foreground" />
+          )}
         </div>
         <Button size="sm" onClick={() => setCreateDialogOpen(true)}>
           <Plus className="size-4" />
@@ -158,7 +196,8 @@ export default function TeamPage() {
                 <SelectItem value="all">All Roles</SelectItem>
                 {ROLES.map((role) => (
                   <SelectItem key={role} value={role}>
-                    {role.charAt(0).toUpperCase() + role.slice(1).replace('_', ' ')}
+                    {role.charAt(0).toUpperCase() +
+                      role.slice(1).replace("_", " ")}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -180,7 +219,7 @@ export default function TeamPage() {
             </TableHeader>
             <TableBody>
               {isLoading && team.length === 0 ? (
-                 Array.from({ length: 5 }).map((_, i) => (
+                Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={i}>
                     <TableCell colSpan={6} className="h-16">
                       <div className="animate-pulse flex items-center gap-3 ps-4">
@@ -197,30 +236,46 @@ export default function TeamPage() {
                 team.map((user) => (
                   <TableRow key={user.id}>
                     <TableCell className="ps-4">
-                       <div className="font-semibold">{user.name}</div>
+                      <div className="font-semibold">{user.name}</div>
                     </TableCell>
                     <TableCell>
-                       <div className="text-xs space-y-0.5">
-                         <div className="flex items-center gap-1.5 text-muted-foreground"><Mail className="size-3" /> {user.email}</div>
-                         <div className="flex items-center gap-1.5 text-muted-foreground"><Phone className="size-3" /> {user.phone}</div>
-                       </div>
+                      <div className="text-xs space-y-0.5">
+                        <div className="flex items-center gap-1.5 text-muted-foreground">
+                          <Mail className="size-3" /> {user.email}
+                        </div>
+                        <div className="flex items-center gap-1.5 text-muted-foreground">
+                          <Phone className="size-3" /> {user.phone}
+                        </div>
+                      </div>
                     </TableCell>
                     <TableCell>
                       <span className="text-sm">
-                        {branches.find(b => b.id === user.branchId)?.name || 'Central'}
+                        {branches.find((b) => b.id === user.branchId)?.name ||
+                          "Central"}
                       </span>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className={cn("capitalize", roleStyles[user.role] ?? "")}>
-                        {user.role.replace('_', ' ')}
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "capitalize",
+                          roleStyles[user.role] ?? "",
+                        )}
+                      >
+                        {user.role.replace("_", " ")}
                       </Badge>
                     </TableCell>
                     <TableCell>
                       <Badge
                         variant="secondary"
-                        className={cn("border-0", user.isActive !== false ? statusStyles.Active : statusStyles.Inactive)}
+                        className={cn(
+                          "border-0",
+                          user.isActive !== false
+                            ? statusStyles.Active
+                            : statusStyles.Inactive,
+                        )}
                       >
-                         {user.isActive !== false ? "Active" : "Inactive"}
+                        {user.isActive !== false ? "Active" : "Inactive"}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right pe-4">
@@ -241,11 +296,19 @@ export default function TeamPage() {
                               <Pencil className="size-4" />
                               Edit Profile
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="gap-2" onClick={() => handleToggleStatus(user)}>
-                               {user.isActive !== false ? "Deactivate User" : "Activate User"}
+                            <DropdownMenuItem
+                              className="gap-2"
+                              onClick={() => handleToggleStatus(user)}
+                            >
+                              {user.isActive !== false
+                                ? "Deactivate User"
+                                : "Activate User"}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem variant="destructive" className="gap-2">
+                            <DropdownMenuItem
+                              variant="destructive"
+                              className="gap-2"
+                            >
                               <Trash2 className="size-4" />
                               Delete
                             </DropdownMenuItem>
@@ -257,7 +320,10 @@ export default function TeamPage() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                  <TableCell
+                    colSpan={6}
+                    className="h-24 text-center text-muted-foreground"
+                  >
                     No team members found.
                   </TableCell>
                 </TableRow>
@@ -265,17 +331,17 @@ export default function TeamPage() {
             </TableBody>
           </Table>
         </div>
-        
+
         {pagination && pagination.totalPages > 1 && (
           <div className="flex items-center justify-between mt-auto">
             <p className="text-sm text-muted-foreground">
               Total {pagination.total} staff members
             </p>
             <div className="flex items-center gap-2">
-               <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => setPage(p => Math.max(1, p - 1))}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
               >
                 Previous
@@ -283,10 +349,12 @@ export default function TeamPage() {
               <div className="text-sm text-muted-foreground font-medium px-2">
                 Page {page} of {pagination.totalPages}
               </div>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  setPage((p) => Math.min(pagination.totalPages, p + 1))
+                }
                 disabled={page === pagination.totalPages}
               >
                 Next
@@ -342,7 +410,8 @@ export default function TeamPage() {
                     <SelectContent>
                       {ROLES.map((role) => (
                         <SelectItem key={role} value={role}>
-                           {role.charAt(0).toUpperCase() + role.slice(1).replace('_', ' ')}
+                          {role.charAt(0).toUpperCase() +
+                            role.slice(1).replace("_", " ")}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -352,24 +421,34 @@ export default function TeamPage() {
                   <Label htmlFor="branch">Primary Branch</Label>
                   <Select value={newBranch} onValueChange={setNewBranch}>
                     <SelectTrigger id="branch" className="w-full">
-                       <SelectValue placeholder="Central" />
+                      <SelectValue placeholder="Central" />
                     </SelectTrigger>
                     <SelectContent>
-                       <SelectItem value="none">Central (No Branch)</SelectItem>
-                       {branches.map(b => (
-                         <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-                       ))}
+                      <SelectItem value="none">Central (No Branch)</SelectItem>
+                      {branches.map((b) => (
+                        <SelectItem key={b.id} value={b.id}>
+                          {b.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setCreateDialogOpen(false)} disabled={isCreating}>
+              <Button
+                variant="outline"
+                onClick={() => setCreateDialogOpen(false)}
+                disabled={isCreating}
+              >
                 Cancel
               </Button>
               <Button onClick={handleCreateMember} disabled={isCreating}>
-                {isCreating ? <Loader2 className="animate-spin size-4" /> : "Invite Member"}
+                {isCreating ? (
+                  <Loader2 className="animate-spin size-4" />
+                ) : (
+                  "Invite Member"
+                )}
               </Button>
             </DialogFooter>
           </DialogContent>

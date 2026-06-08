@@ -2,8 +2,9 @@
 "use client";
 
 import * as React from "react";
-
 import Link from "next/link";
+import { toast } from "sonner";
+import { getStoredApplications } from "@/hooks/use-applications";
 
 import {
   EllipsisVertical,
@@ -30,6 +31,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { StatusBadge } from "@/components/ui/status-badge";
 import {
   Dialog,
   DialogContent,
@@ -62,178 +64,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-type GDInterview = {
-  id: number;
-  applicationNo: string;
-  name: string;
-  email: string;
-  phone: string;
-  interviewLocation: string;
-  date: string;
-  time: string;
-  course: string;
-  selectionStatus: "Accepted" | "Rejected" | "In Progress";
-  confirmedCampus: string;
-};
-
-const gdInterviews: GDInterview[] = [
-  {
-    id: 1,
-    applicationNo: "APP-2026-0001",
-    name: "Aarav Mehta",
-    email: "aarav.mehta@example.com",
-    phone: "+91 98765 43210",
-    interviewLocation: "Chennai",
-    date: "2026-03-15",
-    time: "10:00 AM",
-    course: "PGDM 2026-28",
-    selectionStatus: "Accepted",
-    confirmedCampus: "Main Campus",
-  },
-  {
-    id: 2,
-    applicationNo: "APP-2026-0002",
-    name: "Sneha Iyer",
-    email: "sneha.iyer@example.com",
-    phone: "+91 91234 56780",
-    interviewLocation: "Bangalore",
-    date: "2026-03-16",
-    time: "11:30 AM",
-    course: "PGDM 2026-28",
-    selectionStatus: "In Progress",
-    confirmedCampus: "—",
-  },
-  {
-    id: 3,
-    applicationNo: "APP-2026-0003",
-    name: "Rohan Desai",
-    email: "rohan.desai@example.com",
-    phone: "+91 99876 54321",
-    interviewLocation: "Kochi",
-    date: "2026-03-17",
-    time: "02:00 PM",
-    course: "PGDM 2026-28",
-    selectionStatus: "Rejected",
-    confirmedCampus: "—",
-  },
-  {
-    id: 4,
-    applicationNo: "APP-2026-0004",
-    name: "Priya Nair",
-    email: "priya.nair@example.com",
-    phone: "+91 87654 32109",
-    interviewLocation: "Chennai",
-    date: "2026-03-15",
-    time: "11:00 AM",
-    course: "PGDM 2026-28",
-    selectionStatus: "Accepted",
-    confirmedCampus: "South Campus",
-  },
-  {
-    id: 5,
-    applicationNo: "APP-2026-0005",
-    name: "Karan Singh",
-    email: "karan.singh@example.com",
-    phone: "+91 90123 45678",
-    interviewLocation: "Hyderabad",
-    date: "2026-03-18",
-    time: "09:30 AM",
-    course: "PGDM 2026-28",
-    selectionStatus: "In Progress",
-    confirmedCampus: "—",
-  },
-  {
-    id: 6,
-    applicationNo: "APP-2026-0006",
-    name: "Ananya Sharma",
-    email: "ananya.sharma@example.com",
-    phone: "+91 78901 23456",
-    interviewLocation: "Kochi",
-    date: "2026-03-19",
-    time: "01:30 PM",
-    course: "PGDM 2026-28",
-    selectionStatus: "Accepted",
-    confirmedCampus: "South Campus",
-  },
-  {
-    id: 7,
-    applicationNo: "APP-2026-0007",
-    name: "Vikram Joshi",
-    email: "vikram.joshi@example.com",
-    phone: "+91 81234 56789",
-    interviewLocation: "Chennai",
-    date: "2026-03-20",
-    time: "09:00 AM",
-    course: "PGDM 2026-28",
-    selectionStatus: "Rejected",
-    confirmedCampus: "—",
-  },
-  {
-    id: 8,
-    applicationNo: "APP-2026-0008",
-    name: "Meera Gupta",
-    email: "meera.gupta@example.com",
-    phone: "+91 92345 67890",
-    interviewLocation: "Bangalore",
-    date: "2026-03-20",
-    time: "12:00 PM",
-    course: "PGDM 2026-28",
-    selectionStatus: "Accepted",
-    confirmedCampus: "City Campus",
-  },
-  {
-    id: 9,
-    applicationNo: "APP-2026-0009",
-    name: "Arjun Patel",
-    email: "arjun.patel@example.com",
-    phone: "+91 85678 90123",
-    interviewLocation: "Hyderabad",
-    date: "2026-03-21",
-    time: "11:15 AM",
-    course: "PGDM 2026-28",
-    selectionStatus: "In Progress",
-    confirmedCampus: "—",
-  },
-  {
-    id: 10,
-    applicationNo: "APP-2026-0010",
-    name: "Diya Reddy",
-    email: "diya.reddy@example.com",
-    phone: "+91 93456 78901",
-    interviewLocation: "Chennai",
-    date: "2026-03-22",
-    time: "03:30 PM",
-    course: "PGDM 2026-28",
-    selectionStatus: "In Progress",
-    confirmedCampus: "—",
-  },
-  {
-    id: 11,
-    applicationNo: "APP-2026-0011",
-    name: "Ishaan Kumar",
-    email: "ishaan.kumar@example.com",
-    phone: "+91 76543 21098",
-    interviewLocation: "Bangalore",
-    date: "2026-03-23",
-    time: "10:45 AM",
-    course: "PGDM 2026-28",
-    selectionStatus: "Accepted",
-    confirmedCampus: "City Campus",
-  },
-  {
-    id: 12,
-    applicationNo: "APP-2026-0012",
-    name: "Tanya Bose",
-    email: "tanya.bose@example.com",
-    phone: "+91 88765 43210",
-    interviewLocation: "Kochi",
-    date: "2026-03-24",
-    time: "02:15 PM",
-    course: "PGDM 2026-28",
-    selectionStatus: "Accepted",
-    confirmedCampus: "Main Campus",
-  },
-];
+import { type GDInterview, gdInterviews } from "@/data/mock-gd-interviews";
 
 const SELECTION_STATUSES = ["Confirmed", "Not Selected", "Pending"] as const;
 const INTERVIEW_LOCATIONS = [
@@ -244,15 +75,6 @@ const INTERVIEW_LOCATIONS = [
   "Delhi",
 ] as const;
 const COURSES = ["PGDM 2026-28"] as const;
-
-const selectionStatusStyles: Record<string, string> = {
-  "In Progress":
-    "bg-[#FEF3C7] text-[#9A3412] dark:bg-amber-500/20 dark:text-amber-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
-  Accepted:
-    "bg-[#05966933] text-[#065F46] dark:bg-green-500/20 dark:text-green-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
-  Rejected:
-    "bg-[#D9770633] text-[#BD0F0F] dark:bg-red-500/20 dark:text-red-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
-};
 
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString("en-IN", {
@@ -314,6 +136,11 @@ export default function GDInterviewPage() {
   const [interviewsState, setInterviewsState] =
     React.useState<GDInterview[]>(gdInterviews);
   const [deleteId, setDeleteId] = React.useState<number | null>(null);
+
+  const activeAppNos = React.useMemo(() => {
+    if (typeof window === "undefined") return [];
+    return getStoredApplications().map((app) => app.applicationNo);
+  }, []);
 
   function handleDelete(id: number) {
     setInterviewsState((prev) => prev.filter((item) => item.id !== id));
@@ -401,9 +228,15 @@ export default function GDInterviewPage() {
       }
       if (appliedStatus !== "all" && item.selectionStatus !== appliedStatus)
         return false;
-      if (appliedLocation !== "all" && item.interviewLocation !== appliedLocation)
+      if (
+        appliedLocation !== "all" &&
+        item.interviewLocation !== appliedLocation
+      )
         return false;
-      if (appliedAdvanced.course !== "all" && item.course !== appliedAdvanced.course)
+      if (
+        appliedAdvanced.course !== "all" &&
+        item.course !== appliedAdvanced.course
+      )
         return false;
       if (
         appliedAdvanced.applicationNo &&
@@ -677,16 +510,16 @@ export default function GDInterviewPage() {
                   APPLICATION NO.
                 </TableHead>
                 <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
-                LOCATION
+                  LOCATION
                 </TableHead>
-            
+
                 <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
                   COURSE
                 </TableHead>
                 <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
-                  SELECTION 
+                  SELECTION
                 </TableHead>
-                    <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
+                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
                   DATE & TIME
                 </TableHead>
                 <TableHead className="py-4 px-3 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto text-right w-[85px]">
@@ -725,7 +558,7 @@ export default function GDInterviewPage() {
                           {item.name}
                         </div>
                         <div className="text-xs text-muted-foreground font-normal">
-                          {item.email} · {item.phone}
+                          {item.email}
                         </div>
                       </div>
                     </TableCell>
@@ -735,32 +568,14 @@ export default function GDInterviewPage() {
                     <TableCell className="py-5 px-6 align-middle text-sm text-foreground/80 font-normal">
                       {item.interviewLocation}
                     </TableCell>
-                  
+
                     <TableCell className="py-5 px-6 align-middle text-sm text-foreground/80 font-normal">
                       {item.course}
                     </TableCell>
-                   <TableCell className="py-5 px-6 align-middle">
-  {item.selectionStatus === "Accepted" ? (
-    <div className="flex flex-col items-start gap-1">
-      <span className={selectionStatusStyles[item.selectionStatus] ?? ""}>
-        {item.selectionStatus}
-      </span>
-    </div>
-  ) : item.selectionStatus === "Rejected" ? (
-    <span className={selectionStatusStyles[item.selectionStatus] ?? ""}>
-      {item.selectionStatus}
-    </span>
-  ) : item.selectionStatus === "In Progress" ? (
-    <span className={selectionStatusStyles[item.selectionStatus] ?? ""}>
-      {item.selectionStatus}
-    </span>
-  ) : (
-    <span className={selectionStatusStyles[item.selectionStatus] ?? ""}>
-      {item.selectionStatus}
-    </span>
-  )}
-</TableCell>
-                      <TableCell className="py-5 px-6 align-middle">
+                    <TableCell className="py-5 px-6 align-middle">
+                      <StatusBadge status={item.selectionStatus} />
+                    </TableCell>
+                    <TableCell className="py-5 px-6 align-middle">
                       <div className="flex flex-col gap-0.5">
                         <div className="font-medium text-foreground text-sm tracking-tight">
                           {formatDate(item.date)}
@@ -784,12 +599,40 @@ export default function GDInterviewPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-40">
-                            <DropdownMenuItem className="gap-2" asChild>
-                              <Link href={`/gd-interview/${item.applicationNo}`}>
-                                <Eye className="size-4" />
-                                View
-                              </Link>
-                            </DropdownMenuItem>
+                            {(() => {
+                              const appExists = activeAppNos.includes(
+                                item.applicationNo,
+                              );
+                              return (
+                                <DropdownMenuItem
+                                  className="gap-2"
+                                  disabled={!appExists}
+                                  onClick={(e) => {
+                                    if (!appExists) {
+                                      e.preventDefault();
+                                      toast.error(
+                                        `Application details for ${item.applicationNo} not found.`,
+                                      );
+                                    }
+                                  }}
+                                  asChild={appExists}
+                                >
+                                  {appExists ? (
+                                    <Link
+                                      href={`/gd-interview/${item.applicationNo}`}
+                                    >
+                                      <Eye className="size-4" />
+                                      View
+                                    </Link>
+                                  ) : (
+                                    <span className="flex items-center gap-2 text-muted-foreground opacity-50 cursor-not-allowed">
+                                      <Eye className="size-4" />
+                                      View (Not Found)
+                                    </span>
+                                  )}
+                                </DropdownMenuItem>
+                              );
+                            })()}
                             <DropdownMenuItem className="gap-2">
                               <Pencil className="size-4" />
                               Edit
@@ -927,9 +770,7 @@ export default function GDInterviewPage() {
                     </div>
 
                     <div className="flex items-center gap-1.5 shrink-0 self-center">
-                      <span className={selectionStatusStyles[item.selectionStatus] ?? ""}>
-                        {item.selectionStatus}
-                      </span>
+                      <StatusBadge status={item.selectionStatus} />
 
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -944,12 +785,40 @@ export default function GDInterviewPage() {
                         </DropdownMenuTrigger>
 
                         <DropdownMenuContent align="end" className="w-40">
-                          <DropdownMenuItem className="gap-2" asChild>
-                            <Link href={`/gd-interview/${item.applicationNo}`}>
-                              <Eye className="size-4" />
-                              View
-                            </Link>
-                          </DropdownMenuItem>
+                          {(() => {
+                            const appExists = activeAppNos.includes(
+                              item.applicationNo,
+                            );
+                            return (
+                              <DropdownMenuItem
+                                className="gap-2"
+                                disabled={!appExists}
+                                onClick={(e) => {
+                                  if (!appExists) {
+                                    e.preventDefault();
+                                    toast.error(
+                                      `Application details for ${item.applicationNo} not found.`,
+                                    );
+                                  }
+                                }}
+                                asChild={appExists}
+                              >
+                                {appExists ? (
+                                  <Link
+                                    href={`/gd-interview/${item.applicationNo}`}
+                                  >
+                                    <Eye className="size-4" />
+                                    View
+                                  </Link>
+                                ) : (
+                                  <span className="flex items-center gap-2 text-muted-foreground opacity-50 cursor-not-allowed">
+                                    <Eye className="size-4" />
+                                    View (Not Found)
+                                  </span>
+                                )}
+                              </DropdownMenuItem>
+                            );
+                          })()}
                           <DropdownMenuItem className="gap-2">
                             <Pencil className="size-4" />
                             Edit
@@ -1064,8 +933,8 @@ export default function GDInterviewPage() {
               Are you sure?
             </AlertDialogTitle>
             <AlertDialogDescription className="text-xs text-muted-foreground leading-relaxed mt-1">
-              This action cannot be undone. This will permanently delete the
-              GD & Interview record from the system.
+              This action cannot be undone. This will permanently delete the GD
+              & Interview record from the system.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="mt-5 gap-2 sm:gap-3 flex flex-col-reverse sm:flex-row sm:justify-end">

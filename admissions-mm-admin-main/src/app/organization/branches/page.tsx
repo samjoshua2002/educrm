@@ -63,8 +63,10 @@ import {
 import { useBranches, useDeleteBranch, Branch } from "@/hooks/use-branches";
 
 const statusStyles: Record<string, string> = {
-  Active: "bg-green-500/10 text-green-700 dark:bg-green-500/20 dark:text-green-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
-  Inactive: "bg-gray-500/10 text-gray-700 dark:bg-gray-500/20 dark:text-gray-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
+  Active:
+    "bg-green-500/10 text-green-700 dark:bg-green-500/20 dark:text-green-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
+  Inactive:
+    "bg-gray-500/10 text-gray-700 dark:bg-gray-500/20 dark:text-gray-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
 };
 
 export default function BranchesPage() {
@@ -87,7 +89,9 @@ export default function BranchesPage() {
   // Mobile load more
   const [mobileVisibleCount, setMobileVisibleCount] = React.useState(5);
 
-  const [deleteBranchId, setDeleteBranchId] = React.useState<string | null>(null);
+  const [deleteBranchId, setDeleteBranchId] = React.useState<string | null>(
+    null,
+  );
 
   const { data: branchesResponse, isLoading, error } = useBranches(1, 50); // fetch 50 per request
   const deleteBranch = useDeleteBranch();
@@ -148,7 +152,9 @@ export default function BranchesPage() {
         return false;
       if (
         appliedAdvanced.state &&
-        !branch.state.toLowerCase().includes(appliedAdvanced.state.toLowerCase())
+        !branch.state
+          .toLowerCase()
+          .includes(appliedAdvanced.state.toLowerCase())
       )
         return false;
       if (
@@ -202,9 +208,19 @@ export default function BranchesPage() {
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-6">
-        <p className="text-destructive font-semibold mb-2">Failed to load branches</p>
-        <p className="text-muted-foreground text-sm">Please check your connection or contact support.</p>
-        <Button variant="outline" className="mt-4" onClick={() => window.location.reload()}>Retry</Button>
+        <p className="text-destructive font-semibold mb-2">
+          Failed to load branches
+        </p>
+        <p className="text-muted-foreground text-sm">
+          Please check your connection or contact support.
+        </p>
+        <Button
+          variant="outline"
+          className="mt-4"
+          onClick={() => window.location.reload()}
+        >
+          Retry
+        </Button>
       </div>
     );
   }
@@ -393,9 +409,14 @@ export default function BranchesPage() {
                               <span className="sr-only">Open menu</span>
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-40 z-50">
+                          <DropdownMenuContent
+                            align="end"
+                            className="w-40 z-50"
+                          >
                             <DropdownMenuItem className="gap-2" asChild>
-                              <Link href={`/organization/branches/edit?id=${item.id}`}>
+                              <Link
+                                href={`/organization/branches/edit?id=${item.id}`}
+                              >
                                 <Pencil className="size-4" />
                                 Edit
                               </Link>
@@ -545,7 +566,9 @@ export default function BranchesPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-32">
                           <DropdownMenuItem className="gap-2" asChild>
-                            <Link href={`/organization/branches/edit?id=${item.id}`}>
+                            <Link
+                              href={`/organization/branches/edit?id=${item.id}`}
+                            >
                               <Pencil className="size-4" />
                               Edit
                             </Link>

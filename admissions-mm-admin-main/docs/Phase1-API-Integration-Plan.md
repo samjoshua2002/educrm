@@ -1,4 +1,5 @@
 # Phase 1 — API Integration Plan (Final)
+
 ## Superadmin & Organization Admin Frontend
 
 **Base URL**: `http://localhost:3000/api`  
@@ -14,12 +15,12 @@
 ```typescript
 // src/types/auth.ts
 export enum Role {
-  SUPERADMIN = 'superadmin',
-  ORG_ADMIN = 'org_admin',
-  LEAD_MANAGER = 'lead_manager',
-  COUNSELOR = 'counselor',
-  APPLICATION_MANAGER = 'application_manager',
-  EXAM_MANAGER = 'exam_manager',
+  SUPERADMIN = "superadmin",
+  ORG_ADMIN = "org_admin",
+  LEAD_MANAGER = "lead_manager",
+  COUNSELOR = "counselor",
+  APPLICATION_MANAGER = "application_manager",
+  EXAM_MANAGER = "exam_manager",
 }
 ```
 
@@ -31,13 +32,13 @@ All role checks across middleware, layouts, sidebars, and pages must use this en
 
 #### Cookie Setup
 
-| Property | Development | Production |
-|----------|------------|------------|
-| `HttpOnly` | `false` | `true` |
-| `Secure` | `false` | `true` |
-| `SameSite` | `Lax` | `Strict` |
-| `Path` | `/` | `/` |
-| `Max-Age` | 1 day | 1 day |
+| Property   | Development | Production |
+| ---------- | ----------- | ---------- |
+| `HttpOnly` | `false`     | `true`     |
+| `Secure`   | `false`     | `true`     |
+| `SameSite` | `Lax`       | `Strict`   |
+| `Path`     | `/`         | `/`        |
+| `Max-Age`  | 1 day       | 1 day      |
 
 - In **development**, the cookie is NOT HttpOnly so `js-cookie` can read/write it for convenience. The JWT is decoded client-side via `jwt-decode` for display purposes only.
 - In **production**, the cookie is HttpOnly + Secure. The frontend cannot read the token directly. Instead, user data is fetched via `GET /users/me` on app mount, cached, and used for UI rendering. The browser still sends the cookie automatically with every API request.
@@ -45,6 +46,7 @@ All role checks across middleware, layouts, sidebars, and pages must use this en
 #### Cookie Name: `auth_token`
 
 #### Login Flow
+
 1. `POST /auth/login` → receive `{ access_token, user }`.
 2. Set `auth_token` cookie with `access_token` value.
 3. Store `user` object in Zustand auth store (in memory only, NOT localStorage).
@@ -52,6 +54,7 @@ All role checks across middleware, layouts, sidebars, and pages must use this en
 5. `router.push()` to role-appropriate dashboard.
 
 #### Logout Flow
+
 1. Delete `auth_token` cookie.
 2. Reset Zustand auth store to `null`.
 3. `queryClient.clear()` to destroy all cached data (prevents cross-role data leakage).
@@ -99,11 +102,11 @@ All role checks across middleware, layouts, sidebars, and pages must use this en
 
 ### 2.1 Three Layers of Protection
 
-| Layer | Responsibility | What It Checks |
-|-------|---------------|----------------|
-| **Middleware** (`src/middleware.ts`) | First gate — runs on every request before page renders | Cookie exists? Which route prefix? |
-| **Layout** (per route group) | Second gate — runs after middleware passes | Decoded role matches expected role for this section? |
-| **Backend** | Final authority | Token signature valid? Role authorized? OrgId matches? |
+| Layer                                | Responsibility                                         | What It Checks                                         |
+| ------------------------------------ | ------------------------------------------------------ | ------------------------------------------------------ |
+| **Middleware** (`src/middleware.ts`) | First gate — runs on every request before page renders | Cookie exists? Which route prefix?                     |
+| **Layout** (per route group)         | Second gate — runs after middleware passes             | Decoded role matches expected role for this section?   |
+| **Backend**                          | Final authority                                        | Token signature valid? Role authorized? OrgId matches? |
 
 ### 2.2 Middleware Rules (Edge Runtime)
 
@@ -117,6 +120,7 @@ Middleware runs in Next.js Edge Runtime. It does NOT decode the JWT (no `jwt-dec
    - `user_role !== 'superadmin'` trying `/superadmin/*` → redirect to `/organization/dashboard`.
 
 **Why a separate `user_role` cookie?**
+
 - Edge Runtime cannot run `jwt-decode`.
 - A lightweight, non-HttpOnly `user_role` cookie is set alongside `auth_token` during login.
 - This cookie is ONLY for middleware routing. It has zero security value.
@@ -125,17 +129,18 @@ Middleware runs in Next.js Edge Runtime. It does NOT decode the JWT (no `jwt-dec
 ### 2.3 Layout-Level Role Guard
 
 Each layout wraps its children with a client component that:
+
 1. Reads the decoded JWT (in development) or the cached user profile.
 2. If the role doesn't match the layout's expected role → shows an "Unauthorized" screen or redirects.
 3. This is the second defense and handles edge cases that middleware cannot (e.g., stale `user_role` cookie).
 
 ### 2.4 Route Protection Summary
 
-| Route | Middleware Check | Layout Check | Allowed Roles |
-|-------|-----------------|-------------|---------------|
-| `/login` | Redirect if already logged in | None | Public |
-| `/superadmin/*` | Cookie exists + role cookie = superadmin | Decoded role = superadmin | `SUPERADMIN` |
-| `/organization/*` | Cookie exists + role cookie ≠ superadmin | Decoded role ∈ org roles | `ORG_ADMIN`, `LEAD_MANAGER`, `COUNSELOR`, `APPLICATION_MANAGER`, `EXAM_MANAGER` |
+| Route             | Middleware Check                         | Layout Check              | Allowed Roles                                                                   |
+| ----------------- | ---------------------------------------- | ------------------------- | ------------------------------------------------------------------------------- |
+| `/login`          | Redirect if already logged in            | None                      | Public                                                                          |
+| `/superadmin/*`   | Cookie exists + role cookie = superadmin | Decoded role = superadmin | `SUPERADMIN`                                                                    |
+| `/organization/*` | Cookie exists + role cookie ≠ superadmin | Decoded role ∈ org roles  | `ORG_ADMIN`, `LEAD_MANAGER`, `COUNSELOR`, `APPLICATION_MANAGER`, `EXAM_MANAGER` |
 
 ---
 
@@ -155,8 +160,11 @@ Each nav item in `organization-nav.ts` will have an `allowedRoles` array:
 ```
 
 The sidebar component filters items:
+
 ```typescript
-items.filter(item => !item.allowedRoles || item.allowedRoles.includes(currentUserRole))
+items.filter(
+  (item) => !item.allowedRoles || item.allowedRoles.includes(currentUserRole),
+);
 ```
 
 This avoids hardcoded `if/else` chains and scales cleanly.
@@ -190,32 +198,32 @@ If the user's role is not in `allowed`, the children are not rendered. No CSS hi
 
 ### 4.2 Error Handling Strategy
 
-| HTTP Status | Frontend Behavior |
-|-------------|-------------------|
-| `401 Unauthorized` | Force logout + redirect to `/login` |
-| `403 Forbidden` | Toast: "Access denied" — stay on page |
-| `422 Validation` | Return field errors to form via `setError()` (react-hook-form) |
-| `400 Bad Request` | Toast with backend `message` |
-| `404 Not Found` | Toast: "Resource not found" |
-| `500 Server Error` | Toast: "Something went wrong" |
+| HTTP Status        | Frontend Behavior                                              |
+| ------------------ | -------------------------------------------------------------- |
+| `401 Unauthorized` | Force logout + redirect to `/login`                            |
+| `403 Forbidden`    | Toast: "Access denied" — stay on page                          |
+| `422 Validation`   | Return field errors to form via `setError()` (react-hook-form) |
+| `400 Bad Request`  | Toast with backend `message`                                   |
+| `404 Not Found`    | Toast: "Resource not found"                                    |
+| `500 Server Error` | Toast: "Something went wrong"                                  |
 
 ### 4.3 React Query Key Convention
 
-| Resource | Query Key |
-|----------|-----------|
-| Organizations list | `['organizations', { page, limit }]` |
-| Single organization | `['organization', id]` |
-| Branches list | `['branches', orgId, { page, limit }]` |
-| Users list | `['users', orgId, { page, limit }]` |
-| Current profile | `['profile', 'me']` |
+| Resource            | Query Key                              |
+| ------------------- | -------------------------------------- |
+| Organizations list  | `['organizations', { page, limit }]`   |
+| Single organization | `['organization', id]`                 |
+| Branches list       | `['branches', orgId, { page, limit }]` |
+| Users list          | `['users', orgId, { page, limit }]`    |
+| Current profile     | `['profile', 'me']`                    |
 
 ### 4.4 Query Invalidation Rules
 
-| After Mutation | Invalidate |
-|---------------|------------|
+| After Mutation      | Invalidate                      |
+| ------------------- | ------------------------------- |
 | Create Organization | `['organizations']` (all pages) |
-| Create Branch | `['branches', orgId]` |
-| Create User | `['users', orgId]` |
+| Create Branch       | `['branches', orgId]`           |
+| Create User         | `['users', orgId]`              |
 
 ### 4.5 Pagination Mapping
 
@@ -231,6 +239,7 @@ const totalPages = pagination.totalPages;
 ### 4.6 Date Handling
 
 All date inputs must be converted before submission:
+
 ```typescript
 const isoDate = new Date(formValue).toISOString();
 ```
@@ -240,6 +249,7 @@ const isoDate = new Date(formValue).toISOString();
 ## 5. Implementation Rounds
 
 ### Round 1: Auth Foundation
+
 - [ ] Create `Role` enum in `src/types/auth.ts`.
 - [ ] Create API response types in `src/types/api.ts`:
   - `ApiResponse<T>`, `PaginatedResponse<T>`, `ApiError`.
@@ -261,6 +271,7 @@ const isoDate = new Date(formValue).toISOString();
 - [ ] Test: Login → redirect → middleware blocks wrong routes → logout clears everything.
 
 ### Round 2: Superadmin Module
+
 - [ ] Create `src/types/organization.ts` (Organization type).
 - [ ] Create `src/lib/validations/organization.ts` (Zod schema with ISO date transform).
 - [ ] Create `src/hooks/use-organizations.ts`:
@@ -272,6 +283,7 @@ const isoDate = new Date(formValue).toISOString();
 - [ ] Build subscriptions page (filtered org view).
 
 ### Round 3: Organization Module
+
 - [ ] Update `organization-nav.ts` with `allowedRoles` per item.
 - [ ] Build `<RoleGate>` component.
 - [ ] Create `src/hooks/use-branches.ts` with `orgId` from token.
@@ -280,6 +292,7 @@ const isoDate = new Date(formValue).toISOString();
 - [ ] Build users table + create dialog (role dropdown from `Role` enum, branch dropdown from branches query).
 
 ### Round 4: Hardening
+
 - [ ] Audit all hooks for `enabled: !!orgId` guards.
 - [ ] Add loading skeletons to all data pages.
 - [ ] Test: Login as different roles → verify sidebar filtering.

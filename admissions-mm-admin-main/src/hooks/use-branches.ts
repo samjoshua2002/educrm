@@ -28,7 +28,7 @@ export interface CreateBranchInput {
 export function useBranches(
   pageOrOrgId?: number | string,
   limitOrPage?: number,
-  limit?: number
+  limit?: number,
 ) {
   const user = useAuthStore((state) => state.user);
   let page = 1;
@@ -52,7 +52,11 @@ export function useBranches(
 
   return useQuery({
     queryKey: ["branches", { orgId, page, limit: finalLimit }],
-    queryFn: () => apiGet<PaginatedResponse<Branch>>(`/organizations/${orgId}/branches`, { page, limit: finalLimit }),
+    queryFn: () =>
+      apiGet<PaginatedResponse<Branch>>(`/organizations/${orgId}/branches`, {
+        page,
+        limit: finalLimit,
+      }),
     enabled: !!orgId,
   });
 }
@@ -63,7 +67,8 @@ export function useCreateBranch() {
   const orgId = user?.organizationId;
 
   return useMutation({
-    mutationFn: (data: CreateBranchInput) => apiPost<Branch>(`/organizations/${orgId}/branches`, data),
+    mutationFn: (data: CreateBranchInput) =>
+      apiPost<Branch>(`/organizations/${orgId}/branches`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["branches"] });
       toast.success("Branch created successfully");
@@ -91,8 +96,13 @@ export function useUpdateBranch() {
   const orgId = user?.organizationId;
 
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<CreateBranchInput> }) => 
-      apiPatch<Branch>(`/organizations/${orgId}/branches/${id}`, data),
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: Partial<CreateBranchInput>;
+    }) => apiPatch<Branch>(`/organizations/${orgId}/branches/${id}`, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["branches"] });
       queryClient.invalidateQueries({ queryKey: ["branch", variables.id] });
@@ -110,7 +120,8 @@ export function useDeleteBranch() {
   const orgId = user?.organizationId;
 
   return useMutation({
-    mutationFn: (id: string) => apiDelete(`/organizations/${orgId}/branches/${id}`),
+    mutationFn: (id: string) =>
+      apiDelete(`/organizations/${orgId}/branches/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["branches"] });
       toast.success("Branch deleted successfully");
