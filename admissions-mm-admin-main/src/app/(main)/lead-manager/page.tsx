@@ -68,7 +68,7 @@ import { useLeads, useDeleteLead, useUpdateLeadStatus } from "@/hooks/use-leads"
 import { toast } from "sonner";
 
 type Lead = {
-  id: string;
+  id: string | number;
   name: string;
   email: string;
   mobile: string;
@@ -389,7 +389,11 @@ export default function LeadManagerPage() {
       campaign: item.utmCampaign || "N/A",
       stage: item.isDuplicate ? "Duplicate" : "New",
       status: item.status || "unverified",
-      assignedTo: item.assignedTo || "Unassigned",
+      assignedToUser: item.assignedToUser ? {
+        name: item.assignedToUser.name,
+        role: item.assignedToUser.role?.replace('_', ' ')?.toLowerCase()
+      } : null,
+      assignedTo: item.assignedToUser ? `${item.assignedToUser.name} (${item.assignedToUser.role.replace('_', ' ')})` : (item.assignedTo || "Unassigned"),
       rawLead: item
     }));
   }, [leadsResponse]);
@@ -765,8 +769,24 @@ export default function LeadManagerPage() {
                         {item.status}
                       </span>
                     </TableCell>
-                    <TableCell className="py-5 px-6 align-middle text-sm text-foreground/80 font-normal">
-                      {item.assignedTo}
+                    <TableCell className="py-5 px-6 align-middle">
+                      {item.assignedToUser ? (
+                        <div className="flex flex-col items-start gap-1">
+                          <span className="font-semibold text-foreground text-sm tracking-tight block">
+                            {item.assignedToUser.name}
+                          </span>
+                          <Badge 
+                            variant="secondary" 
+                            className="font-semibold text-[10px] px-2 py-0.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/80 rounded-md shrink-0 uppercase tracking-wider"
+                          >
+                            {item.assignedToUser.role}
+                          </Badge>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground italic text-xs font-normal">
+                          {item.assignedTo && item.assignedTo !== "Unassigned" ? `ID: ${item.assignedTo}` : "Unassigned"}
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell className="py-5 px-6 align-middle">
                       <div className="flex flex-col gap-0.5">
@@ -1029,9 +1049,24 @@ export default function LeadManagerPage() {
                         <span className={statusStyles[item.status] ?? ""}>
                           {item.status}
                         </span>
-                        <span className="text-foreground/95 font-medium">
-                          · {item.assignedTo}
-                        </span>
+                        <span className="text-muted-foreground/50 font-normal">·</span>
+                        {item.assignedToUser ? (
+                          <div className="flex items-center gap-1 flex-wrap">
+                            <span className="text-foreground/95 font-semibold">
+                              {item.assignedToUser.name}
+                            </span>
+                            <Badge 
+                              variant="secondary" 
+                              className="font-semibold text-[9px] px-1.5 py-0 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/80 rounded-md shrink-0 uppercase tracking-wider"
+                            >
+                              {item.assignedToUser.role}
+                            </Badge>
+                          </div>
+                        ) : (
+                          <span className="text-foreground/95 font-medium">
+                            {item.assignedTo && item.assignedTo !== "Unassigned" ? `ID: ${item.assignedTo}` : "Unassigned"}
+                          </span>
+                        )}
                       </div>
                     </div>
 

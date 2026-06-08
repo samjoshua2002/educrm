@@ -49,7 +49,7 @@ export class FormsService {
     const [data, total] = await query
       .skip(paginationDto.skip)
       .take(paginationDto.limit)
-      .orderBy('form.created_at', 'DESC')
+      .orderBy('form.createdAt', 'DESC')
       .getManyAndCount();
 
     const totalPages = Math.ceil(total / paginationDto.limit);
@@ -163,7 +163,7 @@ export class FormsService {
     const [data, total] = await query
       .skip(paginationDto.skip)
       .take(paginationDto.limit)
-      .orderBy('response.submitted_at', 'DESC')
+      .orderBy('response.submittedAt', 'DESC')
       .getManyAndCount();
 
     const totalPages = Math.ceil(total / paginationDto.limit);

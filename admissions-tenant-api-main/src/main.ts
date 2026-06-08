@@ -1,8 +1,8 @@
-import { NestFactory, Reflector } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { NestFactory, Reflector } from '@nestjs/core';
 import { AppModule } from './app.module.js';
-import { TransformInterceptor } from './common/interceptors/transform.interceptor.js';
 import { GlobalExceptionFilter } from './common/filters/http-exception.filter.js';
+import { TransformInterceptor } from './common/interceptors/transform.interceptor.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -29,7 +29,9 @@ async function bootstrap() {
   app.enableCors({
     origin:  [
     'http://localhost:3001',
-    'http://127.0.0.1:3001'
+    'http://127.0.0.1:3001',
+    'http://192.168.0.101:3001',
+    
   ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
