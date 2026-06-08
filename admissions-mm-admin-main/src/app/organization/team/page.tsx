@@ -22,6 +22,7 @@ import {
   Lock,
   User as UserIcon,
   CalendarDays,
+  UserX,
 } from "lucide-react";
 
 import {
@@ -469,6 +470,7 @@ export default function TeamPage() {
                               className="gap-2"
                               onClick={() => handleToggleStatus(user)}
                             >
+                              <UserX className="size-4" />
                               {user.isActive !== false ? "Deactivate" : "Activate"}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
@@ -789,39 +791,44 @@ export default function TeamPage() {
             </div>
 
             {/* ROLE & PRIMARY BRANCH Row */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="flex flex-col gap-2">
-                <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">Role</Label>
-                <Select value={formRole} onValueChange={setFormRole}>
-                  <SelectTrigger className="border-[#D4D4D4] rounded-lg h-11 text-sm bg-white text-[#0F172A]">
-                    <SelectValue placeholder="Select institutional role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ROLES.map((role) => (
-                      <SelectItem key={role} value={role}>
-                        {formatRole(role)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">Primary Branch</Label>
-                <Select value={formBranch} onValueChange={setFormBranch}>
-                  <SelectTrigger className="border-[#D4D4D4] rounded-lg h-11 text-sm bg-white text-[#0F172A]">
-                    <SelectValue placeholder="Select primary location" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Select primary location</SelectItem>
-                    {branches.map((b) => (
-                      <SelectItem key={b.id} value={b.id}>
-                        {b.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+          <div className="grid w-full grid-cols-1 md:grid-cols-2 gap-6">
+  <div className="flex flex-col gap-2 w-full">
+    <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+      Role
+    </Label>
+    <Select value={formRole} onValueChange={setFormRole}>
+      <SelectTrigger className="w-full border-[#D4D4D4] rounded-lg h-11 text-sm bg-white text-[#0F172A]">
+        <SelectValue placeholder="Select institutional role" />
+      </SelectTrigger>
+      <SelectContent>
+        {ROLES.map((role) => (
+          <SelectItem key={role} value={role}>
+            {formatRole(role)}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  </div>
+
+  <div className="flex flex-col gap-2 w-full">
+    <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+      Primary Branch
+    </Label>
+    <Select value={formBranch} onValueChange={setFormBranch}>
+      <SelectTrigger className="w-full border-[#D4D4D4] rounded-lg h-11 text-sm bg-white text-[#0F172A]">
+        <SelectValue placeholder="Select primary location" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="none">Select primary location</SelectItem>
+        {branches.map((b) => (
+          <SelectItem key={b.id} value={b.id}>
+            {b.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  </div>
+</div>
           </div>
 
           {/* Action buttons at bottom */}

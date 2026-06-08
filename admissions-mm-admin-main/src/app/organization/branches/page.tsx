@@ -740,7 +740,7 @@ export default function BranchesPage() {
 
       {/* Advanced Filter Dialog */}
       <Dialog open={advancedOpen} onOpenChange={setAdvancedOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[425px] rounded-xl">
           <DialogHeader>
             <DialogTitle>Advanced Filters</DialogTitle>
           </DialogHeader>
