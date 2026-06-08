@@ -171,7 +171,7 @@ export default function ApplicationDetailsPage() {
           <div className="flex">
             <Badge
               variant="secondary"
-              className="text-[10px] md:text-xs px-2.5 py-0.5 bg-[#EFF6FF] text-[#2563EB] font-bold uppercase hover:bg-[#EFF6FF] rounded-[10px]"
+              className="text-[10px] md:text-xs px-2.5 py-0.5 bg-[#EFF6FF] text-[#1D4ED8] font-bold uppercase hover:bg-[#EFF6FF] rounded-[10px]"
               style={{ letterSpacing: "1px" }}
             >
               {applicationData.status}
@@ -729,20 +729,18 @@ export default function ApplicationDetailsPage() {
                         </div>
                       </TableCell>
                       <TableCell
-                        className={`p-[12px_16px_13px_16px] ${
-                          test.rollNo !== "-"
-                            ? "font-mono text-sm text-slate-700"
-                            : "text-slate-400"
-                        }`}
+                        className={`p-[12px_16px_13px_16px] ${test.rollNo !== "-"
+                          ? "font-mono text-sm text-slate-700"
+                          : "text-slate-400"
+                          }`}
                       >
                         {test.rollNo}
                       </TableCell>
                       <TableCell
-                        className={`p-[12px_16px_13px_16px] ${
-                          test.month !== "-"
-                            ? "text-slate-700"
-                            : "text-slate-400"
-                        }`}
+                        className={`p-[12px_16px_13px_16px] ${test.month !== "-"
+                          ? "text-slate-700"
+                          : "text-slate-400"
+                          }`}
                       >
                         {test.month}
                       </TableCell>
@@ -958,10 +956,10 @@ export default function ApplicationDetailsPage() {
         <DialogContent
           className={
             activeEditSection === "personal" ||
-            activeEditSection === "education" ||
-            activeEditSection === "entrance" ||
-            activeEditSection === "parents" ||
-            activeEditSection === "contact"
+              activeEditSection === "education" ||
+              activeEditSection === "entrance" ||
+              activeEditSection === "parents" ||
+              activeEditSection === "contact"
               ? "max-w-[1000px] w-[95%] rounded-[12px] p-[24px] md:p-[32px] gap-0 bg-white max-h-[98vh] overflow-y-auto"
               : "max-w-[600px] w-[95%] rounded-[12px] p-[24px] md:p-[32px] gap-0 bg-white max-h-[98vh] overflow-y-auto"
           }
@@ -1574,7 +1572,7 @@ function EditEducationForm({ appData, onSave, onClose }: FormProps) {
       onSubmit={handleSubmit}
       className="grid grid-cols-2 gap-x-6 gap-y-4 pt-3 pb-1"
     >
-      <div className="col-span-2 border-b pb-2">
+      <div className="col-span-2 pb-2">
         <h3 className="font-bold text-slate-800 text-sm">10th Details</h3>
       </div>
       <div className="flex flex-col gap-1.5 col-span-1">
@@ -1642,7 +1640,7 @@ function EditEducationForm({ appData, onSave, onClose }: FormProps) {
         />
       </div>
 
-      <div className="col-span-2 border-b pb-2 pt-2">
+      <div className="col-span-2 pb-2 pt-2">
         <h3 className="font-bold text-slate-800 text-sm">12th Details</h3>
       </div>
       <div className="flex flex-col gap-1.5 col-span-1">
@@ -1734,7 +1732,7 @@ function EditEducationForm({ appData, onSave, onClose }: FormProps) {
         />
       </div>
 
-      <div className="col-span-2 border-b pb-2 pt-2">
+      <div className="col-span-2 pb-2 pt-2">
         <h3 className="font-bold text-slate-800 text-sm">Graduation Details</h3>
       </div>
       <div className="flex flex-col gap-1.5 col-span-1">
@@ -1927,7 +1925,7 @@ function EditEntranceForm({ appData, onSave, onClose }: FormProps) {
       {formData.entranceTests.map((test: any, index: number) => (
         <div
           key={test.exam}
-          className="flex flex-col gap-3 p-4 border rounded-lg bg-slate-50"
+          className="flex flex-col gap-3 p-4 border rounded-lg bg-white"
         >
           <div className="border-b pb-1.5">
             <h4 className="font-bold text-slate-800 text-sm">
