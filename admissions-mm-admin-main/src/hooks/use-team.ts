@@ -14,15 +14,19 @@ export interface CreateUserInput {
   branchId?: string;
 }
 
-export function useTeam(pageOrOrgId?: number | string, limit: number = 10) {
+export function useTeam(orgIdOrPage?: string | number, pageParam?: number, limitParam: number = 10) {
   const currentUser = useAuthStore((state) => state.user);
   let page = 1;
+  let limit = 10;
   let orgId = currentUser?.organizationId;
 
-  if (typeof pageOrOrgId === "string") {
-    orgId = pageOrOrgId;
-  } else if (typeof pageOrOrgId === "number") {
-    page = pageOrOrgId;
+  if (typeof orgIdOrPage === "string") {
+    orgId = orgIdOrPage;
+    if (typeof pageParam === "number") page = pageParam;
+    if (typeof limitParam === "number") limit = limitParam;
+  } else if (typeof orgIdOrPage === "number") {
+    page = orgIdOrPage;
+    if (typeof pageParam === "number") limit = pageParam;
   }
 
   return useQuery({
