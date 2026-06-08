@@ -17,7 +17,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { useCreateBranch } from "@/hooks/use-branches";
+import { Switch } from "@/components/ui/switch";
+import { useCreateBranch, useBranches } from "@/hooks/use-branches";
+import { toast } from "sonner";
 
 const INDIAN_STATES = [
   "Andhra Pradesh",
@@ -57,6 +59,8 @@ const INDIAN_STATES = [
 export default function AddBranchPage() {
   const router = useRouter();
   const createBranch = useCreateBranch();
+  const { data: branchesRes } = useBranches(1, 100);
+  const allBranches = branchesRes?.data || [];
 
   const [form, setForm] = React.useState({
     name: "",
@@ -64,6 +68,7 @@ export default function AddBranchPage() {
     address: "",
     city: "",
     state: "",
+    description: "",
     status: "Active", // UI-only field, converted to isActive boolean for API
   });
 
@@ -74,6 +79,12 @@ export default function AddBranchPage() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.name.trim()) return;
+    
+    if (form.code && allBranches.some(b => b.code?.toLowerCase() === form.code.toLowerCase())) {
+      toast.error("Branch code already exists!");
+      return;
+    }
+
     createBranch.mutate(
       {
         name: form.name,
@@ -81,6 +92,7 @@ export default function AddBranchPage() {
         address: form.address || undefined,
         city: form.city || undefined,
         state: form.state || undefined,
+        description: form.description || undefined,
         isActive: form.status === "Active",
       },
       {
@@ -108,27 +120,20 @@ export default function AddBranchPage() {
           <Card className="lg:col-span-8 bg-card border border-border rounded-[8px] shadow-sm overflow-hidden">
             <CardHeader className="border-b border-input px-6">
               <CardTitle className="text-[18px] font-medium text-foreground">
-                Branch Information
+                Basic Information
               </CardTitle>
             </CardHeader>
             <CardContent className="px-6 flex flex-col divide-y divide-input">
               {/* Basic Info */}
               <section className="flex flex-col gap-5 pb-6 pt-6">
-                <div className="flex flex-col gap-1 ">
-                  <p className="text-[16px] font-medium text-foreground">
-                    Basic Details
-                  </p>
-                  <p className="text-[14px] text-muted-foreground">
-                    Identify the branch with its name and unique code.
-                  </p>
-                </div>
+            
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
                   <div className="flex flex-col gap-2">
                     <Label
                       htmlFor="name"
                       className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground"
                     >
-                      Branch Name
+                      BRANCH NAME
                     </Label>
                     <Input
                       id="name"
@@ -143,7 +148,7 @@ export default function AddBranchPage() {
                       htmlFor="code"
                       className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground"
                     >
-                      Branch Code
+                      BRANCH CODE
                     </Label>
                     <Input
                       id="code"
@@ -158,21 +163,12 @@ export default function AddBranchPage() {
 
               {/* Location */}
               <section className="flex flex-col gap-5 py-6">
-                <div className="flex flex-col gap-1">
-                  <p className="text-[16px] font-medium text-foreground">
-                    Location & Address
-                  </p>
-                  <p className="text-[14px] text-muted-foreground">
-                    Where is this branch located?
-                  </p>
-                </div>
-
                 <div className="flex flex-col gap-2">
                   <Label
                     htmlFor="address"
                     className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground"
                   >
-                    Address
+                    STREET ADDRESS
                   </Label>
                   <Textarea
                     id="address"
@@ -182,14 +178,16 @@ export default function AddBranchPage() {
                     className="border border-input min-h-[80px] rounded-[8px] text-[12px] placeholder:text-muted-foreground resize-none"
                   />
                 </div>
+              </section>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 mt-2">
+              <section className="flex flex-col gap-5 py-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
                   <div className="flex flex-col gap-2">
                     <Label
                       htmlFor="state"
                       className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground"
                     >
-                      State
+                      STATE
                     </Label>
                     <Select
                       value={form.state}
@@ -215,7 +213,7 @@ export default function AddBranchPage() {
                       htmlFor="city"
                       className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground"
                     >
-                      City
+                      CITY
                     </Label>
                     <Input
                       id="city"
@@ -227,48 +225,61 @@ export default function AddBranchPage() {
                   </div>
                 </div>
               </section>
+
+              {/* Description */}
+              <section className="flex flex-col gap-5 pt-6">
+                <div className="flex flex-col gap-2">
+                  <Label
+                    htmlFor="description"
+                    className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground"
+                  >
+                    BRANCH DESCRIPTION
+                  </Label>
+                  <Textarea
+                    id="description"
+                    placeholder="Write a description for this branch..."
+                    value={form.description}
+                    onChange={(e) => set("description", e.target.value)}
+                    className="border border-input min-h-[120px] rounded-[8px] text-[12px] placeholder:text-muted-foreground resize-none"
+                  />
+                </div>
+              </section>
             </CardContent>
           </Card>
 
           {/* Right — col 4 */}
           <div className="lg:col-span-4 flex flex-col gap-6">
             {/* Action Card */}
-            <div className="border border-border rounded-[8px] bg-card p-6 flex flex-col gap-6">
-              <h2 className="text-[18px] font-medium text-foreground">
-                Settings
+            <div
+              className="border border-border rounded-[8px] bg-card p-6 flex flex-col gap-6"
+            >
+              <h2
+                className="text-[18px] font-medium text-foreground"
+              >
+                CRM Detail
               </h2>
 
               <div className="flex flex-col gap-5">
-                {/* Status */}
-                <div className="flex flex-col gap-2">
-                  <Label
-                    htmlFor="status"
-                    className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground"
-                  >
-                    Status
-                  </Label>
-                  <Select
-                    value={form.status}
-                    onValueChange={(v) => set("status", v)}
-                  >
-                    <SelectTrigger
-                      id="status"
-                      className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full data-[placeholder]:text-foreground"
-                    >
-                      <SelectValue placeholder="Select Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Active">Active</SelectItem>
-                      <SelectItem value="Inactive">Inactive</SelectItem>
-                    </SelectContent>
-                  </Select>
+                {/* Status Toggle Switch */}
+                <div className="flex items-center justify-between rounded-[8px] p-4 bg-[#F8F9FA]">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-sm font-semibold text-foreground">Mark as Active Branch</span>
+                    <span className="text-xs text-muted-foreground">Branch will be visible in CRM</span>
+                  </div>
+                  <div className="flex items-center">
+                    <Switch
+                      checked={form.status === "Active"}
+                      onCheckedChange={(checked) => set("status", checked ? "Active" : "Inactive")}
+                      className="data-[state=checked]:bg-[#000666]"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="flex flex-col gap-3 mt-4">
+              <div className="flex flex-col gap-3 mt-2">
                 <Button
                   disabled={createBranch.isPending}
-                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground flex items-center justify-center gap-2 h-11 text-base font-medium rounded-[8px]"
+                  className="w-full bg-ring hover:bg-ring/90 text-primary-foreground flex items-center justify-center gap-2 h-11 text-base font-medium rounded-[8px]"
                   onClick={handleSubmit}
                 >
                   {createBranch.isPending ? (
@@ -287,16 +298,34 @@ export default function AddBranchPage() {
                   </Button>
                 </Link>
               </div>
+
+              {/* Quick Stats Section */}
+              <div className="border-t border-border pt-5 mt-2">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                  QUICK STATS
+                </h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-[8px] p-4 bg-[#F8F9FA] flex flex-col gap-1">
+                    <span className="text-2xl font-bold text-blue-900">0</span>
+                    <span className="text-[10px] uppercase font-semibold tracking-wider text-muted-foreground">Assigned Staff</span>
+                  </div>
+                  <div className="rounded-[8px] p-4 bg-[#F8F9FA] flex flex-col gap-1">
+                    <span className="text-2xl font-bold text-blue-900">0</span>
+                    <span className="text-[10px] uppercase font-semibold tracking-wider text-muted-foreground">Active Students</span>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Protip Card */}
-            <div className="bg-accent flex flex-col gap-4 p-6 rounded-[8px]">
-              <p className="text-accent-foreground text-[18px] font-semibold leading-normal">
+            <div
+              className="bg-blue-50 flex flex-col gap-4 p-6 rounded-[8px]"
+            >
+              <p className="text-blue-600 text-[18px] font-semibold leading-normal">
                 Protip
               </p>
-              <p className="text-foreground text-[12px] font-medium leading-[20px] tracking-[0.6px]">
-                Organizing branches correctly allows you to assign leads
-                accurately and track performance by location.
+              <p className="text-slate-700 text-[12px] font-medium leading-[20px] tracking-[0.6px]">
+                Organizing branches correctly allows you to assign leads accurately and track performance by location.
               </p>
             </div>
           </div>

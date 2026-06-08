@@ -8,6 +8,7 @@ import {
 } from 'typeorm';
 import { Organization } from '../../organizations/entities/organization.entity.js';
 import { Branch } from '../../branches/entities/branch.entity.js';
+import { User } from '../../users/entities/user.entity.js';
 
 export enum LeadStatus {
   UNVERIFIED = 'unverified',
@@ -99,6 +100,10 @@ export class Lead {
 
   @Column({ name: 'assigned_to', type: 'uuid', nullable: true })
   assignedTo: string;
+
+  @ManyToOne(() => User, { onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'assigned_to' })
+  assignedToUser: User;
 
   @Column({ name: 'assigned_at', nullable: true })
   assignedAt: Date;

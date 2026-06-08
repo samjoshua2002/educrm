@@ -15,6 +15,14 @@ import {
   MapPin,
   Building2,
   Calendar,
+  Check,
+  Users,
+  StarOff,
+  CheckCircle,
+  Group,
+  GroupIcon,
+  UsersRound,
+  LucideUsersRound,
 } from "lucide-react";
 
 import {
@@ -61,12 +69,12 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useBranches, useDeleteBranch, Branch } from "@/hooks/use-branches";
+import { useTeam } from "@/hooks/use-team";
 
 const statusStyles: Record<string, string> = {
-  Active:
-    "bg-green-500/10 text-green-700 dark:bg-green-500/20 dark:text-green-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
-  Inactive:
-    "bg-gray-500/10 text-gray-700 dark:bg-gray-500/20 dark:text-gray-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
+  Active: "bg-[rgba(5,150,105,0.2)] text-[#065f46] hover:bg-[rgba(5,150,105,0.3)] font-medium px-[10px] py-[2px] rounded-[9999px] text-[12px] border-0",
+  Inactive: "bg-[rgba(217,119,6,0.2)] text-[#bd0f0f] hover:bg-[rgba(217,119,6,0.3)] font-medium px-[10px] py-[2px] rounded-[9999px] text-[12px] border-0",
+  Pending: "bg-[#fef3c7] text-[#9a3412] hover:bg-[#fde68a] font-medium px-[10px] py-[2px] rounded-[9999px] text-[12px] border-0",
 };
 
 export default function BranchesPage() {
@@ -94,9 +102,15 @@ export default function BranchesPage() {
   );
 
   const { data: branchesResponse, isLoading, error } = useBranches(1, 50); // fetch 50 per request
+  const { data: teamResponse } = useTeam(1, 100); // Fetch staff to compute counts (backend max is 100)
   const deleteBranch = useDeleteBranch();
 
-  const allBranches = branchesResponse?.data || [];
+  const allStaff = teamResponse?.data || [];
+
+  const allBranches = (branchesResponse?.data || []).map((b) => ({
+    ...b,
+    status: b.isActive ? "Active" : "Inactive",
+  }));
 
   function applyAdvancedFilters() {
     setAppliedAdvanced({
@@ -205,6 +219,11 @@ export default function BranchesPage() {
     );
   }, [currentPage, totalPages]);
 
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-6">
@@ -228,6 +247,60 @@ export default function BranchesPage() {
   return (
     <>
       <div className="flex flex-col gap-4 p-4 md:p-6">
+        {/* Branch Quick Stats Dashboard */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Card 1: Total Branches */}
+          <div className="bg-card border border-border rounded-[12px] px-5 py-4 flex items-center gap-4 shadow-sm hover:shadow-md transition-all duration-200">
+            {/* Left: icon + label */}
+            <div className="flex flex-col items-start gap-1 shrink-0">
+              <div className="w-11 h-11 rounded-[10px] bg-[#EFF6FF] flex items-center justify-center text-[#2563EB]">
+                <UsersRound className="size-5" fill="#2563EB" />
+              </div>
+              <span className="text-[11px] font-medium text-muted-foreground whitespace-nowrap">Total Branches</span>
+            </div>
+            {/* Right: number + bar */}
+            <div className="flex flex-col gap-2 flex-1 min-w-0">
+              <span className="text-[28px] font-bold leading-none text-[#0F172A]">{allBranches.length}</span>
+              {/* Progress bar — always 100% full */}
+              <div className="w-full h-[6px] rounded-[9999px] overflow-hidden bg-[#2563EB]/15">
+                <div
+                  className="h-full rounded-[9999px] transition-all duration-700"
+                  style={{ width: "100%", backgroundColor: "#2563EB" }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Card 2: Active Branches */}
+          <div className="bg-card border border-border rounded-[12px] px-5 py-4 flex items-center gap-4 shadow-sm hover:shadow-md transition-all duration-200">
+            {/* Left: icon + label */}
+            <div className="flex flex-col items-start gap-1 shrink-0">
+              <div className="w-11 h-11 rounded-[10px] flex items-center justify-center" style={{ backgroundColor: "#ECFDF5" }}>
+                <CheckCircle className="size-5" style={{ color: "#10B981" }} />
+              </div>
+              <span className="text-[11px] font-medium text-muted-foreground whitespace-nowrap">Active Branches</span>
+            </div>
+            {/* Right: number + bar */}
+            <div className="flex flex-col gap-2 flex-1 min-w-0">
+              <span className="text-[28px] font-bold leading-none text-[#0F172A]">
+                {allBranches.filter((b) => b.status === "Active").length}
+              </span>
+              {/* Progress bar — fills based on active / total ratio */}
+              <div className="w-full h-[6px] rounded-[9999px] overflow-hidden" style={{ backgroundColor: "#D1FAE5" }}>
+                <div
+                  className="h-full rounded-[9999px] transition-all duration-700"
+                  style={{
+                    width: allBranches.length > 0
+                      ? `${(allBranches.filter((b) => b.status === "Active").length / allBranches.length) * 100}%`
+                      : "0%",
+                    backgroundColor: "#10B981",
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
           {/* Search Section */}
           <div className="flex flex-1 w-full">
@@ -305,32 +378,33 @@ export default function BranchesPage() {
         </div>
 
         {/* Desktop View - Table */}
-        <div className="hidden lg:block border border-border/80 rounded-xl bg-card overflow-hidden shadow-2xs">
+        <div className="hidden lg:block border border-[#e5e5e5] rounded-[12px] bg-white overflow-hidden shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)]">
           <Table>
-            <TableHeader className="bg-zinc-100 dark:bg-muted/5 border-b border-border/80">
-              <TableRow className="hover:bg-transparent border-b border-border/80">
-                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
+            <TableHeader className="bg-[#fafafa] border-b border-[#e2e8f0]">
+              <TableRow className="hover:bg-transparent border-b border-[#e2e8f0]">
+                <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
                   BRANCH NAME
                 </TableHead>
-                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
+                <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
                   CODE
                 </TableHead>
-                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
-                  LOCATION
+                <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
+                  ADDRESS
                 </TableHead>
-                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
+                <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
                   STATUS
                 </TableHead>
-                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
+             
+                <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
                   CREATED AT
                 </TableHead>
-                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto text-right w-[85px]">
+                <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto text-right w-[85px]">
                   ACTION
                 </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading && allBranches.length === 0 ? (
+              {(!mounted || isLoading) && allBranches.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="h-48 text-center">
                     <div className="flex flex-col items-center justify-center text-muted-foreground">
@@ -361,27 +435,22 @@ export default function BranchesPage() {
                 paginatedBranches.map((item: Branch) => (
                   <TableRow
                     key={item.id}
-                    className="border-b border-border/80 hover:bg-muted/15 dark:hover:bg-muted/5 transition-colors"
+                    className="border-b border-[#e2e8f0] hover:bg-muted/15 transition-colors"
                   >
-                    <TableCell className="py-5 px-6 align-middle">
-                      <div className="font-semibold text-foreground text-sm tracking-tight">
+                    <TableCell className="py-[24px] px-[24px] align-middle">
+                      <div className="font-semibold text-[#1e293b] text-[14px]">
                         {item.name}
                       </div>
                     </TableCell>
-                    <TableCell className="py-5 px-6 align-middle text-sm text-foreground/80 font-normal">
-                      <Badge variant="outline">{item.code}</Badge>
+                    <TableCell className="py-[24px] px-[24px] align-middle text-[#475569] text-[14px]">
+                      {item.code || "-"}
                     </TableCell>
-                    <TableCell className="py-5 px-6 align-middle">
-                      <div className="flex flex-col gap-0.5">
-                        <div className="font-medium text-foreground text-sm tracking-tight truncate max-w-[200px]">
-                          {item.city}, {item.state}
-                        </div>
-                        <div className="text-xs text-muted-foreground font-normal truncate max-w-[200px]">
-                          {item.address}
-                        </div>
+                    <TableCell className="py-[24px] px-[24px] align-middle">
+                      <div className="font-semibold text-[#1e293b] text-[14px]">
+                        {item.city || "Unknown"}, {item.state || "Unknown"}
                       </div>
                     </TableCell>
-                    <TableCell className="py-5 px-6 align-middle">
+                    <TableCell className="py-[24px] px-[24px] align-middle">
                       <Badge
                         variant="secondary"
                         className={statusStyles[item.status] || ""}
@@ -389,14 +458,24 @@ export default function BranchesPage() {
                         {item.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="py-5 px-6 align-middle text-sm text-foreground/80 font-normal">
-                      {new Date(item.createdAt).toLocaleDateString("en-IN", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                      })}
+                   
+                    <TableCell className="py-[24px] px-[24px] align-middle">
+                      <div className="text-[#475569] text-[14px]">
+                        {new Date(item.createdAt).toLocaleDateString("en-IN", {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </div>
+                      <div className="text-[#64748b] text-[12px] mt-0.5">
+                        {new Date(item.createdAt).toLocaleTimeString("en-IN", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          hour12: true,
+                        })}
+                      </div>
                     </TableCell>
-                    <TableCell className="py-5 px-6 align-middle text-right">
+                    <TableCell className="py-[24px] px-[24px] align-middle text-right">
                       <div className="flex justify-end">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -507,7 +586,12 @@ export default function BranchesPage() {
         </div>
 
         {/* Mobile View - Ultra-Compact List Layout */}
-        {filteredBranches.length === 0 && !isLoading ? (
+        {(!mounted || isLoading) && allBranches.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-3 py-16 border border-border/80 bg-card rounded-xl lg:hidden text-center px-4 w-full">
+            <div className="size-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            <p className="text-sm text-muted-foreground">Loading branches...</p>
+          </div>
+        ) : filteredBranches.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 py-16 border border-border/80 bg-card rounded-xl lg:hidden text-center px-4 w-full">
             <div className="flex size-12 items-center justify-center rounded-full bg-muted/40">
               <SearchX className="size-6 text-muted-foreground/80" />
@@ -611,7 +695,7 @@ export default function BranchesPage() {
                         </Badge>
                       </span>
                     </div>
-
+                    
                     <div className="flex flex-col gap-1 col-span-2">
                       <span className="font-medium text-muted-foreground/80 block flex items-center gap-1">
                         <Calendar className="size-3" /> Created:
@@ -624,6 +708,9 @@ export default function BranchesPage() {
                         })}
                       </span>
                     </div>
+
+                
+
                   </div>
                 </div>
               );
@@ -674,7 +761,7 @@ export default function BranchesPage() {
 
       {/* Advanced Filter Dialog */}
       <Dialog open={advancedOpen} onOpenChange={setAdvancedOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[425px] rounded-xl">
           <DialogHeader>
             <DialogTitle>Advanced Filters</DialogTitle>
           </DialogHeader>

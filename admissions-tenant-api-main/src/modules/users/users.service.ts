@@ -32,11 +32,11 @@ export class UsersService {
       throw new ConflictException(`User with email "${dto.email}" already exists`);
     }
 
-    // Role Hierarchy Fix: org_admin cannot create superadmin or other org_admins
+    // Role Hierarchy Fix: org_admin cannot create superadmin
     if (actor.role !== Role.SUPERADMIN) {
-      if (dto.role === Role.SUPERADMIN || dto.role === Role.ORG_ADMIN) {
+      if (dto.role === Role.SUPERADMIN) {
         throw new ForbiddenException(
-          'You are not authorized to create a user with this role',
+          'You are not authorized to create a superadmin',
         );
       }
     }
@@ -146,10 +146,10 @@ export class UsersService {
         throw new ForbiddenException('You cannot change your own role');
       }
 
-      // 2. Only Superadmin can change to org_admin
-      if (dto.role === Role.ORG_ADMIN && actor.role !== Role.SUPERADMIN) {
+      // 2. Only Superadmin or Org Admin can change to org_admin
+      if (dto.role === Role.ORG_ADMIN && actor.role !== Role.SUPERADMIN && actor.role !== Role.ORG_ADMIN) {
         throw new ForbiddenException(
-          'Only superadmins can assign the org_admin role',
+          'You are not authorized to assign the org_admin role',
         );
       }
 
@@ -182,5 +182,19 @@ export class UsersService {
       throw new NotFoundException(`User with ID "${id}" not found`);
     }
     await this.userRepo.remove(user);
+  }
+
+  async deactivateStaffInBranch(branchId: string, organizationId: string, actorId: string): Promise<void> {
+    const staff = await this.userRepo.find({
+      where: { branchId, organizationId, isActive: true },
+    });
+    for (const user of staff) {
+      user.isActive = false;
+      user.tokenVersion += 1;
+      user.updatedBy = actorId;
+    }
+    if (staff.length > 0) {
+      await this.userRepo.save(staff);
+    }
   }
 }

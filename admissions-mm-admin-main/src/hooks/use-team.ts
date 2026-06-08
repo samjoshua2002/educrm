@@ -14,15 +14,19 @@ export interface CreateUserInput {
   branchId?: string;
 }
 
-export function useTeam(pageOrOrgId?: number | string, limit: number = 10) {
+export function useTeam(orgIdOrPage?: string | number, pageParam?: number, limitParam: number = 10) {
   const currentUser = useAuthStore((state) => state.user);
   let page = 1;
+  let limit = 10;
   let orgId = currentUser?.organizationId;
 
-  if (typeof pageOrOrgId === "string") {
-    orgId = pageOrOrgId;
-  } else if (typeof pageOrOrgId === "number") {
-    page = pageOrOrgId;
+  if (typeof orgIdOrPage === "string") {
+    orgId = orgIdOrPage;
+    if (typeof pageParam === "number") page = pageParam;
+    if (typeof limitParam === "number") limit = limitParam;
+  } else if (typeof orgIdOrPage === "number") {
+    page = orgIdOrPage;
+    if (typeof pageParam === "number") limit = pageParam;
   }
 
   return useQuery({
@@ -78,3 +82,21 @@ export function useUpdateUser(explicitOrgId?: string) {
     },
   });
 }
+
+export function useDeleteUser(explicitOrgId?: string) {
+  const queryClient = useQueryClient();
+  const currentUser = useAuthStore((state) => state.user);
+  const orgId = explicitOrgId || currentUser?.organizationId;
+
+  return useMutation({
+    mutationFn: (userId: string) => apiDelete(`/organizations/${orgId}/users/${userId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["team"] });
+      toast.success("Team member deleted successfully");
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || "Failed to delete team member");
+    },
+  });
+}
+

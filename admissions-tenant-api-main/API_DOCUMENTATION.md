@@ -1,25 +1,46 @@
-# Admission System — API Documentation (Phase 1.1)
+# Admission System — API Documentation
 
-This document lists all available API endpoints for Phase 1. 
+This document lists all available API endpoints. 
+
 **Base URL**: `http://localhost:3000/api`
 
-**Standard Response Structure (All APIs)**:
+---
+
+## Standard Response Structure (All Success Responses)
+
+All successful API responses return an HTTP `200`, `201`, or `204` status code and adhere to the following JSON structure:
+
 ```json
 {
-    "success": true,
-    "data": { ... } or [ ... ],
-    "message": "Dynamic message describing the outcome",
-    "pagination": { ... } // Only for list GET requests
+  "success": true,
+  "data": { ... } or [ ... ] or null,
+  "message": "Dynamic message describing the outcome",
+  "pagination": { ... } // Only included for paginated list (GET) requests
 }
 ```
 
-**Standard Error Response Structure**:
+### Pagination Object Detail
 ```json
 {
-    "success": false,
-    "message": "Human-readable error message",
-    "errors": { "field": "error detail" }, // Only for 400/422 validation errors
-    "timestamp": "ISO-8601-String"
+  "page": 1,
+  "limit": 10,
+  "total": 45,
+  "totalPages": 5
+}
+```
+
+---
+
+## Standard Error Response Structure
+
+All failed requests return an appropriate HTTP status code (`400`, `401`, `403`, `404`, `422`, `500`) and adhere to the following structure:
+
+```json
+{
+  "success": false,
+  "message": "Human-readable error message describing what went wrong",
+  "errors": { "field": "error detail" }, // Only present for 400/422 DTO validation errors
+  "timestamp": "2026-06-02T12:20:14.000Z"
 }
 ```
 
@@ -27,84 +48,56 @@ This document lists all available API endpoints for Phase 1.
 
 ## Role-Based Access Control (RBAC) Matrix
 
-| Module | API Endpoint | Superadmin | Org Admin | Staff (Others) |
-| :--- | :--- | :---: | :---: | :---: |
-| **Auth** | `POST /auth/login` | ✅ | ✅ | ✅ |
-| **Auth** | `POST /auth/register-superadmin` | ✅ (Bootstrap) | ❌ | ❌ |
-| **Orgs** | `POST /api/organizations` | ✅ | ❌ | ❌ |
-| **Orgs** | `GET /api/organizations` | ✅ | ❌ | ❌ |
-| **Orgs** | `GET /api/organizations/:id` | ✅ | ✅ (Own) | ❌ |
-| **Orgs** | `PATCH /api/organizations/:id` | ✅ (All fields) | ✅ (Profile only) | ❌ |
-| **Branches** | `POST /api/organizations/:orgId/branches` | ✅ | ✅ | ❌ |
-| **Branches** | `GET /api/organizations/:orgId/branches` | ✅ | ✅ | ❌ |
-| **Users** | `GET /api/users/me` | ✅ | ✅ | ✅ |
-| **Users** | `POST /api/organizations/:orgId/users` | ✅ | ✅ | ❌ |
-| **Users** | `GET /api/organizations/:orgId/users` | ✅ | ✅ | ❌ |
-| **Users** | `PATCH /api/organizations/:orgId/users/:id` | ✅ | ✅ | ❌ |
-| **Forms** | `GET /api/organizations/:orgId/forms` | ✅ | ✅ | ❌ |
-| **Forms** | `GET /api/organizations/:orgId/forms/:id` | ✅ | ✅ | ❌ |
-| **Forms** | `POST /api/organizations/:orgId/forms` | ✅ | ✅ | ❌ |
-| **Forms** | `PATCH /api/organizations/:orgId/forms/:id` | ✅ | ✅ | ❌ |
-| **Forms** | `DELETE /api/organizations/:orgId/forms/:id` | ✅ | ✅ | ❌ |
-| **Forms** | `POST /api/organizations/:orgId/forms/:id/duplicate` | ✅ | ✅ | ❌ |
-| **Templates** | `GET /api/form-templates` | ✅ | ✅ | ❌ |
-| **Public** | `GET /api/public/forms/:slug` | Public | Public | Public |
-| **Ingestion**| `POST /api/public/forms/:slug/submit` | Public | Public | Public |
-| **Leads** | `GET /api/organizations/:orgId/leads` | ✅ | ✅ | ✅ |
-| **Leads** | `GET /api/organizations/:orgId/leads/:id` | ✅ | ✅ | ✅ |
-| **Leads** | `PATCH /api/organizations/:orgId/leads/:id/status` | ✅ | ✅ | ❌ |
-| **Leads** | `PATCH /api/organizations/:orgId/leads/:id/verify` | ✅ | ✅ | ❌ |
-| **Leads** | `PATCH /api/organizations/:orgId/leads/:id/assign` | ✅ | ✅ | ❌ |
-| **Leads** | `POST /api/organizations/:orgId/leads/:id/notes` | ✅ | ✅ | ✅ |
-| **Leads** | `PATCH /api/organizations/:orgId/leads/:id/workflow-status` | ✅ | ✅ | ✅ |
-| **Leads** | `PATCH /api/organizations/:orgId/leads/:id/close` | ✅ | ✅ | ✅ |
-| **Leads** | `DELETE /api/organizations/:orgId/leads/:id` | ✅ | ✅ | ❌ |
-| **Responses** | `GET /api/organizations/:orgId/forms/:id/responses` | ✅ | ✅ | ❌ |
-| **Responses** | `PATCH /api/responses/:id` | ✅ | ✅ | ❌ |
+| Module | API Endpoint | Superadmin | Org Admin | Lead Manager | Counselor | Public |
+| :--- | :--- | :---: | :---: | :---: | :---: | :---: |
+| **Auth** | `POST /api/auth/register-superadmin` | ✅ (Bootstrap) | ❌ | ❌ | ❌ | ❌ |
+| **Auth** | `POST /api/auth/login` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Orgs** | `POST /api/organizations` | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Orgs** | `GET /api/organizations` | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Orgs** | `GET /api/organizations/:id` | ✅ | ✅ (Own) | ❌ | ❌ | ❌ |
+| **Orgs** | `PATCH /api/organizations/:id` | ✅ (All fields) | ✅ (Profile only) | ❌ | ❌ | ❌ |
+| **Orgs** | `DELETE /api/organizations/:id` | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Branches** | `POST /api/organizations/:orgId/branches` | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **Branches** | `GET /api/organizations/:orgId/branches` | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **Branches** | `GET /api/organizations/:orgId/branches/:id` | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **Branches** | `PATCH /api/organizations/:orgId/branches/:id` | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **Branches** | `DELETE /api/organizations/:orgId/branches/:id` | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **Users** | `GET /api/users/me` | ✅ | ✅ | ✅ | ✅ | ❌ |
+| **Users** | `POST /api/organizations/:orgId/users` | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **Users** | `GET /api/organizations/:orgId/users` | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **Users** | `PATCH /api/organizations/:orgId/users/:id` | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **Users** | `DELETE /api/organizations/:orgId/users/:id` | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **Forms** | `POST /api/organizations/:orgId/forms` | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **Forms** | `GET /api/organizations/:orgId/forms` | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **Forms** | `GET /api/organizations/:orgId/forms/:id` | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **Forms** | `PATCH /api/organizations/:orgId/forms/:id` | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **Forms** | `DELETE /api/organizations/:orgId/forms/:id` | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **Forms** | `POST /api/organizations/:orgId/forms/:id/duplicate` | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **Templates**| `GET /api/form-templates` | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **Public** | `GET /api/public/forms/:slug` | Public | Public | Public | Public | Public |
+| **Ingestion**| `POST /api/public/forms/:slug/submit` | Public | Public | Public | Public | Public |
+| **Leads** | `GET /api/organizations/:orgId/leads` | ✅ | ✅ | ✅ | ✅ (Own/Assigned) | ❌ |
+| **Leads** | `GET /api/organizations/:orgId/leads/:id` | ✅ | ✅ | ✅ | ✅ (Own/Assigned) | ❌ |
+| **Leads** | `PATCH /api/organizations/:orgId/leads/:id/status` | ✅ | ✅ | ✅ | ❌ | ❌ |
+| **Leads** | `PATCH /api/organizations/:orgId/leads/:id/verify` | ✅ | ✅ | ✅ | ❌ | ❌ |
+| **Leads** | `PATCH /api/organizations/:orgId/leads/:id/assign` | ✅ | ✅ | ✅ | ❌ | ❌ |
+| **Leads** | `POST /api/organizations/:orgId/leads/:id/notes` | ✅ | ✅ | ✅ | ✅ | ❌ |
+| **Leads** | `PATCH /api/organizations/:orgId/leads/:id/workflow-status` | ✅ | ✅ | ✅ | ✅ | ❌ |
+| **Leads** | `PATCH /api/organizations/:orgId/leads/:id/close` | ✅ | ✅ | ✅ | ✅ | ❌ |
+| **Leads** | `DELETE /api/organizations/:orgId/leads/:id` | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **Responses**| `GET /api/organizations/:orgId/forms/:id/responses` | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **Responses**| `PATCH /api/responses/:id` | ✅ | ✅ | ❌ | ❌ | ❌ |
 
 ---
 
-## Complete Endpoint Examples (RBAC Matrix)
+## 1. Authentication
 
-Each endpoint below follows the required complete format:
-- **Description**
-- **Method & URL**
-- **Headers**
-- **Parameters**
-- **Request Example**
-- **Response Example**
-
-### 1) Auth
-
-#### POST /api/auth/login
-- **Description**: Authenticate user and return access token + profile.
-- **Method & URL**: `POST /api/auth/login`
-- **Headers**: `Content-Type: application/json`
-- **Parameters**: None
-- **Request Example**:
-```json
-{
-  "email": "admin@admission.com",
-  "password": "strongpassword123"
-}
-```
-- **Response Example**:
-```json
-{
-  "success": true,
-  "data": {
-    "access_token": "jwt-token",
-    "user": { "id": "uuid", "name": "Super Admin", "role": "superadmin", "organizationId": null }
-  },
-  "message": "Login successful"
-}
-```
-
-#### POST /api/auth/register-superadmin
-- **Description**: Bootstrap endpoint to create first superadmin.
+### Register Superadmin
+*One-time bootstrap endpoint to create the platform owner.*
 - **Method & URL**: `POST /api/auth/register-superadmin`
 - **Headers**: `Content-Type: application/json`
 - **Parameters**: None
+- **Rate Limit**: 3 requests / minute
 - **Request Example**:
 ```json
 {
@@ -117,15 +110,52 @@ Each endpoint below follows the required complete format:
 ```json
 {
   "success": true,
-  "data": { "id": "uuid", "name": "Super Admin", "email": "admin@admission.com", "role": "superadmin" },
+  "data": {
+    "id": "c71b4839-01cc-445f-b7b1-f3e2210cdbd3",
+    "name": "Super Admin",
+    "email": "admin@admission.com",
+    "role": "superadmin"
+  },
   "message": "Superadmin registered successfully"
 }
 ```
 
-### 2) Organizations
+### Login
+*Authenticate user credentials and return a JWT access token alongside user profile metadata. Checks if tenant organization is currently active.*
+- **Method & URL**: `POST /api/auth/login`
+- **Headers**: `Content-Type: application/json`
+- **Parameters**: None
+- **Rate Limit**: 5 requests / minute
+- **Request Example**:
+```json
+{
+  "email": "admin@admission.com",
+  "password": "strongpassword123"
+}
+```
+- **Response Example**:
+```json
+{
+  "success": true,
+  "data": {
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "user": {
+      "id": "c71b4839-01cc-445f-b7b1-f3e2210cdbd3",
+      "name": "Super Admin",
+      "email": "admin@admission.com",
+      "role": "superadmin"
+    }
+  },
+  "message": "Login successful"
+}
+```
 
-#### POST /api/organizations
-- **Description**: Create a new tenant organization.
+---
+
+## 2. Organizations
+
+### Create Organization
+*Provision a new tenant organization with basic metadata and subscription duration details.*
 - **Method & URL**: `POST /api/organizations`
 - **Headers**: `Authorization: Bearer <token>`, `Content-Type: application/json`
 - **Parameters**: None
@@ -137,202 +167,399 @@ Each endpoint below follows the required complete format:
   "email": "contact@iot.edu",
   "phone": "9876543210",
   "address": "123 Campus Road",
-  "subscriptionStart": "2024-01-01T00:00:00Z",
-  "subscriptionEnd": "2025-01-01T00:00:00Z"
+  "logoUrl": "https://cdn.example.com/logo.png",
+  "status": "active",
+  "subscriptionStart": "2026-01-01T00:00:00Z",
+  "subscriptionEnd": "2027-01-01T00:00:00Z"
 }
 ```
 - **Response Example**:
 ```json
 {
   "success": true,
-  "data": { "id": "uuid", "name": "Institute of Technology", "slug": "iot-main" },
+  "data": {
+    "id": "e81d77b4-01fa-4f9e-be48-93e18a9ef31d",
+    "name": "Institute of Technology",
+    "slug": "iot-main",
+    "email": "contact@iot.edu",
+    "phone": "9876543210",
+    "address": "123 Campus Road",
+    "logoUrl": "https://cdn.example.com/logo.png",
+    "status": "active",
+    "subscriptionStart": "2026-01-01T00:00:00.000Z",
+    "subscriptionEnd": "2027-01-01T00:00:00.000Z",
+    "createdBy": "c71b4839-01cc-445f-b7b1-f3e2210cdbd3"
+  },
   "message": "Organization created successfully"
 }
 ```
 
-#### GET /api/organizations
-- **Description**: List organizations with pagination.
-- **Method & URL**: `GET /api/organizations?page=1&limit=10`
+### List All Organizations (Paginated)
+*List all registered organizations in the platform with metadata.*
+- **Method & URL**: `GET /api/organizations`
 - **Headers**: `Authorization: Bearer <token>`
 - **Parameters**:
-  - Query: `page`, `limit`
-- **Request Example**:
-```json
-{}
-```
+  - Query: `page` (number, optional, default: 1)
+  - Query: `limit` (number, optional, default: 10, max: 100)
+- **Request Example**: None (Empty Body)
 - **Response Example**:
 ```json
 {
   "success": true,
-  "data": [{ "id": "uuid", "name": "Institute 1" }],
-  "pagination": { "page": 1, "limit": 10, "total": 45, "totalPages": 5 },
+  "data": [
+    {
+      "id": "e81d77b4-01fa-4f9e-be48-93e18a9ef31d",
+      "name": "Institute of Technology",
+      "slug": "iot-main",
+      "status": "active"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 1,
+    "totalPages": 1
+  },
   "message": "Organizations fetched successfully"
 }
 ```
 
-#### GET /api/organizations/:id
-- **Description**: Get single organization details.
+### Get Organization Details
+*Fetch detailed metadata for a single organization, including its list of branches.*
 - **Method & URL**: `GET /api/organizations/:id`
 - **Headers**: `Authorization: Bearer <token>`
 - **Parameters**:
-  - Path: `id` (uuid)
-- **Request Example**:
-```json
-{}
-```
+  - Path: `id` (uuid, required)
+- **Constraint**: Org Admin can only request details of their own organization (where `:id` matches their own `organizationId`).
+- **Request Example**: None
 - **Response Example**:
 ```json
 {
   "success": true,
-  "data": { "id": "uuid", "name": "Institute of Technology", "status": "active" },
+  "data": {
+    "id": "e81d77b4-01fa-4f9e-be48-93e18a9ef31d",
+    "name": "Institute of Technology",
+    "slug": "iot-main",
+    "email": "contact@iot.edu",
+    "phone": "9876543210",
+    "address": "123 Campus Road",
+    "logoUrl": "https://cdn.example.com/logo.png",
+    "status": "active",
+    "subscriptionStart": "2026-01-01T00:00:00.000Z",
+    "subscriptionEnd": "2027-01-01T00:00:00.000Z",
+    "branches": []
+  },
   "message": "Organization details fetched successfully"
 }
 ```
 
-#### PATCH /api/organizations/:id
-- **Description**: Update organization profile/settings.
+### Update Organization
+*Update organization profile configurations. Field updates are restricted based on permissions.*
 - **Method & URL**: `PATCH /api/organizations/:id`
 - **Headers**: `Authorization: Bearer <token>`, `Content-Type: application/json`
 - **Parameters**:
-  - Path: `id` (uuid)
+  - Path: `id` (uuid, required)
+- **Constraint**:
+  - Org Admin can only edit **their own** organization.
+  - Org Admin is restricted from editing: `status`, `slug`, `subscriptionStart`, `subscriptionEnd` (these fields are silently ignored).
+  - Superadmin can modify all fields.
 - **Request Example**:
 ```json
 {
-  "name": "Updated Institute Name",
-  "email": "new@iot.edu",
-  "phone": "9876543210"
+  "name": "Updated Institute of Technology",
+  "email": "contact-new@iot.edu",
+  "phone": "9876543211",
+  "address": "456 New Campus Road"
 }
 ```
 - **Response Example**:
 ```json
 {
   "success": true,
-  "data": { "id": "uuid", "name": "Updated Institute Name", "email": "new@iot.edu" },
+  "data": {
+    "id": "e81d77b4-01fa-4f9e-be48-93e18a9ef31d",
+    "name": "Updated Institute of Technology",
+    "email": "contact-new@iot.edu",
+    "phone": "9876543211",
+    "address": "456 New Campus Road",
+    "logoUrl": "https://cdn.example.com/logo.png",
+    "status": "active",
+    "slug": "iot-main",
+    "updatedBy": "c71b4839-01cc-445f-b7b1-f3e2210cdbd3"
+  },
   "message": "Organization updated successfully"
 }
 ```
 
-### 3) Branches
+### Delete Organization
+*Permanently delete an organization and all cascading dependencies.*
+- **Method & URL**: `DELETE /api/organizations/:id`
+- **Headers**: `Authorization: Bearer <token>`
+- **Parameters**:
+  - Path: `id` (uuid, required)
+- **Request Example**: None
+- **Response Example**:
+```json
+{
+  "success": true,
+  "data": null,
+  "message": "Organization deleted successfully"
+}
+```
 
-#### POST /api/organizations/:orgId/branches
-- **Description**: Create branch under organization.
+---
+
+## 3. Branches
+
+### Create Branch
+*Create a new branch under an organization.*
 - **Method & URL**: `POST /api/organizations/:orgId/branches`
 - **Headers**: `Authorization: Bearer <token>`, `Content-Type: application/json`
 - **Parameters**:
-  - Path: `orgId` (uuid)
+  - Path: `orgId` (uuid, required)
 - **Request Example**:
 ```json
 {
   "name": "North Campus",
   "code": "NC-01",
-  "address": "Sector 5",
+  "address": "Sector 5, North City",
   "city": "Delhi",
-  "state": "Delhi"
+  "state": "Delhi",
+  "isActive": true
 }
 ```
 - **Response Example**:
 ```json
 {
   "success": true,
-  "data": { "id": "uuid", "name": "North Campus", "organizationId": "org-uuid" },
+  "data": {
+    "id": "a90a2a1a-cb32-411a-8cfa-555e7188f11d",
+    "name": "North Campus",
+    "code": "NC-01",
+    "address": "Sector 5, North City",
+    "city": "Delhi",
+    "state": "Delhi",
+    "isActive": true,
+    "organizationId": "e81d77b4-01fa-4f9e-be48-93e18a9ef31d",
+    "createdBy": "c71b4839-01cc-445f-b7b1-f3e2210cdbd3"
+  },
   "message": "Branch created successfully"
 }
 ```
 
-#### GET /api/organizations/:orgId/branches
-- **Description**: List branches for organization.
-- **Method & URL**: `GET /api/organizations/:orgId/branches?page=1&limit=10`
+### List Branches of an Organization (Paginated)
+*Retrieve a paginated list of branches belonging to the organization.*
+- **Method & URL**: `GET /api/organizations/:orgId/branches`
 - **Headers**: `Authorization: Bearer <token>`
 - **Parameters**:
-  - Path: `orgId` (uuid)
-  - Query: `page`, `limit`
-- **Request Example**:
-```json
-{}
-```
+  - Path: `orgId` (uuid, required)
+  - Query: `page` (number, optional, default: 1)
+  - Query: `limit` (number, optional, default: 10)
+- **Request Example**: None
 - **Response Example**:
 ```json
 {
   "success": true,
-  "data": [{ "id": "uuid", "name": "North Campus" }],
-  "pagination": { "page": 1, "limit": 10, "total": 2, "totalPages": 1 },
+  "data": [
+    {
+      "id": "a90a2a1a-cb32-411a-8cfa-555e7188f11d",
+      "name": "North Campus",
+      "code": "NC-01",
+      "isActive": true
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 1,
+    "totalPages": 1
+  },
   "message": "Branches fetched successfully"
 }
 ```
 
-### 4) Users
-
-#### GET /api/users/me
-- **Description**: Get current authenticated user profile.
-- **Method & URL**: `GET /api/users/me`
+### Get Branch Details
+*Retrieve specific configurations and details for a single branch.*
+- **Method & URL**: `GET /api/organizations/:orgId/branches/:id`
 - **Headers**: `Authorization: Bearer <token>`
-- **Parameters**: None
+- **Parameters**:
+  - Path: `orgId` (uuid, required)
+  - Path: `id` (uuid, required)
+- **Request Example**: None
+- **Response Example**:
+```json
+{
+  "success": true,
+  "data": {
+    "id": "a90a2a1a-cb32-411a-8cfa-555e7188f11d",
+    "name": "North Campus",
+    "code": "NC-01",
+    "address": "Sector 5, North City",
+    "city": "Delhi",
+    "state": "Delhi",
+    "isActive": true,
+    "organizationId": "e81d77b4-01fa-4f9e-be48-93e18a9ef31d"
+  },
+  "message": "Branch details fetched successfully"
+}
+```
+
+### Update Branch
+*Modify metadata fields of an existing branch.*
+- **Method & URL**: `PATCH /api/organizations/:orgId/branches/:id`
+- **Headers**: `Authorization: Bearer <token>`, `Content-Type: application/json`
+- **Parameters**:
+  - Path: `orgId` (uuid, required)
+  - Path: `id` (uuid, required)
 - **Request Example**:
 ```json
-{}
+{
+  "name": "North Campus Main",
+  "code": "NCM-01",
+  "isActive": false
+}
 ```
 - **Response Example**:
 ```json
 {
   "success": true,
-  "data": { "id": "uuid", "name": "Jane Doe", "role": "org_admin", "organizationId": "org-uuid" },
+  "data": {
+    "id": "a90a2a1a-cb32-411a-8cfa-555e7188f11d",
+    "name": "North Campus Main",
+    "code": "NCM-01",
+    "address": "Sector 5, North City",
+    "city": "Delhi",
+    "state": "Delhi",
+    "isActive": false,
+    "organizationId": "e81d77b4-01fa-4f9e-be48-93e18a9ef31d",
+    "updatedBy": "c71b4839-01cc-445f-b7b1-f3e2210cdbd3"
+  },
+  "message": "Branch updated successfully"
+}
+```
+
+### Delete Branch
+*Permanently delete a branch from the organization.*
+- **Method & URL**: `DELETE /api/organizations/:orgId/branches/:id`
+- **Headers**: `Authorization: Bearer <token>`
+- **Parameters**:
+  - Path: `orgId` (uuid, required)
+  - Path: `id` (uuid, required)
+- **Request Example**: None
+- **Response Example**:
+```json
+{
+  "success": true,
+  "data": null,
+  "message": "Branch deleted successfully"
+}
+```
+
+---
+
+## 4. Users (Staff Management)
+
+### Get Current User Profile (`/users/me`)
+*Fetch the profile and metadata details of the currently logged-in user.*
+- **Method & URL**: `GET /api/users/me`
+- **Headers**: `Authorization: Bearer <token>`
+- **Parameters**: None
+- **Request Example**: None
+- **Response Example**:
+```json
+{
+  "success": true,
+  "data": {
+    "id": "90e66164-9cb3-4886-81cf-4d929424c56e",
+    "name": "Jane Doe",
+    "email": "jane@iot.edu",
+    "role": "org_admin",
+    "organizationId": "e81d77b4-01fa-4f9e-be48-93e18a9ef31d"
+  },
   "message": "Profile fetched successfully"
 }
 ```
 
-#### POST /api/organizations/:orgId/users
-- **Description**: Create organization staff user.
+### Create Staff User
+*Create a new staff user profile under the specified organization.*
 - **Method & URL**: `POST /api/organizations/:orgId/users`
 - **Headers**: `Authorization: Bearer <token>`, `Content-Type: application/json`
 - **Parameters**:
-  - Path: `orgId` (uuid)
+  - Path: `orgId` (uuid, required)
+- **Constraint**: Org Admins cannot create Superadmins or other Org Admins.
 - **Request Example**:
 ```json
 {
-  "name": "Jane Doe",
-  "email": "jane@iot.edu",
+  "name": "John Counselor",
+  "email": "john.c@iot.edu",
   "password": "staffpassword123",
   "role": "counselor",
   "phone": "9988776655",
-  "branchId": "uuid-optional"
+  "branchId": "a90a2a1a-cb32-411a-8cfa-555e7188f11d"
 }
 ```
 - **Response Example**:
 ```json
 {
   "success": true,
-  "data": { "id": "uuid", "name": "Jane Doe", "role": "counselor", "organizationId": "org-uuid" },
+  "data": {
+    "id": "f51a2f1c-32ee-41bb-a5a5-c72465137ba8",
+    "name": "John Counselor",
+    "email": "john.c@iot.edu",
+    "role": "counselor",
+    "phone": "9988776655",
+    "branchId": "a90a2a1a-cb32-411a-8cfa-555e7188f11d",
+    "organizationId": "e81d77b4-01fa-4f9e-be48-93e18a9ef31d",
+    "tokenVersion": 0,
+    "createdBy": "90e66164-9cb3-4886-81cf-4d929424c56e"
+  },
   "message": "Staff user created successfully"
 }
 ```
 
-#### GET /api/organizations/:orgId/users
-- **Description**: List organization staff users.
-- **Method & URL**: `GET /api/organizations/:orgId/users?page=1&limit=10`
+### List Organization Users (Paginated)
+*Retrieve list of all staff members belonging to the organization.*
+- **Method & URL**: `GET /api/organizations/:orgId/users`
 - **Headers**: `Authorization: Bearer <token>`
 - **Parameters**:
-  - Path: `orgId` (uuid)
-  - Query: `page`, `limit`
-- **Request Example**:
-```json
-{}
-```
+  - Path: `orgId` (uuid, required)
+  - Query: `page` (number, optional, default: 1)
+  - Query: `limit` (number, optional, default: 10)
+- **Request Example**: None
 - **Response Example**:
 ```json
 {
   "success": true,
-  "data": [{ "id": "uuid", "name": "Jane Doe", "role": "counselor" }],
-  "pagination": { "page": 1, "limit": 10, "total": 12, "totalPages": 2 },
+  "data": [
+    {
+      "id": "f51a2f1c-32ee-41bb-a5a5-c72465137ba8",
+      "name": "John Counselor",
+      "email": "john.c@iot.edu",
+      "role": "counselor",
+      "isActive": true
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 1,
+    "totalPages": 1
+  },
   "message": "Staff users fetched successfully"
 }
 ```
 
-#### PATCH /api/organizations/:orgId/users/:id
-- **Description**: Update user role/status/profile fields.
+### Update Staff User
+*Update details, roles, or deactivation status of a staff member.*
 - **Method & URL**: `PATCH /api/organizations/:orgId/users/:id`
 - **Headers**: `Authorization: Bearer <token>`, `Content-Type: application/json`
 - **Parameters**:
-  - Path: `orgId` (uuid), `id` (uuid)
+  - Path: `orgId` (uuid, required)
+  - Path: `id` (uuid, required)
+- **Constraints**:
+  - A user cannot modify their own role.
+  - Only Superadmins can promote a user to `org_admin`.
+  - Changing a user's role or deactivating them automatically increments their `tokenVersion` (invalidates all active sessions).
 - **Request Example**:
 ```json
 {
@@ -344,567 +571,200 @@ Each endpoint below follows the required complete format:
 ```json
 {
   "success": true,
-  "data": { "id": "uuid", "role": "lead_manager", "isActive": false },
+  "data": {
+    "id": "f51a2f1c-32ee-41bb-a5a5-c72465137ba8",
+    "role": "lead_manager",
+    "isActive": false,
+    "tokenVersion": 1
+  },
   "message": "User updated successfully"
 }
 ```
 
-### 5) Forms
+### Delete Staff User
+*Permanently delete a staff user record.*
+- **Method & URL**: `DELETE /api/organizations/:orgId/users/:id`
+- **Headers**: `Authorization: Bearer <token>`
+- **Parameters**:
+  - Path: `orgId` (uuid, required)
+  - Path: `id` (uuid, required)
+- **Request Example**: None
+- **Response Example**:
+```json
+{
+  "success": true,
+  "data": null,
+  "message": "User deleted successfully"
+}
+```
 
-#### POST /api/organizations/:orgId/forms
-- **Description**: Create form for lead capture.
+---
+
+## 5. Forms (Lead Capture Configuration)
+
+### Create Form
+*Create a new lead capture form for a campaign.*
 - **Method & URL**: `POST /api/organizations/:orgId/forms`
 - **Headers**: `Authorization: Bearer <token>`, `Content-Type: application/json`
-- **Parameters**: Path `orgId` (uuid)
+- **Parameters**:
+  - Path: `orgId` (uuid, required)
 - **Request Example**:
 ```json
 {
-  "name": "UG Admission 2024",
-  "slug": "ug-admission-2024",
-  "campaignId": "uuid-optional"
+  "name": "UG Admission 2026",
+  "slug": "ug-admission-2026",
+  "campaignId": "e81d77b4-01fa-4f9e-be48-93e18a9ef31d"
 }
 ```
 - **Response Example**:
 ```json
 {
   "success": true,
-  "data": { "id": "uuid", "name": "UG Admission 2024", "status": "draft" },
+  "data": {
+    "id": "b18a28f4-3cb1-447e-855f-c967aa5ef21e",
+    "name": "UG Admission 2026",
+    "slug": "ug-admission-2026",
+    "status": "draft",
+    "createdBy": "90e66164-9cb3-4886-81cf-4d929424c56e"
+  },
   "message": "Form created successfully"
 }
 ```
 
-#### GET /api/organizations/:orgId/forms
-- **Description**: List forms with filters.
-- **Method & URL**: `GET /api/organizations/:orgId/forms?page=1&limit=10&search=UG&status=active`
+### List Forms (Paginated)
+*Retrieve list of forms, optionally filtered by status or name search query.*
+- **Method & URL**: `GET /api/organizations/:orgId/forms`
 - **Headers**: `Authorization: Bearer <token>`
-- **Parameters**: Path `orgId` (uuid), Query `page`, `limit`, `search`, `status`
-- **Request Example**:
-```json
-{}
-```
+- **Parameters**:
+  - Path: `orgId` (uuid, required)
+  - Query: `page` (number, optional, default: 1)
+  - Query: `limit` (number, optional, default: 10)
+  - Query: `search` (string, optional) — matches form name
+  - Query: `status` (string, optional) — `draft | active | paused`
+- **Request Example**: None
 - **Response Example**:
 ```json
 {
   "success": true,
-  "data": [{ "id": "uuid", "name": "UG Admission 2024", "status": "active" }],
-  "pagination": { "page": 1, "limit": 10, "total": 5, "totalPages": 1 },
+  "data": [
+    {
+      "id": "b18a28f4-3cb1-447e-855f-c967aa5ef21e",
+      "name": "UG Admission 2026",
+      "slug": "ug-admission-2026",
+      "status": "active"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 1,
+    "totalPages": 1
+  },
   "message": "Forms fetched successfully"
 }
 ```
 
-#### GET /api/organizations/:orgId/forms/:id
-- **Description**: Get single form details.
+### Get Single Form Details
+*Fetch full configurations and input schemas/fields of a form.*
 - **Method & URL**: `GET /api/organizations/:orgId/forms/:id`
 - **Headers**: `Authorization: Bearer <token>`
-- **Parameters**: Path `orgId` (uuid), `id` (uuid)
-- **Request Example**:
-```json
-{}
-```
+- **Parameters**:
+  - Path: `orgId` (uuid, required)
+  - Path: `id` (uuid, required)
+- **Request Example**: None
 - **Response Example**:
 ```json
 {
   "success": true,
-  "data": { "id": "uuid", "name": "UG Admission 2024", "fields": [] },
-  "message": "Form details fetched successfully"
-}
-```
-
-#### PATCH /api/organizations/:orgId/forms/:id
-- **Description**: Update form schema/status.
-- **Method & URL**: `PATCH /api/organizations/:orgId/forms/:id`
-- **Headers**: `Authorization: Bearer <token>`, `Content-Type: application/json`
-- **Parameters**: Path `orgId` (uuid), `id` (uuid)
-- **Request Example**:
-```json
-{
-  "name": "Updated Name",
-  "slug": "updated-name",
-  "fields": [{ "id": "email", "label": "Email", "type": "email", "required": true }],
-  "status": "active"
-}
-```
-- **Response Example**:
-```json
-{
-  "success": true,
-  "data": { "id": "uuid", "name": "Updated Name", "status": "active" },
-  "message": "Form updated successfully"
-}
-```
-
-#### DELETE /api/organizations/:orgId/forms/:id
-- **Description**: Delete form.
-- **Method & URL**: `DELETE /api/organizations/:orgId/forms/:id`
-- **Headers**: `Authorization: Bearer <token>`
-- **Parameters**: Path `orgId` (uuid), `id` (uuid)
-- **Request Example**:
-```json
-{}
-```
-- **Response Example**:
-```json
-{
-  "success": true,
-  "data": null,
-  "message": "Form deleted successfully"
-}
-```
-
-#### POST /api/organizations/:orgId/forms/:id/duplicate
-- **Description**: Duplicate existing form.
-- **Method & URL**: `POST /api/organizations/:orgId/forms/:id/duplicate`
-- **Headers**: `Authorization: Bearer <token>`
-- **Parameters**: Path `orgId` (uuid), `id` (uuid)
-- **Request Example**:
-```json
-{}
-```
-- **Response Example**:
-```json
-{
-  "success": true,
-  "data": { "id": "new-uuid", "name": "UG Admission 2024 (Copy)" },
-  "message": "Form duplicated successfully"
-}
-```
-
-### 6) Templates
-
-#### GET /api/form-templates
-- **Description**: List active form templates.
-- **Method & URL**: `GET /api/form-templates`
-- **Headers**: `Authorization: Bearer <token>`
-- **Parameters**: None
-- **Request Example**:
-```json
-{}
-```
-- **Response Example**:
-```json
-{
-  "success": true,
-  "data": [{ "id": "uuid", "name": "Standard Admission Template", "fields": [] }],
-  "message": "Form templates fetched successfully"
-}
-```
-
-### 7) Public + Ingestion
-
-#### GET /api/public/forms/:slug
-- **Description**: Fetch public form schema by slug.
-- **Method & URL**: `GET /api/public/forms/:slug`
-- **Headers**: `Content-Type: application/json`
-- **Parameters**: Path `slug` (string)
-- **Request Example**:
-```json
-{}
-```
-- **Response Example**:
-```json
-{
-  "success": true,
-  "data": { "id": "uuid", "name": "UG Admission 2024", "slug": "ug-admission-2024", "fields": [] },
-  "message": "Form configuration fetched successfully"
-}
-```
-
-#### POST /api/public/forms/:slug/submit
-- **Description**: Submit public form and ingest lead.
-- **Method & URL**: `POST /api/public/forms/:slug/submit`
-- **Headers**: `Content-Type: application/json`
-- **Parameters**: Path `slug` (string)
-- **Request Example**:
-```json
-{
   "data": {
-    "full_name": "John Doe",
-    "phone": "9876543210",
-    "location": "branch-uuid",
-    "email": "john@example.com"
+    "id": "b18a28f4-3cb1-447e-855f-c967aa5ef21e",
+    "name": "UG Admission 2026",
+    "slug": "ug-admission-2026",
+    "status": "active",
+    "fields": [
+      { "id": "fullname", "label": "Full Name", "type": "text", "required": true },
+      { "id": "email", "label": "Email Address", "type": "email", "required": true }
+    ],
+    "organizationId": "e81d77b4-01fa-4f9e-be48-93e18a9ef31d"
   },
-  "utmData": {
-    "utm_source": "facebook",
-    "utm_medium": "cpc",
-    "utm_campaign": "adset_1"
-  },
-  "source": "fb_ad"
-}
-```
-- **Response Example**:
-```json
-{
-  "success": true,
-  "data": { "success": true },
-  "message": "Form submitted successfully"
-}
-```
-
-### 8) Leads
-
-#### GET /api/organizations/:orgId/leads
-- **Description**: List leads with filters and pagination.
-- **Method & URL**: `GET /api/organizations/:orgId/leads?page=1&limit=10&search=John&status=verified&assignedTo=me&followUpDate=2026-05-28&scoreBand=hot`
-- **Headers**: `Authorization: Bearer <token>`
-- **Parameters**: Path `orgId` (uuid); Query `page`, `limit`, `search`, `status`, `assignedTo`, `followUpDate`, `scoreBand`
-- **Request Example**:
-```json
-{}
-```
-- **Response Example**:
-```json
-{
-  "success": true,
-  "data": [{ "id": "uuid", "firstName": "John", "status": "verified", "scoreBand": "hot" }],
-  "pagination": { "page": 1, "limit": 10, "total": 1, "totalPages": 1 },
-  "message": "Leads fetched successfully"
-}
-```
-
-#### GET /api/organizations/:orgId/leads/:id
-- **Description**: Get lead details by id.
-- **Method & URL**: `GET /api/organizations/:orgId/leads/:id`
-- **Headers**: `Authorization: Bearer <token>`
-- **Parameters**: Path `orgId` (uuid), `id` (uuid)
-- **Request Example**:
-```json
-{}
-```
-- **Response Example**:
-```json
-{
-  "success": true,
-  "data": { "id": "uuid", "firstName": "John", "status": "verified" },
-  "message": "Lead details fetched successfully"
-}
-```
-
-#### PATCH /api/organizations/:orgId/leads/:id/status
-- **Description**: Basic status update endpoint.
-- **Method & URL**: `PATCH /api/organizations/:orgId/leads/:id/status`
-- **Headers**: `Authorization: Bearer <token>`, `Content-Type: application/json`
-- **Parameters**: Path `orgId` (uuid), `id` (uuid)
-- **Request Example**:
-```json
-{
-  "status": "verified"
-}
-```
-- **Response Example**:
-```json
-{
-  "success": true,
-  "data": { "id": "uuid", "status": "verified" },
-  "message": "Lead status updated successfully"
-}
-```
-
-#### PATCH /api/organizations/:orgId/leads/:id/verify
-- **Description**: Verify (qualify/disqualify) an unverified lead.
-- **Method & URL**: `PATCH /api/organizations/:orgId/leads/:id/verify`
-- **Headers**: `Authorization: Bearer <token>`, `Content-Type: application/json`
-- **Parameters**: Path `orgId` (uuid), `id` (uuid)
-- **Request Example**:
-```json
-{
-  "action": "qualify",
-  "reason": "Valid contact and genuine admission intent"
-}
-```
-- **Response Example**:
-```json
-{
-  "success": true,
-  "data": { "id": "uuid", "status": "verified", "verifiedBy": "uuid", "verifiedAt": "2026-05-28T03:41:00.000Z" },
-  "message": "Lead verified successfully"
-}
-```
-
-#### PATCH /api/organizations/:orgId/leads/:id/assign
-- **Description**: Reassign lead to counselor in same organization.
-- **Method & URL**: `PATCH /api/organizations/:orgId/leads/:id/assign`
-- **Headers**: `Authorization: Bearer <token>`, `Content-Type: application/json`
-- **Parameters**: Path `orgId` (uuid), `id` (uuid)
-- **Request Example**:
-```json
-{
-  "assignedTo": "counselor-uuid",
-  "reason": "Reassigned based on region specialization"
-}
-```
-- **Response Example**:
-```json
-{
-  "success": true,
-  "data": { "id": "uuid", "assignedTo": "counselor-uuid", "assignedAt": "2026-05-28T03:43:00.000Z" },
-  "message": "Lead assigned successfully"
-}
-```
-
-#### POST /api/organizations/:orgId/leads/:id/notes
-- **Description**: Add activity note and optional follow-up scheduling.
-- **Method & URL**: `POST /api/organizations/:orgId/leads/:id/notes`
-- **Headers**: `Authorization: Bearer <token>`, `Content-Type: application/json`
-- **Parameters**: Path `orgId` (uuid), `id` (uuid)
-- **Request Example**:
-```json
-{
-  "content": "Called student, interested in B.Tech CS. Requested callback on Saturday.",
-  "disposition": "contacted_not_ready",
-  "nextFollowUpAt": "2026-05-30T10:00:00.000Z"
-}
-```
-- **Response Example**:
-```json
-{
-  "success": true,
-  "data": { "id": "uuid", "status": "working", "nextFollowUpAt": "2026-05-30T10:00:00.000Z" },
-  "message": "Lead note added successfully"
-}
-```
-
-#### PATCH /api/organizations/:orgId/leads/:id/workflow-status
-- **Description**: Update workflow lifecycle status.
-- **Method & URL**: `PATCH /api/organizations/:orgId/leads/:id/workflow-status`
-- **Headers**: `Authorization: Bearer <token>`, `Content-Type: application/json`
-- **Parameters**: Path `orgId` (uuid), `id` (uuid)
-- **Request Example**:
-```json
-{
-  "status": "working",
-  "reason": "Counseling conversation started"
-}
-```
-- **Response Example**:
-```json
-{
-  "success": true,
-  "data": { "id": "uuid", "status": "working" },
-  "message": "Lead workflow status updated successfully"
-}
-```
-
-#### PATCH /api/organizations/:orgId/leads/:id/close
-- **Description**: Close lead with reason and notes.
-- **Method & URL**: `PATCH /api/organizations/:orgId/leads/:id/close`
-- **Headers**: `Authorization: Bearer <token>`, `Content-Type: application/json`
-- **Parameters**: Path `orgId` (uuid), `id` (uuid)
-- **Request Example**:
-```json
-{
-  "reason": "not_interested",
-  "notes": "Student confirmed they are not pursuing this cycle."
-}
-```
-- **Response Example**:
-```json
-{
-  "success": true,
-  "data": { "id": "uuid", "status": "closed", "closureReason": "not_interested" },
-  "message": "Lead closed successfully"
-}
-```
-
-#### DELETE /api/organizations/:orgId/leads/:id
-- **Description**: Delete a lead record.
-- **Method & URL**: `DELETE /api/organizations/:orgId/leads/:id`
-- **Headers**: `Authorization: Bearer <token>`
-- **Parameters**: Path `orgId` (uuid), `id` (uuid)
-- **Request Example**:
-```json
-{}
-```
-- **Response Example**:
-```json
-{
-  "success": true,
-  "data": null,
-  "message": "Lead deleted successfully"
-}
-```
-
-### 9) Responses
-
-#### GET /api/organizations/:orgId/forms/:id/responses
-- **Description**: List form responses with pagination and status filter.
-- **Method & URL**: `GET /api/organizations/:orgId/forms/:id/responses?page=1&limit=10&status=pending`
-- **Headers**: `Authorization: Bearer <token>`
-- **Parameters**: Path `orgId` (uuid), `id` (uuid); Query `page`, `limit`, `status`
-- **Request Example**:
-```json
-{}
-```
-- **Response Example**:
-```json
-{
-  "success": true,
-  "data": [{ "id": "uuid", "status": "pending", "isDuplicate": false }],
-  "pagination": { "page": 1, "limit": 10, "total": 100, "totalPages": 10 },
-  "message": "Form responses fetched successfully"
-}
-```
-
-#### PATCH /api/responses/:id
-- **Description**: Update moderation status of a response.
-- **Method & URL**: `PATCH /api/responses/:id`
-- **Headers**: `Authorization: Bearer <token>`, `Content-Type: application/json`
-- **Parameters**: Path `id` (uuid)
-- **Request Example**:
-```json
-{
-  "status": "verified"
-}
-```
-- **Response Example**:
-```json
-{
-  "success": true,
-  "data": { "id": "uuid", "status": "verified" },
-  "message": "Response status updated successfully"
-}
-```
-
----
-
-### Lead Workflow Request Examples (Quick Reference)
-
-#### `PATCH /api/organizations/:orgId/leads/:id/status`
-```json
-{
-  "status": "verified"
-}
-```
-
-#### `PATCH /api/organizations/:orgId/leads/:id/verify`
-```json
-{
-  "action": "qualify",
-  "reason": "Valid contact and genuine admission intent"
-}
-```
-
-#### `PATCH /api/organizations/:orgId/leads/:id/assign`
-```json
-{
-  "assignedTo": "counselor-uuid",
-  "reason": "Reassigned based on region specialization"
-}
-```
-
-#### `POST /api/organizations/:orgId/leads/:id/notes`
-```json
-{
-  "content": "Called student, interested in B.Tech CS. Requested callback on Saturday.",
-  "disposition": "contacted_not_ready",
-  "nextFollowUpAt": "2026-05-30T10:00:00.000Z"
-}
-```
-
-#### `PATCH /api/organizations/:orgId/leads/:id/workflow-status`
-```json
-{
-  "status": "working",
-  "reason": "Counseling conversation started"
-}
-```
-
----
-
-## 5. Forms (Lead Capture)
-
-### Create Form
-- **Method**: `POST`
-- **URL**: `/organizations/:orgId/forms`
-- **Auth**: Bearer Token (Superadmin or Org Admin)
-- **Request Example**:
-```json
-{
-  "name": "UG Admission 2024",
-  "slug": "ug-admission-2024",
-  "campaignId": "uuid-optional"
-}
-```
-- **Response**:
-```json
-{
-  "success": true,
-  "data": { "id": "uuid", "name": "UG Admission 2024", "status": "draft", ... },
-  "message": "Form created successfully"
-}
-```
-
-### Get Single Form Details
-- **Method**: `GET`
-- **URL**: `/organizations/:orgId/forms/:id`
-- **Auth**: Bearer Token (Superadmin or Org Admin)
-- **Response**:
-```json
-{
-  "success": true,
-  "data": { "id": "uuid", "name": "UG Admission 2024", "fields": [...], ... },
   "message": "Form details fetched successfully"
 }
 ```
 
 ### Update Form (Fields / Status)
-- **Method**: `PATCH`
-- **URL**: `/organizations/:orgId/forms/:id`
-- **Auth**: Bearer Token (Superadmin or Org Admin)
+*Modify form schemas, status transitions, slugs, or field attributes.*
+- **Method & URL**: `PATCH /api/organizations/:orgId/forms/:id`
+- **Headers**: `Authorization: Bearer <token>`, `Content-Type: application/json`
+- **Parameters**:
+  - Path: `orgId` (uuid, required)
+  - Path: `id` (uuid, required)
 - **Request Example**:
 ```json
 {
-  "name": "Updated Name",
-  "slug": "updated-name",
+  "name": "Updated UG Admission 2026",
   "fields": [
-    { "id": "email", "label": "Email Address", "type": "email", "required": true }
+    { "id": "fullname", "label": "Full Name", "type": "text", "required": true },
+    { "id": "email", "label": "Email Address", "type": "email", "required": true },
+    { "id": "phone", "label": "Phone Number", "type": "tel", "required": false }
   ],
   "status": "active"
 }
 ```
-- **Response**:
+- **Response Example**:
 ```json
 {
   "success": true,
-  "data": { ... },
+  "data": {
+    "id": "b18a28f4-3cb1-447e-855f-c967aa5ef21e",
+    "name": "Updated UG Admission 2026",
+    "status": "active",
+    "fields": [
+      { "id": "fullname", "label": "Full Name", "type": "text", "required": true },
+      { "id": "email", "label": "Email Address", "type": "email", "required": true },
+      { "id": "phone", "label": "Phone Number", "type": "tel", "required": false }
+    ]
+  },
   "message": "Form updated successfully"
 }
 ```
 
-### List Forms (Paginated)
-- **Method**: `GET`
-- **URL**: `/organizations/:orgId/forms?page=1&limit=10&search=UG&status=active`
-- **Auth**: Bearer Token (Superadmin or Org Admin)
-- **Response**:
-```json
-{
-  "success": true,
-  "data": [ ... ],
-  "pagination": { "page": 1, "limit": 10, "total": 5, "totalPages": 1 },
-  "message": "Forms fetched successfully"
-}
-```
-
 ### Delete Form
-- **Method**: `DELETE`
-- **URL**: `/organizations/:orgId/forms/:id`
-- **Auth**: Bearer Token (Superadmin or Org Admin)
-- **Response**:
+*Remove form record from organization schema.*
+- **Method & URL**: `DELETE /api/organizations/:orgId/forms/:id`
+- **Headers**: `Authorization: Bearer <token>`
+- **Parameters**:
+  - Path: `orgId` (uuid, required)
+  - Path: `id` (uuid, required)
+- **Request Example**: None
+- **Response Example**:
 ```json
 {
   "success": true,
+  "data": null,
   "message": "Form deleted successfully"
 }
 ```
 
 ### Duplicate Form
-- **Method**: `POST`
-- **URL**: `/organizations/:orgId/forms/:id/duplicate`
-- **Auth**: Bearer Token (Superadmin or Org Admin)
-- **Response**:
+*Duplicate an existing form schema as a draft copy.*
+- **Method & URL**: `POST /api/organizations/:orgId/forms/:id/duplicate`
+- **Headers**: `Authorization: Bearer <token>`
+- **Parameters**:
+  - Path: `orgId` (uuid, required)
+  - Path: `id` (uuid, required)
+- **Request Example**: None
+- **Response Example**:
 ```json
 {
   "success": true,
-  "data": { "id": "new-uuid", "name": "UG Admission 2024 (Copy)", ... },
+  "data": {
+    "id": "c82b99f5-4dc2-558f-966f-d178bb6fa32f",
+    "name": "Updated UG Admission 2026 (Copy)",
+    "status": "draft",
+    "fields": [
+      { "id": "fullname", "label": "Full Name", "type": "text", "required": true }
+    ]
+  },
   "message": "Form duplicated successfully"
 }
 ```
@@ -914,15 +774,25 @@ Each endpoint below follows the required complete format:
 ## 6. Form Templates
 
 ### List All Templates
-- **Method**: `GET`
-- **URL**: `/form-templates`
-- **Auth**: Bearer Token (Superadmin or Org Admin)
-- **Response**:
+*List read-only, pre-configured form templates available for rapid bootstrapping.*
+- **Method & URL**: `GET /api/form-templates`
+- **Headers**: `Authorization: Bearer <token>`
+- **Parameters**: None
+- **Request Example**: None
+- **Response Example**:
 ```json
 {
   "success": true,
   "data": [
-    { "id": "uuid", "name": "Standard Admission Template", "fields": [...] }
+    {
+      "id": "t1-template-uuid",
+      "name": "Standard Admission Template",
+      "fields": [
+        { "id": "fullname", "label": "Full Name", "type": "text", "required": true },
+        { "id": "email", "label": "Email", "type": "email", "required": true },
+        { "id": "phone", "label": "Phone", "type": "tel", "required": true }
+      ]
+    }
   ],
   "message": "Form templates fetched successfully"
 }
@@ -930,20 +800,23 @@ Each endpoint below follows the required complete format:
 
 ---
 
-## 7. Public Form Handling
+## 7. Public Form Handling & Ingestion
 
 ### Get Form Configuration (Public)
-- **Method**: `GET`
-- **URL**: `/public/forms/:slug`
-- **Auth**: None (Public)
-- **Response**:
+*Fetch active form configurations and field requirements without authentication by form slug.*
+- **Method & URL**: `GET /api/public/forms/:slug`
+- **Headers**: None
+- **Parameters**:
+  - Path: `slug` (string, required)
+- **Request Example**: None
+- **Response Example**:
 ```json
 {
   "success": true,
   "data": {
-    "id": "uuid",
-    "name": "UG Admission 2024",
-    "slug": "ug-admission-2024",
+    "id": "b18a28f4-3cb1-447e-855f-c967aa5ef21e",
+    "name": "UG Admission 2026",
+    "slug": "ug-admission-2026",
     "fields": [
       { "id": "fullname", "label": "Full Name", "type": "text", "required": true },
       { "id": "email", "label": "Email Address", "type": "email", "required": true }
@@ -954,29 +827,34 @@ Each endpoint below follows the required complete format:
 ```
 
 ### Submit Public Form (Lead Ingestion)
-- **Method**: `POST`
-- **URL**: `/public/forms/:slug/submit`
-- **Auth**: None (Public)
+*Accept submission input from public lead forms, perform validations, track UTM metadata, and register leads.*
+- **Method & URL**: `POST /api/public/forms/:slug/submit`
+- **Headers**: `Content-Type: application/json`
+- **Parameters**:
+  - Path: `slug` (string, required)
 - **Request Example**:
 ```json
 {
   "data": {
     "fullname": "John Doe",
-    "email": "john@example.com",
+    "email": "john.doe@example.com",
     "phone": "9876543210"
   },
   "utmData": {
     "utm_source": "facebook",
     "utm_medium": "cpc",
-    "utm_campaign": "adset_1"
+    "utm_campaign": "fall_ad_2026"
   },
   "source": "fb_ad"
 }
 ```
-- **Response**:
+- **Response Example**:
 ```json
 {
   "success": true,
+  "data": {
+    "success": true
+  },
   "message": "Form submitted successfully"
 }
 ```
@@ -986,76 +864,77 @@ Each endpoint below follows the required complete format:
 ## 8. Leads Management
 
 ### List Leads (Paginated)
-- **Method**: `GET`
-- **URL**: `/organizations/:orgId/leads?page=1&limit=10&search=John&status=verified&assignedTo=me&followUpDate=2026-05-28&scoreBand=hot`
-- **Auth**: Bearer Token (Superadmin, Org Admin, Lead Manager)
-- **Headers**:
-  - `Authorization: Bearer <token>`
-  - `Content-Type: application/json`
-- **Path Params**:
-  - `orgId` (uuid): Organization ID
-- **Query Params**:
-  - `page` (number, optional)
-  - `limit` (number, optional)
-  - `search` (string, optional)
-  - `status` (string, optional): `unverified | verified | disqualified | working | converted | closed`
-  - `assignedTo` (string, optional): user UUID or `me`
-  - `followUpDate` (string, optional): `YYYY-MM-DD`
-  - `scoreBand` (string, optional): `hot | warm | cold`
-- **Response**:
+*Retrieve list of captured campaign leads filtered by queries. Counselors can only query leads assigned to them.*
+- **Method & URL**: `GET /api/organizations/:orgId/leads`
+- **Headers**: `Authorization: Bearer <token>`
+- **Parameters**:
+  - Path: `orgId` (uuid, required)
+  - Query: `page` (number, optional, default: 1)
+  - Query: `limit` (number, optional, default: 10)
+  - Query: `search` (string, optional) — matches first/last name or email
+  - Query: `status` (string, optional) — `unverified | verified | disqualified | working | converted | closed`
+  - Query: `assignedTo` (string, optional) — Counselor UUID or the literal `me`
+  - Query: `followUpDate` (string, optional) — `YYYY-MM-DD`
+  - Query: `scoreBand` (string, optional) — `hot | warm | cold`
+- **Request Example**: None
+- **Response Example**:
 ```json
 {
   "success": true,
   "data": [
     {
-      "id": "uuid",
+      "id": "e92d88a2-2ba2-4ccb-be55-c891ff6d21ea",
       "firstName": "John",
       "lastName": "Doe",
-      "email": "john@example.com",
+      "email": "john.doe@example.com",
       "phone": "9876543210",
       "status": "verified",
-      "assignedTo": "uuid",
-      "verifiedBy": "uuid",
-      "verifiedAt": "2026-05-28T03:40:00.000Z",
-      "score": 74,
+      "assignedTo": "f51a2f1c-32ee-41bb-a5a5-c72465137ba8",
+      "verifiedBy": "90e66164-9cb3-4886-81cf-4d929424c56e",
+      "verifiedAt": "2026-06-02T03:40:00.000Z",
+      "score": 75,
       "scoreBand": "hot",
-      "nextFollowUpAt": "2026-05-30T10:00:00.000Z",
+      "nextFollowUpAt": "2026-06-05T10:00:00.000Z",
       "closureReason": null,
       "closureNotes": null
     }
   ],
-  "pagination": { "page": 1, "limit": 10, "total": 1, "totalPages": 1 },
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 1,
+    "totalPages": 1
+  },
   "message": "Leads fetched successfully"
 }
 ```
 
 ### Get Lead Details
-- **Method**: `GET`
-- **URL**: `/organizations/:orgId/leads/:id`
-- **Auth**: Bearer Token (Superadmin, Org Admin, Lead Manager)
-- **Headers**:
-  - `Authorization: Bearer <token>`
-  - `Content-Type: application/json`
-- **Path Params**:
-  - `orgId` (uuid): Organization ID
-  - `id` (uuid): Lead ID
-- **Response**:
+*Fetch all detailed fields, disposition, follow-ups, and closure reasons for a lead.*
+- **Method & URL**: `GET /api/organizations/:orgId/leads/:id`
+- **Headers**: `Authorization: Bearer <token>`
+- **Parameters**:
+  - Path: `orgId` (uuid, required)
+  - Path: `id` (uuid, required)
+- **Request Example**: None
+- **Response Example**:
 ```json
 {
   "success": true,
   "data": {
-    "id": "uuid",
+    "id": "e92d88a2-2ba2-4ccb-be55-c891ff6d21ea",
     "firstName": "John",
     "lastName": "Doe",
-    "email": "john@example.com",
-    "branchId": "uuid",
+    "email": "john.doe@example.com",
+    "phone": "9876543210",
     "status": "verified",
-    "verifiedBy": "uuid",
-    "verifiedAt": "2026-05-28T03:40:00.000Z",
-    "assignedTo": "uuid",
-    "score": 74,
+    "branchId": "a90a2a1a-cb32-411a-8cfa-555e7188f11d",
+    "verifiedBy": "90e66164-9cb3-4886-81cf-4d929424c56e",
+    "verifiedAt": "2026-06-02T03:40:00.000Z",
+    "assignedTo": "f51a2f1c-32ee-41bb-a5a5-c72465137ba8",
+    "score": 75,
     "scoreBand": "hot",
-    "nextFollowUpAt": "2026-05-30T10:00:00.000Z",
+    "nextFollowUpAt": "2026-06-05T10:00:00.000Z",
     "closureReason": null,
     "closureNotes": null
   },
@@ -1064,16 +943,12 @@ Each endpoint below follows the required complete format:
 ```
 
 ### Update Lead Status (Basic)
-- **Description**: Lightweight status update endpoint used by existing UI integrations.
-- **Method**: `PATCH`
-- **URL**: `/organizations/:orgId/leads/:id/status`
-- **Auth**: Bearer Token (Superadmin, Org Admin, Lead Manager)
-- **Headers**:
-  - `Authorization: Bearer <token>`
-  - `Content-Type: application/json`
-- **Path Params**:
-  - `orgId` (uuid): Organization ID
-  - `id` (uuid): Lead ID
+*Lightweight status field updates used by legacy/third-party integrations.*
+- **Method & URL**: `PATCH /api/organizations/:orgId/leads/:id/status`
+- **Headers**: `Authorization: Bearer <token>`, `Content-Type: application/json`
+- **Parameters**:
+  - Path: `orgId` (uuid, required)
+  - Path: `id` (uuid, required)
 - **Request Example**:
 ```json
 {
@@ -1085,7 +960,7 @@ Each endpoint below follows the required complete format:
 {
   "success": true,
   "data": {
-    "id": "uuid",
+    "id": "e92d88a2-2ba2-4ccb-be55-c891ff6d21ea",
     "status": "verified"
   },
   "message": "Lead status updated successfully"
@@ -1093,21 +968,22 @@ Each endpoint below follows the required complete format:
 ```
 
 ### Verify Lead
-- **Description**: Qualify or disqualify an unverified lead and stamp verifier metadata.
-- **Method**: `PATCH`
-- **URL**: `/organizations/:orgId/leads/:id/verify`
-- **Auth**: Bearer Token (Superadmin, Org Admin, Lead Manager)
-- **Headers**:
-  - `Authorization: Bearer <token>`
-  - `Content-Type: application/json`
-- **Path Params**:
-  - `orgId` (uuid): Organization ID
-  - `id` (uuid): Lead ID
-- **Request Example**:
+*Qualify or disqualify a raw, unverified lead and stamp verifier metadata. Optionally link duplicates.*
+- **Method & URL**: `PATCH /api/organizations/:orgId/leads/:id/verify`
+- **Headers**: `Authorization: Bearer <token>`, `Content-Type: application/json`
+- **Parameters**:
+  - Path: `orgId` (uuid, required)
+  - Path: `id` (uuid, required)
+- **Validation**:
+  - `action` must be `qualify` or `disqualify`.
+  - `reason` is **mandatory** if action is `disqualify`.
+  - `duplicateOfLeadId` (optional uuid) can be supplied to flag a duplicated profile.
+- **Request Example (Disqualify Duplicate)**:
 ```json
 {
-  "action": "qualify",
-  "reason": "Valid contact and genuine admission intent"
+  "action": "disqualify",
+  "reason": "Found duplicate profile on mobile search",
+  "duplicateOfLeadId": "a10b1a2b-cd34-4a56-bef7-1901dd1a11ff"
 }
 ```
 - **Response Example**:
@@ -1115,31 +991,27 @@ Each endpoint below follows the required complete format:
 {
   "success": true,
   "data": {
-    "id": "uuid",
-    "status": "verified",
-    "verifiedBy": "uuid",
-    "verifiedAt": "2026-05-28T03:41:00.000Z"
+    "id": "e92d88a2-2ba2-4ccb-be55-c891ff6d21ea",
+    "status": "disqualified",
+    "verifiedBy": "90e66164-9cb3-4886-81cf-4d929424c56e",
+    "verifiedAt": "2026-06-02T03:41:00.000Z"
   },
   "message": "Lead verified successfully"
 }
 ```
 
 ### Reassign Lead
-- **Description**: Reassign a lead to another active counselor in the same organization.
-- **Method**: `PATCH`
-- **URL**: `/organizations/:orgId/leads/:id/assign`
-- **Auth**: Bearer Token (Superadmin, Org Admin, Lead Manager)
-- **Headers**:
-  - `Authorization: Bearer <token>`
-  - `Content-Type: application/json`
-- **Path Params**:
-  - `orgId` (uuid): Organization ID
-  - `id` (uuid): Lead ID
+*Assign or reassign a lead to another active counselor within the same organization.*
+- **Method & URL**: `PATCH /api/organizations/:orgId/leads/:id/assign`
+- **Headers**: `Authorization: Bearer <token>`, `Content-Type: application/json`
+- **Parameters**:
+  - Path: `orgId` (uuid, required)
+  - Path: `id` (uuid, required)
 - **Request Example**:
 ```json
 {
-  "assignedTo": "counselor-uuid",
-  "reason": "Reassigned based on region specialization"
+  "assignedTo": "f51a2f1c-32ee-41bb-a5a5-c72465137ba8",
+  "reason": "Reassigned based on North region assignment rules"
 }
 ```
 - **Response Example**:
@@ -1147,31 +1019,27 @@ Each endpoint below follows the required complete format:
 {
   "success": true,
   "data": {
-    "id": "uuid",
-    "assignedTo": "counselor-uuid",
-    "assignedAt": "2026-05-28T03:43:00.000Z"
+    "id": "e92d88a2-2ba2-4ccb-be55-c891ff6d21ea",
+    "assignedTo": "f51a2f1c-32ee-41bb-a5a5-c72465137ba8",
+    "assignedAt": "2026-06-02T03:43:00.000Z"
   },
   "message": "Lead assigned successfully"
 }
 ```
 
 ### Add Lead Note
-- **Description**: Add counselor/manager notes, disposition, and optional next follow-up date.
-- **Method**: `POST`
-- **URL**: `/organizations/:orgId/leads/:id/notes`
-- **Auth**: Bearer Token (Superadmin, Org Admin, Lead Manager, Counselor)
-- **Headers**:
-  - `Authorization: Bearer <token>`
-  - `Content-Type: application/json`
-- **Path Params**:
-  - `orgId` (uuid): Organization ID
-  - `id` (uuid): Lead ID
+*Add contact notes, disposition codes, and set next schedule follow-ups.*
+- **Method & URL**: `POST /api/organizations/:orgId/leads/:id/notes`
+- **Headers**: `Authorization: Bearer <token>`, `Content-Type: application/json`
+- **Parameters**:
+  - Path: `orgId` (uuid, required)
+  - Path: `id` (uuid, required)
 - **Request Example**:
 ```json
 {
-  "content": "Called student, interested in B.Tech CS. Requested callback on Saturday.",
+  "content": "Contacted candidate; extremely interested in CS branch but requests follow-up next Friday after board results.",
   "disposition": "contacted_not_ready",
-  "nextFollowUpAt": "2026-05-30T10:00:00.000Z"
+  "nextFollowUpAt": "2026-06-09T10:00:00.000Z"
 }
 ```
 - **Response Example**:
@@ -1179,30 +1047,26 @@ Each endpoint below follows the required complete format:
 {
   "success": true,
   "data": {
-    "id": "uuid",
+    "id": "e92d88a2-2ba2-4ccb-be55-c891ff6d21ea",
     "status": "working",
-    "nextFollowUpAt": "2026-05-30T10:00:00.000Z"
+    "nextFollowUpAt": "2026-06-09T10:00:00.000Z"
   },
   "message": "Lead note added successfully"
 }
 ```
 
 ### Update Workflow Status
-- **Description**: Update workflow status for lifecycle transitions such as working/converted/reopened.
-- **Method**: `PATCH`
-- **URL**: `/organizations/:orgId/leads/:id/workflow-status`
-- **Auth**: Bearer Token (Superadmin, Org Admin, Lead Manager, Counselor)
-- **Headers**:
-  - `Authorization: Bearer <token>`
-  - `Content-Type: application/json`
-- **Path Params**:
-  - `orgId` (uuid): Organization ID
-  - `id` (uuid): Lead ID
+*Update workflow lifecycle transitions like moving status to working/converted/reopened.*
+- **Method & URL**: `PATCH /api/organizations/:orgId/leads/:id/workflow-status`
+- **Headers**: `Authorization: Bearer <token>`, `Content-Type: application/json`
+- **Parameters**:
+  - Path: `orgId` (uuid, required)
+  - Path: `id` (uuid, required)
 - **Request Example**:
 ```json
 {
   "status": "working",
-  "reason": "Counseling conversation started"
+  "reason": "Counseling session completed, registration link shared"
 }
 ```
 - **Response Example**:
@@ -1210,7 +1074,7 @@ Each endpoint below follows the required complete format:
 {
   "success": true,
   "data": {
-    "id": "uuid",
+    "id": "e92d88a2-2ba2-4ccb-be55-c891ff6d21ea",
     "status": "working"
   },
   "message": "Lead workflow status updated successfully"
@@ -1218,21 +1082,17 @@ Each endpoint below follows the required complete format:
 ```
 
 ### Close Lead
-- **Description**: Close a lead with mandatory closure reason and optional notes.
-- **Method**: `PATCH`
-- **URL**: `/organizations/:orgId/leads/:id/close`
-- **Auth**: Bearer Token (Superadmin, Org Admin, Lead Manager, Counselor)
-- **Headers**:
-  - `Authorization: Bearer <token>`
-  - `Content-Type: application/json`
-- **Path Params**:
-  - `orgId` (uuid): Organization ID
-  - `id` (uuid): Lead ID
+*Deactivate, archive, or close a lead with mandatory closure categorization and details.*
+- **Method & URL**: `PATCH /api/organizations/:orgId/leads/:id/close`
+- **Headers**: `Authorization: Bearer <token>`, `Content-Type: application/json`
+- **Parameters**:
+  - Path: `orgId` (uuid, required)
+  - Path: `id` (uuid, required)
 - **Request Example**:
 ```json
 {
   "reason": "not_interested",
-  "notes": "Student confirmed they are not pursuing this cycle."
+  "notes": "Candidate joined another college."
 }
 ```
 - **Response Example**:
@@ -1240,360 +1100,94 @@ Each endpoint below follows the required complete format:
 {
   "success": true,
   "data": {
-    "id": "uuid",
+    "id": "e92d88a2-2ba2-4ccb-be55-c891ff6d21ea",
     "status": "closed",
     "closureReason": "not_interested",
-    "closureNotes": "Student confirmed they are not pursuing this cycle."
+    "closureNotes": "Candidate joined another college."
   },
   "message": "Lead closed successfully"
 }
 ```
 
 ### Delete Lead
-- **Method**: `DELETE`
-- **URL**: `/organizations/:orgId/leads/:id`
-- **Auth**: Bearer Token (Superadmin, Org Admin)
-- **Headers**:
-  - `Authorization: Bearer <token>`
-  - `Content-Type: application/json`
-- **Path Params**:
-  - `orgId` (uuid): Organization ID
-  - `id` (uuid): Lead ID
-- **Response**:
+*Permanently delete a lead record from the tenant store.*
+- **Method & URL**: `DELETE /api/organizations/:orgId/leads/:id`
+- **Headers**: `Authorization: Bearer <token>`
+- **Parameters**:
+  - Path: `orgId` (uuid, required)
+  - Path: `id` (uuid, required)
+- **Request Example**: None
+- **Response Example**:
 ```json
 {
   "success": true,
+  "data": null,
   "message": "Lead deleted successfully"
 }
 ```
 
 ---
 
-## 8. Form Responses (Admin)
+## 9. Form Responses
 
 ### List Responses for a Form (Paginated)
-- **Method**: `GET`
-- **URL**: `/organizations/:orgId/forms/:id/responses?page=1&limit=10&status=pending`
-- **Auth**: Bearer Token (Superadmin or Org Admin)
-- **Response**:
+*Retrieve list of all lead capture submissions received for a specific form.*
+- **Method & URL**: `GET /api/organizations/:orgId/forms/:id/responses`
+- **Headers**: `Authorization: Bearer <token>`
+- **Parameters**:
+  - Path: `orgId` (uuid, required)
+  - Path: `id` (uuid, required) — Form ID
+  - Query: `page` (number, optional, default: 1)
+  - Query: `limit` (number, optional, default: 10)
+  - Query: `status` (string, optional) — `pending | verified | duplicate | spam`
+- **Request Example**: None
+- **Response Example**:
 ```json
 {
   "success": true,
   "data": [
-    { "id": "uuid", "data": { "name": "John Doe", ... }, "status": "pending", "isDuplicate": false, ... }
+    {
+      "id": "r72b99f5-4dc2-558f-966f-d178bb6fa32f",
+      "data": {
+        "fullname": "John Doe",
+        "email": "john.doe@example.com",
+        "phone": "9876543210"
+      },
+      "status": "pending",
+      "isDuplicate": false,
+      "submittedAt": "2026-06-02T12:20:14.000Z"
+    }
   ],
-  "pagination": { "page": 1, "limit": 10, "total": 100, "totalPages": 10 },
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 1,
+    "totalPages": 1
+  },
   "message": "Form responses fetched successfully"
 }
 ```
 
 ### Update Response Status
-- **Method**: `PATCH`
-- **URL**: `/responses/:id`
-- **Auth**: Bearer Token (Superadmin or Org Admin)
+*Manually update or moderate the ingestion status of a form submission.*
+- **Method & URL**: `PATCH /api/responses/:id`
+- **Headers**: `Authorization: Bearer <token>`, `Content-Type: application/json`
+- **Parameters**:
+  - Path: `id` (uuid, required) — Response ID
 - **Request Example**:
 ```json
 {
   "status": "verified"
 }
 ```
-- **Response**:
+- **Response Example**:
 ```json
 {
   "success": true,
-  "data": { "id": "uuid", "status": "verified", ... },
+  "data": {
+    "id": "r72b99f5-4dc2-558f-966f-d178bb6fa32f",
+    "status": "verified"
+  },
   "message": "Response status updated successfully"
-}
-```
-
-## 1. Authentication
-
-### Register Superadmin
-*One-time bootstrap endpoint to create the platform owner.*
-- **Method**: `POST`
-- **URL**: `/auth/register-superadmin`
-- **Auth**: None
-- **Rate Limit**: 3 requests / minute
-- **Request Example**:
-```json
-{
-  "name": "Super Admin",
-  "email": "admin@admission.com",
-  "password": "strongpassword123"
-}
-```
-- **Response**:
-```json
-{
-  "success": true,
-  "data": { "id": "uuid", "name": "Super Admin", "email": "admin@admission.com", "role": "superadmin" },
-  "message": "Superadmin registered successfully"
-}
-```
-
-### Login
-*Returns a JWT token and user profile. Automatically checks organization status.*
-- **Method**: `POST`
-- **URL**: `/auth/login`
-- **Auth**: None
-- **Rate Limit**: 5 requests / minute
-- **Request Example**:
-```json
-{
-  "email": "admin@admission.com",
-  "password": "strongpassword123"
-}
-```
-- **Response**:
-```json
-{
-  "success": true,
-  "data": {
-    "access_token": "eyJhbG...",
-    "user": { "id": "uuid", "name": "Super Admin", "email": "admin@admission.com", "role": "superadmin" }
-  },
-  "message": "Login successful"
-}
-```
-
----
-
-## 2. Organizations
-
-### Create Organization
-- **Method**: `POST`
-- **URL**: `/organizations`
-- **Auth**: Bearer Token (Superadmin)
-- **Request Example**:
-```json
-{
-  "name": "Institute of Technology",
-  "slug": "iot-main",
-  "email": "contact@iot.edu",
-  "phone": "9876543210",
-  "address": "123 Campus Road",
-  "subscriptionStart": "2024-01-01T00:00:00Z",
-  "subscriptionEnd": "2025-01-01T00:00:00Z"
-}
-```
-- **Response**:
-```json
-{
-  "success": true,
-  "data": { "id": "uuid", "name": "Institute of Technology", "createdBy": "uuid", ... },
-  "message": "Organization created successfully"
-}
-```
-
-### List All Organizations (Paginated)
-- **Method**: `GET`
-- **URL**: `/organizations?page=1&limit=10`
-- **Auth**: Bearer Token (Superadmin)
-- **Query Params**:
-  - `page`: default 1
-  - `limit`: default 10 (max 100)
-- **Response**:
-```json
-{
-  "success": true,
-  "data": [
-    { "id": "uuid", "name": "Institute 1", ... }
-  ],
-  "pagination": {
-    "page": 1,
-    "limit": 10,
-    "total": 45,
-    "totalPages": 5
-  },
-  "message": "Organizations fetched successfully"
-}
-```
-
-### Get Organization Details
-- **Method**: `GET`
-- **URL**: `/organizations/:id`
-- **Auth**: Bearer Token (Superadmin or Org Admin)
-- **Enforcement**: Org Admin can only fetch their own organization (`:id` must match their `organizationId`).
-- **Response**:
-```json
-{
-  "success": true,
-  "data": {
-    "id": "uuid",
-    "name": "Institute of Technology",
-    "slug": "iot-main",
-    "email": "contact@iot.edu",
-    "phone": "9876543210",
-    "address": "123 Campus Road",
-    "logoUrl": null,
-    "status": "active",
-    "subscriptionStart": "2024-01-01T00:00:00.000Z",
-    "subscriptionEnd": "2025-01-01T00:00:00.000Z",
-    "branches": [...]
-  },
-  "message": "Organization details fetched successfully"
-}
-```
-
-### Update Organization (Edit)
-- **Method**: `PATCH`
-- **URL**: `/organizations/:id`
-- **Auth**: Bearer Token (Superadmin or Org Admin)
-- **Enforcement**:
-  - Org Admin can only edit **their own** organization (`:id` must match their `organizationId`).
-  - Org Admin is restricted from editing: `status`, `slug`, `subscriptionStart`, `subscriptionEnd`. These fields are silently ignored if sent by an Org Admin.
-  - Superadmin can edit all fields.
-- **Request Example (Superadmin — all fields)**:
-```json
-{
-  "name": "Updated Institute Name",
-  "slug": "updated-slug",
-  "email": "new@iot.edu",
-  "phone": "9876543210",
-  "address": "456 New Campus Road",
-  "logoUrl": "https://cdn.example.com/logo.png",
-  "status": "suspended",
-  "subscriptionStart": "2024-06-01T00:00:00Z",
-  "subscriptionEnd": "2025-06-01T00:00:00Z"
-}
-```
-- **Request Example (Org Admin — profile fields only)**:
-```json
-{
-  "name": "Updated Institute Name",
-  "email": "new@iot.edu",
-  "phone": "9876543210",
-  "address": "456 New Campus Road",
-  "logoUrl": "https://cdn.example.com/logo.png"
-}
-```
-- **Response**:
-```json
-{
-  "success": true,
-  "data": {
-    "id": "uuid",
-    "name": "Updated Institute Name",
-    "email": "new@iot.edu",
-    "phone": "9876543210",
-    "address": "456 New Campus Road",
-    "logoUrl": "https://cdn.example.com/logo.png",
-    "status": "active",
-    "slug": "iot-main",
-    "updatedBy": "uuid"
-  },
-  "message": "Organization updated successfully"
-}
-```
-
----
-
-## 3. Branches
-
-### Create Branch
-- **Method**: `POST`
-- **URL**: `/organizations/:orgId/branches`
-- **Auth**: Bearer Token (Superadmin or Org Admin)
-- **Enforcement**: TenantGuard ensures `:orgId` matches token.
-- **Request Example**:
-```json
-{
-  "name": "North Campus",
-  "code": "NC-01",
-  "address": "Sector 5, North City",
-  "city": "Delhi",
-  "state": "Delhi"
-}
-```
-- **Response**:
-```json
-{
-  "success": true,
-  "data": { "id": "uuid", "name": "North Campus", "createdBy": "uuid", ... },
-  "message": "Branch created successfully"
-}
-```
-
-### List Branches of an Organization (Paginated)
-- **Method**: `GET`
-- **URL**: `/organizations/:orgId/branches?page=1&limit=10`
-- **Auth**: Bearer Token (Superadmin or Org Admin)
-- **Enforcement**: TenantGuard ensures `:orgId` matches token.
-- **Response**:
-```json
-{
-  "success": true,
-  "data": [ ... ],
-  "pagination": { "page": 1, "limit": 10, "total": 5, "totalPages": 1 },
-  "message": "Branches fetched successfully"
-}
-```
-
----
-
-## 4. Users (Staff Management)
-
-### Create Staff User
-- **Method**: `POST`
-- **URL**: `/organizations/:orgId/users`
-- **Auth**: Bearer Token (Superadmin or Org Admin)
-- **Enforcement**: 
-  - TenantGuard ensures `:orgId` matches token.
-  - Org Admin cannot create Superadmin or other Org Admins.
-- **Request Example**:
-```json
-{
-  "name": "Jane Doe",
-  "email": "jane@iot.edu",
-  "password": "staffpassword123",
-  "role": "counselor",
-  "phone": "9988776655",
-  "branchId": "uuid-optional"
-}
-```
-- **Response**:
-```json
-{
-  "success": true,
-  "data": { "id": "uuid", "name": "Jane Doe", "tokenVersion": 0, "createdBy": "uuid", ... },
-  "message": "Staff user created successfully"
-}
-```
-
-### Update Staff User
-- **Method**: `PATCH`
-- **URL**: `/organizations/:orgId/users/:id`
-- **Auth**: Bearer Token (Superadmin or Org Admin)
-- **Enforcement**:
-  - User cannot change their own role.
-  - Only Superadmin can promote to Org Admin.
-  - Role change/Deactivation increments `tokenVersion` (Invalidates session).
-- **Request Example**:
-```json
-{
-  "role": "lead_manager",
-  "isActive": false
-}
-```
-- **Response**:
-```json
-{
-  "success": true,
-  "data": { ... },
-  "message": "User updated successfully"
-}
-```
-
-### List Organization Users (Paginated)
-- **Method**: `GET`
-- **URL**: `/organizations/:orgId/users?page=1&limit=10`
-- **Auth**: Bearer Token (Superadmin or Org Admin)
-- **Response**:
-```json
-{
-  "success": true,
-  "data": [ ... ],
-  "pagination": { "page": 1, "limit": 10, "total": 12, "totalPages": 2 },
-  "message": "Staff users fetched successfully"
 }
 ```

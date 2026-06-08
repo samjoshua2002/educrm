@@ -88,7 +88,7 @@ type Lead = {
 
 const leads: Lead[] = [
   {
-    id: 1,
+    id: "",
     name: "John Doe",
     email: "john.doe@example.com",
     mobile: "+1 234 567 890",
@@ -102,7 +102,7 @@ const leads: Lead[] = [
     assignedTo: "Alice Brown",
   },
   {
-    id: 2,
+    id: "",
     name: "Jane Smith",
     email: "jane.smith@example.com",
     mobile: "+1 234 567 891",
@@ -116,7 +116,7 @@ const leads: Lead[] = [
     assignedTo: "Bob Wilson",
   },
   {
-    id: 3,
+    id: "",
     name: "Robert Johnson",
     email: "robert.j@example.com",
     mobile: "+1 234 567 892",
@@ -130,7 +130,7 @@ const leads: Lead[] = [
     assignedTo: "Alice Brown",
   },
   {
-    id: 4,
+    id: "",
     name: "Emily Davis",
     email: "emily.davis@example.com",
     mobile: "+1 234 567 893",
@@ -144,7 +144,7 @@ const leads: Lead[] = [
     assignedTo: "Bob Wilson",
   },
   {
-    id: 5,
+    id: "",
     name: "Michael Chen",
     email: "michael.chen@example.com",
     mobile: "+1 234 567 894",
@@ -158,7 +158,7 @@ const leads: Lead[] = [
     assignedTo: "Alice Brown",
   },
   {
-    id: 6,
+    id: "",
     name: "Sarah Williams",
     email: "sarah.w@example.com",
     mobile: "+1 234 567 895",
@@ -172,7 +172,7 @@ const leads: Lead[] = [
     assignedTo: "Carol Martinez",
   },
   {
-    id: 7,
+    id: "",
     name: "David Kumar",
     email: "david.kumar@example.com",
     mobile: "+1 234 567 896",
@@ -186,7 +186,7 @@ const leads: Lead[] = [
     assignedTo: "Carol Martinez",
   },
   {
-    id: 8,
+    id: "",
     name: "Priya Sharma",
     email: "priya.sharma@example.com",
     mobile: "+1 234 567 897",
@@ -200,7 +200,7 @@ const leads: Lead[] = [
     assignedTo: "Bob Wilson",
   },
   {
-    id: 9,
+    id: "",
     name: "James Taylor",
     email: "james.t@example.com",
     mobile: "+1 234 567 898",
@@ -214,7 +214,7 @@ const leads: Lead[] = [
     assignedTo: "Alice Brown",
   },
   {
-    id: 10,
+    id: "",
     name: "Anita Patel",
     email: "anita.patel@example.com",
     mobile: "+1 234 567 899",
@@ -228,7 +228,7 @@ const leads: Lead[] = [
     assignedTo: "Carol Martinez",
   },
   {
-    id: 11,
+    id: "",
     name: "Samjoshua",
     email: "[EMAIL_ADDRESS]",
     mobile: "+91 7902089317",
@@ -242,7 +242,7 @@ const leads: Lead[] = [
     assignedTo: "Carol Martinez",
   },
   {
-    id: 12,
+    id: "",
     name: "Samjoshua",
     email: "[EMAIL_ADDRESS]",
     mobile: "+91 7902089317",
@@ -397,8 +397,12 @@ export default function LeadManagerPage() {
       campaign: item.utmCampaign || "N/A",
       stage: item.isDuplicate ? "Duplicate" : "New",
       status: item.status || "unverified",
-      assignedTo: item.assignedTo || "Unassigned",
-      rawLead: item,
+      assignedToUser: item.assignedToUser ? {
+        name: item.assignedToUser.name,
+        role: item.assignedToUser.role?.replace('_', ' ')?.toLowerCase()
+      } : null,
+      assignedTo: item.assignedToUser ? `${item.assignedToUser.name} (${item.assignedToUser.role.replace('_', ' ')})` : (item.assignedTo || "Unassigned"),
+      rawLead: item
     }));
   }, [leadsResponse]);
 
@@ -773,8 +777,24 @@ export default function LeadManagerPage() {
                         {item.status}
                       </span>
                     </TableCell>
-                    <TableCell className="py-5 px-6 align-middle text-sm text-foreground/80 font-normal">
-                      {item.assignedTo}
+                    <TableCell className="py-5 px-6 align-middle">
+                      {item.assignedToUser ? (
+                        <div className="flex flex-col items-start gap-1">
+                          <span className="font-semibold text-foreground text-sm tracking-tight block">
+                            {item.assignedToUser.name}
+                          </span>
+                          <Badge 
+                            variant="secondary" 
+                            className="font-semibold text-[10px] px-2 py-0.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/80 rounded-md shrink-0 uppercase tracking-wider"
+                          >
+                            {item.assignedToUser.role}
+                          </Badge>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground italic text-xs font-normal">
+                          {item.assignedTo && item.assignedTo !== "Unassigned" ? `ID: ${item.assignedTo}` : "Unassigned"}
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell className="py-5 px-6 align-middle">
                       <div className="flex flex-col gap-0.5">
@@ -1057,9 +1077,24 @@ export default function LeadManagerPage() {
                         <span className={statusStyles[item.status] ?? ""}>
                           {item.status}
                         </span>
-                        <span className="text-foreground/95 font-medium">
-                          · {item.assignedTo}
-                        </span>
+                        <span className="text-muted-foreground/50 font-normal">·</span>
+                        {item.assignedToUser ? (
+                          <div className="flex items-center gap-1 flex-wrap">
+                            <span className="text-foreground/95 font-semibold">
+                              {item.assignedToUser.name}
+                            </span>
+                            <Badge 
+                              variant="secondary" 
+                              className="font-semibold text-[9px] px-1.5 py-0 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/80 rounded-md shrink-0 uppercase tracking-wider"
+                            >
+                              {item.assignedToUser.role}
+                            </Badge>
+                          </div>
+                        ) : (
+                          <span className="text-foreground/95 font-medium">
+                            {item.assignedTo && item.assignedTo !== "Unassigned" ? `ID: ${item.assignedTo}` : "Unassigned"}
+                          </span>
+                        )}
                       </div>
                     </div>
 

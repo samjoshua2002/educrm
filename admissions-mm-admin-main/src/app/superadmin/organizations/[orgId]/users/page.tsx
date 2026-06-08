@@ -1,19 +1,21 @@
 "use client";
 
 import * as React from "react";
-import {
-  EllipsisVertical,
-  Pencil,
-  Plus,
-  Search,
-  Filter,
-  Loader2,
-  Mail,
-  Phone,
-  ChevronLeft,
-  ShieldAlert,
-  UserCheck,
+import { 
+  EllipsisVertical, 
+  Pencil, 
+  Plus, 
+  Search, 
+  Filter, 
+  Loader2, 
+  Mail, 
+  Phone, 
+  ChevronLeft, 
+  ShieldAlert, 
+  UserCheck, 
   UserX,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -108,6 +110,8 @@ export default function SuperadminOrganizationUsersPage({
   const [phone, setPhone] = React.useState("");
   const [branch, setBranch] = React.useState<string>("none");
   const [role, setRole] = React.useState<string>(ROLES[0]);
+  const [password, setPassword] = React.useState("");
+  const [showPassword, setShowPassword] = React.useState(false);
 
   // API Hooks with explicit orgId
   const { data: orgData, isLoading: isLoadingOrg } = useOrganization(orgId);
@@ -135,6 +139,8 @@ export default function SuperadminOrganizationUsersPage({
     setPhone("");
     setBranch("none");
     setRole(ROLES[0]);
+    setPassword("");
+    setShowPassword(false);
     setDialogOpen(true);
   };
 
@@ -177,14 +183,25 @@ export default function SuperadminOrganizationUsersPage({
           phone,
           role,
           branchId: branch !== "none" ? branch : undefined,
-          password: "initialPassword123", // Invites typically have default pass or generation logic
-        },
-        {
-          onSuccess: () => {
-            setDialogOpen(false);
-          },
-        },
-      );
+        }
+      }, {
+        onSuccess: () => {
+          setDialogOpen(false);
+        }
+      });
+    } else {
+      createUser({
+        name,
+        email,
+        phone,
+        role,
+        branchId: branch !== "none" ? branch : undefined,
+        password: password,
+      }, {
+        onSuccess: () => {
+          setDialogOpen(false);
+        }
+      });
     }
   };
 
@@ -528,6 +545,34 @@ export default function SuperadminOrganizationUsersPage({
                 className="bg-muted/10 focus-visible:ring-primary/20"
               />
             </div>
+            {!editingUser && (
+              <div className="grid gap-2">
+                <Label htmlFor="password" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Password</Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Enter password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="bg-muted/10 focus-visible:ring-primary/20 pr-10"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent text-muted-foreground"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label
@@ -587,7 +632,7 @@ export default function SuperadminOrganizationUsersPage({
               className="font-semibold shadow-lg shadow-primary/10"
             >
               {isPending && <Loader2 className="animate-spin size-4 mr-2" />}
-              {editingUser ? "Save Changes" : "Invite Member"}
+              {editingUser ? "Save Changes" : "Add Member"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -34,6 +34,8 @@ export class LeadsService {
     userId?: string,
   ) {
     const query = this.leadRepository.createQueryBuilder('lead')
+      .leftJoin('lead.assignedToUser', 'assignedToUser')
+      .addSelect(['assignedToUser.id', 'assignedToUser.name', 'assignedToUser.role'])
       .where('lead.organization_id = :orgId', { orgId });
 
     if (status) {
@@ -65,7 +67,7 @@ export class LeadsService {
     const [data, total] = await query
       .skip(paginationDto.skip)
       .take(paginationDto.limit)
-      .orderBy('lead.created_at', 'DESC')
+      .orderBy('lead.createdAt', 'DESC')
       .getManyAndCount();
 
     const totalPages = Math.ceil(total / paginationDto.limit);
