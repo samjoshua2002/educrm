@@ -23,6 +23,7 @@ import {
   GroupIcon,
   UsersRound,
   LucideUsersRound,
+  Hash,
 } from "lucide-react";
 
 import {
@@ -64,9 +65,6 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import { useBranches, useDeleteBranch, Branch } from "@/hooks/use-branches";
 import { useTeam } from "@/hooks/use-team";
@@ -111,6 +109,15 @@ export default function BranchesPage() {
     ...b,
     status: b.isActive ? "Active" : "Inactive",
   }));
+
+  // Dynamic filter options from live data
+  const uniqueCities = React.useMemo(() =>
+    Array.from(new Set(allBranches.map((b) => b.city))).filter(Boolean).sort(),
+  [allBranches]);
+
+  const uniqueStates = React.useMemo(() =>
+    Array.from(new Set(allBranches.map((b) => b.state))).filter(Boolean).sort(),
+  [allBranches]);
 
   function applyAdvancedFilters() {
     setAppliedAdvanced({
@@ -761,34 +768,25 @@ export default function BranchesPage() {
 
       {/* Advanced Filter Dialog */}
       <Dialog open={advancedOpen} onOpenChange={setAdvancedOpen}>
-        <DialogContent className="sm:max-w-[425px] rounded-xl">
-          <DialogHeader>
-            <DialogTitle>Advanced Filters</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-2">
-            <div className="grid gap-2">
-              <Label htmlFor="adv-city">City</Label>
-              <Input
-                id="adv-city"
-                placeholder="Filter by city"
-                value={advCity}
-                onChange={(e) => setAdvCity(e.target.value)}
-              />
+        <DialogContent className="sm:max-w-[580px] px-6 bg-white rounded-2xl gap-5 border border-slate-200 overflow-y-auto max-h-[90vh] text-left">
+
+          {/* Card 1: Branch Filters */}
+          <div className="bg-white shadow-2xs rounded-xl p-5 md:p-6 flex flex-col gap-4">
+            <div className="flex items-center gap-3 mb-1">
+              <div className="w-10 h-10 bg-[#F5F5F5] text-black border rounded-[10px] flex items-center justify-center shrink-0">
+                <Hash className="size-5" />
+              </div>
+              <h3 className="text-[17px] font-bold text-[#0F172A]">Branch Filters</h3>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="adv-state">State</Label>
-              <Input
-                id="adv-state"
-                placeholder="Filter by state"
-                value={advState}
-                onChange={(e) => setAdvState(e.target.value)}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label>Branch Status</Label>
+
+            {/* Branch Status — full width */}
+            <div className="flex flex-col gap-2">
+              <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                Branch Status
+              </Label>
               <Select value={advStatus} onValueChange={setAdvStatus}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select Status" />
+                <SelectTrigger className="w-full border-[#D4D4D4] rounded-lg h-11 text-sm bg-white text-[#0F172A]">
+                  <SelectValue placeholder="All Statuses" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Statuses</SelectItem>
@@ -798,12 +796,78 @@ export default function BranchesPage() {
               </Select>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={resetAdvancedFilters}>
+
+          {/* Card 2: Location */}
+          <div className="bg-white shadow-2xs rounded-xl p-5 md:p-6 flex flex-col gap-4">
+            <div className="flex items-center gap-3 mb-1">
+              <div className="w-10 h-10 bg-[#F5F5F5] text-black border rounded-[10px] flex items-center justify-center shrink-0">
+                <MapPin className="size-5" />
+              </div>
+              <h3 className="text-[17px] font-bold text-[#0F172A]">Location</h3>
+            </div>
+
+            {/* State & City — side by side */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-2">
+                <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                  State
+                </Label>
+                <Select
+                  value={advState || "all"}
+                  onValueChange={(val) => setAdvState(val === "all" ? "" : val)}
+                >
+                  <SelectTrigger className="w-full border-[#D4D4D4] rounded-lg h-11 text-sm bg-white text-[#0F172A]">
+                    <SelectValue placeholder="All States" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All States</SelectItem>
+                    {uniqueStates.map((s) => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                  City
+                </Label>
+                <Select
+                  value={advCity || "all"}
+                  onValueChange={(val) => setAdvCity(val === "all" ? "" : val)}
+                >
+                  <SelectTrigger className="w-full border-[#D4D4D4] rounded-lg h-11 text-sm bg-white text-[#0F172A]">
+                    <SelectValue placeholder="All Cities" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Cities</SelectItem>
+                    {uniqueCities.map((c) => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex items-center gap-3 justify-start mt-2 ml-5">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={resetAdvancedFilters}
+              className="h-11 px-6 rounded-[10px] text-sm font-semibold border-[#D4D4D4] text-[#1E293B] bg-white hover:bg-slate-50 cursor-pointer"
+            >
               Reset
             </Button>
-            <Button onClick={applyAdvancedFilters}>Apply Filters</Button>
-          </DialogFooter>
+            <Button
+              onClick={applyAdvancedFilters}
+              className="h-11 px-8 rounded-[10px] text-sm font-semibold bg-[#2563EB] hover:bg-[#1D4ED8] text-white cursor-pointer"
+            >
+              Apply Filters
+            </Button>
+          </div>
+
         </DialogContent>
       </Dialog>
 

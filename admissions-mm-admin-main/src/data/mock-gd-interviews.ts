@@ -12,6 +12,7 @@ export type GDInterview = {
   confirmedCampus: string;
 };
 
+
 export const gdInterviews: GDInterview[] = [
   {
     id: 1,
@@ -22,7 +23,7 @@ export const gdInterviews: GDInterview[] = [
     interviewLocation: "Chennai",
     date: "2026-03-15",
     time: "10:00 AM",
-    course: "PGDM 2026-28",
+    course: "PGDM 2027-28",
     selectionStatus: "Accepted",
     confirmedCampus: "Main Campus",
   },
@@ -178,7 +179,7 @@ export const gdInterviews: GDInterview[] = [
     interviewLocation: "Kochi",
     date: "2026-03-24",
     time: "02:15 PM",
-    course: "PGDM 2026-28",
+    course: "PGDM 2029-30",
     selectionStatus: "Accepted",
     confirmedCampus: "Main Campus",
   },

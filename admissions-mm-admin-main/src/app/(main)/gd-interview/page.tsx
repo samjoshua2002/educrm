@@ -17,6 +17,10 @@ import {
   ChevronRight,
   Search,
   Download,
+  SlidersHorizontal,
+  BookOpen,
+  CalendarRange,
+  Hash,
 } from "lucide-react";
 
 import {
@@ -35,9 +39,6 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -66,15 +67,7 @@ import {
 
 import { type GDInterview, gdInterviews } from "@/data/mock-gd-interviews";
 
-const SELECTION_STATUSES = ["Confirmed", "Not Selected", "Pending"] as const;
-const INTERVIEW_LOCATIONS = [
-  "Chennai",
-  "Bangalore",
-  "Kochi",
-  "Hyderabad",
-  "Delhi",
-] as const;
-const COURSES = ["PGDM 2026-28"] as const;
+
 
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString("en-IN", {
@@ -142,6 +135,19 @@ export default function GDInterviewPage() {
     return getStoredApplications().map((app) => app.applicationNo);
   }, []);
 
+  // Dynamic filter options derived from actual data
+  const uniqueCourses = React.useMemo(() => {
+    return Array.from(new Set(interviewsState.map((i) => i.course))).sort();
+  }, [interviewsState]);
+
+  const uniqueSelectionStatuses = React.useMemo(() => {
+    return Array.from(new Set(interviewsState.map((i) => i.selectionStatus))).sort();
+  }, [interviewsState]);
+
+  const uniqueLocations = React.useMemo(() => {
+    return Array.from(new Set(interviewsState.map((i) => i.interviewLocation))).sort();
+  }, [interviewsState]);
+
   function handleDelete(id: number) {
     setInterviewsState((prev) => prev.filter((item) => item.id !== id));
   }
@@ -159,6 +165,8 @@ export default function GDInterviewPage() {
 
   const [advancedOpen, setAdvancedOpen] = React.useState(false);
   const [advCourse, setAdvCourse] = React.useState("all");
+  const [advSelectionStatus, setAdvSelectionStatus] = React.useState("all");
+  const [advLocation, setAdvLocation] = React.useState("all");
   const [advDateFrom, setAdvDateFrom] = React.useState("");
   const [advDateTo, setAdvDateTo] = React.useState("");
   const [advApplicationNo, setAdvApplicationNo] = React.useState("");
@@ -178,6 +186,8 @@ export default function GDInterviewPage() {
 
   const [appliedAdvanced, setAppliedAdvanced] = React.useState({
     course: "all",
+    selectionStatus: "all",
+    location: "all",
     dateFrom: "",
     dateTo: "",
     applicationNo: "",
@@ -193,6 +203,8 @@ export default function GDInterviewPage() {
   function applyAdvancedFilters() {
     setAppliedAdvanced({
       course: advCourse,
+      selectionStatus: advSelectionStatus,
+      location: advLocation,
       dateFrom: advDateFrom,
       dateTo: advDateTo,
       applicationNo: advApplicationNo,
@@ -203,11 +215,15 @@ export default function GDInterviewPage() {
 
   function resetAdvancedFilters() {
     setAdvCourse("all");
+    setAdvSelectionStatus("all");
+    setAdvLocation("all");
     setAdvDateFrom("");
     setAdvDateTo("");
     setAdvApplicationNo("");
     setAppliedAdvanced({
       course: "all",
+      selectionStatus: "all",
+      location: "all",
       dateFrom: "",
       dateTo: "",
       applicationNo: "",
@@ -236,6 +252,16 @@ export default function GDInterviewPage() {
       if (
         appliedAdvanced.course !== "all" &&
         item.course !== appliedAdvanced.course
+      )
+        return false;
+      if (
+        appliedAdvanced.selectionStatus !== "all" &&
+        item.selectionStatus !== appliedAdvanced.selectionStatus
+      )
+        return false;
+      if (
+        appliedAdvanced.location !== "all" &&
+        item.interviewLocation !== appliedAdvanced.location
       )
         return false;
       if (
@@ -297,6 +323,8 @@ export default function GDInterviewPage() {
 
   const hasAdvancedFilters =
     appliedAdvanced.course !== "all" ||
+    appliedAdvanced.selectionStatus !== "all" ||
+    appliedAdvanced.location !== "all" ||
     appliedAdvanced.dateFrom !== "" ||
     appliedAdvanced.dateTo !== "" ||
     appliedAdvanced.applicationNo !== "";
@@ -347,7 +375,7 @@ export default function GDInterviewPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Statuses</SelectItem>
-                    {SELECTION_STATUSES.map((s) => (
+                    {uniqueSelectionStatuses.map((s) => (
                       <SelectItem key={s} value={s}>
                         {s}
                       </SelectItem>
@@ -371,7 +399,7 @@ export default function GDInterviewPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Locations</SelectItem>
-                    {INTERVIEW_LOCATIONS.map((loc) => (
+                    {uniqueLocations.map((loc) => (
                       <SelectItem key={loc} value={loc}>
                         {loc}
                       </SelectItem>
@@ -410,13 +438,22 @@ export default function GDInterviewPage() {
 
         {/* Advanced Search Dialog */}
         <Dialog open={advancedOpen} onOpenChange={setAdvancedOpen}>
-          <DialogContent className="sm:max-w-lg rounded-xl">
-            <DialogHeader>
-              <DialogTitle>Advanced Search</DialogTitle>
-            </DialogHeader>
-            <div className="grid gap-4 py-2">
-              <div className="grid gap-2 relative">
-                <Label htmlFor="adv-app-no">Application No.</Label>
+          <DialogContent className="sm:max-w-[580px]  px-6 pb-6 bg-white rounded-2xl gap-5 border border-slate-200 overflow-y-auto max-h-[90vh] text-left">
+
+            {/* Card 1: Search Criteria */}
+            <div className="bg-white shadow-2xs rounded-xl p-5 md:p-6 flex flex-col gap-4 ">
+              <div className="flex items-center gap-3 mb-1">
+                <div className="w-10 h-10 bg-[#F5F5F5] text-black border rounded-[10px] flex items-center justify-center shrink-0">
+                  <Hash className="size-5" />
+                </div>
+                <h3 className="text-[17px] font-bold text-[#0F172A]">Search Criteria</h3>
+              </div>
+
+              {/* Application No. — full width */}
+              <div className="flex flex-col gap-2 relative">
+                <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                  Application No.
+                </Label>
                 <div className="relative">
                   <Input
                     id="adv-app-no"
@@ -430,7 +467,7 @@ export default function GDInterviewPage() {
                     onBlur={() => {
                       setTimeout(() => setShowSuggestions(false), 200);
                     }}
-                    className="w-full h-10"
+                    className="w-full border-[#D4D4D4] rounded-lg h-11 text-sm placeholder:text-slate-400"
                     autoComplete="off"
                   />
                   {showSuggestions && appNoSuggestions.length > 0 && (
@@ -452,15 +489,19 @@ export default function GDInterviewPage() {
                   )}
                 </div>
               </div>
-              <div className="grid gap-2">
-                <Label>Course</Label>
+
+              {/* Course — full width */}
+              <div className="flex flex-col gap-2">
+                <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                  Course
+                </Label>
                 <Select value={advCourse} onValueChange={setAdvCourse}>
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full border-[#D4D4D4] rounded-lg h-11 text-sm bg-white text-[#0F172A]">
                     <SelectValue placeholder="All Courses" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Courses</SelectItem>
-                    {COURSES.map((c) => (
+                    {uniqueCourses.map((c) => (
                       <SelectItem key={c} value={c}>
                         {c}
                       </SelectItem>
@@ -468,33 +509,105 @@ export default function GDInterviewPage() {
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Selection Status & Location — side by side, both full width of their column */}
               <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="adv-date-from">Interview From</Label>
+                <div className="flex flex-col gap-2">
+                  <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                    Selection Status
+                  </Label>
+                  <Select value={advSelectionStatus} onValueChange={setAdvSelectionStatus}>
+                    <SelectTrigger className="w-full border-[#D4D4D4] rounded-lg h-11 text-sm bg-white text-[#0F172A]">
+                      <SelectValue placeholder="All Statuses" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      {uniqueSelectionStatuses.map((s) => (
+                        <SelectItem key={s} value={s}>
+                          {s}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                    Interview Location
+                  </Label>
+                  <Select value={advLocation} onValueChange={setAdvLocation}>
+                    <SelectTrigger className="w-full border-[#D4D4D4] rounded-lg h-11 text-sm bg-white text-[#0F172A]">
+                      <SelectValue placeholder="All Locations" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Locations</SelectItem>
+                      {uniqueLocations.map((loc) => (
+                        <SelectItem key={loc} value={loc}>
+                          {loc}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            {/* Card 2: Date Range */}
+            <div className="bg-white shadow-2xs rounded-xl p-5 md:p-6 flex flex-col gap-4 ">
+              <div className="flex items-center gap-3 mb-1">
+                <div className="w-10 h-10 bg-[#F5F5F5] text-black border rounded-[10px] flex items-center justify-center shrink-0">
+                  <CalendarRange className="size-5" />
+                </div>
+                <h3 className="text-[17px] font-bold text-[#0F172A]">Interview Date Range</h3>
+              </div>
+
+              {/* From & To — side by side, both full width of their column */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="adv-date-from" className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                    From Date
+                  </Label>
                   <Input
                     id="adv-date-from"
                     type="date"
                     value={advDateFrom}
                     onChange={(e) => setAdvDateFrom(e.target.value)}
+                    className="w-full border-[#D4D4D4] rounded-lg h-11 text-sm"
                   />
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="adv-date-to">Interview To</Label>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="adv-date-to" className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                    To Date
+                  </Label>
                   <Input
                     id="adv-date-to"
                     type="date"
                     value={advDateTo}
                     onChange={(e) => setAdvDateTo(e.target.value)}
+                    className="w-full border-[#D4D4D4] rounded-lg h-11 text-sm"
                   />
                 </div>
               </div>
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={resetAdvancedFilters}>
+
+            {/* Action buttons */}
+            <div className="flex items-center gap-3 justify-start mt-2 rounded-[10px] ml-5">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={resetAdvancedFilters}
+                className="h-11 px-6 rounded-[10px] text-sm font-semibold border-[#D4D4D4] text-[#1E293B] bg-white hover:bg-slate-50 cursor-pointer"
+              >
                 Reset
               </Button>
-              <Button onClick={applyAdvancedFilters}>Apply Filters</Button>
-            </DialogFooter>
+              <Button
+                onClick={applyAdvancedFilters}
+                className="h-11 px-8 rounded-[10px] text-sm font-semibold bg-[#2563EB] hover:bg-[#1D4ED8] text-white cursor-pointer"
+              >
+                Apply Filters
+              </Button>
+            </div>
+
           </DialogContent>
         </Dialog>
 

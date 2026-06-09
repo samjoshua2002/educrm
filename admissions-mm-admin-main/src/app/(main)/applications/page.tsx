@@ -17,6 +17,9 @@ import {
   Search,
   SlidersHorizontal,
   Download,
+  Hash,
+  CalendarRange,
+  CreditCard,
 } from "lucide-react";
 
 import {
@@ -34,9 +37,6 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -69,35 +69,6 @@ import {
   useDeleteApplication,
 } from "@/hooks/use-applications";
 
-const FORM_STATUSES = [
-  "Incomplete",
-  "In Progress",
-  "Submitted",
-  "Under Review",
-  "Accepted",
-  "Rejected",
-] as const;
-const PAYMENT_STATUSES = ["Pending", "Paid", "Refunded"] as const;
-const PROGRAMS = [
-  "B.Tech Computer Science",
-  "B.Tech Electronics",
-  "B.Tech Mechanical",
-  "B.Sc Physics",
-  "B.Sc Mathematics",
-  "BBA",
-  "MBA Finance",
-  "MBA Marketing",
-  "M.Tech AI & ML",
-  "M.Tech Data Science",
-] as const;
-const CAMPUSES = ["Main Campus", "City Campus", "South Campus"] as const;
-const PAYMENT_MODES = [
-  "Online",
-  "UPI",
-  "Net Banking",
-  "Credit Card",
-  "Debit Card",
-] as const;
 
 const paymentStatusStyles: Record<string, string> = {
   Pending:
@@ -191,6 +162,7 @@ export default function ApplicationsPage() {
 
   const [advancedOpen, setAdvancedOpen] = React.useState(false);
   const [advCampus, setAdvCampus] = React.useState("all");
+  const [advProgram, setAdvProgram] = React.useState("all");
   const [advPaymentStatus, setAdvPaymentStatus] = React.useState("all");
   const [advPaymentMode, setAdvPaymentMode] = React.useState("");
   const [advDateFrom, setAdvDateFrom] = React.useState("");
@@ -210,8 +182,30 @@ export default function ApplicationsPage() {
     return matches.slice(0, 5);
   }, [advApplicationNo, applicationsState]);
 
+  // Dynamic filter options derived from actual data
+  const uniqueFormStatuses = React.useMemo(() =>
+    Array.from(new Set(applicationsState.map((a) => a.formStatus))).sort(),
+  [applicationsState]);
+
+  const uniquePrograms = React.useMemo(() =>
+    Array.from(new Set(applicationsState.map((a) => a.program))).sort(),
+  [applicationsState]);
+
+  const uniqueCampuses = React.useMemo(() =>
+    Array.from(new Set(applicationsState.map((a) => a.campus))).sort(),
+  [applicationsState]);
+
+  const uniquePaymentStatuses = React.useMemo(() =>
+    Array.from(new Set(applicationsState.map((a) => a.paymentStatus))).sort(),
+  [applicationsState]);
+
+  const uniquePaymentModes = React.useMemo(() =>
+    Array.from(new Set(applicationsState.map((a) => a.paymentMode))).filter(Boolean).sort(),
+  [applicationsState]);
+
   const [appliedAdvanced, setAppliedAdvanced] = React.useState({
     campus: "all",
+    program: "all",
     paymentStatus: "all",
     paymentMode: "",
     dateFrom: "",
@@ -229,6 +223,7 @@ export default function ApplicationsPage() {
   function applyAdvancedFilters() {
     setAppliedAdvanced({
       campus: advCampus,
+      program: advProgram,
       paymentStatus: advPaymentStatus,
       paymentMode: advPaymentMode,
       dateFrom: advDateFrom,
@@ -241,6 +236,7 @@ export default function ApplicationsPage() {
 
   function resetAdvancedFilters() {
     setAdvCampus("all");
+    setAdvProgram("all");
     setAdvPaymentStatus("all");
     setAdvPaymentMode("");
     setAdvDateFrom("");
@@ -248,6 +244,7 @@ export default function ApplicationsPage() {
     setAdvApplicationNo("");
     setAppliedAdvanced({
       campus: "all",
+      program: "all",
       paymentStatus: "all",
       paymentMode: "",
       dateFrom: "",
@@ -275,6 +272,11 @@ export default function ApplicationsPage() {
       if (
         appliedAdvanced.campus !== "all" &&
         app.campus !== appliedAdvanced.campus
+      )
+        return false;
+      if (
+        appliedAdvanced.program !== "all" &&
+        app.program !== appliedAdvanced.program
       )
         return false;
       if (
@@ -354,6 +356,7 @@ export default function ApplicationsPage() {
 
   const hasAdvancedFilters =
     appliedAdvanced.campus !== "all" ||
+    appliedAdvanced.program !== "all" ||
     appliedAdvanced.paymentStatus !== "all" ||
     appliedAdvanced.paymentMode !== "" ||
     appliedAdvanced.dateFrom !== "" ||
@@ -419,7 +422,7 @@ export default function ApplicationsPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Statuses</SelectItem>
-                    {FORM_STATUSES.map((s) => (
+                    {uniqueFormStatuses.map((s) => (
                       <SelectItem key={s} value={s}>
                         {s}
                       </SelectItem>
@@ -443,7 +446,7 @@ export default function ApplicationsPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Programs</SelectItem>
-                    {PROGRAMS.map((p) => (
+                    {uniquePrograms.map((p) => (
                       <SelectItem key={p} value={p}>
                         {p}
                       </SelectItem>
@@ -482,13 +485,22 @@ export default function ApplicationsPage() {
 
         {/* Advanced Search Dialog */}
         <Dialog open={advancedOpen} onOpenChange={setAdvancedOpen}>
-          <DialogContent className="sm:max-w-lg rounded-xl">
-            <DialogHeader>
-              <DialogTitle>Advanced Search</DialogTitle>
-            </DialogHeader>
-            <div className="grid gap-4 py-2">
-              <div className="grid gap-2 relative">
-                <Label htmlFor="adv-app-no">Application No.</Label>
+          <DialogContent className="sm:max-w-[580px]  px-6  bg-white rounded-2xl gap-5 border border-slate-200 overflow-y-auto max-h-[90vh] text-left">
+
+            {/* Card 1: Search Criteria */}
+            <div className="bg-white shadow-2xs rounded-xl p-5 md:p-6 flex flex-col gap-4 ">
+              <div className="flex items-center gap-3 mb-1">
+                <div className="w-10 h-10 bg-[#F5F5F5] text-black border rounded-[10px] flex items-center justify-center shrink-0">
+                  <Hash className="size-5" />
+                </div>
+                <h3 className="text-[17px] font-bold text-[#0F172A]">Search Criteria</h3>
+              </div>
+
+              {/* Application No. — full width */}
+              <div className="flex flex-col gap-2 relative">
+                <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                  Application No.
+                </Label>
                 <div className="relative">
                   <Input
                     id="adv-app-no"
@@ -500,10 +512,9 @@ export default function ApplicationsPage() {
                     }}
                     onFocus={() => setShowSuggestions(true)}
                     onBlur={() => {
-                      // Small timeout to allow mouseDown inside the suggestions popup to register first
                       setTimeout(() => setShowSuggestions(false), 200);
                     }}
-                    className="w-full h-10"
+                    className="w-full border-[#D4D4D4] rounded-lg h-11 text-sm placeholder:text-slate-400"
                     autoComplete="off"
                   />
                   {showSuggestions && appNoSuggestions.length > 0 && (
@@ -525,16 +536,40 @@ export default function ApplicationsPage() {
                   )}
                 </div>
               </div>
+
+              {/* Program — full width */}
+              <div className="flex flex-col gap-2">
+                <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                  Program
+                </Label>
+                <Select value={advProgram} onValueChange={setAdvProgram}>
+                  <SelectTrigger className="w-full border-[#D4D4D4] rounded-lg h-11 text-sm bg-white text-[#0F172A]">
+                    <SelectValue placeholder="All Programs" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Programs</SelectItem>
+                    {uniquePrograms.map((p) => (
+                      <SelectItem key={p} value={p}>
+                        {p}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Campus & Payment Status — side by side */}
               <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label>Campus</Label>
+                <div className="flex flex-col gap-2">
+                  <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                    Campus
+                  </Label>
                   <Select value={advCampus} onValueChange={setAdvCampus}>
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full border-[#D4D4D4] rounded-lg h-11 text-sm bg-white text-[#0F172A]">
                       <SelectValue placeholder="All Campuses" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Campuses</SelectItem>
-                      {CAMPUSES.map((c) => (
+                      {uniqueCampuses.map((c) => (
                         <SelectItem key={c} value={c}>
                           {c}
                         </SelectItem>
@@ -542,18 +577,18 @@ export default function ApplicationsPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="grid gap-2">
-                  <Label>Payment Status</Label>
-                  <Select
-                    value={advPaymentStatus}
-                    onValueChange={setAdvPaymentStatus}
-                  >
-                    <SelectTrigger>
+
+                <div className="flex flex-col gap-2">
+                  <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                    Payment Status
+                  </Label>
+                  <Select value={advPaymentStatus} onValueChange={setAdvPaymentStatus}>
+                    <SelectTrigger className="w-full border-[#D4D4D4] rounded-lg h-11 text-sm bg-white text-[#0F172A]">
                       <SelectValue placeholder="All" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All</SelectItem>
-                      {PAYMENT_STATUSES.map((s) => (
+                      {uniquePaymentStatuses.map((s) => (
                         <SelectItem key={s} value={s}>
                           {s}
                         </SelectItem>
@@ -562,20 +597,22 @@ export default function ApplicationsPage() {
                   </Select>
                 </div>
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="adv-payment-mode">Payment Mode</Label>
+
+              {/* Payment Mode — full width */}
+              <div className="flex flex-col gap-2">
+                <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                  Payment Mode
+                </Label>
                 <Select
                   value={advPaymentMode || "all"}
-                  onValueChange={(val) =>
-                    setAdvPaymentMode(val === "all" ? "" : val)
-                  }
+                  onValueChange={(val) => setAdvPaymentMode(val === "all" ? "" : val)}
                 >
-                  <SelectTrigger id="adv-payment-mode" className="h-10">
+                  <SelectTrigger className="w-full border-[#D4D4D4] rounded-lg h-11 text-sm bg-white text-[#0F172A]">
                     <SelectValue placeholder="All Payment Modes" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Payment Modes</SelectItem>
-                    {PAYMENT_MODES.map((m) => (
+                    {uniquePaymentModes.map((m) => (
                       <SelectItem key={m} value={m}>
                         {m}
                       </SelectItem>
@@ -583,33 +620,63 @@ export default function ApplicationsPage() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            {/* Card 2: Date Range */}
+            <div className="bg-white shadow-2xs rounded-xl p-5 md:p-6 flex flex-col gap-4 ">
+              <div className="flex items-center gap-3 mb-1">
+                <div className="w-10 h-10 bg-[#F5F5F5] text-black border rounded-[10px] flex items-center justify-center shrink-0">
+                  <CalendarRange className="size-5" />
+                </div>
+                <h3 className="text-[17px] font-bold text-[#0F172A]">Activity Date Range</h3>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="adv-date-from">Activity From</Label>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="adv-date-from" className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                    From Date
+                  </Label>
                   <Input
                     id="adv-date-from"
                     type="date"
                     value={advDateFrom}
                     onChange={(e) => setAdvDateFrom(e.target.value)}
+                    className="w-full border-[#D4D4D4] rounded-lg h-11 text-sm"
                   />
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="adv-date-to">Activity To</Label>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="adv-date-to" className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                    To Date
+                  </Label>
                   <Input
                     id="adv-date-to"
                     type="date"
                     value={advDateTo}
                     onChange={(e) => setAdvDateTo(e.target.value)}
+                    className="w-full border-[#D4D4D4] rounded-lg h-11 text-sm"
                   />
                 </div>
               </div>
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={resetAdvancedFilters}>
+
+            {/* Action buttons */}
+            <div className="flex items-center gap-3 justify-start mt-2 ml-5">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={resetAdvancedFilters}
+                className="h-11 px-6 rounded-[10px] text-sm font-semibold border-[#D4D4D4] text-[#1E293B] bg-white hover:bg-slate-50 cursor-pointer"
+              >
                 Reset
               </Button>
-              <Button onClick={applyAdvancedFilters}>Apply Filters</Button>
-            </DialogFooter>
+              <Button
+                onClick={applyAdvancedFilters}
+                className="h-11 px-8 rounded-[10px] text-sm font-semibold bg-[#2563EB] hover:bg-[#1D4ED8] text-white cursor-pointer"
+              >
+                Apply Filters
+              </Button>
+            </div>
+
           </DialogContent>
         </Dialog>
 

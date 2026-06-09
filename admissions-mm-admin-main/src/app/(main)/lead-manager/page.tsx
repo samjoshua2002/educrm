@@ -17,6 +17,8 @@ import {
   Check,
   SearchX,
   Loader2,
+  Hash,
+  MapPin,
 } from "lucide-react";
 
 import {
@@ -35,9 +37,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -257,75 +256,6 @@ const leads: Lead[] = [
   },
 ];
 
-const STAGES = [
-  "New",
-  "Contacted",
-  "Interested",
-  "Qualified",
-  "Converted",
-  "Lost",
-] as const;
-const STATUSES = ["Hot", "Warm", "Cold"] as const;
-
-const SOURCES = [
-  "Google Ads",
-  "Facebook",
-  "Instagram",
-  "LinkedIn",
-  "Website",
-  "Referral",
-  "Other",
-] as const;
-const MEDIUMS = [
-  "CPC",
-  "Social",
-  "Organic",
-  "Word of Mouth",
-  "Email",
-  "Other",
-] as const;
-const CAMPAIGNS = [
-  "Spring 2025",
-  "Summer 2025",
-  "Fall 2025",
-  "Winter 2025",
-  "Spring 2026",
-] as const;
-
-const INDIAN_STATES = [
-  "Andhra Pradesh",
-  "Arunachal Pradesh",
-  "Assam",
-  "Bihar",
-  "Chhattisgarh",
-  "Goa",
-  "Gujarat",
-  "Haryana",
-  "Himachal Pradesh",
-  "Jharkhand",
-  "Karnataka",
-  "Kerala",
-  "Madhya Pradesh",
-  "Maharashtra",
-  "Manipur",
-  "Meghalaya",
-  "Mizoram",
-  "Nagaland",
-  "Odisha",
-  "Punjab",
-  "Rajasthan",
-  "Sikkim",
-  "Tamil Nadu",
-  "Telangana",
-  "Tripura",
-  "Uttar Pradesh",
-  "Uttarakhand",
-  "West Bengal",
-  "Delhi",
-  "Jammu and Kashmir",
-  "Ladakh",
-  "Puducherry",
-] as const;
 
 const stageStyles: Record<string, string> = {
   New: "bg-[#D9770633] text-[#9A3412] dark:bg-orange-500/20 dark:text-orange-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
@@ -405,6 +335,31 @@ export default function LeadManagerPage() {
       rawLead: item
     }));
   }, [leadsResponse]);
+
+  // Dynamic filter options derived from live leadsState
+  const uniqueStages = React.useMemo(() =>
+    Array.from(new Set(leadsState.map((l) => l.stage))).filter(Boolean).sort(),
+  [leadsState]);
+
+  const uniqueStatuses = React.useMemo(() =>
+    Array.from(new Set(leadsState.map((l) => l.status))).filter(Boolean).sort(),
+  [leadsState]);
+
+  const uniqueSources = React.useMemo(() =>
+    Array.from(new Set(leadsState.map((l) => l.source))).filter(Boolean).sort(),
+  [leadsState]);
+
+  const uniqueStates = React.useMemo(() =>
+    Array.from(new Set(leadsState.map((l) => l.state))).filter((s) => s && s !== "N/A").sort(),
+  [leadsState]);
+
+  const uniqueCities = React.useMemo(() =>
+    Array.from(new Set(leadsState.map((l) => l.city))).filter((c) => c && c !== "N/A").sort(),
+  [leadsState]);
+
+  const uniqueAssignees = React.useMemo(() =>
+    Array.from(new Set(leadsState.map((l) => l.assignedTo))).filter((a) => a && a !== "Unassigned").sort(),
+  [leadsState]);
 
   const [appliedAdvanced, setAppliedAdvanced] = React.useState({
     city: "",
@@ -561,7 +516,7 @@ export default function LeadManagerPage() {
                   <SelectContent>
                     <SelectItem value="all">All Stages</SelectItem>
 
-                    {STAGES.map((s) => (
+                    {uniqueStages.map((s) => (
                       <SelectItem key={s} value={s}>
                         {s}
                       </SelectItem>
@@ -586,7 +541,7 @@ export default function LeadManagerPage() {
                   <SelectContent>
                     <SelectItem value="all">All Statuses</SelectItem>
 
-                    {STATUSES.map((s) => (
+                    {uniqueStatuses.map((s) => (
                       <SelectItem key={s} value={s}>
                         {s}
                       </SelectItem>
@@ -611,14 +566,13 @@ export default function LeadManagerPage() {
               </Button>
             </div>
 
-            {/* Add Lead Button */}
             <Link
               href="/lead-manager/create"
               className="w-full sm:w-auto shrink-0"
             >
               <Button
                 variant="outline"
-                className="w-full border border-border h-[39px] text-sm font-medium text-foreground  hover:bg-accent hover:text-accent-foreground"
+                className="w-full border border-border h-[39px] text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground"
               >
                 <Plus className="size-4" />
                 Add Lead
@@ -628,70 +582,149 @@ export default function LeadManagerPage() {
         </div>
 
         <Dialog open={advancedOpen} onOpenChange={setAdvancedOpen}>
-          <DialogContent className="sm:max-w-md rounded-xl">
-            <DialogHeader>
-              <DialogTitle>Advanced Filters</DialogTitle>
-            </DialogHeader>
-            <div className="grid gap-4 py-2">
-              <div className="grid gap-2">
-                <Label htmlFor="adv-city">City</Label>
-                <Input
-                  id="adv-city"
-                  placeholder="Filter by city"
-                  value={advCity}
-                  onChange={(e) => setAdvCity(e.target.value)}
-                />
+          <DialogContent className="sm:max-w-[580px]  px-6  bg-white rounded-2xl gap-5 border border-slate-200 overflow-y-auto max-h-[90vh] text-left">
+
+            {/* Card 1: Lead Filters */}
+            <div className="bg-white shadow-2xs rounded-xl p-5 md:p-6 flex flex-col gap-4 ">
+              <div className="flex items-center gap-3 mb-1">
+                <div className="w-10 h-10 bg-[#F5F5F5] text-black border rounded-[10px] flex items-center justify-center shrink-0">
+                  <Hash className="size-5" />
+                </div>
+                <h3 className="text-[17px] font-bold text-[#0F172A]">Lead Filters</h3>
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="adv-state">State</Label>
-                <Input
-                  id="adv-state"
-                  placeholder="Filter by state"
-                  value={advState}
-                  onChange={(e) => setAdvState(e.target.value)}
-                />
+
+              {/* Source — full width */}
+              <div className="flex flex-col gap-2">
+                <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                  Source
+                </Label>
+                <Select
+                  value={advSource || "all"}
+                  onValueChange={(val) => setAdvSource(val === "all" ? "" : val)}
+                >
+                  <SelectTrigger className="w-full border-[#D4D4D4] rounded-lg h-11 text-sm bg-white text-[#0F172A]">
+                    <SelectValue placeholder="All Sources" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Sources</SelectItem>
+                    {uniqueSources.map((s) => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="adv-source">Source</Label>
-                <Input
-                  id="adv-source"
-                  placeholder="Filter by source"
-                  value={advSource}
-                  onChange={(e) => setAdvSource(e.target.value)}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="adv-assigned">Assigned To</Label>
-                <Input
-                  id="adv-assigned"
-                  placeholder="Filter by counselor"
-                  value={advAssignedTo}
-                  onChange={(e) => setAdvAssignedTo(e.target.value)}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label>Lead Status</Label>
+
+              {/* Lead Status — full width */}
+              <div className="flex flex-col gap-2">
+                <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                  Lead Status
+                </Label>
                 <Select value={advStatus} onValueChange={setAdvStatus}>
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full border-[#D4D4D4] rounded-lg h-11 text-sm bg-white text-[#0F172A]">
                     <SelectValue placeholder="All Statuses" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Statuses</SelectItem>
-                    {STATUSES.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {s}
-                      </SelectItem>
+                    {uniqueStatuses.map((s) => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Assigned To — full width */}
+              <div className="flex flex-col gap-2">
+                <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                  Assigned To
+                </Label>
+                <Select
+                  value={advAssignedTo || "all"}
+                  onValueChange={(val) => setAdvAssignedTo(val === "all" ? "" : val)}
+                >
+                  <SelectTrigger className="w-full border-[#D4D4D4] rounded-lg h-11 text-sm bg-white text-[#0F172A]">
+                    <SelectValue placeholder="All Counselors" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Counselors</SelectItem>
+                    {uniqueAssignees.map((a) => (
+                      <SelectItem key={a} value={a}>{a}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={resetAdvancedFilters}>
+
+            {/* Card 2: Location */}
+            <div className="bg-white shadow-2xs rounded-xl p-5 md:p-6  flex flex-col gap-4 ">
+              <div className="flex items-center gap-3 mb-1">
+                <div className="w-10 h-10 bg-[#F5F5F5] text-black border rounded-[10px] flex items-center justify-center shrink-0">
+                  <MapPin className="size-5" />
+                </div>
+                <h3 className="text-[17px] font-bold text-[#0F172A]">Location</h3>
+              </div>
+
+              {/* State & City — side by side */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-2">
+                  <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                    State
+                  </Label>
+                  <Select
+                    value={advState || "all"}
+                    onValueChange={(val) => setAdvState(val === "all" ? "" : val)}
+                  >
+                    <SelectTrigger className="w-full border-[#D4D4D4] rounded-lg h-11 text-sm bg-white text-[#0F172A]">
+                      <SelectValue placeholder="All States" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All States</SelectItem>
+                      {uniqueStates.map((s) => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                    City
+                  </Label>
+                  <Select
+                    value={advCity || "all"}
+                    onValueChange={(val) => setAdvCity(val === "all" ? "" : val)}
+                  >
+                    <SelectTrigger className="w-full border-[#D4D4D4] rounded-lg h-11 text-sm bg-white text-[#0F172A]">
+                      <SelectValue placeholder="All Cities" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Cities</SelectItem>
+                      {uniqueCities.map((c) => (
+                        <SelectItem key={c} value={c}>{c}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex items-center gap-3 justify-start mt-2 ml-5">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={resetAdvancedFilters}
+                className="h-11 px-6 rounded-[10px] text-sm font-semibold border-[#D4D4D4] text-[#1E293B] bg-white hover:bg-slate-50 cursor-pointer"
+              >
                 Reset
               </Button>
-              <Button onClick={applyAdvancedFilters}>Apply Filters</Button>
-            </DialogFooter>
+              <Button
+                onClick={applyAdvancedFilters}
+                className="h-11 px-8 rounded-[10px] text-sm font-semibold bg-[#2563EB] hover:bg-[#1D4ED8] text-white cursor-pointer"
+              >
+                Apply Filters
+              </Button>
+            </div>
+
           </DialogContent>
         </Dialog>
 
