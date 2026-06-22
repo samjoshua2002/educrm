@@ -1,23 +1,42 @@
-import { OperationalCards } from "../crm/_components/operational-cards";
-import { TableCards } from "../crm/_components/table-cards";
+"use client";
 
-import { InsightCards } from "./_components/insight-cards";
-import { OverviewCards } from "./_components/overview-cards";
-import { RecentApplications } from "./_components/recent-applications";
+import * as React from "react";
+
+import { useApplications } from "@/hooks/use-applications";
+
+import { DashboardCharts } from "./_components/dashboard-charts";
+import { DashboardStats } from "./_components/dashboard-stats";
+import { RecentApplicationsTable } from "./_components/recent-applications-table";
 
 export default function DashboardPage() {
+  const [mounted, setMounted] = React.useState(false);
+  const { data: applicationsResponse, isLoading } = useApplications();
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const applications = React.useMemo(() => {
+    return applicationsResponse?.data ?? [];
+  }, [applicationsResponse]);
+
   return (
-    <>
-      <div className="sticky top-12 z-10 bg-background/40 backdrop-blur-md flex items-center px-4 md:px-6 py-3 border-b">
-        <h1 className="text-xl font-semibold">Dashboard</h1>
-      </div>
-      <div className="flex flex-col gap-4 p-4 md:p-6">
-        <OverviewCards />
-        <OperationalCards />
-        <RecentApplications />
-        <InsightCards />
-        <TableCards />
-      </div>
-    </>
+    <div className="flex flex-col gap-6 p-4 md:p-6 w-full max-w-full min-w-0">
+      <DashboardStats
+        applications={applications}
+        isLoading={isLoading}
+        mounted={mounted}
+      />
+      <DashboardCharts
+        applications={applications}
+        isLoading={isLoading}
+        mounted={mounted}
+      />
+      <RecentApplicationsTable
+        applications={applications}
+        isLoading={isLoading}
+        mounted={mounted}
+      />
+    </div>
   );
 }
