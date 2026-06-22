@@ -277,7 +277,7 @@ export default function GDInterviewDetailsPage() {
               </div>
 
               {/* Time & Location Box (borderless, box padding removed, dividers removed) */}
-              <div className="flex items-center gap-6">
+              <div className="flex items-center gap-6 bg-[#F8FAFC]/50 rounded-[8px]">
                 <div className="space-y-0.5">
                   <span className="block text-[10px] font-normal leading-[15px] tracking-[1px] uppercase text-[#475569] font-sans">
                     LOCATION
@@ -376,7 +376,7 @@ export default function GDInterviewDetailsPage() {
               paddingBottom: "20px",
               flexDirection: "column",
               alignItems: "center",
-              gap: "20px",
+              gap: "0px",
               alignSelf: "stretch",
               borderRadius: "8px",
               border: "1px solid #D4D4D4",
@@ -392,7 +392,7 @@ export default function GDInterviewDetailsPage() {
                 alignItems: "center",
                 gap: "12px",
                 alignSelf: "stretch",
-                borderBottom: "1px solid #F1F5F9",
+                borderBottom: "1px solid #F8FAFC",
               }}
             >
               <CardTitle className="flex items-center gap-2 font-sans text-[16px] font-bold leading-[24px] tracking-[0px] text-[#1E293B] m-0 p-0">
@@ -414,56 +414,57 @@ export default function GDInterviewDetailsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0 w-full">
-              <div className="divide-y overflow-hidden rounded-b-lg">
-                <div className="grid grid-cols-3 p-4 bg-slate-50/30">
-                  <div
-                    className="font-sans text-left"
-                    style={{
-                      color: "var(--Colorsecondary-text-color, #475569)",
-                      fontFamily: "Inter",
-                      fontSize: "10px",
-                      fontStyle: "normal",
-                      fontWeight: 700,
-                      lineHeight: "normal",
-                      letterSpacing: "1px",
-                      textTransform: "uppercase",
-                    }}
-                  >
-                    Level
+              <div className="px-5 w-full">
+                <div className="divide-y divide-[#F8FAFC] w-full">
+                  <div className="grid grid-cols-3 pt-6 pb-4">
+                    <div
+                      className="font-sans text-left"
+                      style={{
+                        color: "var(--Colorsecondary-text-color, #475569)",
+                        fontFamily: "Inter",
+                        fontSize: "10px",
+                        fontStyle: "normal",
+                        fontWeight: 700,
+                        lineHeight: "normal",
+                        letterSpacing: "1px",
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      Level
+                    </div>
+                    <div
+                      className="font-sans text-center"
+                      style={{
+                        color: "var(--Colorsecondary-text-color, #475569)",
+                        fontFamily: "Inter",
+                        fontSize: "10px",
+                        fontStyle: "normal",
+                        fontWeight: 700,
+                        lineHeight: "normal",
+                        letterSpacing: "1px",
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      Percentage
+                    </div>
+                    <div
+                      className="font-sans text-right"
+                      style={{
+                        color: "var(--Colorsecondary-text-color, #475569)",
+                        fontFamily: "Inter",
+                        fontSize: "10px",
+                        fontStyle: "normal",
+                        fontWeight: 700,
+                        lineHeight: "normal",
+                        letterSpacing: "1px",
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      Score
+                    </div>
                   </div>
-                  <div
-                    className="font-sans text-left"
-                    style={{
-                      color: "var(--Colorsecondary-text-color, #475569)",
-                      fontFamily: "Inter",
-                      fontSize: "10px",
-                      fontStyle: "normal",
-                      fontWeight: 700,
-                      lineHeight: "normal",
-                      letterSpacing: "1px",
-                      textTransform: "uppercase",
-                    }}
-                  >
-                    Percentage
-                  </div>
-                  <div
-                    className="font-sans text-right"
-                    style={{
-                      color: "var(--Colorsecondary-text-color, #475569)",
-                      fontFamily: "Inter",
-                      fontSize: "10px",
-                      fontStyle: "normal",
-                      fontWeight: 700,
-                      lineHeight: "normal",
-                      letterSpacing: "1px",
-                      textTransform: "uppercase",
-                    }}
-                  >
-                    Score
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-3 items-center p-4">
+                  <div className="grid grid-cols-3 items-center py-4">
                   <div style={{ color: "var(--text-primary-color, #1E293B)", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 600, lineHeight: "20px" }}>10th Std</div>
                   <div style={{ color: "var(--text-primary-color, #1E293B)", textAlign: "center", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 700, lineHeight: "20px" }}>
                     {interviewData.academics.tenth.percentage}
@@ -473,7 +474,7 @@ export default function GDInterviewDetailsPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 items-center p-4">
+                <div className="grid grid-cols-3 items-center py-4">
                   <div style={{ color: "var(--text-primary-color, #1E293B)", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 600, lineHeight: "20px" }}>12th Std</div>
                   <div style={{ color: "var(--text-primary-color, #1E293B)", textAlign: "center", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 700, lineHeight: "20px" }}>
                     {interviewData.academics.twelfth.percentage}
@@ -483,7 +484,7 @@ export default function GDInterviewDetailsPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 items-center p-4">
+                <div className="grid grid-cols-3 items-center py-4">
                   <div style={{ color: "var(--text-primary-color, #1E293B)", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 600, lineHeight: "20px" }}>UG</div>
                   <div style={{ color: "var(--text-primary-color, #1E293B)", textAlign: "center", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 700, lineHeight: "20px" }}>
                     {interviewData.academics.ug.percentage}
@@ -492,6 +493,7 @@ export default function GDInterviewDetailsPage() {
                     {interviewData.academics.ug.score}
                   </div>
                 </div>
+              </div>
               </div>
             </CardContent>
           </Card>
@@ -503,7 +505,7 @@ export default function GDInterviewDetailsPage() {
               paddingBottom: "20px",
               flexDirection: "column",
               alignItems: "center",
-              gap: "20px",
+              gap: "0px",
               alignSelf: "stretch",
               borderRadius: "8px",
               border: "1px solid #D4D4D4",
@@ -519,7 +521,7 @@ export default function GDInterviewDetailsPage() {
                 alignItems: "center",
                 gap: "12px",
                 alignSelf: "stretch",
-                borderBottom: "1px solid #F1F5F9",
+                borderBottom: "1px solid #F8FAFC",
               }}
             >
               <CardTitle className="flex items-center gap-2 font-sans text-[16px] font-bold leading-[24px] tracking-[0px] text-[#1E293B] m-0 p-0">
@@ -539,28 +541,28 @@ export default function GDInterviewDetailsPage() {
                 Work Experience
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-5 space-y-4 w-full">
-              <div className="flex justify-between items-center pb-3 border-b border-dashed">
+            <CardContent className="px-5 pt-0 pb-4 w-full">
+              <div className="flex justify-between items-center py-4">
                 <span className="text-sm text-slate-600">Claimed (Months)</span>
-                <span className="font-medium">
+                <div style={{ color: "#1E293B", textAlign: "right", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 700, lineHeight: "20px" }}>
                   {interviewData.experience.claimedMonths}
-                </span>
+                </div>
               </div>
-              <div className="flex justify-between items-center pb-3 border-b border-dashed">
+              <div className="flex justify-between items-center py-4" style={{ borderTop: "1px solid #F8FAFC" }}>
                 <span className="text-sm text-slate-600">
-                  Validated (Actual)
+                  Validated Actual
                 </span>
-                <span className="font-medium">
+                <div style={{ color: "#1A237E", textAlign: "right", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 700, lineHeight: "20px" }}>
                   {interviewData.experience.validatedMonths}
-                </span>
+                </div>
               </div>
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center py-4" style={{ borderTop: "1px solid #F8FAFC" }}>
                 <span className="text-sm font-semibold text-slate-900">
                   Experience Score
                 </span>
-                <span style={{ color: "#1A237E", textAlign: "right", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 700, lineHeight: "20px" }}>
+                <div style={{ color: "#1A237E", textAlign: "right", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 700, lineHeight: "20px" }}>
                   {interviewData.experience.score}
-                </span>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -572,7 +574,7 @@ export default function GDInterviewDetailsPage() {
               paddingBottom: "20px",
               flexDirection: "column",
               alignItems: "center",
-              gap: "20px",
+              gap: "0px",
               alignSelf: "stretch",
               borderRadius: "8px",
               border: "1px solid #D4D4D4",
@@ -588,7 +590,7 @@ export default function GDInterviewDetailsPage() {
                 alignItems: "center",
                 gap: "12px",
                 alignSelf: "stretch",
-                borderBottom: "1px solid #F1F5F9",
+                borderBottom: "1px solid #F8FAFC",
               }}
             >
               <CardTitle className="flex items-center gap-2 font-sans text-[16px] font-bold leading-[24px] tracking-[0px] text-[#1E293B] m-0 p-0">
@@ -618,7 +620,7 @@ export default function GDInterviewDetailsPage() {
                 Entrance Test
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-5 w-full">
+            <CardContent className="px-5 pt-6 pb-4 w-full">
               {interviewData.entranceTest.name === "Awaited" ||
               !interviewData.entranceTest.name ? (
                 <div className="flex flex-col items-center justify-center py-4 text-center">
@@ -628,7 +630,7 @@ export default function GDInterviewDetailsPage() {
                   </p>
                 </div>
               ) : (
-                <div className="space-y-3 px-2">
+                <div className="space-y-4">
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-slate-500">Test Name</span>
                     <span className="font-medium">
@@ -637,15 +639,15 @@ export default function GDInterviewDetailsPage() {
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-slate-500">Score</span>
-                    <span className="font-medium">
+                    <div style={{ color: "#1E293B", textAlign: "right", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 700, lineHeight: "20px" }}>
                       {interviewData.entranceTest.score}
-                    </span>
+                    </div>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-slate-500">Percentile</span>
-                    <span className="font-bold text-primary">
+                    <div style={{ color: "#E11D48", textAlign: "right", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 700, lineHeight: "20px" }}>
                       {interviewData.entranceTest.percentile}
-                    </span>
+                    </div>
                   </div>
                 </div>
               )}
@@ -662,7 +664,7 @@ export default function GDInterviewDetailsPage() {
               paddingBottom: "20px",
               flexDirection: "column",
               alignItems: "center",
-              gap: "20px",
+              gap: "0px",
               alignSelf: "stretch",
               borderRadius: "8px",
               border: "1px solid #D4D4D4",
@@ -679,18 +681,21 @@ export default function GDInterviewDetailsPage() {
                 gap: "12px",
                 alignSelf: "stretch",
                 borderBottom: "1px solid #E5E5E5",
-                background: "#FAFAFA",
+                background: "#F1F5F9",
+                borderTopLeftRadius: "8px",
+                borderTopRightRadius: "8px",
               }}
             >
               <CardTitle className="flex items-center gap-2 font-sans text-[16px] font-bold leading-[24px] tracking-[0px] text-[#1E293B] m-0 p-0">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 20 20"
-                  fill="none"
-                  className="shrink-0"
-                >
+                <div className="flex items-center justify-center w-[32px] h-[32px] rounded-[6px] bg-[#E5E5E5] shrink-0">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="20"
+                    height="20"
+                    viewBox="0 0 20 20"
+                    fill="none"
+                    className="shrink-0"
+                  >
                   <path
                     d="M9.16662 2.5459C5.26403 2.98203 2.35838 6.35434 2.50402 10.2785C2.64967 14.2027 5.7973 17.3504 9.72149 17.496C13.6457 17.496 17.018 14.736 17.4541 10.8334H9.16662V2.5459V2.5459"
                     stroke="#1A237E"
@@ -705,7 +710,8 @@ export default function GDInterviewDetailsPage() {
                     strokeLinecap="round"
                     stroke-linejoin="round"
                   />
-                </svg>
+                  </svg>
+                </div>
                 Evaluation & Scoring
               </CardTitle>
             </CardHeader>
@@ -713,7 +719,7 @@ export default function GDInterviewDetailsPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* Objective Scores */}
                 <div className="space-y-4">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 border-b pb-2">
+                  <h3 className="pb-2" style={{ color: "#64748B", fontFamily: "Inter", fontSize: "10px", fontStyle: "normal", fontWeight: 700, lineHeight: "15px", letterSpacing: "1px", textTransform: "uppercase" }}>
                     Other Components
                   </h3>
                   <div className="space-y-3">
@@ -724,7 +730,8 @@ export default function GDInterviewDetailsPage() {
                       <Input
                         type="number"
                         defaultValue={interviewData.components.achievement}
-                        className="w-20 h-8 text-right bg-slate-50"
+                        className="w-[72px] h-[32px] px-0 text-center bg-slate-50 rounded-[8px] border border-[#E2E8F0] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        style={{ color: "#1A237E", textAlign: "center", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 700, lineHeight: "20px" }}
                         readOnly
                       />
                     </div>
@@ -733,16 +740,17 @@ export default function GDInterviewDetailsPage() {
                       <Input
                         type="number"
                         defaultValue={interviewData.components.penalty}
-                        className="w-20 h-8 text-right bg-red-50 text-red-600 border-red-100"
+                        className="w-[72px] h-[32px] px-0 text-center bg-red-50 text-red-600 rounded-[8px] border border-[#E2E8F0] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        style={{ textAlign: "center", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 700, lineHeight: "20px" }}
                         readOnly
                       />
                     </div>
 
-                    <div className="pt-2 border-t flex justify-between items-center">
+                    <div className="pt-2 flex justify-between items-center" style={{ borderTop: "1px solid #F8FAFC" }}>
                       <span className="font-sans text-sm font-bold text-[#1E293B] leading-5">
                         Total - Other
                       </span>
-                      <span className="font-bold text-lg text-slate-900 w-20 text-right pr-3">
+                      <span className="font-bold text-lg text-slate-900 w-20 text-right pr-3" style={{ fontFamily: "Inter" }}>
                         {interviewData.components.assignedTotalOther}
                       </span>
                     </div>
@@ -751,7 +759,7 @@ export default function GDInterviewDetailsPage() {
 
                 {/* Interview Scores */}
                 <div className="space-y-4">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 border-b pb-2">
+                  <h3 className="pb-2" style={{ color: "#64748B", fontFamily: "Inter", fontSize: "10px", fontStyle: "normal", fontWeight: 700, lineHeight: "15px", letterSpacing: "1px", textTransform: "uppercase" }}>
                     GD & PI Scores
                   </h3>
                   <div className="space-y-3">
@@ -760,7 +768,8 @@ export default function GDInterviewDetailsPage() {
                       <Input
                         type="number"
                         defaultValue={interviewData.interviewScores.gd}
-                        className="w-20 h-8 text-right font-medium"
+                        className="w-[72px] h-[32px] px-0 text-center rounded-[8px] border border-[#E2E8F0] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        style={{ color: "#1A237E", textAlign: "center", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 700, lineHeight: "20px" }}
                       />
                     </div>
                     <div className="flex justify-between items-center text-sm">
@@ -768,15 +777,16 @@ export default function GDInterviewDetailsPage() {
                       <Input
                         type="number"
                         defaultValue={interviewData.interviewScores.pi}
-                        className="w-20 h-8 text-right font-medium"
+                        className="w-[72px] h-[32px] px-0 text-center rounded-[8px] border border-[#E2E8F0] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        style={{ color: "#1A237E", textAlign: "center", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 700, lineHeight: "20px" }}
                       />
                     </div>
 
-                    <div className="pt-2 border-t flex justify-between items-center">
+                    <div className="pt-2 flex justify-between items-center" style={{ borderTop: "1px solid #F8FAFC" }}>
                       <span className="font-sans text-sm font-bold text-[#1E293B] leading-5">
                         Total - GDPI
                       </span>
-                      <span className="font-bold text-lg text-blue-600 w-20 text-right pr-3">
+                      <span className="font-bold text-lg text-blue-600 w-20 text-right pr-3" style={{ fontFamily: "Inter" }}>
                         {interviewData.interviewScores.totalGDPI}
                       </span>
                     </div>
@@ -787,14 +797,17 @@ export default function GDInterviewDetailsPage() {
               {/* Composite Score Banner */}
               <div className="relative mt-8 bg-[#2563EB] rounded-xl h-[95px] flex items-center justify-between px-6 overflow-hidden shadow-md">
                 {/* Sloped Background SVG */}
-                <div className="absolute inset-y-0 right-0 w-[45%] md:w-[35%] h-full pointer-events-none">
+                <div className="absolute inset-0 w-full h-full pointer-events-none">
                   <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="100%"
+                    height="100%"
                     viewBox="0 0 693 95"
                     fill="none"
                     className="w-full h-full"
                     preserveAspectRatio="none"
                   >
-                    <path d="M0 95L695.333 0V95H0Z" fill="white" />
+                    <path d="M0 95L695.333 0V95H0Z" fill="white" fillOpacity="0.15" />
                   </svg>
                 </div>
 
@@ -809,7 +822,7 @@ export default function GDInterviewDetailsPage() {
                 </div>
 
                 {/* Right Side: Score */}
-                <div className="relative z-10 flex items-baseline gap-1 text-[#1A237E] pr-2 sm:pr-4">
+                <div className="relative z-10 flex items-baseline gap-1 text-white pr-2 sm:pr-4">
                   <span className="text-4xl font-black">
                     {interviewData.interviewScores.compositeScore}
                   </span>
@@ -827,7 +840,7 @@ export default function GDInterviewDetailsPage() {
               paddingBottom: "20px",
               flexDirection: "column",
               alignItems: "center",
-              gap: "20px",
+              gap: "0px",
               alignSelf: "stretch",
               borderRadius: "8px",
               border: "1px solid #D4D4D4",
@@ -843,7 +856,10 @@ export default function GDInterviewDetailsPage() {
                 alignItems: "center",
                 gap: "12px",
                 alignSelf: "stretch",
-                borderBottom: "1px solid #F1F5F9",
+                borderBottom: "1px solid #F8FAFC",
+                background: "#F1F5F9",
+                borderTopLeftRadius: "8px",
+                borderTopRightRadius: "8px",
               }}
             >
               <CardTitle className="flex items-center gap-2 font-sans text-[16px] font-bold leading-[24px] tracking-[0px] text-[#1E293B] m-0 p-0">
@@ -878,12 +894,12 @@ export default function GDInterviewDetailsPage() {
                 <div className="space-y-2">
                   <Label
                     htmlFor="campus-select"
-                    className="text-slate-600 font-medium"
+                    style={{ color: "#475569", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 500, lineHeight: "20px" }}
                   >
                     Campus Selection
                   </Label>
                   <Select defaultValue={interviewData.decision.campus}>
-                    <SelectTrigger id="campus-select" className="w-full">
+                    <SelectTrigger id="campus-select" className="w-full rounded-[8px]" style={{ color: "#475569", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 500, lineHeight: "20px" }}>
                       <SelectValue placeholder="Select Campus" />
                     </SelectTrigger>
                     <SelectContent>
@@ -903,12 +919,12 @@ export default function GDInterviewDetailsPage() {
                 <div className="space-y-2">
                   <Label
                     htmlFor="waitlist-select"
-                    className="text-slate-600 font-medium"
+                    style={{ color: "#475569", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 500, lineHeight: "20px" }}
                   >
                     Waitlist Status
                   </Label>
                   <Select defaultValue={interviewData.decision.waitlist}>
-                    <SelectTrigger id="waitlist-select" className="w-full">
+                    <SelectTrigger id="waitlist-select" className="w-full rounded-[8px]" style={{ color: "#475569", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 500, lineHeight: "20px" }}>
                       <SelectValue placeholder="Select Waitlist" />
                     </SelectTrigger>
                     <SelectContent>
@@ -924,14 +940,18 @@ export default function GDInterviewDetailsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="remarks" className="text-slate-600 font-medium">
+                <Label
+                  htmlFor="remarks"
+                  style={{ color: "#475569", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 500, lineHeight: "20px" }}
+                >
                   Final Remarks / Comments
                 </Label>
                 <Textarea
                   id="remarks"
                   defaultValue={interviewData.decision.remarks}
                   placeholder="Enter any observational remarks from the panel..."
-                  className="min-h-[100px] bg-slate-50 border-slate-200"
+                  className="min-h-[100px] bg-white border border-[#E2E8F0] rounded-[8px]"
+                  style={{ color: "#475569", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 500, lineHeight: "20px" }}
                 />
               </div>
             </CardContent>
