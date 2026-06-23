@@ -22,6 +22,8 @@ import {
   Printer,
   CheckCircle2,
   FileText,
+  Pencil,
+  ExternalLink,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -39,14 +41,35 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 import { useApplication } from "@/hooks/use-applications";
 import { gdInterviews } from "@/data/mock-gd-interviews";
+import { toast } from "sonner";
 
 export default function GDInterviewDetailsPage() {
   const params = useParams();
   const applicationNumber = params.application_number as string;
   const { data: appData, isLoading } = useApplication(applicationNumber);
+
+  const [activeEditSection, setActiveEditSection] = React.useState<
+    | "academics"
+    | "experience"
+    | "entranceTest"
+    | "scoring"
+    | "decision"
+    | null
+  >(null);
+
+  const handleSave = (section: string, _updatedFields: any) => {
+    toast.success(`${section} updated successfully`);
+    setActiveEditSection(null);
+  };
 
   if (isLoading) {
     return (
@@ -214,10 +237,10 @@ export default function GDInterviewDetailsPage() {
           </Avatar>
 
           {/* Column 2: Content details columns */}
-          <div className="flex flex-col gap-4">
-            {/* Top Row: Name/Contact and Location/Date/Time */}
-            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
-              <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-4 w-full overflow-hidden">
+            {/* Top Row: Content and Buttons */}
+            <div className="flex flex-col lg:flex-row justify-between items-start w-full gap-6">
+              <div className="flex flex-col gap-4">
                 <div className="flex flex-wrap items-center gap-3">
                   <h2 className="text-xl md:text-2xl font-bold text-[#0A0A0A] leading-tight">
                     {interviewData.name}
@@ -244,70 +267,90 @@ export default function GDInterviewDetailsPage() {
                     APP NO: {interviewData.applicationNo}
                   </span>
                 </div>
-                <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[#1E293B] text-[12px] font-normal leading-[20px] font-sans">
-                  <span className="flex items-center gap-1.5 shrink-0">
-                    <svg
-                      viewBox="0 0 20 16"
-                      fill="none"
-                      className="h-4 w-4 text-[#415876]"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        d="M2 16C1.45 16 0.979333 15.8043 0.588 15.413C0.196667 15.0217 0.000666667 14.5507 0 14V2C0 1.45 0.196 0.979333 0.588 0.588C0.98 0.196666 1.45067 0.000666667 2 0H18C18.55 0 19.021 0.196 19.413 0.588C19.805 0.98 20.0007 1.45067 20 2V14C20 1.45 0.196 0.979333 0.588 0.588C0.98 0.196666 1.45067 0.000666667 2 0H18C18.55 0 19.021 0.196 19.413 0.588C19.805 0.98 20.0007 1.45067 20 2V14C20 1.45 19.8043 15.021 19.413 15.413C19.0217 15.805 18.5507 16.0007 18 16H2ZM10 9L18 4V2L10 7L2 2V4L10 9Z"
-                        fill="currentColor"
-                      />
-                    </svg>
-                    {interviewData.email}
-                  </span>
-                  <span className="flex items-center gap-1.5 shrink-0">
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      className="h-4 w-4 text-[#415876]"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        d="M19.95 21C17.8667 21 15.8083 20.546 13.775 19.638C11.7417 18.73 9.89167 17.4423 8.225 15.775C6.55833 14.1077 5.271 12.2577 4.363 10.225C3.455 8.19233 3.00067 6.134 3 4.05C3 3.75 3.1 3.5 3.3 3.3C3.5 3.1 3.75 3 4.05 3H8.1C8.33333 3 8.54167 3.07933 8.725 3.238C8.90833 3.39667 9.01667 3.584 9.05 3.8L9.7 7.3C9.73333 7.56667 9.725 7.79167 9.675 7.975C9.625 8.15833 9.53333 8.31667 9.4 8.45L6.975 10.9C7.30833 11.5167 7.704 12.1123 8.162 12.687C8.62 13.2617 9.12433 13.816 9.675 14.35C10.1917 14.8667 10.7333 15.346 11.3 15.788C11.8667 16.23 12.4667 16.634 13.1 17L15.45 14.65C15.6 14.5 15.796 14.3877 16.038 14.313C16.28 14.2383 16.5173 14.2173 16.75 14.25L20.2 14.95C20.4333 15.0167 20.625 15.1377 20.775 15.313C20.925 15.4883 21 15.684 21 15.9V19.95C21 20.25 20.9 20.5 20.7 20.7C20.5 20.9 20.25 21 19.95 21Z"
-                        fill="currentColor"
-                      />
-                    </svg>
-                    {interviewData.phone}
-                  </span>
+                
+                <div className="flex flex-col gap-3">
+                  <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[#1E293B] text-[12px] font-normal leading-[20px] font-sans">
+                    <span className="flex items-center gap-1.5 shrink-0">
+                      <svg
+                        viewBox="0 0 20 16"
+                        fill="none"
+                        className="h-4 w-4 text-[#415876]"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          d="M2 16C1.45 16 0.979333 15.8043 0.588 15.413C0.196667 15.0217 0.000666667 14.5507 0 14V2C0 1.45 0.196 0.979333 0.588 0.588C0.98 0.196666 1.45067 0.000666667 2 0H18C18.55 0 19.021 0.196 19.413 0.588C19.805 0.98 20.0007 1.45067 20 2V14C20 1.45 0.196 0.979333 0.588 0.588C0.98 0.196666 1.45067 0.000666667 2 0H18C18.55 0 19.021 0.196 19.413 0.588C19.805 0.98 20.0007 1.45067 20 2V14C20 1.45 19.8043 15.021 19.413 15.413C19.0217 15.805 18.5507 16.0007 18 16H2ZM10 9L18 4V2L10 7L2 2V4L10 9Z"
+                          fill="currentColor"
+                        />
+                      </svg>
+                      {interviewData.email}
+                    </span>
+                    <span className="flex items-center gap-1.5 shrink-0">
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        className="h-4 w-4 text-[#415876]"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          d="M19.95 21C17.8667 21 15.8083 20.546 13.775 19.638C11.7417 18.73 9.89167 17.4423 8.225 15.775C6.55833 14.1077 5.271 12.2577 4.363 10.225C3.455 8.19233 3.00067 6.134 3 4.05C3 3.75 3.1 3.5 3.3 3.3C3.5 3.1 3.75 3 4.05 3H8.1C8.33333 3 8.54167 3.07933 8.725 3.238C8.90833 3.39667 9.01667 3.584 9.05 3.8L9.7 7.3C9.73333 7.56667 9.725 7.79167 9.675 7.975C9.625 8.15833 9.53333 8.31667 9.4 8.45L6.975 10.9C7.30833 11.5167 7.704 12.1123 8.162 12.687C8.62 13.2617 9.12433 13.816 9.675 14.35C10.1917 14.8667 10.7333 15.346 11.3 15.788C11.8667 16.23 12.4667 16.634 13.1 17L15.45 14.65C15.6 14.5 15.796 14.3877 16.038 14.313C16.28 14.2383 16.5173 14.2173 16.75 14.25L20.2 14.95C20.4333 15.0167 20.625 15.1377 20.775 15.313C20.925 15.4883 21 15.684 21 15.9V19.95C21 20.25 20.9 20.5 20.7 20.7C20.5 20.9 20.25 21 19.95 21Z"
+                          fill="currentColor"
+                        />
+                      </svg>
+                      {interviewData.phone}
+                    </span>
+                  </div>
+
+                  {/* Time & Location Box */}
+                  <div className="flex items-center gap-6 mt-1 bg-[#F8FAFC]/50 w-max">
+                    <div className="space-y-0.5">
+                      <span className="block text-[10px] font-normal leading-[15px] tracking-[1px] uppercase text-[#475569] font-sans">
+                        LOCATION
+                      </span>
+                      <p className="text-[14px] font-bold leading-[20px] text-[#1E293B] font-sans whitespace-nowrap">
+                        {interviewData.interviewDetails.location}
+                      </p>
+                    </div>
+                    <div className="space-y-0.5">
+                      <span className="block text-[10px] font-normal leading-[15px] tracking-[1px] uppercase text-[#475569] font-sans">
+                        DATE
+                      </span>
+                      <p className="text-[14px] font-bold leading-[20px] text-[#1E293B] font-sans whitespace-nowrap">
+                        {new Date(
+                          interviewData.interviewDetails.date,
+                        ).toLocaleDateString("en-US", {
+                          day: "numeric",
+                          month: "numeric",
+                          year: "numeric",
+                        })}
+                      </p>
+                    </div>
+                    <div className="space-y-0.5">
+                      <span className="block text-[10px] font-normal leading-[15px] tracking-[1px] uppercase text-[#475569] font-sans">
+                        TIME
+                      </span>
+                      <p className="text-[14px] font-bold leading-[20px] text-[#1E293B] font-sans whitespace-nowrap">
+                        {interviewData.interviewDetails.time}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Time & Location Box (borderless, box padding removed, dividers removed) */}
-              <div className="flex items-center gap-6 bg-[#F8FAFC]/50 rounded-[8px]">
-                <div className="space-y-0.5">
-                  <span className="block text-[10px] font-normal leading-[15px] tracking-[1px] uppercase text-[#475569] font-sans">
-                    LOCATION
-                  </span>
-                  <p className="text-[14px] font-bold leading-[20px] text-[#1E293B] font-sans whitespace-nowrap">
-                    {interviewData.interviewDetails.location}
-                  </p>
-                </div>
-                <div className="space-y-0.5">
-                  <span className="block text-[10px] font-normal leading-[15px] tracking-[1px] uppercase text-[#475569] font-sans">
-                    DATE
-                  </span>
-                  <p className="text-[14px] font-bold leading-[20px] text-[#1E293B] font-sans whitespace-nowrap">
-                    {new Date(
-                      interviewData.interviewDetails.date,
-                    ).toLocaleDateString("en-US", {
-                      day: "numeric",
-                      month: "numeric",
-                      year: "numeric",
-                    })}
-                  </p>
-                </div>
-                <div className="space-y-0.5">
-                  <span className="block text-[10px] font-normal leading-[15px] tracking-[1px] uppercase text-[#475569] font-sans">
-                    TIME
-                  </span>
-                  <p className="text-[14px] font-bold leading-[20px] text-[#1E293B] font-sans whitespace-nowrap">
-                    {interviewData.interviewDetails.time}
-                  </p>
-                </div>
+              {/* Buttons Row */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-[15px] shrink-0 w-full lg:w-auto mt-4 lg:mt-0">
+                <Button
+                  asChild
+                  className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs px-4 py-2.5 rounded-md flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer shrink-0 w-full sm:w-auto"
+                >
+                  <Link href={`/applications/${interviewData.applicationNo}`}>
+                    APPLICATION
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </Link>
+                </Button>
+                <Button className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs px-4 py-2.5 rounded-md flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer shrink-0 w-full sm:w-auto">
+                  COMMUNICATION
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </Button>
               </div>
             </div>
 
@@ -385,7 +428,7 @@ export default function GDInterviewDetailsPage() {
             }}
           >
             <CardHeader
-              className="flex-row space-y-0"
+              className="flex-row space-y-0 justify-between"
               style={{
                 display: "flex",
                 padding: "16px 20px",
@@ -412,6 +455,14 @@ export default function GDInterviewDetailsPage() {
                 </svg>
                 Academic Profile
               </CardTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-[#415876] hover:text-[#1E293B] hover:bg-slate-100 cursor-pointer shrink-0"
+                onClick={() => setActiveEditSection("academics")}
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
             </CardHeader>
             <CardContent className="p-0 w-full">
               <div className="px-5 w-full">
@@ -514,7 +565,7 @@ export default function GDInterviewDetailsPage() {
             }}
           >
             <CardHeader
-              className="flex-row space-y-0"
+              className="flex-row space-y-0 justify-between"
               style={{
                 display: "flex",
                 padding: "16px 20px",
@@ -540,6 +591,14 @@ export default function GDInterviewDetailsPage() {
                 </svg>
                 Work Experience
               </CardTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-[#415876] hover:text-[#1E293B] hover:bg-slate-100 cursor-pointer shrink-0"
+                onClick={() => setActiveEditSection("experience")}
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
             </CardHeader>
             <CardContent className="px-5 pt-0 pb-4 w-full">
               <div className="flex justify-between items-center py-4">
@@ -583,7 +642,7 @@ export default function GDInterviewDetailsPage() {
             }}
           >
             <CardHeader
-              className="flex-row space-y-0"
+              className="flex-row space-y-0 justify-between"
               style={{
                 display: "flex",
                 padding: "16px 20px",
@@ -619,6 +678,14 @@ export default function GDInterviewDetailsPage() {
                 </svg>
                 Entrance Test
               </CardTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-[#415876] hover:text-[#1E293B] hover:bg-slate-100 cursor-pointer shrink-0"
+                onClick={() => setActiveEditSection("entranceTest")}
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
             </CardHeader>
             <CardContent className="px-5 pt-6 pb-4 w-full">
               {interviewData.entranceTest.name === "Awaited" ||
@@ -673,7 +740,7 @@ export default function GDInterviewDetailsPage() {
             }}
           >
             <CardHeader
-              className="flex-row space-y-0"
+              className="flex-row space-y-0 justify-between"
               style={{
                 display: "flex",
                 padding: "16px 20px",
@@ -681,7 +748,7 @@ export default function GDInterviewDetailsPage() {
                 gap: "12px",
                 alignSelf: "stretch",
                 borderBottom: "1px solid #E5E5E5",
-                background: "#F1F5F9",
+                background: "#FAFAFA",
                 borderTopLeftRadius: "8px",
                 borderTopRightRadius: "8px",
               }}
@@ -714,6 +781,14 @@ export default function GDInterviewDetailsPage() {
                 </div>
                 Evaluation & Scoring
               </CardTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-[#415876] hover:text-[#1E293B] hover:bg-slate-100 cursor-pointer shrink-0"
+                onClick={() => setActiveEditSection("scoring")}
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
             </CardHeader>
             <CardContent className="p-6 w-full">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -849,7 +924,7 @@ export default function GDInterviewDetailsPage() {
             }}
           >
             <CardHeader
-              className="flex-row space-y-0"
+              className="flex-row space-y-0 justify-between"
               style={{
                 display: "flex",
                 padding: "16px 20px",
@@ -857,7 +932,7 @@ export default function GDInterviewDetailsPage() {
                 gap: "12px",
                 alignSelf: "stretch",
                 borderBottom: "1px solid #F8FAFC",
-                background: "#F1F5F9",
+                background: "#FAFAFA",
                 borderTopLeftRadius: "8px",
                 borderTopRightRadius: "8px",
               }}
@@ -888,6 +963,14 @@ export default function GDInterviewDetailsPage() {
                 </svg>
                 Admission Decision
               </CardTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-[#415876] hover:text-[#1E293B] hover:bg-slate-100 cursor-pointer shrink-0"
+                onClick={() => setActiveEditSection("decision")}
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
             </CardHeader>
             <CardContent className="p-6 w-full">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -958,6 +1041,558 @@ export default function GDInterviewDetailsPage() {
           </Card>
         </div>
       </div>
+
+      {/* Edit Dialog */}
+      <Dialog
+        open={activeEditSection !== null}
+        onOpenChange={(open) => !open && setActiveEditSection(null)}
+      >
+        <DialogContent
+          className={
+            activeEditSection === "academics" || activeEditSection === "scoring"
+              ? "max-w-[800px] w-[95%] rounded-[12px] p-[24px] md:p-[32px] gap-0 bg-white max-h-[98vh] overflow-y-auto"
+              : "max-w-[600px] w-[95%] rounded-[12px] p-[24px] md:p-[32px] gap-0 bg-white max-h-[98vh] overflow-y-auto"
+          }
+        >
+          <DialogHeader className="flex flex-row items-center gap-2 pb-4 border-b border-[#E5E5E5] space-y-0">
+            <div className="flex items-center justify-center h-[36px] w-[36px] rounded-full bg-[#FAFAFA] shrink-0">
+              {activeEditSection === "academics" && (
+                <GraduationCap className="h-4 w-4 text-[#415876]" />
+              )}
+              {activeEditSection === "experience" && (
+                <Briefcase className="h-4 w-4 text-[#415876]" />
+              )}
+              {activeEditSection === "entranceTest" && (
+                <Clock className="h-4 w-4 text-[#415876]" />
+              )}
+              {activeEditSection === "scoring" && (
+                <Award className="h-4 w-4 text-[#415876]" />
+              )}
+              {activeEditSection === "decision" && (
+                <CheckCircle2 className="h-4 w-4 text-[#415876]" />
+              )}
+            </div>
+            <DialogTitle className="text-[#0A0A0A] font-semibold text-[20px] leading-8 tracking-[-0.24px] font-sans">
+              {activeEditSection === "academics" && "Academic Profile"}
+              {activeEditSection === "experience" && "Work Experience"}
+              {activeEditSection === "entranceTest" && "Entrance Test"}
+              {activeEditSection === "scoring" && "Evaluation & Scoring"}
+              {activeEditSection === "decision" && "Admission Decision"}
+            </DialogTitle>
+          </DialogHeader>
+
+          {activeEditSection === "academics" && (
+            <EditAcademicsForm
+              data={interviewData.academics}
+              onSave={(d) => handleSave("Academic Profile", d)}
+              onClose={() => setActiveEditSection(null)}
+            />
+          )}
+          {activeEditSection === "experience" && (
+            <EditExperienceForm
+              data={interviewData.experience}
+              onSave={(d) => handleSave("Work Experience", d)}
+              onClose={() => setActiveEditSection(null)}
+            />
+          )}
+          {activeEditSection === "entranceTest" && (
+            <EditEntranceTestForm
+              data={interviewData.entranceTest}
+              onSave={(d) => handleSave("Entrance Test", d)}
+              onClose={() => setActiveEditSection(null)}
+            />
+          )}
+          {activeEditSection === "scoring" && (
+            <EditScoringForm
+              data={{
+                achievement: interviewData.components.achievement,
+                penalty: interviewData.components.penalty,
+                gdScore: interviewData.interviewScores.gd,
+                piScore: interviewData.interviewScores.pi,
+              }}
+              onSave={(d) => handleSave("Evaluation & Scoring", d)}
+              onClose={() => setActiveEditSection(null)}
+            />
+          )}
+          {activeEditSection === "decision" && (
+            <EditDecisionForm
+              data={interviewData.decision}
+              onSave={(d) => handleSave("Admission Decision", d)}
+              onClose={() => setActiveEditSection(null)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
+  );
+}
+
+interface GDFormProps {
+  data: any;
+  onSave: (updatedData: any) => void;
+  onClose: () => void;
+}
+
+function EditAcademicsForm({ data, onSave, onClose }: GDFormProps) {
+  const [formData, setFormData] = React.useState({
+    tenthPercentage: data.tenth.percentage,
+    tenthScore: data.tenth.score,
+    twelfthPercentage: data.twelfth.percentage,
+    twelfthScore: data.twelfth.score,
+    ugPercentage: data.ug.percentage,
+    ugScore: data.ug.score,
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave(formData);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-x-6 gap-y-3 pt-5 pb-1">
+      <div className="col-span-2 pb-1">
+        <h3 className="font-bold text-slate-800 text-sm">10th Standard</h3>
+      </div>
+      <div className="flex flex-col gap-2">
+        <Label className="text-[#64748B] font-semibold text-[12px] leading-4 tracking-[0.6px] uppercase font-sans">
+          Percentage
+        </Label>
+        <Input
+          value={formData.tenthPercentage}
+          onChange={(e) =>
+            setFormData((prev) => ({ ...prev, tenthPercentage: e.target.value }))
+          }
+          className="border-[#D4D4D4] rounded-[8px] h-10 text-[14px]"
+        />
+      </div>
+      <div className="flex flex-col gap-2">
+        <Label className="text-[#64748B] font-semibold text-[12px] leading-4 tracking-[0.6px] uppercase font-sans">
+          Score
+        </Label>
+        <Input
+          type="number"
+          value={formData.tenthScore}
+          onChange={(e) =>
+            setFormData((prev) => ({ ...prev, tenthScore: Number(e.target.value) }))
+          }
+          className="border-[#D4D4D4] rounded-[8px] h-10 text-[14px]"
+        />
+      </div>
+
+      <div className="col-span-2 pb-1 pt-3 border-t border-[#F1F5F9]">
+        <h3 className="font-bold text-slate-800 text-sm">12th Standard</h3>
+      </div>
+      <div className="flex flex-col gap-2">
+        <Label className="text-[#64748B] font-semibold text-[12px] leading-4 tracking-[0.6px] uppercase font-sans">
+          Percentage
+        </Label>
+        <Input
+          value={formData.twelfthPercentage}
+          onChange={(e) =>
+            setFormData((prev) => ({ ...prev, twelfthPercentage: e.target.value }))
+          }
+          className="border-[#D4D4D4] rounded-[8px] h-10 text-[14px]"
+        />
+      </div>
+      <div className="flex flex-col gap-2">
+        <Label className="text-[#64748B] font-semibold text-[12px] leading-4 tracking-[0.6px] uppercase font-sans">
+          Score
+        </Label>
+        <Input
+          type="number"
+          value={formData.twelfthScore}
+          onChange={(e) =>
+            setFormData((prev) => ({ ...prev, twelfthScore: Number(e.target.value) }))
+          }
+          className="border-[#D4D4D4] rounded-[8px] h-10 text-[14px]"
+        />
+      </div>
+
+      <div className="col-span-2 pb-1 pt-3 border-t border-[#F1F5F9]">
+        <h3 className="font-bold text-slate-800 text-sm">Under-Graduation</h3>
+      </div>
+      <div className="flex flex-col gap-2">
+        <Label className="text-[#64748B] font-semibold text-[12px] leading-4 tracking-[0.6px] uppercase font-sans">
+          Percentage
+        </Label>
+        <Input
+          value={formData.ugPercentage}
+          onChange={(e) =>
+            setFormData((prev) => ({ ...prev, ugPercentage: e.target.value }))
+          }
+          className="border-[#D4D4D4] rounded-[8px] h-10 text-[14px]"
+        />
+      </div>
+      <div className="flex flex-col gap-2">
+        <Label className="text-[#64748B] font-semibold text-[12px] leading-4 tracking-[0.6px] uppercase font-sans">
+          Score
+        </Label>
+        <Input
+          type="number"
+          value={formData.ugScore}
+          onChange={(e) =>
+            setFormData((prev) => ({ ...prev, ugScore: Number(e.target.value) }))
+          }
+          className="border-[#D4D4D4] rounded-[8px] h-10 text-[14px]"
+        />
+      </div>
+
+      <div className="flex items-center gap-3 pt-4 border-t border-[#E5E5E5] col-span-2 mt-2">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onClose}
+          className="h-10 px-6 rounded-[8px] text-[14px] font-semibold border-[#D4D4D4] text-[#1E293B] cursor-pointer"
+        >
+          Cancel
+        </Button>
+        <Button
+          type="submit"
+          className="h-10 px-6 rounded-[8px] text-[14px] font-semibold bg-[#2563EB] hover:bg-[#1D4ED8] text-white cursor-pointer"
+        >
+          Save
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+function EditExperienceForm({ data, onSave, onClose }: GDFormProps) {
+  const [formData, setFormData] = React.useState({
+    claimedMonths: data.claimedMonths,
+    validatedMonths: data.validatedMonths,
+    score: data.score,
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave(formData);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4 pt-5 pb-1">
+      <div className="flex flex-col gap-2">
+        <Label className="text-[#64748B] font-semibold text-[12px] leading-4 tracking-[0.6px] uppercase font-sans">
+          Claimed Months
+        </Label>
+        <Input
+          value={formData.claimedMonths}
+          onChange={(e) =>
+            setFormData((prev) => ({ ...prev, claimedMonths: e.target.value }))
+          }
+          className="border-[#D4D4D4] rounded-[8px] h-10 text-[14px]"
+        />
+      </div>
+      <div className="flex flex-col gap-2">
+        <Label className="text-[#64748B] font-semibold text-[12px] leading-4 tracking-[0.6px] uppercase font-sans">
+          Validated Actual (Months)
+        </Label>
+        <Input
+          value={formData.validatedMonths}
+          onChange={(e) =>
+            setFormData((prev) => ({ ...prev, validatedMonths: e.target.value }))
+          }
+          className="border-[#D4D4D4] rounded-[8px] h-10 text-[14px]"
+        />
+      </div>
+      <div className="flex flex-col gap-2">
+        <Label className="text-[#64748B] font-semibold text-[12px] leading-4 tracking-[0.6px] uppercase font-sans">
+          Experience Score
+        </Label>
+        <Input
+          type="number"
+          value={formData.score}
+          onChange={(e) =>
+            setFormData((prev) => ({ ...prev, score: Number(e.target.value) }))
+          }
+          className="border-[#D4D4D4] rounded-[8px] h-10 text-[14px]"
+        />
+      </div>
+
+      <div className="flex items-center gap-3 pt-4 border-t border-[#E5E5E5] mt-2">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onClose}
+          className="h-10 px-6 rounded-[8px] text-[14px] font-semibold border-[#D4D4D4] text-[#1E293B] cursor-pointer"
+        >
+          Cancel
+        </Button>
+        <Button
+          type="submit"
+          className="h-10 px-6 rounded-[8px] text-[14px] font-semibold bg-[#2563EB] hover:bg-[#1D4ED8] text-white cursor-pointer"
+        >
+          Save
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+function EditEntranceTestForm({ data, onSave, onClose }: GDFormProps) {
+  const [formData, setFormData] = React.useState({
+    name: data.name,
+    score: data.score,
+    percentile: data.percentile,
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave(formData);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4 pt-5 pb-1">
+      <div className="flex flex-col gap-2">
+        <Label className="text-[#64748B] font-semibold text-[12px] leading-4 tracking-[0.6px] uppercase font-sans">
+          Test Name
+        </Label>
+        <Select
+          value={formData.name}
+          onValueChange={(val) =>
+            setFormData((prev) => ({ ...prev, name: val }))
+          }
+        >
+          <SelectTrigger className="w-full border-[#D4D4D4] bg-white rounded-[8px] h-10 text-[14px]">
+            <SelectValue placeholder="Select Test" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="CAT">CAT</SelectItem>
+            <SelectItem value="XAT">XAT</SelectItem>
+            <SelectItem value="MAT">MAT</SelectItem>
+            <SelectItem value="GMAT">GMAT</SelectItem>
+            <SelectItem value="CMAT">CMAT</SelectItem>
+            <SelectItem value="ATMA">ATMA</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="flex flex-col gap-2">
+        <Label className="text-[#64748B] font-semibold text-[12px] leading-4 tracking-[0.6px] uppercase font-sans">
+          Score
+        </Label>
+        <Input
+          value={formData.score}
+          onChange={(e) =>
+            setFormData((prev) => ({ ...prev, score: e.target.value }))
+          }
+          className="border-[#D4D4D4] rounded-[8px] h-10 text-[14px]"
+        />
+      </div>
+      <div className="flex flex-col gap-2">
+        <Label className="text-[#64748B] font-semibold text-[12px] leading-4 tracking-[0.6px] uppercase font-sans">
+          Percentile
+        </Label>
+        <Input
+          value={formData.percentile}
+          onChange={(e) =>
+            setFormData((prev) => ({ ...prev, percentile: e.target.value }))
+          }
+          className="border-[#D4D4D4] rounded-[8px] h-10 text-[14px]"
+        />
+      </div>
+
+      <div className="flex items-center gap-3 pt-4 border-t border-[#E5E5E5] mt-2">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onClose}
+          className="h-10 px-6 rounded-[8px] text-[14px] font-semibold border-[#D4D4D4] text-[#1E293B] cursor-pointer"
+        >
+          Cancel
+        </Button>
+        <Button
+          type="submit"
+          className="h-10 px-6 rounded-[8px] text-[14px] font-semibold bg-[#2563EB] hover:bg-[#1D4ED8] text-white cursor-pointer"
+        >
+          Save
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+function EditScoringForm({ data, onSave, onClose }: GDFormProps) {
+  const [formData, setFormData] = React.useState({
+    achievement: data.achievement,
+    penalty: data.penalty,
+    gdScore: data.gdScore,
+    piScore: data.piScore,
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave(formData);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-x-6 gap-y-3 pt-5 pb-1">
+      <div className="col-span-2 pb-1">
+        <h3 className="font-bold text-slate-800 text-sm">Other Components</h3>
+      </div>
+      <div className="flex flex-col gap-2">
+        <Label className="text-[#64748B] font-semibold text-[12px] leading-4 tracking-[0.6px] uppercase font-sans">
+          Achievement (Max 5)
+        </Label>
+        <Input
+          type="number"
+          value={formData.achievement}
+          onChange={(e) =>
+            setFormData((prev) => ({ ...prev, achievement: Number(e.target.value) }))
+          }
+          className="border-[#D4D4D4] rounded-[8px] h-10 text-[14px]"
+        />
+      </div>
+      <div className="flex flex-col gap-2">
+        <Label className="text-[#64748B] font-semibold text-[12px] leading-4 tracking-[0.6px] uppercase font-sans">
+          Penalty (Max -5)
+        </Label>
+        <Input
+          type="number"
+          value={formData.penalty}
+          onChange={(e) =>
+            setFormData((prev) => ({ ...prev, penalty: Number(e.target.value) }))
+          }
+          className="border-[#D4D4D4] rounded-[8px] h-10 text-[14px]"
+        />
+      </div>
+
+      <div className="col-span-2 pb-1 pt-3 border-t border-[#F1F5F9]">
+        <h3 className="font-bold text-slate-800 text-sm">GD &amp; PI Scores</h3>
+      </div>
+      <div className="flex flex-col gap-2">
+        <Label className="text-[#64748B] font-semibold text-[12px] leading-4 tracking-[0.6px] uppercase font-sans">
+          GD Score (Max 10)
+        </Label>
+        <Input
+          type="number"
+          value={formData.gdScore}
+          onChange={(e) =>
+            setFormData((prev) => ({ ...prev, gdScore: Number(e.target.value) }))
+          }
+          className="border-[#D4D4D4] rounded-[8px] h-10 text-[14px]"
+        />
+      </div>
+      <div className="flex flex-col gap-2">
+        <Label className="text-[#64748B] font-semibold text-[12px] leading-4 tracking-[0.6px] uppercase font-sans">
+          PI Score (Max 30)
+        </Label>
+        <Input
+          type="number"
+          value={formData.piScore}
+          onChange={(e) =>
+            setFormData((prev) => ({ ...prev, piScore: Number(e.target.value) }))
+          }
+          className="border-[#D4D4D4] rounded-[8px] h-10 text-[14px]"
+        />
+      </div>
+
+      <div className="flex items-center gap-3 pt-4 border-t border-[#E5E5E5] col-span-2 mt-2">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onClose}
+          className="h-10 px-6 rounded-[8px] text-[14px] font-semibold border-[#D4D4D4] text-[#1E293B] cursor-pointer"
+        >
+          Cancel
+        </Button>
+        <Button
+          type="submit"
+          className="h-10 px-6 rounded-[8px] text-[14px] font-semibold bg-[#2563EB] hover:bg-[#1D4ED8] text-white cursor-pointer"
+        >
+          Save
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+function EditDecisionForm({ data, onSave, onClose }: GDFormProps) {
+  const [formData, setFormData] = React.useState({
+    campus: data.campus,
+    waitlist: data.waitlist,
+    remarks: data.remarks,
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave(formData);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4 pt-5 pb-1">
+      <div className="flex flex-col gap-2">
+        <Label className="text-[#64748B] font-semibold text-[12px] leading-4 tracking-[0.6px] uppercase font-sans">
+          Campus Selection
+        </Label>
+        <Select
+          value={formData.campus}
+          onValueChange={(val) =>
+            setFormData((prev) => ({ ...prev, campus: val }))
+          }
+        >
+          <SelectTrigger className="w-full border-[#D4D4D4] bg-white rounded-[8px] h-10 text-[14px]">
+            <SelectValue placeholder="Select Campus" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Awaited Scores">Awaited Scores</SelectItem>
+            <SelectItem value="PGDM Bangalore">PGDM Bangalore</SelectItem>
+            <SelectItem value="PGDM Chennai">PGDM Chennai</SelectItem>
+            <SelectItem value="PGDM Kochi">PGDM Kochi</SelectItem>
+            <SelectItem value="Not Selected">Not Selected</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="flex flex-col gap-2">
+        <Label className="text-[#64748B] font-semibold text-[12px] leading-4 tracking-[0.6px] uppercase font-sans">
+          Waitlist Status
+        </Label>
+        <Select
+          value={formData.waitlist}
+          onValueChange={(val) =>
+            setFormData((prev) => ({ ...prev, waitlist: val }))
+          }
+        >
+          <SelectTrigger className="w-full border-[#D4D4D4] bg-white rounded-[8px] h-10 text-[14px]">
+            <SelectValue placeholder="Select Waitlist" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Not Applicable">Not Applicable</SelectItem>
+            <SelectItem value="WL-1">Waitlist 1</SelectItem>
+            <SelectItem value="WL-2">Waitlist 2</SelectItem>
+            <SelectItem value="WL-3">Waitlist 3</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="flex flex-col gap-2">
+        <Label className="text-[#64748B] font-semibold text-[12px] leading-4 tracking-[0.6px] uppercase font-sans">
+          Final Remarks / Comments
+        </Label>
+        <Textarea
+          value={formData.remarks}
+          onChange={(e) =>
+            setFormData((prev) => ({ ...prev, remarks: e.target.value }))
+          }
+          placeholder="Enter any observational remarks from the panel..."
+          className="min-h-[100px] bg-white border border-[#D4D4D4] rounded-[8px] text-[14px]"
+        />
+      </div>
+
+      <div className="flex items-center gap-3 pt-4 border-t border-[#E5E5E5] mt-2">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onClose}
+          className="h-10 px-6 rounded-[8px] text-[14px] font-semibold border-[#D4D4D4] text-[#1E293B] cursor-pointer"
+        >
+          Cancel
+        </Button>
+        <Button
+          type="submit"
+          className="h-10 px-6 rounded-[8px] text-[14px] font-semibold bg-[#2563EB] hover:bg-[#1D4ED8] text-white cursor-pointer"
+        >
+          Save
+        </Button>
+      </div>
+    </form>
   );
 }
