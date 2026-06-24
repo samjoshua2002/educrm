@@ -56,6 +56,12 @@ export function RecentApplicationsTable({
     status: "all",
   });
 
+  const [mobileVisibleCount, setMobileVisibleCount] = React.useState(5);
+
+  React.useEffect(() => {
+    setMobileVisibleCount(5);
+  }, [searchQuery, appliedFilters]);
+
   const showLoader = !mounted || isLoading;
 
   const filteredApplications = React.useMemo(() => {
@@ -82,6 +88,10 @@ export function RecentApplicationsTable({
     currentPage * itemsPerPage,
     filteredApplications.length,
   );
+
+  const mobileApplications = React.useMemo(() => {
+    return filteredApplications.slice(0, mobileVisibleCount);
+  }, [filteredApplications, mobileVisibleCount]);
 
   const uniquePrograms = React.useMemo(
     () =>
@@ -168,7 +178,7 @@ export function RecentApplicationsTable({
         </div>
       </div>
 
-      <div className="overflow-x-auto">
+      <div className="hidden lg:block overflow-x-auto">
         <Table>
           <TableHeader className="bg-[#F8FAFC] border-b border-[#E2E8F0]">
             <TableRow>
@@ -275,15 +285,135 @@ export function RecentApplicationsTable({
       </div>
 
       {!showLoader && filteredApplications.length > 0 && (
-        <DashboardPagination
-          startIndex={startIndex}
-          endIndex={endIndex}
-          totalCount={filteredApplications.length}
-          currentPage={currentPage}
-          totalPages={totalPages}
-          setCurrentPage={setCurrentPage}
-        />
+        <div className="hidden lg:block">
+          <DashboardPagination
+            startIndex={startIndex}
+            endIndex={endIndex}
+            totalCount={filteredApplications.length}
+            currentPage={currentPage}
+            totalPages={totalPages}
+            setCurrentPage={setCurrentPage}
+          />
+        </div>
       )}
+
+      {/* Mobile View - Card Layout */}
+      <div className="flex flex-col gap-3 p-4 lg:hidden w-full bg-slate-50/50">
+        {showLoader ? (
+          [...Array(5)].map((_, idx) => (
+            <div key={idx} className="bg-white border border-[#e2e8f0] rounded-xl p-4 flex flex-col gap-3">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 bg-slate-100 rounded-full animate-pulse shrink-0" />
+                <div className="flex flex-col gap-2 flex-1">
+                  <div className="h-4 w-32 bg-slate-100 rounded animate-pulse" />
+                  <div className="h-3 w-24 bg-slate-100 rounded animate-pulse" />
+                </div>
+              </div>
+            </div>
+          ))
+        ) : filteredApplications.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
+            <div className="flex size-12 items-center justify-center rounded-full bg-muted/40">
+              <SearchX className="size-6 text-muted-foreground/80" />
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <p className="text-sm font-semibold text-foreground">
+                No applications found
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Try adjusting your filters or search query.
+              </p>
+            </div>
+          </div>
+        ) : (
+          mobileApplications.map((app) => {
+            let mappedStatus = "Pending";
+            if (app.formStatus === "Accepted") mappedStatus = "Verified";
+            else if (app.formStatus === "Rejected") mappedStatus = "Rejected";
+            const badgeStyles = getBadgeStyles(mappedStatus);
+
+            // Generate initials for avatar
+            const initials = app.name
+              .split(" ")
+              .map((n: string) => n[0])
+              .join("")
+              .toUpperCase()
+              .slice(0, 2);
+
+            return (
+              <div
+                key={app.id}
+                className="bg-white border border-[#e2e8f0] rounded-xl p-4 flex flex-col gap-4 hover:shadow-sm transition-all duration-200"
+              >
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex size-10 items-center justify-center rounded-full bg-blue-50 text-blue-600 font-semibold text-sm shrink-0 border border-blue-100">
+                      {initials}
+                    </div>
+                    <div className="min-w-0">
+                      <span className="font-semibold text-[#1E293B] text-sm tracking-tight truncate block">
+                        {app.name}
+                      </span>
+                      <span className="text-xs text-[#64748B] truncate block mt-0.5">
+                        {app.email}
+                      </span>
+                    </div>
+                  </div>
+                  <Badge
+                    className={cn(
+                      "border-0 font-medium px-2.5 py-0.5 rounded-full text-[10px] shadow-none shrink-0",
+                      badgeStyles,
+                    )}
+                  >
+                    {mappedStatus}
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-xs border-t border-[#e2e8f0]/60 pt-3">
+                  <div className="flex flex-col gap-1">
+                    <span className="font-medium text-[#64748B]">App ID:</span>
+                    <span className="text-[#475569] font-mono">
+                      #{app.applicationNo}
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="font-medium text-[#64748B]">Date Applied:</span>
+                    <span className="text-[#475569]">
+                      {formatDate(app.lastActivity)}
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-1 col-span-2">
+                    <span className="font-medium text-[#64748B]">Stream:</span>
+                    <span className="text-[#475569] truncate" title={app.program}>
+                      {app.program}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="border-t border-[#e2e8f0]/60 pt-3 flex justify-end">
+                  <Link href={`/applications/${app.applicationNo}`}>
+                    <span className="text-[#2563EB] hover:text-[#1d4ed8] text-sm font-semibold cursor-pointer">
+                      View Details
+                    </span>
+                  </Link>
+                </div>
+              </div>
+            );
+          })
+        )}
+
+        {!showLoader && mobileVisibleCount < filteredApplications.length && (
+          <div className="flex flex-col items-center gap-3 pt-2">
+            <Button
+              variant="outline"
+              onClick={() => setMobileVisibleCount((prev) => prev + 5)}
+              className="w-full h-10 border border-[#e2e8f0] bg-white text-[#1E293B] font-medium rounded-[8px] hover:bg-slate-50 shadow-sm transition-colors"
+            >
+              Load More Applications
+            </Button>
+          </div>
+        )}
+      </div>
 
       <DashboardFilterDialog
         isOpen={advancedOpen}
