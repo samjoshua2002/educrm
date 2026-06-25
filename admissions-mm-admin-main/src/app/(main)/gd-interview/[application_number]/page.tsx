@@ -192,14 +192,7 @@ export default function GDInterviewDetailsPage() {
 
   return (
     <div className="flex flex-col gap-6 p-6 pb-20 max-w-7xl mx-auto w-full bg-white min-h-screen">
-      <div className="flex flex-col">
-        <h1 className="text-[#0A0A0A] font-inter text-[20px] font-medium leading-[20px]">
-          GD & Interview
-        </h1>
-        <p className="text-[#525252] font-inter text-[12px] font-normal leading-[16px] mt-1">
-          View and evaluate candidate interview details.
-        </p>
-      </div>
+
 
       {/* Hero Header Card */}
       <div className="relative w-full p-6 rounded-[8px] border border-[#D4D4D4] bg-white shadow-[0_1px_2px_0_rgba(0,0,0,0.05)]">
