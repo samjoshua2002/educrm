@@ -31,7 +31,6 @@ export function DynamicHeader() {
 
   const applicantName = getApplicantName();
 
-  // Dynamic title based on pathname
   const getTitle = () => {
     if (pathname.startsWith("/dashboard")) return "Dashboard Overview";
     if (pathname.startsWith("/lead-manager")) return "Lead Management";
@@ -48,6 +47,25 @@ export function DynamicHeader() {
   };
 
   const title = getTitle();
+
+  const getSubtitle = () => {
+    if (pathname.startsWith("/dashboard")) return `Welcome back, ${userName}. Here's what's happening today.`;
+    
+    const segments = pathname.split("/").filter(Boolean);
+    const isDetailPage = segments.length > 1;
+
+    if (pathname.startsWith("/applications") && isDetailPage) {
+      return `View and manage application information for ${applicantName}`;
+    }
+    
+    if (pathname.startsWith("/gd-interview") && isDetailPage) {
+      return `View and evaluate candidate interview for ${applicantName}`;
+    }
+    
+    return null;
+  };
+
+  const subtitle = getSubtitle();
 
   // Common template for actions (Right side)
   const commonActions = (
@@ -72,14 +90,9 @@ export function DynamicHeader() {
             <h1 className="text-lg font-semibold tracking-tight leading-tight">
               {title}
             </h1>
-            {pathname.includes("/applications/") && (
+            {subtitle && (
               <p className="text-[10px] text-slate-500 font-normal leading-none mt-0.5">
-                View and manage application information for {applicantName}
-              </p>
-            )}
-            {pathname.includes("/dashboard") && (
-              <p className="text-[10px] text-slate-500 font-normal leading-none mt-0.5">
-                Welcome back, {userName}. Here's what's happening today.
+                {subtitle}
               </p>
             )}
           </div>
