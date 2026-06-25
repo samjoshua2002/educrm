@@ -17,7 +17,7 @@ export const gdInterviews: GDInterview[] = [
   {
     id: 1,
     applicationNo: "APP-2026-0001",
-    name: "Aarav Mehta",
+    name: "Aarav Mehtas",
     email: "aarav.mehta@example.com",
     phone: "+91 98765 43210",
     interviewLocation: "Chennai",
