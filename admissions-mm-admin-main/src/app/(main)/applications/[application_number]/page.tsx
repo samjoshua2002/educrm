@@ -7,7 +7,7 @@ import { Manrope } from "next/font/google";
 const manrope = Manrope({ subsets: ["latin"] });
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 
 import {
   ArrowLeft,
@@ -73,6 +73,7 @@ import { toast } from "sonner";
 
 export default function ApplicationDetailsPage() {
   const params = useParams();
+  const router = useRouter();
   const applicationNumber = params.application_number as string;
   const { data: appData, isLoading } = useApplication(applicationNumber);
   const updateMutation = useUpdateApplication();
@@ -133,9 +134,10 @@ export default function ApplicationDetailsPage() {
       {/* Hero Banner Card */}
       {/* Hero Banner Card */}
       <div className="relative grid grid-cols-[auto_1fr] w-full p-[24px] gap-y-[6px] gap-x-[16px] md:gap-x-[32px] rounded-[8px] border border-[#D4D4D4] bg-white shadow-[0_1px_2px_0_rgba(0,0,0,0.05)]">
-        <Link
-          href="/applications"
+        <button
+          onClick={() => router.back()}
           className="absolute top-3 left-3 hover:opacity-80 transition-opacity p-1"
+          aria-label="Go back"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -152,7 +154,7 @@ export default function ApplicationDetailsPage() {
               strokeLinejoin="round"
             />
           </svg>
-        </Link>
+        </button>
         <Avatar className="h-16 w-16 md:h-20 md:w-20 border-4 border-slate-100 shadow-xs shrink-0 col-start-1 row-start-1 md:row-span-2 mt-2 md:mt-0">
           <AvatarImage
             src={applicationData.applicant.photo}
