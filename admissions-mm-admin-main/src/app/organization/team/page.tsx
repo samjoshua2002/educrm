@@ -174,6 +174,7 @@ export default function TeamPage() {
             phone: formPhone,
             role: formRole,
             branchId: formBranch !== "none" ? formBranch : undefined,
+            ...(formPassword ? { password: formPassword } : {}),
           },
         },
         { onSuccess: () => closeFormDialog() }
@@ -778,19 +779,23 @@ export default function TeamPage() {
             {/* PASSWORD Row */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="flex flex-col gap-2">
-                <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">Password</Label>
+                <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                  {editingUser ? "New Password" : "Password"}
+                </Label>
                 <div className="relative flex items-center">
                   <Lock className="absolute left-3.5 text-[#64748B] size-4 pointer-events-none" />
                   <Input
                     type="password"
-                    placeholder="************"
-                    value={editingUser ? "************" : formPassword}
+                    placeholder={editingUser ? "Leave blank to keep current" : "************"}
+                    value={formPassword}
                     onChange={(e) => setFormPassword(e.target.value)}
-                    disabled={!!editingUser}
-                    className="border-[#D4D4D4] rounded-lg h-11 pl-10 text-sm placeholder:text-slate-400 disabled:bg-slate-50 disabled:text-slate-400"
+                    className="border-[#D4D4D4] rounded-lg h-11 pl-10 text-sm placeholder:text-slate-400"
                     required={!editingUser}
                   />
                 </div>
+                {editingUser && (
+                  <p className="text-[11px] text-[#94A3B8]">Leave blank to keep the current password.</p>
+                )}
               </div>
               {/* Empty placeholder to occupy right half of row */}
               <div className="hidden md:block" />
