@@ -217,9 +217,9 @@ export default function GDInterviewDetailsPage() {
           </svg>
         </Link>
 
-        <div className="grid grid-cols-[auto_1fr] gap-[16px] md:gap-[24px] pt-4">
+        <div className="grid grid-cols-[auto_1fr] gap-x-[16px] md:gap-x-[24px] gap-y-[6px] pt-4">
           {/* Column 1: Avatar */}
-          <Avatar className="h-16 w-16 md:h-20 md:w-20 border-4 border-slate-100 shadow-xs shrink-0 mt-2 md:mt-0">
+          <Avatar className="h-16 w-16 md:h-20 md:w-20 border-4 border-slate-100 shadow-xs shrink-0 col-start-1 row-start-1 md:row-span-2 mt-2 md:mt-0">
             <AvatarImage
               src={appData.applicant.photo}
               alt={interviewData.name}
@@ -229,38 +229,41 @@ export default function GDInterviewDetailsPage() {
             </AvatarFallback>
           </Avatar>
 
-          {/* Column 2: Content details columns */}
-          <div className="flex flex-col gap-4 w-full overflow-hidden">
+          {/* Name & APP No */}
+          <div className="col-start-2 row-start-1 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 justify-start self-center md:self-start">
+            <h2 className="text-xl md:text-2xl font-bold text-[#0A0A0A] leading-tight break-words">
+              {interviewData.name}
+            </h2>
+            <div className="flex">
+              <span
+                className="font-sans"
+                style={{
+                  display: "inline-flex",
+                  padding: "4px 12px",
+                  flexDirection: "column",
+                  alignItems: "flex-start",
+                  borderRadius: "9999px",
+                  border: "1px solid #DBEAFE",
+                  background: "#EFF6FF",
+                  color: "#475569",
+                  fontFamily: "Inter",
+                  fontSize: "12px",
+                  fontStyle: "normal",
+                  fontWeight: 400,
+                  lineHeight: "16px",
+                  textTransform: "uppercase",
+                }}
+              >
+                APP NO: {interviewData.applicationNo}
+              </span>
+            </div>
+          </div>
+
+          {/* Details & Buttons Row */}
+          <div className="col-span-2 md:col-span-1 md:col-start-2 row-start-2 flex flex-col gap-4 w-full overflow-hidden mt-4 md:mt-0">
             {/* Top Row: Content and Buttons */}
             <div className="flex flex-col lg:flex-row justify-between items-start w-full gap-6">
               <div className="flex flex-col gap-4">
-                <div className="flex flex-wrap items-center gap-3">
-                  <h2 className="text-xl md:text-2xl font-bold text-[#0A0A0A] leading-tight">
-                    {interviewData.name}
-                  </h2>
-                  <span
-                    className="font-sans"
-                    style={{
-                      display: "inline-flex",
-                      padding: "4px 12px",
-                      flexDirection: "column",
-                      alignItems: "flex-start",
-                      borderRadius: "9999px",
-                      border: "1px solid #DBEAFE",
-                      background: "#EFF6FF",
-                      color: "#475569",
-                      fontFamily: "Inter",
-                      fontSize: "12px",
-                      fontStyle: "normal",
-                      fontWeight: 400,
-                      lineHeight: "16px",
-                      textTransform: "uppercase",
-                    }}
-                  >
-                    APP NO: {interviewData.applicationNo}
-                  </span>
-                </div>
-                
                 <div className="flex flex-col gap-3">
                   <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[#1E293B] text-[12px] font-normal leading-[20px] font-sans">
                     <span className="flex items-center gap-1.5 shrink-0">

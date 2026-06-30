@@ -47,7 +47,7 @@ export function OrganizationSidebar({
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
-      <SidebarContent>
+      <SidebarContent className="pb-10">
         <NavMain items={organizationNavItems} />
       </SidebarContent>
       <SidebarFooter className="pb-4">

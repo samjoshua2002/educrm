@@ -68,12 +68,14 @@ export function DynamicHeader() {
   const subtitle = getSubtitle();
 
   let actionText = "New applications";
-  let actionHref = "/applications/create";
+  let actionHref = "/my-application";
 
   if (pathname.startsWith("/lead-manager")) {
     actionText = "Add Lead";
     actionHref = "/lead-manager/create";
   }
+
+  const showActionButton = !pathname.startsWith("/gd-interview") && !pathname.startsWith("/my-application");
 
   // Common template for actions (Right side)
   const commonActions = (
@@ -81,12 +83,14 @@ export function DynamicHeader() {
       <Button variant="ghost" size="icon" className="size-9 rounded-full">
         <Bell className="size-5" />
       </Button>
-      <Link href={actionHref}>
-        <Button className="hidden md:flex rounded-[8px] bg-[#ea2525] hover:bg-[#bb1e1e]">
-          <Plus className="size-4 mr-2" />
-          {actionText}
-        </Button>
-      </Link>
+      {showActionButton && (
+        <Link href={actionHref}>
+          <Button className="hidden md:flex rounded-[8px] bg-[#ea2525] hover:bg-[#bb1e1e]">
+            <Plus className="size-4 mr-2" />
+            {actionText}
+          </Button>
+        </Link>
+      )}
     </div>
   );
 
