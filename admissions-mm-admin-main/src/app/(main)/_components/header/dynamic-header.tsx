@@ -73,6 +73,9 @@ export function DynamicHeader() {
   if (pathname.startsWith("/lead-manager")) {
     actionText = "Add Lead";
     actionHref = "/lead-manager/create";
+  } else if (pathname.startsWith("/superadmin/organizations")) {
+    actionText = "Create Organization";
+    actionHref = "/superadmin/organizations/create";
   }
 
   const showActionButton = !pathname.startsWith("/gd-interview") && !pathname.startsWith("/my-application");

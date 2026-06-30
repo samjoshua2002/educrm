@@ -108,14 +108,16 @@ export function MobileFab() {
                 <span className="text-[#1E293B] font-inter text-[16px] font-medium leading-normal">Add Member</span>
               </div>
 
-              <div className="flex items-center gap-4 py-3 border-b border-[#D4D4D4] cursor-pointer active:bg-muted">
-                <div className="flex size-10 items-center justify-center rounded-[32px] bg-[#2563ea] shrink-0">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
-                    <path d="M5 21C4.45 21 3.97917 20.8042 3.5875 20.4125C3.19583 20.0208 3 19.55 3 19V5C3 4.45 3.19583 3.97917 3.5875 3.5875C3.97917 3.19583 4.45 3 5 3H19C19.55 3 20.0208 3.19583 20.4125 3.5875C20.8042 3.97917 21 4.45 21 5V19C21 19.55 20.8042 20.0208 20.4125 20.4125C20.0208 20.8042 19.55 21 19 21H5ZM10 19V13H5V19H10ZM12 19H19V13H12V19ZM5 11H19V5H5V11Z" fill="white"/>
-                  </svg>
-                </div>
-                <span className="text-[#1E293B] font-inter text-[16px] font-medium leading-normal">Create Organization</span>
-              </div>
+              <SheetClose asChild>
+                <Link href="/superadmin/organizations/create" className="flex items-center gap-4 py-3 border-b border-[#D4D4D4] cursor-pointer active:bg-muted hover:bg-muted/50 transition-colors w-full">
+                  <div className="flex size-10 items-center justify-center rounded-[32px] bg-[#2563ea] shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
+                      <path d="M5 21C4.45 21 3.97917 20.8042 3.5875 20.4125C3.19583 20.0208 3 19.55 3 19V5C3 4.45 3.19583 3.97917 3.5875 3.5875C3.97917 3.19583 4.45 3 5 3H19C19.55 3 20.0208 3.19583 20.4125 3.5875C20.8042 3.97917 21 4.45 21 5V19C21 19.55 20.8042 20.0208 20.4125 20.4125C20.0208 20.8042 19.55 21 19 21H5ZM10 19V13H5V19H10ZM12 19H19V13H12V19ZM5 11H19V5H5V11Z" fill="white"/>
+                    </svg>
+                  </div>
+                  <span className="text-[#1E293B] font-inter text-[16px] font-medium leading-normal">Create Organization</span>
+                </Link>
+              </SheetClose>
             </div>
             
             {/* We also need a close button to close this full-screen sheet */}
