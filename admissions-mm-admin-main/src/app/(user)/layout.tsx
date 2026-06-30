@@ -20,8 +20,8 @@ import {
   type ContentLayout,
 } from "@/types/preferences/layout";
 
-import { DynamicHeader } from "./_components/header/dynamic-header";
-import { AccountSwitcher } from "./_components/sidebar/account-switcher";
+import { DynamicHeader } from "@/app/(main)/_components/header/dynamic-header";
+import { MobileFab } from "@/app/(main)/_components/mobile-fab";
 
 export default async function Layout({
   children,
@@ -62,23 +62,13 @@ export default async function Layout({
         className={cn(
           "data-[content-layout=centered]:!mx-auto data-[content-layout=centered]:max-w-screen-2xl",
           "max-[113rem]:peer-data-[variant=inset]:!mr-2 min-[101rem]:peer-data-[variant=inset]:peer-data-[state=collapsed]:!mr-auto",
-          "overflow-x-hidden w-full min-w-0 flex flex-col h-svh",
         )}
       >
-        {/* <header className="sticky top-0 z-10 bg-background/40 backdrop-blur-md flex h-12 shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
-                    <div className="flex w-full items-center justify-between px-4 lg:px-6">
-                         <div className="flex items-center gap-1 lg:gap-2">
-                            <SidebarTrigger className="-ml-1" />
-                        </div>
-                        <div className="flex items-center gap-2">
-
-                        </div>
-                    </div>
-                </header>  */}
         <DynamicHeader />
-        <div className="flex-1 overflow-y-auto pt-0 w-full min-w-0 flex flex-col">
+        <div className="flex-1 w-full min-w-0 flex flex-col">
           {children}
         </div>
+        <MobileFab />
       </SidebarInset>
     </SidebarProvider>
   );
