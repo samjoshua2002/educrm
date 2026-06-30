@@ -22,6 +22,7 @@ import {
 
 import { DynamicHeader } from "./_components/header/dynamic-header";
 import { AccountSwitcher } from "./_components/sidebar/account-switcher";
+import { MobileFab } from "./_components/mobile-fab";
 
 export default async function Layout({
   children,
@@ -79,6 +80,7 @@ export default async function Layout({
         <div className="flex-1 overflow-y-auto pt-0 w-full min-w-0 flex flex-col">
           {children}
         </div>
+        <MobileFab />
       </SidebarInset>
     </SidebarProvider>
   );
