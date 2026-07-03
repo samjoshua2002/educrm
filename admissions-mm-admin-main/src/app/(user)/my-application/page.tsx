@@ -70,6 +70,28 @@ import {
 
 const manrope = Manrope({ subsets: ["latin"] });
 
+// --- Number Formatting Helpers ---
+
+/** Formats a 10-digit Indian mobile number as XXXXX XXXXX */
+function formatMobile(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 10);
+  if (digits.length <= 5) return digits;
+  return `${digits.slice(0, 5)} ${digits.slice(5)}`;
+}
+
+/** Strips all non-digit characters from a string */
+function stripNonDigits(value: string): string {
+  return value.replace(/\D/g, "");
+}
+
+/** Formats a 12-digit Aadhaar number as XXXX XXXX XXXX */
+function formatAadhaar(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 12);
+  if (digits.length <= 4) return digits;
+  if (digits.length <= 8) return `${digits.slice(0, 4)} ${digits.slice(4)}`;
+  return `${digits.slice(0, 4)} ${digits.slice(4, 8)} ${digits.slice(8)}`;
+}
+
 // --- Schema Definition ---
 
 const applicationSchema = z.object({
@@ -418,7 +440,7 @@ export default function MyApplicationPage() {
               </span>
               <span className="flex items-center gap-1.5 shrink-0 font-medium text-muted-foreground">
                 <Phone className="h-4 w-4 text-muted-foreground" />
-                {form.getValues("personal.phone")}
+                {formatMobile(form.getValues("personal.phone"))}
               </span>
             </div>
           </div>
@@ -489,12 +511,12 @@ export default function MyApplicationPage() {
                   <h4 className="text-[10px] font-bold tracking-[0.6px] uppercase text-muted-foreground">COMMUNICATION</h4>
                   <div className="flex justify-between items-center text-xs">
                     <span className="text-muted-foreground font-medium">Primary Mobile</span>
-                    <span className="font-bold text-foreground">{form.getValues("personal.phone")}</span>
+                    <span className="font-bold text-foreground">{formatMobile(form.getValues("personal.phone"))}</span>
                   </div>
                   {form.getValues("personal.alternateMobile") && (
                     <div className="flex justify-between items-center text-xs">
                       <span className="text-muted-foreground font-medium">Alt Mobile</span>
-                      <span className="font-bold text-foreground">{form.getValues("personal.alternateMobile")}</span>
+                      <span className="font-bold text-foreground">{formatMobile(form.getValues("personal.alternateMobile") || "")}</span>
                     </div>
                   )}
                 </div>
@@ -685,7 +707,7 @@ export default function MyApplicationPage() {
                       </div>
                       <div>
                         <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-wider block">PHONE</span>
-                        <p className="font-semibold text-foreground truncate">{form.getValues("family.father.mobile")}</p>
+                        <p className="font-semibold text-foreground truncate">{formatMobile(form.getValues("family.father.mobile"))}</p>
                       </div>
                       <div>
                         <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-wider block">OCCUPATION / INCOME</span>
@@ -708,7 +730,7 @@ export default function MyApplicationPage() {
                       </div>
                       <div>
                         <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-wider block">PHONE</span>
-                        <p className="font-semibold text-foreground truncate">{form.getValues("family.mother.mobile")}</p>
+                        <p className="font-semibold text-foreground truncate">{formatMobile(form.getValues("family.mother.mobile"))}</p>
                       </div>
                       <div>
                         <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-wider block">OCCUPATION / INCOME</span>
@@ -878,7 +900,17 @@ export default function MyApplicationPage() {
                     <FormItem className="space-y-2">
                       <FormLabel className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">Primary Mobile</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g. 9876543210" className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground" {...field} />
+                        <Input
+                          placeholder="e.g. 98765 43210"
+                          className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground"
+                          value={formatMobile(field.value)}
+                          onChange={(e) => field.onChange(stripNonDigits(e.target.value))}
+                          onBlur={field.onBlur}
+                          name={field.name}
+                          ref={field.ref}
+                          maxLength={11}
+                          inputMode="numeric"
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -891,7 +923,17 @@ export default function MyApplicationPage() {
                     <FormItem className="space-y-2">
                       <FormLabel className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">Alternate Mobile (Optional)</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g. 9876543211" className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground" {...field} />
+                        <Input
+                          placeholder="e.g. 98765 43211"
+                          className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground"
+                          value={formatMobile(field.value || "")}
+                          onChange={(e) => field.onChange(stripNonDigits(e.target.value))}
+                          onBlur={field.onBlur}
+                          name={field.name}
+                          ref={field.ref}
+                          maxLength={11}
+                          inputMode="numeric"
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1009,7 +1051,17 @@ export default function MyApplicationPage() {
                     <FormItem className="space-y-2">
                       <FormLabel className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">Aadhaar Number</FormLabel>
                       <FormControl>
-                        <Input placeholder="12-digit Aadhaar number" maxLength={12} className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground" {...field} />
+                        <Input
+                          placeholder="XXXX XXXX XXXX"
+                          className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground tracking-wider"
+                          value={formatAadhaar(field.value)}
+                          onChange={(e) => field.onChange(stripNonDigits(e.target.value))}
+                          onBlur={field.onBlur}
+                          name={field.name}
+                          ref={field.ref}
+                          maxLength={14}
+                          inputMode="numeric"
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1525,7 +1577,17 @@ export default function MyApplicationPage() {
                         <FormItem className="space-y-2">
                           <FormLabel className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">Father&apos;s Mobile</FormLabel>
                           <FormControl>
-                            <Input placeholder="Mobile number" className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground" {...field} />
+                            <Input
+                              placeholder="e.g. 98765 43210"
+                              className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground"
+                              value={formatMobile(field.value)}
+                              onChange={(e) => field.onChange(stripNonDigits(e.target.value))}
+                              onBlur={field.onBlur}
+                              name={field.name}
+                              ref={field.ref}
+                              maxLength={11}
+                              inputMode="numeric"
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -1587,7 +1649,17 @@ export default function MyApplicationPage() {
                         <FormItem className="space-y-2">
                           <FormLabel className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">Mother&apos;s Mobile</FormLabel>
                           <FormControl>
-                            <Input placeholder="Mobile number" className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground" {...field} />
+                            <Input
+                              placeholder="e.g. 98765 43210"
+                              className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground"
+                              value={formatMobile(field.value)}
+                              onChange={(e) => field.onChange(stripNonDigits(e.target.value))}
+                              onBlur={field.onBlur}
+                              name={field.name}
+                              ref={field.ref}
+                              maxLength={11}
+                              inputMode="numeric"
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>

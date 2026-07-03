@@ -169,7 +169,13 @@ export class UsersService {
       user.tokenVersion += 1;
     }
 
-    Object.assign(user, dto);
+    // Hash new password if provided
+    if (dto.password) {
+      user.password = await bcrypt.hash(dto.password, 10);
+    }
+
+    const { password: _, ...dtoWithoutPassword } = dto as any;
+    Object.assign(user, dtoWithoutPassword);
     user.updatedBy = actor.id;
     return this.userRepo.save(user);
   }
