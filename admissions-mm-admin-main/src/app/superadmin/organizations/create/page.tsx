@@ -1,12 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { ChevronLeft, Save, X, Globe, Mail, Phone, MapPin } from "lucide-react";
+import { ChevronLeft, Check, Globe, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -14,11 +13,8 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  CardDescription,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import {
   Select,
   SelectContent,
@@ -43,7 +39,6 @@ import {
   useUpdateOrganization,
   useOrganization,
 } from "@/hooks/use-organizations";
-import { Loader2 } from "lucide-react";
 
 export default function CreateOrganizationPage() {
   const router = useRouter();
@@ -131,9 +126,9 @@ export default function CreateOrganizationPage() {
         onSubmit={form.handleSubmit(onSubmit)}
         className="flex flex-col h-full bg-background"
       >
-        <div className="sticky top-12 z-10 bg-background/40 backdrop-blur-md flex items-center px-4 md:px-6 py-3 border-b gap-3">
+        <div className="sticky top-0 z-10 bg-background flex items-center px-4 md:px-6 py-4 gap-3 border-b border-border">
           <Link href="/superadmin/organizations">
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" type="button" className="h-8 w-8">
               <ChevronLeft className="size-5" />
             </Button>
           </Link>
@@ -142,7 +137,7 @@ export default function CreateOrganizationPage() {
           </h1>
         </div>
 
-        <div className="p-4 md:p-6 overflow-auto">
+        <div className="px-4 md:px-6 py-6 overflow-auto">
           {isLoadingOrg && isEdit ? (
             <div className="flex flex-col items-center justify-center p-12 gap-4">
               <Loader2 className="size-8 animate-spin text-muted-foreground" />
@@ -151,189 +146,183 @@ export default function CreateOrganizationPage() {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-              {/* Left Column — col 8 */}
-              <div className="lg:col-span-8 flex flex-col gap-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Organization Profile</CardTitle>
-                    <CardDescription>
-                      {isEdit
-                        ? "Update the profile information for the organization."
-                        : "Enter the basic profile information for the new tenant."}
-                    </CardDescription>
+            <div className="flex flex-col gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                {/* Left Column — col 8 */}
+                <Card className="lg:col-span-8 bg-card border border-border rounded-[8px] shadow-sm overflow-hidden">
+                  <CardHeader className="border-b border-input px-6 ">
+                    <CardTitle className="text-[18px] font-medium text-foreground">
+                      Organization Information
+                    </CardTitle>
                   </CardHeader>
-                  <CardContent className="grid gap-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="name"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                              Full Legal Name
-                            </FormLabel>
-                            <FormControl>
-                              <Input
-                                placeholder="e.g. Institute of Technology"
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="slug"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                              Subdomain / Slug
-                            </FormLabel>
-                            <FormControl>
-                              <div className="flex items-center">
-                                <span className="bg-muted px-3 py-2 border border-r-0 rounded-l-md text-sm text-muted-foreground select-none">
-                                  /
-                                </span>
+                  <CardContent className="px-6 flex flex-col">
+                    {/* Organization Profile */}
+                    <section className="flex flex-col gap-6 py-6">
+                      <div className="flex flex-col gap-1.5">
+                        <p className="text-[16px] font-medium text-foreground">
+                          Organization Profile
+                        </p>
+                        <p className="text-[14px] text-muted-foreground">
+                          Basic profile information of the tenant
+                        </p>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-6">
+                        <FormField
+                          control={form.control}
+                          name="name"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-col gap-2 space-y-0">
+                              <FormLabel className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">
+                                Full Legal Name
+                              </FormLabel>
+                              <FormControl>
                                 <Input
-                                  placeholder="iot-main"
-                                  className="rounded-l-none"
+                                  placeholder="e.g., Sam Joshua"
+                                  className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground"
                                   {...field}
-                                  disabled={isEdit}
                                 />
-                              </div>
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="slug"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-col gap-2 space-y-0">
+                              <FormLabel className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">
+                                Subdomain / Slug
+                              </FormLabel>
+                              <FormControl>
+                                <div className="flex items-center">
+                                  <span className="bg-muted px-3 h-[40px] border border-input border-r-0 rounded-l-[8px] flex items-center text-[12px] text-muted-foreground select-none">
+                                    /
+                                  </span>
+                                  <Input
+                                    placeholder="e.g., Sam@gmail.com"
+                                    className="border border-input h-[40px] rounded-l-none rounded-r-[8px] text-[12px] placeholder:text-muted-foreground w-full"
+                                    {...field}
+                                    disabled={isEdit}
+                                  />
+                                </div>
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="email"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                              Contact Email
-                            </FormLabel>
-                            <FormControl>
-                              <div className="relative">
-                                <Mail className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-6">
+                        <FormField
+                          control={form.control}
+                          name="email"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-col gap-2 space-y-0">
+                              <FormLabel className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">
+                                Contact Email
+                              </FormLabel>
+                              <FormControl>
                                 <Input
-                                  className="pl-9"
-                                  placeholder="admin@org.com"
+                                  className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground w-full"
+                                  placeholder="e.g., Sam@gmail.com"
                                   {...field}
                                 />
-                              </div>
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="phone"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                              Contact Phone
-                            </FormLabel>
-                            <FormControl>
-                              <div className="relative">
-                                <Phone className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="phone"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-col gap-2 space-y-0">
+                              <FormLabel className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">
+                                Contact Mobile
+                              </FormLabel>
+                              <FormControl>
                                 <Input
-                                  className="pl-9"
-                                  placeholder="+91 98765 43210"
+                                  className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground w-full"
+                                  placeholder="e.g., +91 9876543210"
                                   {...field}
                                 />
-                              </div>
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
 
-                    <FormField
-                      control={form.control}
-                      name="address"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                            Primary Address
-                          </FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <MapPin className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                              <Input
-                                className="pl-9"
-                                placeholder="123 Campus Road, Academic District"
-                                {...field}
-                              />
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="logoUrl"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                            Logo URL
-                          </FormLabel>
-                          <FormControl>
-                            <Input placeholder="https://..." {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                      <div className="flex flex-col gap-6">
+                        <FormField
+                          control={form.control}
+                          name="address"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-col gap-2 space-y-0">
+                              <FormLabel className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">
+                                Primary Address
+                              </FormLabel>
+                              <FormControl>
+                                <Input
+                                  className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground w-full"
+                                  placeholder="123, chennai campus"
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="logoUrl"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-col gap-2 space-y-0">
+                              <FormLabel className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">
+                                Logo URL
+                              </FormLabel>
+                              <FormControl>
+                                <Input
+                                  placeholder="https://"
+                                  className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground"
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </section>
                   </CardContent>
                 </Card>
 
-                <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 rounded-lg p-4 flex gap-4">
-                  <Globe className="size-6 text-blue-600 dark:text-blue-400 shrink-0 mt-1" />
-                  <div>
-                    <h4 className="font-semibold text-blue-900 dark:text-blue-100">
-                      Tenant Isolation
-                    </h4>
-                    <p className="text-sm text-blue-800/80 dark:text-blue-200/80 leading-relaxed">
-                      {isEdit
-                        ? "Updates to the organization will be propagated across their dedicated resources."
-                        : "Creating an organization will initialize a private database schema and dedicated storage bucket. The slug will be used as the unique identifier for their access portal."}
-                    </p>
-                  </div>
-                </div>
-              </div>
+                {/* Right Column — col 4 */}
+                <div className="lg:col-span-4 flex flex-col gap-6">
+                  <div className="border border-border rounded-[8px] bg-card p-6 flex flex-col gap-6">
+                    <h2 className="text-[18px] font-medium text-foreground">
+                      Subscription
+                    </h2>
 
-              {/* Right Column — col 4 */}
-              <div className="lg:col-span-4 flex flex-col gap-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Subscription</CardTitle>
-                  </CardHeader>
-                  <CardContent className="grid gap-6">
-                    <div className="grid gap-4">
+                    <div className="flex flex-col gap-6">
                       <FormField
                         control={form.control}
                         name="status"
                         render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                          <FormItem className="flex flex-col gap-2 space-y-0">
+                            <FormLabel className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">
                               Status
                             </FormLabel>
                             <Select
+                              key={field.value || "empty"}
                               onValueChange={field.onChange}
                               value={field.value}
                             >
                               <FormControl>
-                                <SelectTrigger>
+                                <SelectTrigger className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full data-[placeholder]:text-muted-foreground">
                                   <SelectValue placeholder="Select status" />
                                 </SelectTrigger>
                               </FormControl>
@@ -353,22 +342,25 @@ export default function CreateOrganizationPage() {
                         control={form.control}
                         name="subscriptionStart"
                         render={({ field }) => (
-                          <FormItem className="flex flex-col">
-                            <FormLabel className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                              Plan Start Date
+                          <FormItem className="flex flex-col gap-2 space-y-0">
+                            <FormLabel className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">
+                              Plans Start Date
                             </FormLabel>
                             <FormControl>
-                              <Input
-                                type="date"
-                                value={
-                                  field.value instanceof Date
-                                    ? field.value.toISOString().split("T")[0]
-                                    : ""
-                                }
-                                onChange={(e) =>
-                                  field.onChange(new Date(e.target.value))
-                                }
-                              />
+                              <div className="relative">
+                                <Input
+                                  type="date"
+                                  className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full"
+                                  value={
+                                    field.value instanceof Date
+                                      ? field.value.toISOString().split("T")[0]
+                                      : ""
+                                  }
+                                  onChange={(e) =>
+                                    field.onChange(new Date(e.target.value))
+                                  }
+                                />
+                              </div>
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -379,22 +371,25 @@ export default function CreateOrganizationPage() {
                         control={form.control}
                         name="subscriptionEnd"
                         render={({ field }) => (
-                          <FormItem className="flex flex-col">
-                            <FormLabel className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                              Plan End Date
+                          <FormItem className="flex flex-col gap-2 space-y-0">
+                            <FormLabel className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">
+                              Plans End Date
                             </FormLabel>
                             <FormControl>
-                              <Input
-                                type="date"
-                                value={
-                                  field.value instanceof Date
-                                    ? field.value.toISOString().split("T")[0]
-                                    : ""
-                                }
-                                onChange={(e) =>
-                                  field.onChange(new Date(e.target.value))
-                                }
-                              />
+                              <div className="relative">
+                                <Input
+                                  type="date"
+                                  className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full"
+                                  value={
+                                    field.value instanceof Date
+                                      ? field.value.toISOString().split("T")[0]
+                                      : ""
+                                  }
+                                  onChange={(e) =>
+                                    field.onChange(new Date(e.target.value))
+                                  }
+                                />
+                              </div>
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -402,35 +397,45 @@ export default function CreateOrganizationPage() {
                       />
                     </div>
 
-                    <Separator />
-
-                    <div className="flex flex-col gap-3">
+                    <div className="flex flex-col gap-3 mt-2">
                       <Button
                         type="submit"
-                        className="w-full"
+                        className="w-full bg-[#2563eb] hover:bg-[#2563eb]/90 text-white flex items-center justify-center gap-2 h-11 text-[15px] font-medium rounded-[8px]"
                         disabled={isPending}
                       >
                         {isPending ? (
-                          <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                          <Loader2 className="size-5 animate-spin" />
                         ) : (
-                          <Save className="mr-2 h-4 w-4" />
+                          <Check className="size-[18px]" />
                         )}
-                        {isEdit ? "Update Organization" : "Create Organization"}
+                        Save Organization
                       </Button>
                       <Link href="/superadmin/organizations" className="w-full">
                         <Button
                           variant="outline"
-                          className="w-full"
+                          className="w-full border border-border h-11 text-[15px] font-medium text-foreground rounded-[8px] hover:bg-accent hover:text-accent-foreground"
                           type="button"
                           disabled={isPending}
                         >
-                          <X className="mr-2 h-4 w-4" />
                           Cancel
                         </Button>
                       </Link>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
+              </div>
+
+              {/* Full Width Tenant Isolation Card */}
+              <div className="bg-[#f0f4ff] dark:bg-blue-950/30 flex flex-col gap-3 p-6 rounded-[8px] border-0">
+                <div className="flex items-center gap-2">
+                  <Globe className="size-5 text-[#2563eb] dark:text-blue-400" />
+                  <p className="text-[#2563eb] dark:text-blue-400 text-[18px] font-semibold leading-normal">
+                    Tenant Isolation
+                  </p>
+                </div>
+                <p className="text-foreground text-[12px] font-medium leading-[20px] tracking-[0.6px]">
+                  Completing the Lead Source details helps the AI system better predict conversion rates for this campaign.
+                </p>
               </div>
             </div>
           )}
