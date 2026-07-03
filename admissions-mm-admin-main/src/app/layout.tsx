@@ -8,6 +8,7 @@ import { APP_CONFIG } from "@/config/app-config";
 import { getPreference } from "@/server/server-actions";
 import { PreferencesStoreProvider } from "@/stores/preferences/preferences-provider";
 import QueryProvider from "@/components/providers/query-provider";
+import { TopProgressBar } from "@/components/ui/top-progress-bar";
 import {
   THEME_MODE_VALUES,
   THEME_PRESET_VALUES,
@@ -48,7 +49,7 @@ export default async function RootLayout({
       suppressHydrationWarning
     >
       <body
-        className={`${inter.className} min-h-screen antialiased`}
+        className={`${inter.className} min-h-screen antialiased bg-background text-foreground`}
         suppressHydrationWarning
       >
         <QueryProvider>
@@ -56,6 +57,7 @@ export default async function RootLayout({
             themeMode={themeMode}
             themePreset={themePreset}
           >
+            <TopProgressBar />
             {children}
             <Toaster />
           </PreferencesStoreProvider>

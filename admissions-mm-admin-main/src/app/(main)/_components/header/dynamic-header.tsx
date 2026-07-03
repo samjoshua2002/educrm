@@ -80,6 +80,12 @@ export function DynamicHeader() {
 
   const showActionButton = !pathname.startsWith("/gd-interview") && !pathname.startsWith("/my-application");
 
+  const buttonWidths: Record<string, string> = {
+    "New applications": "w-[166px]",
+    "Add Lead": "w-[114px]",
+    "Create Organization": "w-[180px]",
+  };
+
   // Common template for actions (Right side)
   const commonActions = (
     <div className="flex items-center gap-2">
@@ -88,8 +94,8 @@ export function DynamicHeader() {
       </Button>
       {showActionButton && (
         <Link href={actionHref}>
-          <Button className="hidden md:flex rounded-[8px] bg-[#ea2525] hover:bg-[#bb1e1e]">
-            <Plus className="size-4 mr-2" />
+          <Button className={`hidden md:flex rounded-[8px] bg-[#ea2525] hover:bg-[#bb1e1e] justify-center ${buttonWidths[actionText] || ""}`}>
+            <Plus className="size-4" />
             {actionText}
           </Button>
         </Link>
