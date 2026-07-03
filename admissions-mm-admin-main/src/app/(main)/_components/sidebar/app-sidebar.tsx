@@ -51,12 +51,6 @@ export function AppSidebar({
       </SidebarHeader>
       <SidebarContent className="pb-10">
         <NavMain items={sidebarItems} />
-        <div className="px-3 mt-4 mb-2 md:hidden">
-          <Button className="w-full rounded-[8px] bg-[#2563EA] hover:bg-[#1D4ED8] text-white">
-            <Plus className="size-4 mr-2" />
-            New applications
-          </Button>
-        </div>
       </SidebarContent>
       <SidebarFooter className="pb-4">
         <SidebarMenu>

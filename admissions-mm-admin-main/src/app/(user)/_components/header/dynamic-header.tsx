@@ -73,8 +73,8 @@ export function DynamicHeader() {
       <Button variant="ghost" size="icon" className="size-9 rounded-full">
         <Bell className="size-5" />
       </Button>
-      <Button className="hidden md:flex rounded-[8px] bg-[#ea2525] hover:bg-[#bb1e1e]">
-        <Plus className="size-4 mr-2" />
+      <Button className="hidden md:flex rounded-[8px] bg-[#ea2525] hover:bg-[#bb1e1e] w-[166px] justify-center">
+        <Plus className="size-4" />
         New applications
       </Button>
     </div>
