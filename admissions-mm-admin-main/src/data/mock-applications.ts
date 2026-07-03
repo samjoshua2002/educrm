@@ -1,7 +1,7 @@
 import { gdInterviews } from "./mock-gd-interviews";
 
 export type Application = {
-  id: number;
+  id: number | string;
   applicationNo: string;
   name: string;
   email: string;

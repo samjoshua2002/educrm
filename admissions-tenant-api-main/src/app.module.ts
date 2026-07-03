@@ -9,6 +9,7 @@ import { OrganizationsModule } from './modules/organizations/organizations.modul
 import { BranchesModule } from './modules/branches/branches.module.js';
 import { FormsModule } from './modules/forms/forms.module.js';
 import { LeadsModule } from './modules/leads/leads.module.js';
+import { ApplicationsModule } from './modules/applications/applications.module.js';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { LeadsModule } from './modules/leads/leads.module.js';
     BranchesModule,
     FormsModule,
     LeadsModule,
+    ApplicationsModule,
   ],
   providers: [
     {

@@ -430,5 +430,366 @@ ALTER TABLE leads ADD COLUMN IF NOT EXISTS closure_reason VARCHAR(100);
 ALTER TABLE leads ADD COLUMN IF NOT EXISTS closure_notes TEXT;
 
 -- ============================================================
+-- TABLE: students
+-- ============================================================
+CREATE TABLE IF NOT EXISTS students (
+    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    organization_id UUID NOT NULL,
+    name            VARCHAR(255) NOT NULL,
+    email           VARCHAR(255) NOT NULL,
+    phone           VARCHAR(50),
+    created_at      TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMP NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_students_organization
+        FOREIGN KEY (organization_id)
+        REFERENCES organizations(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT unique_student_email_per_org UNIQUE (organization_id, email)
+);
+
+-- ============================================================
+-- ENUMS FOR APPLICATIONS
+-- ============================================================
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'application_form_status_enum') THEN
+        CREATE TYPE application_form_status_enum AS ENUM (
+            'incomplete',
+            'submitted',
+            'under_review',
+            'accepted',
+            'rejected'
+        );
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'application_payment_status_enum') THEN
+        CREATE TYPE application_payment_status_enum AS ENUM (
+            'pending',
+            'paid',
+            'failed',
+            'refunded'
+        );
+    END IF;
+END
+$$;
+
+-- ============================================================
+-- TABLE: applications
+-- ============================================================
+CREATE TABLE IF NOT EXISTS applications (
+    id                      UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    organization_id         UUID                NOT NULL,
+    branch_id               UUID,
+    lead_id                 UUID,                -- optional link back to leads table
+    assigned_counselor_id   UUID,                -- counselor who created this application (for audit trail)
+
+    -- Auto-generated application number (e.g. CHN/2026/0001)
+    application_no          VARCHAR(50)         NOT NULL UNIQUE,
+    academic_session        VARCHAR(20)         NOT NULL,  -- e.g. '2025-26' (renamed from academic_year, now NOT NULL)
+    course_id               UUID,                -- FK to courses table, used for duplicate prevention
+    program                 VARCHAR(255),        -- display label e.g. 'PGDM', 'MBA'
+
+    -- Photo
+    photo_url               VARCHAR(500),
+
+    -- Form & Payment status
+    form_status             application_form_status_enum NOT NULL DEFAULT 'incomplete',
+    payment_status          application_payment_status_enum NOT NULL DEFAULT 'pending',
+    payment_mode            VARCHAR(50),        -- 'Online', 'UPI', 'Net Banking', 'Credit Card', etc.
+    payment_amount          DECIMAL(10, 2)      DEFAULT 0,
+    payment_date            TIMESTAMP,
+    payment_reference       VARCHAR(100),       -- transaction ID
+
+    -- Campus/Location Preferences (FK to branches table — Rule 3)
+    preference_1            UUID,               -- FK to branches.id (e.g. Chennai campus)
+    preference_2            UUID,               -- FK to branches.id (e.g. Kochi campus)
+
+    -- Personal Details (PDF Page 1)
+    name                    VARCHAR(255)        NOT NULL,
+    email                   VARCHAR(255)        NOT NULL,
+    primary_mobile          VARCHAR(50)         NOT NULL,
+    alternate_mobile        VARCHAR(50),
+    gender                  VARCHAR(20),        -- 'Male', 'Female', 'Other'
+    date_of_birth           DATE,
+    age_as_on_reference     VARCHAR(50),        -- 'X Years, Y Days' (computed / stored)
+    religion                VARCHAR(50),
+    nationality             VARCHAR(50)         DEFAULT 'Indian',
+    aadhaar_number          VARCHAR(20),
+    category                VARCHAR(20),        -- 'GEN', 'OBC', 'SC', 'ST', 'EWS'
+    marital_status          VARCHAR(20),        -- 'Unmarried', 'Married', 'Divorced', 'Widowed'
+    spouse_name             VARCHAR(255),
+    spouse_occupation       VARCHAR(255),
+
+    -- Additional Info (PDF Page 3)
+    inspiration_essay       TEXT,               -- "What inspires you to pursue PGDM/MBA..."
+    how_did_you_know        VARCHAR(255),       -- 'Education Portals', 'Social Media', etc.
+    has_medical_condition   BOOLEAN             DEFAULT FALSE,
+    medical_condition_details TEXT,
+
+    -- Declaration (PDF Page 4)
+    declaration_accepted    BOOLEAN             DEFAULT FALSE,
+    declaration_applicant_name VARCHAR(255),
+    declaration_parent_name VARCHAR(255),
+    declaration_date        DATE,
+    declaration_place       VARCHAR(100),
+
+    -- Metadata
+    submitted_at            TIMESTAMP,
+    last_activity_at        TIMESTAMP           DEFAULT NOW(),
+
+    -- Audit
+    created_by              UUID,
+    updated_by              UUID,
+    created_at              TIMESTAMP           NOT NULL DEFAULT NOW(),
+    updated_at              TIMESTAMP           NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_applications_organization
+        FOREIGN KEY (organization_id)
+        REFERENCES organizations(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_applications_branch
+        FOREIGN KEY (branch_id)
+        REFERENCES branches(id)
+        ON DELETE SET NULL,
+
+    CONSTRAINT fk_applications_lead
+        FOREIGN KEY (lead_id)
+        REFERENCES leads(id)
+        ON DELETE SET NULL,
+
+    CONSTRAINT fk_applications_counselor
+        FOREIGN KEY (assigned_counselor_id)
+        REFERENCES users(id)
+        ON DELETE SET NULL,
+
+    CONSTRAINT fk_applications_preference_1
+        FOREIGN KEY (preference_1)
+        REFERENCES branches(id)
+        ON DELETE SET NULL,
+
+    CONSTRAINT fk_applications_preference_2
+        FOREIGN KEY (preference_2)
+        REFERENCES branches(id)
+        ON DELETE SET NULL
+);
+
+-- ============================================================
+-- TABLE: application_education
+-- ============================================================
+CREATE TABLE IF NOT EXISTS application_education (
+    id                      UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    application_id          UUID                NOT NULL,
+    level                   VARCHAR(50)         NOT NULL, -- 'Class X', 'Class XII', 'Degree', 'Post Graduation'
+    institution             VARCHAR(255),
+    board_university        VARCHAR(255),
+    year_of_passing         VARCHAR(4),
+    percentage_cgpa         VARCHAR(20),
+    class_obtained          VARCHAR(50),
+    major_subjects          VARCHAR(255),
+    is_completed            BOOLEAN             DEFAULT TRUE, -- for 'Degree awaited'
+
+    created_at              TIMESTAMP           NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_education_application
+        FOREIGN KEY (application_id)
+        REFERENCES applications(id)
+        ON DELETE CASCADE
+);
+
+-- ============================================================
+-- TABLE: application_entrance_tests
+-- ============================================================
+CREATE TABLE IF NOT EXISTS application_entrance_tests (
+    id                      UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    application_id          UUID                NOT NULL,
+    test_name               VARCHAR(100)        NOT NULL, -- 'XAT', 'CAT', 'MAT', etc.
+    month_year              VARCHAR(50),
+    composite_score         DECIMAL(10, 2),
+    percentile              DECIMAL(5, 2),
+    
+    created_at              TIMESTAMP           NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_entrance_application
+        FOREIGN KEY (application_id)
+        REFERENCES applications(id)
+        ON DELETE CASCADE
+);
+
+-- ============================================================
+-- TABLE: application_work_experience
+-- ============================================================
+CREATE TABLE IF NOT EXISTS application_work_experience (
+    id                      UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    application_id          UUID                NOT NULL,
+    organization            VARCHAR(255)        NOT NULL,
+    designation             VARCHAR(255),
+    from_date               DATE,
+    to_date                 DATE,
+    roles_responsibilities  TEXT,
+    gross_salary            VARCHAR(100),
+    
+    created_at              TIMESTAMP           NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_work_exp_application
+        FOREIGN KEY (application_id)
+        REFERENCES applications(id)
+        ON DELETE CASCADE
+);
+
+-- ============================================================
+-- TABLE: application_parents
+-- ============================================================
+CREATE TABLE IF NOT EXISTS application_parents (
+    id                      UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    application_id          UUID                NOT NULL,
+    relationship            VARCHAR(50)         NOT NULL, -- 'Father', 'Mother', 'Guardian'
+    name                    VARCHAR(255)        NOT NULL,
+    age                     INTEGER,
+    education               VARCHAR(100),
+    occupation              VARCHAR(100),
+    organization            VARCHAR(255),
+    designation             VARCHAR(100),
+    office_address          TEXT,
+    phone                   VARCHAR(50),
+    email                   VARCHAR(255),
+    annual_income           VARCHAR(100),
+    
+    created_at              TIMESTAMP           NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_parents_application
+        FOREIGN KEY (application_id)
+        REFERENCES applications(id)
+        ON DELETE CASCADE
+);
+
+-- ============================================================
+-- TABLE: application_addresses
+-- ============================================================
+CREATE TABLE IF NOT EXISTS application_addresses (
+    id                      UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    application_id          UUID                NOT NULL,
+    type                    VARCHAR(50)         NOT NULL, -- 'Present', 'Permanent'
+    address_line_1          TEXT                NOT NULL,
+    address_line_2          TEXT,
+    city                    VARCHAR(100),
+    district                VARCHAR(100),
+    state                   VARCHAR(100),
+    pincode                 VARCHAR(20),
+    phone                   VARCHAR(50),
+    
+    created_at              TIMESTAMP           NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_addresses_application
+        FOREIGN KEY (application_id)
+        REFERENCES applications(id)
+        ON DELETE CASCADE
+);
+
+-- ============================================================
+-- TABLE: application_extra_curriculars
+-- ============================================================
+CREATE TABLE IF NOT EXISTS application_extra_curriculars (
+    id                      UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    application_id          UUID                NOT NULL,
+    activity                VARCHAR(255)        NOT NULL,
+    level                   VARCHAR(100),       -- 'School', 'College', 'State', 'National'
+    achievements            TEXT,
+    
+    created_at              TIMESTAMP           NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_extra_curr_application
+        FOREIGN KEY (application_id)
+        REFERENCES applications(id)
+        ON DELETE CASCADE
+);
+
+-- ============================================================
+-- TABLE: application_other_qualifications
+-- ============================================================
+CREATE TABLE IF NOT EXISTS application_other_qualifications (
+    id                      UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    application_id          UUID                NOT NULL,
+    course_name             VARCHAR(255)        NOT NULL,
+    institution             VARCHAR(255),
+    year_of_passing         VARCHAR(4),
+    grade_or_percentage     VARCHAR(50),
+    
+    created_at              TIMESTAMP           NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_other_qual_application
+        FOREIGN KEY (application_id)
+        REFERENCES applications(id)
+        ON DELETE CASCADE
+);
+
+-- ============================================================
+-- TABLE: application_activities (Timeline)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS application_activities (
+    id                      UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    application_id          UUID                NOT NULL,
+    organization_id         UUID                NOT NULL,
+    actor_id                UUID,               -- User who performed the action
+    action                  VARCHAR(50)         NOT NULL, -- 'created', 'status_changed', 'section_updated', 'note_added'
+    content                 TEXT,
+    previous_status         VARCHAR(50),
+    new_status              VARCHAR(50),
+    
+    created_at              TIMESTAMP           NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_activities_application
+        FOREIGN KEY (application_id)
+        REFERENCES applications(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_activities_app_org
+        FOREIGN KEY (organization_id)
+        REFERENCES organizations(id)
+        ON DELETE CASCADE
+);
+
+-- ============================================================
+-- INDEXES
+-- ============================================================
+-- applications
+CREATE INDEX IF NOT EXISTS idx_applications_org_id          ON applications(organization_id);
+CREATE INDEX IF NOT EXISTS idx_applications_branch_id       ON applications(branch_id);
+CREATE INDEX IF NOT EXISTS idx_applications_lead_id         ON applications(lead_id);
+CREATE INDEX IF NOT EXISTS idx_applications_application_no  ON applications(application_no);
+CREATE INDEX IF NOT EXISTS idx_applications_email           ON applications(email);
+CREATE INDEX IF NOT EXISTS idx_applications_phone           ON applications(primary_mobile);
+CREATE INDEX IF NOT EXISTS idx_applications_form_status     ON applications(form_status);
+CREATE INDEX IF NOT EXISTS idx_applications_payment_status  ON applications(payment_status);
+CREATE INDEX IF NOT EXISTS idx_applications_submitted_at    ON applications(submitted_at);
+CREATE INDEX IF NOT EXISTS idx_applications_counselor_id    ON applications(assigned_counselor_id);
+CREATE INDEX IF NOT EXISTS idx_applications_course_id       ON applications(course_id);
+CREATE INDEX IF NOT EXISTS idx_applications_academic_session ON applications(academic_session);
+
+-- Academic Session Isolation: prevent duplicate active applications per email/course/session (Rule 4)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_applications_unique_active
+    ON applications (organization_id, email, course_id, academic_session)
+    WHERE form_status NOT IN ('rejected');
+
+-- child tables
+CREATE INDEX IF NOT EXISTS idx_app_education_app_id         ON application_education(application_id);
+CREATE INDEX IF NOT EXISTS idx_app_entrance_app_id          ON application_entrance_tests(application_id);
+CREATE INDEX IF NOT EXISTS idx_app_work_exp_app_id          ON application_work_experience(application_id);
+CREATE INDEX IF NOT EXISTS idx_app_parents_app_id           ON application_parents(application_id);
+CREATE INDEX IF NOT EXISTS idx_app_addresses_app_id         ON application_addresses(application_id);
+CREATE INDEX IF NOT EXISTS idx_app_extra_curr_app_id        ON application_extra_curriculars(application_id);
+CREATE INDEX IF NOT EXISTS idx_app_other_qual_app_id        ON application_other_qualifications(application_id);
+CREATE INDEX IF NOT EXISTS idx_app_activities_app_id        ON application_activities(application_id);
+CREATE INDEX IF NOT EXISTS idx_app_activities_org_id        ON application_activities(organization_id);
+CREATE INDEX IF NOT EXISTS idx_students_org_id              ON students(organization_id);
+
+-- ============================================================
 -- END OF SCHEMA
 -- ============================================================
+

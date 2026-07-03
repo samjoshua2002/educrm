@@ -4,7 +4,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { getStoredApplications } from "@/hooks/use-applications";
+import { useApplications } from "@/hooks/use-applications";
 
 import {
   EllipsisVertical,
@@ -130,10 +130,13 @@ export default function GDInterviewPage() {
     React.useState<GDInterview[]>(gdInterviews);
   const [deleteId, setDeleteId] = React.useState<number | null>(null);
 
+  const { data: appsResponse } = useApplications();
+  const appsList = (appsResponse as any)?.data || appsResponse || [];
+
   const activeAppNos = React.useMemo(() => {
-    if (typeof window === "undefined") return [];
-    return getStoredApplications().map((app) => app.applicationNo);
-  }, []);
+    if (!Array.isArray(appsList)) return [];
+    return appsList.map((app: any) => app.applicationNo);
+  }, [appsList]);
 
   // Dynamic filter options derived from actual data
   const uniqueCourses = React.useMemo(() => {
