@@ -749,10 +749,6 @@ export default function GDInterviewPage() {
                                 </DropdownMenuItem>
                               );
                             })()}
-                            <DropdownMenuItem className="gap-2">
-                              <Pencil className="size-4" />
-                              Edit
-                            </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               variant="destructive"
@@ -935,10 +931,6 @@ export default function GDInterviewPage() {
                               </DropdownMenuItem>
                             );
                           })()}
-                          <DropdownMenuItem className="gap-2">
-                            <Pencil className="size-4" />
-                            Edit
-                          </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
                             variant="destructive"

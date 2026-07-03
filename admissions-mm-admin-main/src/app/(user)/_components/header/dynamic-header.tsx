@@ -11,20 +11,19 @@ import { users } from "@/data/users";
 
 import { AccountSwitcher } from "../sidebar/account-switcher";
 import { useAuthStore } from "@/stores/auth-store";
-import { useApplications } from "@/hooks/use-applications";
+import { getStoredApplications } from "@/hooks/use-applications";
 
 export function DynamicHeader() {
   const pathname = usePathname();
   const user = useAuthStore((state) => state.user);
   const userName = user?.name?.split(" ")[0] || "User";
-  const { data: appsResponse } = useApplications();
-  const appsList: any[] = (appsResponse as any)?.data || appsResponse || [];
 
   const getApplicantName = () => {
     const segments = pathname.split("/").filter(Boolean);
     const appNo = segments[segments.length - 1];
-    if (appNo && Array.isArray(appsList)) {
-      const app = appsList.find((a: any) => a.applicationNo === appNo);
+    if (appNo) {
+      const appsList = getStoredApplications();
+      const app = appsList.find((a) => a.applicationNo === appNo);
       if (app) return app.name.toUpperCase();
     }
     return "MS. ANBUKARASI A";
@@ -68,39 +67,16 @@ export function DynamicHeader() {
 
   const subtitle = getSubtitle();
 
-  let actionText = "New applications";
-  let actionHref = "/my-application";
-
-  if (pathname.startsWith("/lead-manager")) {
-    actionText = "Add Lead";
-    actionHref = "/lead-manager/create";
-  } else if (pathname.startsWith("/superadmin/organizations")) {
-    actionText = "Create Organization";
-    actionHref = "/superadmin/organizations/create";
-  }
-
-  const showActionButton = !pathname.startsWith("/gd-interview") && !pathname.startsWith("/my-application");
-
-  const buttonWidths: Record<string, string> = {
-    "New applications": "w-[166px]",
-    "Add Lead": "w-[114px]",
-    "Create Organization": "w-[180px]",
-  };
-
   // Common template for actions (Right side)
   const commonActions = (
     <div className="flex items-center gap-2">
       <Button variant="ghost" size="icon" className="size-9 rounded-full">
         <Bell className="size-5" />
       </Button>
-      {showActionButton && (
-        <Link href={actionHref}>
-          <Button className={`hidden md:flex rounded-[8px] bg-[#ea2525] hover:bg-[#bb1e1e] justify-center ${buttonWidths[actionText] || ""}`}>
-            <Plus className="size-4" />
-            {actionText}
-          </Button>
-        </Link>
-      )}
+      <Button className="hidden md:flex rounded-[8px] bg-[#ea2525] hover:bg-[#bb1e1e] w-[166px] justify-center">
+        <Plus className="size-4" />
+        New applications
+      </Button>
     </div>
   );
 

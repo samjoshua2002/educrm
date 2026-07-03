@@ -60,3 +60,63 @@ export function useUpdateOrganization(id: string) {
     },
   });
 }
+
+export function useDeactivateOrganization() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => apiPatch<Organization>(`/organizations/${id}`, { status: "expired" }),
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ["organizations"] });
+      queryClient.invalidateQueries({ queryKey: ["organization", id] });
+      toast.success("Organization deactivated successfully");
+    },
+    onError: (error: any) => {
+      toast.error(
+        error.response?.data?.message || "Failed to deactivate organization",
+      );
+    },
+  });
+}
+
+export function useActivateOrganization() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => apiPatch<Organization>(`/organizations/${id}`, { status: "active" }),
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ["organizations"] });
+      queryClient.invalidateQueries({ queryKey: ["organization", id] });
+      toast.success("Organization activated successfully");
+    },
+    onError: (error: any) => {
+      toast.error(
+        error.response?.data?.message || "Failed to activate organization",
+      );
+    },
+  });
+}
+
+export function useUpdateOrganizationGeneric() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: Partial<CreateOrganizationInput> & { status?: string };
+    }) => apiPatch<Organization>(`/organizations/${id}`, data),
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: ["organizations"] });
+      queryClient.invalidateQueries({ queryKey: ["organization", id] });
+      toast.success("Organization updated successfully");
+    },
+    onError: (error: any) => {
+      toast.error(
+        error.response?.data?.message || "Failed to update organization",
+      );
+    },
+  });
+}

@@ -22,6 +22,7 @@ import {
 
 import { DynamicHeader } from "./_components/header/dynamic-header";
 import { AccountSwitcher } from "./_components/sidebar/account-switcher";
+import { MobileFab } from "./_components/mobile-fab";
 
 export default async function Layout({
   children,
@@ -62,7 +63,7 @@ export default async function Layout({
         className={cn(
           "data-[content-layout=centered]:!mx-auto data-[content-layout=centered]:max-w-screen-2xl",
           "max-[113rem]:peer-data-[variant=inset]:!mr-2 min-[101rem]:peer-data-[variant=inset]:peer-data-[state=collapsed]:!mr-auto",
-          "overflow-x-hidden w-full min-w-0 flex flex-col h-svh",
+          "overflow-x-hidden w-full min-w-0 flex flex-col h-dvh",
         )}
       >
         {/* <header className="sticky top-0 z-10 bg-background/40 backdrop-blur-md flex h-12 shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
@@ -79,6 +80,7 @@ export default async function Layout({
         <div className="flex-1 overflow-y-auto pt-0 w-full min-w-0 flex flex-col">
           {children}
         </div>
+        <MobileFab />
       </SidebarInset>
     </SidebarProvider>
   );
