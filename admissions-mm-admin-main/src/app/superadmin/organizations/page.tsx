@@ -10,6 +10,7 @@ import {
   ExternalLink,
   Users,
   SearchX,
+  CheckCircle,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -47,15 +48,25 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useOrganizations } from "@/hooks/use-organizations";
+import { useOrganizations, useDeactivateOrganization, useActivateOrganization, useUpdateOrganizationGeneric } from "@/hooks/use-organizations";
 import { Organization } from "@/types/organization";
 import { cn } from "@/lib/utils";
+import { Loader2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 
 const orgStatusStyles: Record<string, string> = {
   Active: "bg-[rgba(5,150,105,0.2)] text-[#065f46] hover:bg-[rgba(5,150,105,0.3)] font-medium px-[10px] py-[2px] rounded-[9999px] text-[12px] border-0",
   Inactive: "bg-[rgba(217,119,6,0.2)] text-[#bd0f0f] hover:bg-[rgba(217,119,6,0.3)] font-medium px-[10px] py-[2px] rounded-[9999px] text-[12px] border-0",
   Expired: "bg-[rgba(217,119,6,0.2)] text-[#bd0f0f] hover:bg-[rgba(217,119,6,0.3)] font-medium px-[10px] py-[2px] rounded-[9999px] text-[12px] border-0",
   Pending: "bg-[#fef3c7] text-[#9a3412] hover:bg-[#fde68a] font-medium px-[10px] py-[2px] rounded-[9999px] text-[12px] border-0",
+  Suspended: "bg-[rgba(220,38,38,0.15)] text-[#dc2626] hover:bg-[rgba(220,38,38,0.25)] font-medium px-[10px] py-[2px] rounded-[9999px] text-[12px] border-0",
 };
 
 function OrgStatusBadge({ status, className }: { status: string; className?: string }) {
@@ -80,13 +91,44 @@ export default function OrganizationsPage() {
   const [statusFilter, setStatusFilter] = React.useState("all");
 
   const [appliedSearch, setAppliedSearch] = React.useState("");
-  const [deleteId, setDeleteId] = React.useState<string | null>(null);
+  const [actionState, setActionState] = React.useState<{ id: string; type: "activate" | "deactivate" } | null>(null);
 
   const {
     data: orgsResponse,
     isLoading,
     error,
   } = useOrganizations(page, limit);
+
+  const { mutate: deactivateOrg, isPending: isDeactivating } = useDeactivateOrganization();
+  const { mutate: activateOrg, isPending: isActivating } = useActivateOrganization();
+  const { mutate: updateOrgGeneric, isPending: isUpdatingOrg } = useUpdateOrganizationGeneric();
+
+  const [extendOrg, setExtendOrg] = React.useState<Organization | null>(null);
+  const [extendDate, setExtendDate] = React.useState<string>("");
+
+  const handleQuickExtend = (months: number) => {
+    if (!extendDate) return;
+    const current = new Date(extendDate);
+    current.setMonth(current.getMonth() + months);
+    setExtendDate(current.toISOString().split("T")[0]);
+  };
+
+  const handleExtendSubscription = () => {
+    if (!extendOrg) return;
+    updateOrgGeneric(
+      {
+        id: extendOrg.id,
+        data: {
+          subscriptionEnd: new Date(extendDate).toISOString(),
+        },
+      },
+      {
+        onSuccess: () => {
+          setExtendOrg(null);
+        },
+      }
+    );
+  };
 
   const organizations = orgsResponse?.data || [];
   const pagination = orgsResponse?.pagination;
@@ -308,19 +350,35 @@ export default function OrganizationsPage() {
                                 Manage Users
                               </Link>
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="gap-2">
+                            <DropdownMenuItem
+                              className="gap-2 cursor-pointer"
+                              onClick={() => {
+                                setExtendOrg(org);
+                                setExtendDate(org.subscriptionEnd.split("T")[0]);
+                              }}
+                            >
                               <CalendarDays className="size-4" />
                               Extend Subscription
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              variant="destructive"
-                              className="gap-2"
-                              onClick={() => setDeleteId(org.id)}
-                            >
-                              <Trash2 className="size-4" />
-                              Deactivate
-                            </DropdownMenuItem>
+                            {org.status?.toLowerCase() === "active" ? (
+                              <DropdownMenuItem
+                                variant="destructive"
+                                className="gap-2"
+                                onClick={() => setActionState({ id: org.id, type: "deactivate" })}
+                              >
+                                <Trash2 className="size-4" />
+                                Deactivate
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem
+                                className="gap-2 text-green-600 focus:text-green-600 focus:bg-green-50 dark:focus:bg-green-950 dark:text-green-500 dark:focus:text-green-400"
+                                onClick={() => setActionState({ id: org.id, type: "activate" })}
+                              >
+                                <CheckCircle className="size-4" />
+                                Activate
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -472,15 +530,35 @@ export default function OrganizationsPage() {
                               Manage Users
                             </Link>
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="gap-2">
+                          <DropdownMenuItem
+                            className="gap-2 cursor-pointer"
+                            onClick={() => {
+                              setExtendOrg(org);
+                              setExtendDate(org.subscriptionEnd.split("T")[0]);
+                            }}
+                          >
                             <CalendarDays className="size-4" />
                             Extend Subscription
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem variant="destructive" className="gap-2" onClick={() => setDeleteId(org.id)}>
-                            <Trash2 className="size-4" />
-                            Deactivate
-                          </DropdownMenuItem>
+                          {org.status?.toLowerCase() === "active" ? (
+                            <DropdownMenuItem
+                              variant="destructive"
+                              className="gap-2"
+                              onClick={() => setActionState({ id: org.id, type: "deactivate" })}
+                            >
+                              <Trash2 className="size-4" />
+                              Deactivate
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem
+                              className="gap-2 text-green-600 focus:text-green-600 focus:bg-green-50 dark:focus:bg-green-950 dark:text-green-500 dark:focus:text-green-400"
+                              onClick={() => setActionState({ id: org.id, type: "activate" })}
+                            >
+                              <CheckCircle className="size-4" />
+                              Activate
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -559,9 +637,9 @@ export default function OrganizationsPage() {
 
       {/* Delete Confirmation Alert Dialog */}
       <AlertDialog
-        open={deleteId !== null}
+        open={actionState !== null}
         onOpenChange={(open) => {
-          if (!open) setDeleteId(null);
+          if (!open) setActionState(null);
         }}
       >
         <AlertDialogContent className="w-[92%] sm:w-full sm:max-w-[400px] rounded-[12px] p-5 sm:p-6 gap-4">
@@ -570,7 +648,9 @@ export default function OrganizationsPage() {
               Are you sure?
             </AlertDialogTitle>
             <AlertDialogDescription className="text-xs text-muted-foreground leading-relaxed mt-1">
-              This action cannot be undone. This will permanently deactivate the Organization record from the system.
+              {actionState?.type === "deactivate"
+                ? "This action cannot be undone. This will permanently deactivate the Organization record from the system."
+                : "This will activate the Organization record, granting them full access to the system again."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="mt-5 gap-2 sm:gap-3 flex flex-col-reverse sm:flex-row sm:justify-end">
@@ -578,19 +658,147 @@ export default function OrganizationsPage() {
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
-              className="w-full sm:w-auto h-9.5 rounded-[8px] text-xs font-medium bg-red-600 text-white hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700"
-              onClick={() => {
-                if (deleteId !== null) {
-                  // In a real app, call a mutate/delete hook here
-                  setDeleteId(null);
+              className={cn(
+                "w-full sm:w-auto h-9.5 rounded-[8px] text-xs font-medium text-white disabled:opacity-70 disabled:cursor-not-allowed",
+                actionState?.type === "deactivate"
+                  ? "bg-red-600 hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700"
+                  : "bg-green-600 hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700"
+              )}
+              disabled={isDeactivating || isActivating}
+              onClick={(e) => {
+                e.preventDefault();
+                if (actionState?.type === "deactivate") {
+                  deactivateOrg(actionState.id, {
+                    onSuccess: () => setActionState(null),
+                  });
+                } else if (actionState?.type === "activate") {
+                  activateOrg(actionState.id, {
+                    onSuccess: () => setActionState(null),
+                  });
                 }
               }}
             >
-              Confirm Deactivate
+              {isDeactivating || isActivating ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
+              {actionState?.type === "deactivate" ? "Confirm Deactivate" : "Confirm Activate"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Extend Subscription Dialog */}
+      <Dialog
+        open={extendOrg !== null}
+        onOpenChange={(open) => {
+          if (!open) setExtendOrg(null);
+        }}
+      >
+        <DialogContent className="w-[92%] sm:w-full sm:max-w-[450px] rounded-xl p-6 bg-white gap-5 border border-slate-200">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-[#0f172a]">
+              Extend Subscription
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-4 text-left">
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Organization Name
+              </span>
+              <span className="text-sm font-semibold text-foreground">
+                {extendOrg?.name}
+              </span>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Current Expiration
+              </span>
+              <span className="text-sm font-medium text-foreground">
+                {extendOrg ? new Date(extendOrg.subscriptionEnd).toLocaleDateString() : ""}
+              </span>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                New Subscription End Date
+              </Label>
+              <Input
+                type="date"
+                value={extendDate}
+                onChange={(e) => setExtendDate(e.target.value)}
+                className="border-[#D4D4D4] rounded-lg h-11 text-sm bg-white"
+              />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Quick Extend
+              </span>
+              <div className="grid grid-cols-4 gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleQuickExtend(1)}
+                  className="text-xs h-9 rounded-md border border-border bg-background hover:bg-muted/50"
+                >
+                  +1 M
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleQuickExtend(3)}
+                  className="text-xs h-9 rounded-md border border-border bg-background hover:bg-muted/50"
+                >
+                  +3 M
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleQuickExtend(6)}
+                  className="text-xs h-9 rounded-md border border-border bg-background hover:bg-muted/50"
+                >
+                  +6 M
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleQuickExtend(12)}
+                  className="text-xs h-9 rounded-md border border-border bg-background hover:bg-muted/50"
+                >
+                  +1 Y
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="mt-2 gap-2 flex flex-col-reverse sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setExtendOrg(null)}
+              className="h-10 px-5 rounded-lg text-sm font-semibold border-border hover:bg-muted/30"
+              disabled={isUpdatingOrg}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleExtendSubscription}
+              className="h-10 px-6 rounded-lg text-sm font-semibold bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
+              disabled={isUpdatingOrg}
+            >
+              {isUpdatingOrg ? (
+                <Loader2 className="size-4 animate-spin mr-2" />
+              ) : null}
+              Extend
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
