@@ -1,5 +1,5 @@
 ---
-name: Documentation and Database Sync
+name: doc-and-db-sync
 description: Ensure API_DOCUMENTATION.md is always updated alongside API modifications, and Database.sql is always updated idempotently for DB changes.
 ---
 
@@ -8,7 +8,7 @@ description: Ensure API_DOCUMENTATION.md is always updated alongside API modific
 Whenever modifying the project, you MUST strictly adhere to the following two workflows. These rules ensure that the project is always fully documented and the database schema is fully recoverable.
 
 ## 1. Keep API_DOCUMENTATION.md Updated
-Any time an API route is added, modified, or deleted, you MUST immediately record the change in `C:\WebMaddyProjects\educrm\admissions-tenant-api-main\API_DOCUMENTATION.md`.
+Any time an API route is added, modified, or deleted, you MUST immediately record the change in `C:\educrm_main\admissions-tenant-api-main\API_DOCUMENTATION.md`.
 
 Each API entry in the documentation MUST include:
 - **Description**: What the API does and when to use it.
@@ -19,7 +19,7 @@ Each API entry in the documentation MUST include:
 - **Response Example**: A sample JSON response that strictly complies with the **Standard API Response Structure** skill (including `success`, `data`, `message`, and `pagination` where relevant).
 
 ## 2. Keep Database.sql Updated and Idempotent
-Any time a database schema change is introduced (e.g., a new TypeORM entity is added, a column is appended, or an index is created), you MUST update `C:\WebMaddyProjects\educrm\admissions-tenant-api-main\Database.sql`.
+Any time a database schema change is introduced (e.g., a new TypeORM entity is added, a column is appended, or an index is created), you MUST update `C:\educrm_main\admissions-tenant-api-main\Database.sql`.
 
 The `Database.sql` file acts as the single source of truth for the database schema. It MUST be written such that the user can copy the entire file, paste it into pgAdmin4, and run it to completely establish or update the schema **without any errors, data loss, or duplicate relations.**
 

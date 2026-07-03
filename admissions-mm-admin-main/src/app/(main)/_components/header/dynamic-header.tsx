@@ -11,19 +11,20 @@ import { users } from "@/data/users";
 
 import { AccountSwitcher } from "../sidebar/account-switcher";
 import { useAuthStore } from "@/stores/auth-store";
-import { getStoredApplications } from "@/hooks/use-applications";
+import { useApplications } from "@/hooks/use-applications";
 
 export function DynamicHeader() {
   const pathname = usePathname();
   const user = useAuthStore((state) => state.user);
   const userName = user?.name?.split(" ")[0] || "User";
+  const { data: appsResponse } = useApplications();
+  const appsList: any[] = (appsResponse as any)?.data || appsResponse || [];
 
   const getApplicantName = () => {
     const segments = pathname.split("/").filter(Boolean);
     const appNo = segments[segments.length - 1];
-    if (appNo) {
-      const appsList = getStoredApplications();
-      const app = appsList.find((a) => a.applicationNo === appNo);
+    if (appNo && Array.isArray(appsList)) {
+      const app = appsList.find((a: any) => a.applicationNo === appNo);
       if (app) return app.name.toUpperCase();
     }
     return "MS. ANBUKARASI A";

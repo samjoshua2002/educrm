@@ -136,7 +136,7 @@ export default function ApplicationDetailsPage() {
       {/* Hero Banner Card */}
       <div className="relative grid grid-cols-[auto_1fr] w-full p-[24px] gap-y-[6px] gap-x-[16px] md:gap-x-[32px] rounded-[8px] border border-[#D4D4D4] bg-white shadow-[0_1px_2px_0_rgba(0,0,0,0.05)]">
         <Link
-          href="/applications"
+          href="/organization/applications"
           className="absolute top-3 left-3 hover:opacity-80 transition-opacity p-1"
         >
           <svg

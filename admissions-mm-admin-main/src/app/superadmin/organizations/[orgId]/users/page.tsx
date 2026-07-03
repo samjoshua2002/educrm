@@ -183,25 +183,14 @@ export default function SuperadminOrganizationUsersPage({
           phone,
           role,
           branchId: branch !== "none" ? branch : undefined,
-        }
-      }, {
-        onSuccess: () => {
-          setDialogOpen(false);
-        }
-      });
-    } else {
-      createUser({
-        name,
-        email,
-        phone,
-        role,
-        branchId: branch !== "none" ? branch : undefined,
-        password: password,
-      }, {
-        onSuccess: () => {
-          setDialogOpen(false);
-        }
-      });
+          password: password,
+        },
+        {
+          onSuccess: () => {
+            setDialogOpen(false);
+          },
+        },
+      );
     }
   };
 

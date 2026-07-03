@@ -63,11 +63,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-import { type Application } from "@/data/mock-applications";
-import {
-  useApplications,
-  useDeleteApplication,
-} from "@/hooks/use-applications";
+import { type Application, useApplications, useDeleteApplication } from "@/hooks/use-applications";
 
 
 const paymentStatusStyles: Record<string, string> = {
@@ -137,28 +133,29 @@ function exportToCSV(data: Application[], filename = "applications.csv") {
 }
 
 export default function ApplicationsPage() {
-  const { data: applicationsResponse, isLoading } = useApplications();
-  const deleteMutation = useDeleteApplication();
-
-  const applicationsState = React.useMemo(() => {
-    return applicationsResponse?.data || [];
-  }, [applicationsResponse]);
-
-  const [deleteAppId, setDeleteAppId] = React.useState<number | null>(null);
-
-  function handleDeleteApplication(id: number) {
-    deleteMutation.mutate(id);
-  }
+  const [appliedSearch, setAppliedSearch] = React.useState("");
+  const [appliedFormStatus, setAppliedFormStatus] = React.useState("all");
+  const [appliedProgram, setAppliedProgram] = React.useState("all");
   const [currentPage, setCurrentPage] = React.useState(1);
   const itemsPerPage = 8;
+
+  const { data: applicationsResponse, isLoading } = useApplications(1, 200, appliedSearch || undefined);
+
+  const applicationsState = React.useMemo(() => {
+    const raw = (applicationsResponse as any)?.data || applicationsResponse || [];
+    return Array.isArray(raw) ? raw : [];
+  }, [applicationsResponse]);
+
+  const [deleteAppId, setDeleteAppId] = React.useState<string | null>(null);
+  const deleteMutation = useDeleteApplication();
+
+  function handleDeleteApplication(id: string) {
+    deleteMutation.mutate(id);
+  }
 
   const [searchQuery, setSearchQuery] = React.useState("");
   const [formStatusDraft, setFormStatusDraft] = React.useState("all");
   const [programDraft, setProgramDraft] = React.useState("all");
-
-  const [appliedSearch, setAppliedSearch] = React.useState("");
-  const [appliedFormStatus, setAppliedFormStatus] = React.useState("all");
-  const [appliedProgram, setAppliedProgram] = React.useState("all");
 
   const [advancedOpen, setAdvancedOpen] = React.useState(false);
   const [advCampus, setAdvCampus] = React.useState("all");
