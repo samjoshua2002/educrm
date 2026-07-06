@@ -57,11 +57,18 @@ const INDIAN_STATES = [
 import { useTeam } from "@/hooks/use-team";
 import { useBranch, useBranches, useUpdateBranch } from "@/hooks/use-branches";
 import { toast } from "sonner";
+import { usePageHeader } from "@/hooks/use-page-header";
 
 export default function EditBranchPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const branchId = searchParams.get("id");
+
+  usePageHeader({
+    title: "Branch Details",
+    description:
+      "Define the fundamental identity and location of your new academic branch.",
+  });
 
   const { data: branchResponse, isLoading } = useBranch(branchId);
   const updateBranch = useUpdateBranch();
@@ -156,7 +163,7 @@ export default function EditBranchPage() {
 
   return (
     <>
-      <div className="sticky top-12 z-10 bg-background/40 backdrop-blur-md flex items-center px-4 md:px-6 py-3 gap-3">
+      <div className="sticky top-0 z-10 bg-background/40 backdrop-blur-md flex items-center px-4 md:px-6 py-3 gap-3">
         <Link href="/organization/branches">
           <Button variant="ghost" size="icon">
             <ChevronLeft className="size-5" />
@@ -165,7 +172,7 @@ export default function EditBranchPage() {
         <h1 className="text-xl font-semibold">Edit Branch</h1>
       </div>
 
-      <div className="px-4 md:px-6 py-4 md:py-6">
+      <div className="px-4 md:px-6 py-2 md:py-4">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
           {/* Left — col 8 */}
           <Card className="lg:col-span-8 bg-card border border-border rounded-[8px] shadow-sm overflow-hidden">

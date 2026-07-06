@@ -72,6 +72,7 @@ import { useTeam, useCreateUser, useUpdateUser, useDeleteUser } from "@/hooks/us
 import { useBranches } from "@/hooks/use-branches";
 import { Role, User } from "@/types/auth";
 import { cn } from "@/lib/utils";
+import { usePageHeaderStore } from "@/stores/page-header-store";
 
 const ROLES = [
   Role.ORG_ADMIN,
@@ -146,6 +147,23 @@ export default function TeamPage() {
     setFormRole(ROLES[0]);
     setFormDialogOpen(true);
   }
+
+  // Register dynamic header: title, description, and action button (opens create dialog)
+  const setHeader = usePageHeaderStore((s) => s.setHeader);
+  const clearHeader = usePageHeaderStore((s) => s.clearHeader);
+  React.useEffect(() => {
+    setHeader({
+      title: "Team Management",
+      description:
+        "Monitor and manage access for institution faculty and administrative staff.",
+      action: {
+        label: "Add Member",
+        onClick: openCreateDialog,
+      },
+    });
+    return () => clearHeader();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function openEditDialog(user: User) {
     setEditingUser(user);
@@ -366,16 +384,6 @@ export default function TeamPage() {
                 </Select>
               </div>
             </div>
-
-            {/* Add Member Button */}
-            <Button
-              variant="outline"
-              className="w-full sm:w-auto shrink-0 border border-border h-[39px] text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground"
-              onClick={openCreateDialog}
-            >
-              <Plus className="mr-2 size-4" />
-              Add Member
-            </Button>
           </div>
         </div>
 

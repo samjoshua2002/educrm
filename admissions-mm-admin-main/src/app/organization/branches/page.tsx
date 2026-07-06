@@ -68,6 +68,7 @@ import {
 } from "@/components/ui/dialog";
 import { useBranches, useDeleteBranch, Branch } from "@/hooks/use-branches";
 import { useTeam } from "@/hooks/use-team";
+import { usePageHeader } from "@/hooks/use-page-header";
 
 const statusStyles: Record<string, string> = {
   Active: "bg-[rgba(5,150,105,0.2)] text-[#065f46] hover:bg-[rgba(5,150,105,0.3)] font-medium px-[10px] py-[2px] rounded-[9999px] text-[12px] border-0",
@@ -79,6 +80,16 @@ export default function BranchesPage() {
   const [currentPage, setCurrentPage] = React.useState(1);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [statusDraft, setStatusDraft] = React.useState("all");
+
+  usePageHeader({
+    title: "Branches",
+    description:
+      "Manage and monitor all institutional branch locations and their status.",
+    action: {
+      label: "Add Branch",
+      href: "/organization/branches/create",
+    },
+  });
 
   // Advanced Filters
   const [advancedOpen, setAdvancedOpen] = React.useState(false);
@@ -367,20 +378,6 @@ export default function BranchesPage() {
                 <span className="sr-only">Advanced filters</span>
               </Button>
             </div>
-
-            {/* Add Branch Button */}
-            <Link
-              href="/organization/branches/create"
-              className="w-full sm:w-auto shrink-0"
-            >
-              <Button
-                variant="outline"
-                className="w-full border border-border h-[39px] text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground"
-              >
-                <Plus className="mr-2 size-4" />
-                Add Branch
-              </Button>
-            </Link>
           </div>
         </div>
 
