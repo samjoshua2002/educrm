@@ -1,5 +1,5 @@
 ---
-name: Standard API Response Structure
+name: standard-api-response-structure
 description: Ensure all API endpoints return a standardized JSON structure with success flags, message, and pagination for list endpoints.
 ---
 

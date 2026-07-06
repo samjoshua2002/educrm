@@ -12,6 +12,7 @@ import { Organization } from '../../organizations/entities/organization.entity.j
 import { Branch } from '../../branches/entities/branch.entity.js';
 import { Lead } from '../../leads/entities/lead.entity.js';
 import { User } from '../../users/entities/user.entity.js';
+import { Course } from '../../courses/entities/course.entity.js';
 import { Student } from './student.entity.js';
 import { ApplicationEducation } from './application-education.entity.js';
 import { ApplicationEntranceTest } from './application-entrance-test.entity.js';
@@ -71,8 +72,12 @@ export class Application {
   @Column({ name: 'academic_session', length: 20 })
   academicSession: string;
 
-  @Column({ name: 'course_id', nullable: true })
+  @Column({ name: 'course_id', type: 'uuid', nullable: true })
   courseId: string;
+
+  @ManyToOne(() => Course, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'course_id' })
+  course: Course;
 
   @Column({ length: 255, nullable: true })
   program: string;

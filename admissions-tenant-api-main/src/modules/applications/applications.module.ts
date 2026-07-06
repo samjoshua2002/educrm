@@ -15,6 +15,7 @@ import { Branch } from '../branches/entities/branch.entity.js';
 import { ApplicationsService } from './applications.service.js';
 import { ApplicationsController } from './applications.controller.js';
 import { LeadsModule } from '../leads/leads.module.js';
+import { CoursesModule } from '../courses/courses.module.js';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { LeadsModule } from '../leads/leads.module.js';
       ApplicationActivity,
     ]),
     LeadsModule,
+    CoursesModule,
   ],
   controllers: [ApplicationsController],
   providers: [ApplicationsService],
