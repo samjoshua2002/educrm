@@ -87,6 +87,22 @@ All failed requests return an appropriate HTTP status code (`400`, `401`, `403`,
 | **Leads** | `DELETE /api/organizations/:orgId/leads/:id` | ✅ | ✅ | ❌ | ❌ | ❌ |
 | **Responses**| `GET /api/organizations/:orgId/forms/:id/responses` | ✅ | ✅ | ❌ | ❌ | ❌ |
 | **Responses**| `PATCH /api/responses/:id` | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **AcademicSessions**| `POST /api/organizations/:orgId/academic-sessions` | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **AcademicSessions**| `GET /api/organizations/:orgId/academic-sessions` | ✅ | ✅ | ✅ | ✅ | ❌ |
+| **AcademicSessions**| `GET /api/organizations/:orgId/academic-sessions/current` | Public | Public | Public | Public | Public |
+| **AcademicSessions**| `GET /api/organizations/:orgId/academic-sessions/:id` | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **AcademicSessions**| `PATCH /api/organizations/:orgId/academic-sessions/:id` | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **AcademicSessions**| `DELETE /api/organizations/:orgId/academic-sessions/:id` | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **Courses** | `POST /api/organizations/:orgId/courses` | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **Courses** | `GET /api/organizations/:orgId/courses` | ✅ | ✅ | ✅ | ✅ | ❌ |
+| **Courses** | `GET /api/organizations/:orgId/courses/:id` | ✅ | ✅ | ✅ | ✅ | ❌ |
+| **Courses** | `PATCH /api/organizations/:orgId/courses/:id` | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **Courses** | `DELETE /api/organizations/:orgId/courses/:id` | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **CourseSessions** | `POST /api/organizations/:orgId/course-sessions` | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **CourseSessions** | `GET /api/organizations/:orgId/course-sessions` | ✅ | ✅ | ✅ | ✅ | ❌ |
+| **CourseSessions** | `GET /api/organizations/:orgId/course-sessions/:id` | ✅ | ✅ | ✅ | ✅ | ❌ |
+| **CourseSessions** | `PATCH /api/organizations/:orgId/course-sessions/:id` | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **CourseSessions** | `DELETE /api/organizations/:orgId/course-sessions/:id` | ✅ | ✅ | ❌ | ❌ | ❌ |
 
 ---
 
@@ -1371,4 +1387,461 @@ All failed requests return an appropriate HTTP status code (`400`, `401`, `403`,
   },
   "message": "Application status updated successfully"
 }
+```
+
+---
+
+## 8. Master Tables
+
+### Academic Sessions
+
+#### Create Academic Session
+*Create a new academic session.*
+- **Method & URL**: `POST /api/organizations/:orgId/academic-sessions`
+- **Headers**: `Authorization: Bearer <token>`, `Content-Type: application/json`
+- **Parameters**:
+  - Path: `orgId` (uuid, required)
+- **Request Example**:
+```json
+{
+  "name": "2025-26",
+  "displayName": "Academic Year 2025-26",
+  "startDate": "2025-07-01",
+  "endDate": "2026-06-30",
+  "isCurrent": false
+}
+```
+- **Response Example**:
+```json
+{
+    "success": true,
+    "message": "Operation successful",
+    "data": {
+        "id": "cdf99cc7-6ad5-45fb-9ee6-d3309f78fb0c",
+        "organizationId": "022cbe31-225a-4902-b33a-3a176498759a",
+        "name": "2025-26",
+        "displayName": "Academic Year 2025-26",
+        "startDate": "2025-07-01",
+        "endDate": "2026-06-30",
+        "isCurrent": false,
+        "isActive": true,
+        "createdBy": "2ff1c660-473f-4576-b1db-a66a74e8ee26",
+        "updatedBy": "2ff1c660-473f-4576-b1db-a66a74e8ee26",
+        "createdAt": "2026-07-06T09:02:23.343Z",
+        "updatedAt": "2026-07-06T09:02:23.343Z"
+    }
+}
+```
+
+#### List Academic Sessions
+*List all academic sessions for an organization.*
+- **Method & URL**: `GET /api/organizations/:orgId/academic-sessions`
+- **Headers**: `Authorization: Bearer <token>`
+- **Parameters**:
+  - Path: `orgId` (uuid, required)
+- **Request Example**: None
+- **Response Example**:
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "name": "2025-26",
+      "displayName": "Academic Year 2025-26",
+      "isCurrent": true,
+      "isActive": true
+    }
+  ],
+  "message": "Academic sessions fetched successfully"
+}
+```
+
+#### Get Current Academic Session
+*Fetch the currently active academic session (Public API).*
+- **Method & URL**: `GET /api/organizations/:orgId/academic-sessions/current`
+- **Headers**: None
+- **Parameters**:
+  - Path: `orgId` (uuid, required)
+- **Request Example**: None
+- **Response Example**:
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "name": "2025-26",
+    "displayName": "Academic Year 2025-26",
+    "isCurrent": true,
+    "isActive": true
+  },
+  "message": "Current academic session fetched successfully"
+}
+```
+
+#### Get Single Academic Session
+*Get details of a specific academic session.*
+- **Method & URL**: `GET /api/organizations/:orgId/academic-sessions/:id`
+- **Headers**: `Authorization: Bearer <token>`
+- **Parameters**:
+  - Path: `orgId` (uuid, required)
+  - Path: `id` (uuid, required)
+- **Request Example**: None
+- **Response Example**:
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "name": "2025-26",
+    "displayName": "Academic Year 2025-26",
+    "isCurrent": true,
+    "isActive": true
+  },
+  "message": "Academic session details fetched successfully"
+}
+```
+
+#### Update Academic Session
+*Update an academic session (e.g., mark as current).*
+- **Method & URL**: `PATCH /api/organizations/:orgId/academic-sessions/:id`
+- **Headers**: `Authorization: Bearer <token>`, `Content-Type: application/json`
+- **Parameters**:
+  - Path: `orgId` (uuid, required)
+  - Path: `id` (uuid, required)
+- **Request Example**:
+```json
+{
+  "isCurrent": true
+}
+```
+- **Response Example**:
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "name": "2025-26",
+    "isCurrent": true,
+    "isActive": true
+  },
+  "message": "Academic session updated successfully"
+}
+```
+
+#### Deactivate Academic Session
+*Deactivate an academic session (soft delete).*
+- **Method & URL**: `DELETE /api/organizations/:orgId/academic-sessions/:id`
+- **Headers**: `Authorization: Bearer <token>`
+- **Parameters**:
+  - Path: `orgId` (uuid, required)
+  - Path: `id` (uuid, required)
+- **Request Example**: None
+- **Response Example**:
+```json
+{
+  "success": true,
+  "data": null,
+  "message": "Academic session deactivated successfully"
+}
+```
+
+### Courses
+
+#### Create Course
+*Create a new course/program.*
+- **Method & URL**: `POST /api/organizations/:orgId/courses`
+- **Headers**: `Authorization: Bearer <token>`, `Content-Type: application/json`
+- **Parameters**:
+  - Path: `orgId` (uuid, required)
+- **Request Example**:
+```json
+{
+  "name": "B.Tech Computer Science",
+  "code": "BTECH-CSE",
+  "department": "Engineering",
+  "duration": "4 Years",
+  "durationMonths": 48
+}
+```
+- **Response Example**:
+```json
+{
+    "success": true,
+    "message": "Operation successful",
+    "data": {
+        "id": "da14ee64-bdf8-43f1-b2f5-fb19bc88df82",
+        "organizationId": "022cbe31-225a-4902-b33a-3a176498759a",
+        "name": "B.Tech Computer Science",
+        "code": "BTECH-CSE",
+        "description": null,
+        "department": "Engineering",
+        "duration": "4 Years",
+        "durationMonths": 48,
+        "totalFee": null,
+        "totalSeats": null,
+        "isActive": true,
+        "createdBy": "2ff1c660-473f-4576-b1db-a66a74e8ee26",
+        "updatedBy": "2ff1c660-473f-4576-b1db-a66a74e8ee26",
+        "createdAt": "2026-07-06T09:08:27.530Z",
+        "updatedAt": "2026-07-06T09:08:27.530Z"
+    }
+}
+```
+
+#### List Courses
+*List all courses (with optional filters: isActive, department, search).*
+- **Method & URL**: `GET /api/organizations/:orgId/courses`
+- **Headers**: `Authorization: Bearer <token>`
+- **Parameters**:
+  - Path: `orgId` (uuid, required)
+  - Query: `isActive` (boolean, optional)
+  - Query: `department` (string, optional)
+  - Query: `search` (string, optional)
+- **Request Example**: None
+- **Response Example**:
+```json
+{
+    "success": true,
+    "message": "Operation successful",
+    "data": [
+        {
+            "id": "da14ee64-bdf8-43f1-b2f5-fb19bc88df82",
+            "organizationId": "022cbe31-225a-4902-b33a-3a176498759a",
+            "name": "B.Tech Computer Science",
+            "code": "BTECH-CSE",
+            "description": null,
+            "department": "Engineering",
+            "duration": "4 Years",
+            "durationMonths": 48,
+            "totalFee": null,
+            "totalSeats": null,
+            "isActive": true,
+            "createdBy": "2ff1c660-473f-4576-b1db-a66a74e8ee26",
+            "updatedBy": "2ff1c660-473f-4576-b1db-a66a74e8ee26",
+            "createdAt": "2026-07-06T09:08:27.530Z",
+            "updatedAt": "2026-07-06T09:08:27.530Z"
+        },
+        {
+            "id": "cce812c4-022a-4667-9c18-d2bb90e76ae1",
+            "organizationId": "022cbe31-225a-4902-b33a-3a176498759a",
+            "name": "Computer Science",
+            "code": "COMPUTER-SCIENCE",
+            "description": null,
+            "department": null,
+            "duration": null,
+            "durationMonths": null,
+            "totalFee": null,
+            "totalSeats": null,
+            "isActive": true,
+            "createdBy": null,
+            "updatedBy": null,
+            "createdAt": "2026-07-06T07:20:25.617Z",
+            "updatedAt": "2026-07-06T07:20:25.617Z"
+        }
+    ],
+    "pagination": {
+        "page": 1,
+        "limit": 2,
+        "total": 2,
+        "totalPages": 1
+    }
+}
+```
+
+#### Get Single Course
+*Get details of a specific course.*
+- **Method & URL**: `GET /api/organizations/:orgId/courses/:id`
+- **Headers**: `Authorization: Bearer <token>`
+- **Parameters**:
+  - Path: `orgId` (uuid, required)
+  - Path: `id` (uuid, required)
+- **Request Example**: None
+- **Response Example**:
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "name": "B.Tech Computer Science",
+    "code": "BTECH-CSE",
+    "department": "Engineering",
+    "isActive": true
+  },
+  "message": "Course details fetched successfully"
+}
+```
+
+#### Update Course
+*Update course metadata.*
+- **Method & URL**: `PATCH /api/organizations/:orgId/courses/:id`
+- **Headers**: `Authorization: Bearer <token>`, `Content-Type: application/json`
+- **Parameters**:
+  - Path: `orgId` (uuid, required)
+  - Path: `id` (uuid, required)
+- **Request Example**:
+```json
+{
+  "department": "School of Engineering"
+}
+```
+- **Response Example**:
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "name": "B.Tech Computer Science",
+    "department": "School of Engineering",
+    "isActive": true
+  },
+  "message": "Course updated successfully"
+}
+```
+
+#### Deactivate Course
+*Deactivate a course (soft delete).*
+- **Method & URL**: `DELETE /api/organizations/:orgId/courses/:id`
+- **Headers**: `Authorization: Bearer <token>`
+- **Parameters**:
+  - Path: `orgId` (uuid, required)
+  - Path: `id` (uuid, required)
+- **Request Example**: None
+- **Response Example**:
+```json
+{
+  "success": true,
+  "data": null,
+  "message": "Course deactivated successfully"
+}
+```
+
+### Course Sessions
+
+#### Create Course Session
+*Link a course to an academic session.*
+- **Method & URL**: `POST /api/organizations/:orgId/course-sessions`
+- **Headers**: `Authorization: Bearer <token>`, `Content-Type: application/json`
+- **Parameters**:
+  - Path: `orgId` (uuid, required)
+- **Request Example**:
+```json
+{
+  "courseId": "course-uuid",
+  "academicSessionId": "session-uuid",
+  "totalSeats": 120,
+  "feeAmount": 150000
+}
+```
+- **Response Example**:
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "courseId": "course-uuid",
+    "academicSessionId": "session-uuid",
+    "totalSeats": 120,
+    "feeAmount": 150000,
+    "isActive": true
+  },
+  "message": "Course session created successfully"
+}
+```
+
+#### List Course Sessions
+*List course sessions (with optional filters: courseId, academicSessionId, isActive).*
+- **Method & URL**: `GET /api/organizations/:orgId/course-sessions`
+- **Headers**: `Authorization: Bearer <token>`
+- **Parameters**:
+  - Path: `orgId` (uuid, required)
+  - Query: `courseId` (uuid, optional)
+  - Query: `academicSessionId` (uuid, optional)
+  - Query: `isActive` (boolean, optional)
+- **Request Example**: None
+- **Response Example**:
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "course": { "id": "course-uuid", "name": "B.Tech CSE" },
+      "academicSession": { "id": "session-uuid", "name": "2025-26" },
+      "totalSeats": 120,
+      "feeAmount": 150000,
+      "isActive": true
+    }
+  ],
+  "message": "Course sessions fetched successfully"
+}
+```
+
+#### Get Single Course Session
+*Get details of a specific course session link.*
+- **Method & URL**: `GET /api/organizations/:orgId/course-sessions/:id`
+- **Headers**: `Authorization: Bearer <token>`
+- **Parameters**:
+  - Path: `orgId` (uuid, required)
+  - Path: `id` (uuid, required)
+- **Request Example**: None
+- **Response Example**:
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "course": { "id": "course-uuid", "name": "B.Tech CSE" },
+    "academicSession": { "id": "session-uuid", "name": "2025-26" },
+    "totalSeats": 120,
+    "feeAmount": 150000,
+    "isActive": true
+  },
+  "message": "Course session details fetched successfully"
+}
+```
+
+#### Update Course Session
+*Update total seats or fees for a course session.*
+- **Method & URL**: `PATCH /api/organizations/:orgId/course-sessions/:id`
+- **Headers**: `Authorization: Bearer <token>`, `Content-Type: application/json`
+- **Parameters**:
+  - Path: `orgId` (uuid, required)
+  - Path: `id` (uuid, required)
+- **Request Example**:
+```json
+{
+  "feeAmount": 160000
+}
+```
+- **Response Example**:
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "totalSeats": 120,
+    "feeAmount": 160000,
+    "isActive": true
+  },
+  "message": "Course session updated successfully"
+}
+```
+
+#### Deactivate Course Session
+*Deactivate a course session link.*
+- **Method & URL**: `DELETE /api/organizations/:orgId/course-sessions/:id`
+- **Headers**: `Authorization: Bearer <token>`
+- **Parameters**:
+  - Path: `orgId` (uuid, required)
+  - Path: `id` (uuid, required)
+- **Request Example**: None
+- **Response Example**:
+```json
+{
+  "success": true,
+  "data": null,
+  "message": "Course session deactivated successfully"
+}
+
 ```

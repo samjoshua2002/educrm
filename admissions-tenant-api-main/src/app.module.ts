@@ -10,6 +10,9 @@ import { BranchesModule } from './modules/branches/branches.module.js';
 import { FormsModule } from './modules/forms/forms.module.js';
 import { LeadsModule } from './modules/leads/leads.module.js';
 import { ApplicationsModule } from './modules/applications/applications.module.js';
+import { CoursesModule } from './modules/courses/courses.module.js';
+import { AcademicSessionsModule } from './modules/academic-sessions/academic-sessions.module.js';
+import { CourseSessionsModule } from './modules/course-sessions/course-sessions.module.js';
 
 @Module({
   imports: [
@@ -46,6 +49,9 @@ import { ApplicationsModule } from './modules/applications/applications.module.j
     FormsModule,
     LeadsModule,
     ApplicationsModule,
+    CoursesModule,
+    AcademicSessionsModule,
+    CourseSessionsModule,
   ],
   providers: [
     {

@@ -450,6 +450,121 @@ CREATE TABLE IF NOT EXISTS students (
 );
 
 -- ============================================================
+-- TABLE: academic_sessions
+-- ============================================================
+CREATE TABLE IF NOT EXISTS academic_sessions (
+    id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    organization_id     UUID                NOT NULL,
+    name                VARCHAR(50)         NOT NULL,   -- e.g., '2025-26'
+    display_name        VARCHAR(100),                   -- e.g., 'Academic Year 2025-26'
+    start_date          DATE,
+    end_date            DATE,
+    is_current          BOOLEAN             NOT NULL DEFAULT FALSE,
+    is_active           BOOLEAN             NOT NULL DEFAULT TRUE,
+
+    -- Audit
+    created_by          UUID,
+    updated_by          UUID,
+    created_at          TIMESTAMP           NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMP           NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_academic_sessions_organization
+        FOREIGN KEY (organization_id)
+        REFERENCES organizations(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT unique_session_name_per_org
+        UNIQUE (organization_id, name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_academic_sessions_org_id
+    ON academic_sessions(organization_id);
+CREATE INDEX IF NOT EXISTS idx_academic_sessions_is_current
+    ON academic_sessions(organization_id, is_current)
+    WHERE is_current = TRUE;
+
+-- ============================================================
+-- TABLE: courses
+-- ============================================================
+CREATE TABLE IF NOT EXISTS courses (
+    id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    organization_id     UUID                NOT NULL,
+    name                VARCHAR(255)        NOT NULL,   -- e.g., 'PGDM', 'MBA', 'B.Tech CSE'
+    code                VARCHAR(50),                    -- e.g., 'PGDM-01', 'MBA-FIN'
+    description         TEXT,
+    department          VARCHAR(255),                   -- e.g., 'Management', 'Engineering'
+    duration            VARCHAR(50),                    -- e.g., '2 Years', '4 Years'
+    duration_months     INTEGER,                        -- numeric: 24, 48 (for computation)
+    total_fee           DECIMAL(12, 2),                 -- default fee template
+    total_seats         INTEGER,                        -- total seat capacity (optional)
+    is_active           BOOLEAN             NOT NULL DEFAULT TRUE,
+
+    -- Audit
+    created_by          UUID,
+    updated_by          UUID,
+    created_at          TIMESTAMP           NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMP           NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_courses_organization
+        FOREIGN KEY (organization_id)
+        REFERENCES organizations(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT unique_course_code_per_org
+        UNIQUE (organization_id, code)
+);
+
+CREATE INDEX IF NOT EXISTS idx_courses_org_id
+    ON courses(organization_id);
+CREATE INDEX IF NOT EXISTS idx_courses_is_active
+    ON courses(organization_id, is_active)
+    WHERE is_active = TRUE;
+
+-- ============================================================
+-- TABLE: course_sessions
+-- ============================================================
+CREATE TABLE IF NOT EXISTS course_sessions (
+    id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    organization_id     UUID                NOT NULL,
+    course_id           UUID                NOT NULL,
+    academic_session_id UUID                NOT NULL,
+    total_seats         INTEGER,                        -- session-specific seat override
+    fee_amount          DECIMAL(12, 2),                 -- session-specific fee override
+    is_active           BOOLEAN             NOT NULL DEFAULT TRUE,
+
+    -- Audit
+    created_by          UUID,
+    updated_by          UUID,
+    created_at          TIMESTAMP           NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMP           NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_course_sessions_org
+        FOREIGN KEY (organization_id)
+        REFERENCES organizations(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_course_sessions_course
+        FOREIGN KEY (course_id)
+        REFERENCES courses(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_course_sessions_session
+        FOREIGN KEY (academic_session_id)
+        REFERENCES academic_sessions(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT unique_course_session
+        UNIQUE (organization_id, course_id, academic_session_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_course_sessions_org_id
+    ON course_sessions(organization_id);
+CREATE INDEX IF NOT EXISTS idx_course_sessions_course_id
+    ON course_sessions(course_id);
+CREATE INDEX IF NOT EXISTS idx_course_sessions_session_id
+    ON course_sessions(academic_session_id);
+
+-- ============================================================
 -- ENUMS FOR APPLICATIONS
 -- ============================================================
 DO $$
@@ -788,6 +903,84 @@ CREATE INDEX IF NOT EXISTS idx_app_other_qual_app_id        ON application_other
 CREATE INDEX IF NOT EXISTS idx_app_activities_app_id        ON application_activities(application_id);
 CREATE INDEX IF NOT EXISTS idx_app_activities_org_id        ON application_activities(organization_id);
 CREATE INDEX IF NOT EXISTS idx_students_org_id              ON students(organization_id);
+
+-- ============================================================
+-- MASTER TABLES MIGRATION & FK CONSTRAINTS
+-- ============================================================
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'unique_session_name_per_org') THEN
+        ALTER TABLE academic_sessions ADD CONSTRAINT unique_session_name_per_org UNIQUE (organization_id, name);
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'unique_course_code_per_org') THEN
+        ALTER TABLE courses ADD CONSTRAINT unique_course_code_per_org UNIQUE (organization_id, code);
+    END IF;
+END $$;
+
+-- 1. Extract unique sessions from existing applications and create master records
+INSERT INTO academic_sessions (organization_id, name, is_current, is_active, created_at)
+SELECT DISTINCT
+    a.organization_id,
+    a.academic_session,
+    FALSE,
+    TRUE,
+    NOW()
+FROM applications a
+WHERE a.academic_session IS NOT NULL
+ON CONFLICT (organization_id, name) DO NOTHING;
+
+-- 2. Extract unique programs from existing applications and create course records
+INSERT INTO courses (organization_id, name, code, is_active, created_at)
+SELECT DISTINCT
+    a.organization_id,
+    a.program,
+    UPPER(REPLACE(a.program, ' ', '-')),  -- auto-generate code from program name
+    TRUE,
+    NOW()
+FROM applications a
+WHERE a.program IS NOT NULL AND a.program != ''
+ON CONFLICT (organization_id, code) DO NOTHING;
+
+-- 3. Backfill course_id on existing applications
+UPDATE applications a
+SET course_id = c.id
+FROM courses c
+WHERE a.organization_id = c.organization_id
+  AND a.program = c.name
+  AND (a.course_id IS NULL OR NOT EXISTS (
+      SELECT 1 FROM courses c2 WHERE c2.id = a.course_id
+  ));
+
+-- 4. Add FK constraint on applications.course_id (after courses table exists and data is migrated)
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_applications_course') THEN
+        ALTER TABLE applications
+            ADD CONSTRAINT fk_applications_course
+            FOREIGN KEY (course_id)
+            REFERENCES courses(id)
+            ON DELETE SET NULL;
+    END IF;
+END $$;
+
+-- 5. Add course_id column and FK to leads
+ALTER TABLE leads ADD COLUMN IF NOT EXISTS course_id UUID;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_leads_course') THEN
+        ALTER TABLE leads
+            ADD CONSTRAINT fk_leads_course
+            FOREIGN KEY (course_id)
+            REFERENCES courses(id)
+            ON DELETE SET NULL;
+    END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_leads_course_id ON leads(course_id);
+
 
 -- ============================================================
 -- END OF SCHEMA

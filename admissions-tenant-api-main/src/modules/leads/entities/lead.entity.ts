@@ -9,6 +9,7 @@ import {
 import { Organization } from '../../organizations/entities/organization.entity.js';
 import { Branch } from '../../branches/entities/branch.entity.js';
 import { User } from '../../users/entities/user.entity.js';
+import { Course } from '../../courses/entities/course.entity.js';
 
 export enum LeadStatus {
   UNVERIFIED = 'unverified',
@@ -146,4 +147,11 @@ export class Lead {
   @ManyToOne(() => Branch, { onDelete: 'SET NULL' })
   @JoinColumn({ name: 'branch_id' })
   branch: Branch;
+
+  @Column({ name: 'course_id', type: 'uuid', nullable: true })
+  courseId: string;
+
+  @ManyToOne(() => Course, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'course_id' })
+  course: Course;
 }

@@ -11,6 +11,7 @@ import { Student } from './entities/student.entity.js';
 import { Lead } from '../leads/entities/lead.entity.js';
 import { Branch } from '../branches/entities/branch.entity.js';
 import { LeadsService } from '../leads/leads.service.js';
+import { CoursesService } from '../courses/courses.service.js';
 import { CreateApplicationDto } from './dto/create-application.dto.js';
 import { PaginationDto } from '../../common/dto/pagination.dto.js';
 import { Role } from '../../common/enums/roles.enum.js';
@@ -51,6 +52,7 @@ export class ApplicationsService {
     @InjectRepository(Branch)
     private readonly branchRepository: Repository<Branch>,
     private readonly leadsService: LeadsService,
+    private readonly coursesService: CoursesService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -84,6 +86,7 @@ export class ApplicationsService {
     orgId: string,
     email: string,
     courseId: string,
+    courseName: string,
     academicSession: string,
   ): Promise<void> {
     const existing = await this.applicationRepository.findOne({
@@ -97,7 +100,7 @@ export class ApplicationsService {
     });
     if (existing) {
       throw new BadRequestException(
-        `An active application already exists for ${email} in course ${courseId} for session ${academicSession}. ` +
+        `An active application already exists for ${email} in course "${courseName}" for session ${academicSession}. ` +
         `A student can apply to different courses but not to the same course twice in the same session.`,
       );
     }
@@ -246,8 +249,14 @@ export class ApplicationsService {
       }
     }
 
+    // 1. Validate courseId against courses table
+    const course = await this.coursesService.validateCourseExists(dto.courseId, orgId);
+
+    // 2. Auto-populate program from course name if not provided
+    const program = dto.program || course.name;
+
     // Rule 4: Duplicate Application Check
-    await this.checkDuplicateApplication(orgId, dto.applicant.email, dto.courseId, dto.academicSession);
+    await this.checkDuplicateApplication(orgId, dto.applicant.email, dto.courseId, course.name, dto.academicSession);
 
     // Rule 3: Preferences Check
     const p1 = dto.preferences?.preference1;
@@ -297,7 +306,7 @@ export class ApplicationsService {
         leadId: dto.leadId || undefined,
         formId: dto.formId || undefined,
         applicationNo: appNo,
-        program: dto.program || undefined,
+        program: program,
         courseId: dto.courseId,
         academicSession: dto.academicSession,
         assignedCounselorId: creatorRole === Role.COUNSELOR ? creatorId : undefined,
