@@ -116,7 +116,7 @@ export default function AddLeadPage() {
         <h1 className="text-xl font-semibold">Add Lead</h1>
       </div>
 
-      <div className="px-4 md:px-6 py-4 md:py-6">
+      <div className="px-4 md:px-6 py-2 md:py-4">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
           {/* Left — col 8 */}
           <Card className="lg:col-span-8 bg-card border border-border rounded-[8px] shadow-sm overflow-hidden">

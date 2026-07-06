@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { usePageHeader } from "@/hooks/use-page-header";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,6 +44,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function OrganizationFormsPage() {
   const router = useRouter();
+
+  usePageHeader({
+    title: "Form Creation",
+    description: "Create and manage admission forms for campaigns",
+    action: {
+      label: "Create New Form",
+      href: "/organization/forms/create",
+    },
+  });
 
   // State for filters
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -96,22 +106,6 @@ export default function OrganizationFormsPage() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      {/* Sticky Header */}
-      <div className="sticky top-12 z-10 bg-background/40 backdrop-blur-md flex items-center justify-between px-4 md:px-6 py-3 border-b">
-        <div>
-          <h1 className="text-xl font-semibold text-primary">
-            Form Management
-          </h1>
-          <p className="text-xs text-muted-foreground italic">
-            Create and manage admission forms for campaigns or websites.
-          </p>
-        </div>
-        <Link href="/organization/forms/create">
-          <Button className="shadow-lg shadow-primary/20">
-            <Plus className="mr-2 h-4 w-4" /> Create New Form
-          </Button>
-        </Link>
-      </div>
 
       <div className="p-4 md:p-6 space-y-6">
         {/* Stats Grid */}

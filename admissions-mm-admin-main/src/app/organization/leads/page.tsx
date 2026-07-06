@@ -71,6 +71,7 @@ import {
 } from "@/hooks/use-leads";
 import { useBranches } from "@/hooks/use-branches";
 import { toast } from "sonner";
+import { usePageHeader } from "@/hooks/use-page-header";
 
 type Lead = {
   id: string;
@@ -188,6 +189,15 @@ export default function LeadsPage() {
   const [currentPage, setCurrentPage] = React.useState(1);
   const itemsPerPage = 8;
   const [mobileVisibleCount, setMobileVisibleCount] = React.useState(5);
+
+  usePageHeader({
+    title: "Leads",
+    description: "View and manage all verified leads across your organization.",
+    action: {
+      label: "Add Lead",
+      href: "/lead-manager/create",
+    },
+  });
 
   const [searchQuery, setSearchQuery] = React.useState("");
   const [stageDraft, setStageDraft] = React.useState("all");
@@ -449,20 +459,6 @@ export default function LeadsPage() {
                 )}
               </Button>
             </div>
-
-            {/* Add Lead Button */}
-            <Link
-              href="/lead-manager/create"
-              className="w-full sm:w-auto shrink-0"
-            >
-              <Button
-                variant="outline"
-                className="w-full border border-border h-[39px] text-sm font-medium text-foreground  hover:bg-accent hover:text-accent-foreground"
-              >
-                <Plus className="size-4" />
-                Add Lead
-              </Button>
-            </Link>
           </div>
         </div>
 

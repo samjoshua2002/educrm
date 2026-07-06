@@ -7,11 +7,10 @@ import { Bell, Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { users } from "@/data/users";
 
-import { AccountSwitcher } from "../sidebar/account-switcher";
 import { useAuthStore } from "@/stores/auth-store";
 import { useApplications } from "@/hooks/use-applications";
+import { usePageHeaderStore } from "@/stores/page-header-store";
 
 export function DynamicHeader() {
   const pathname = usePathname();
@@ -19,6 +18,13 @@ export function DynamicHeader() {
   const userName = user?.name?.split(" ")[0] || "User";
   const { data: appsResponse } = useApplications();
   const appsList: any[] = (appsResponse as any)?.data || appsResponse || [];
+
+  // Organization pages provide their own header info via the store
+  const storeTitle = usePageHeaderStore((s) => s.title);
+  const storeDescription = usePageHeaderStore((s) => s.description);
+  const storeAction = usePageHeaderStore((s) => s.action);
+
+  const isOrganizationRoute = pathname.startsWith("/organization");
 
   const getApplicantName = () => {
     const segments = pathname.split("/").filter(Boolean);
@@ -33,6 +39,7 @@ export function DynamicHeader() {
   const applicantName = getApplicantName();
 
   const getTitle = () => {
+    if (isOrganizationRoute) return storeTitle ?? "Organization";
     if (pathname.startsWith("/dashboard")) return "Dashboard Overview";
     if (pathname.startsWith("/lead-manager")) return "Lead Management";
     if (pathname.startsWith("/gd-interview")) return "GD & Interview";
@@ -50,24 +57,27 @@ export function DynamicHeader() {
   const title = getTitle();
 
   const getSubtitle = () => {
-    if (pathname.startsWith("/dashboard")) return `Welcome back, ${userName}. Here's what's happening today.`;
-    
+    if (isOrganizationRoute) return storeDescription ?? null;
+    if (pathname.startsWith("/dashboard"))
+      return `Welcome back, ${userName}. Here's what's happening today.`;
+
     const segments = pathname.split("/").filter(Boolean);
     const isDetailPage = segments.length > 1;
 
     if (pathname.startsWith("/applications") && isDetailPage) {
       return `View and manage application information for ${applicantName}`;
     }
-    
+
     if (pathname.startsWith("/gd-interview") && isDetailPage) {
       return `View and evaluate candidate interview for ${applicantName}`;
     }
-    
+
     return null;
   };
 
   const subtitle = getSubtitle();
 
+  // Determine action button for non-organization routes
   let actionText = "New applications";
   let actionHref = "/my-application";
 
@@ -79,7 +89,9 @@ export function DynamicHeader() {
     actionHref = "/superadmin/organizations/create";
   }
 
-  const showActionButton = !pathname.startsWith("/gd-interview") && !pathname.startsWith("/my-application");
+  const showActionButton =
+    !pathname.startsWith("/gd-interview") &&
+    !pathname.startsWith("/my-application");
 
   const buttonWidths: Record<string, string> = {
     "New applications": "w-[166px]",
@@ -87,20 +99,44 @@ export function DynamicHeader() {
     "Create Organization": "w-[180px]",
   };
 
+  // Action button for organization routes (from store)
+  const orgActionButton = storeAction ? (
+    storeAction.href ? (
+      <Link href={storeAction.href}>
+        <Button className="hidden md:flex rounded-[8px] bg-[#ea2525] hover:bg-[#bb1e1e] justify-center">
+          <Plus className="size-4 mr-1" />
+          {storeAction.label}
+        </Button>
+      </Link>
+    ) : (
+      <Button
+        className="hidden md:flex rounded-[8px] bg-[#ea2525] hover:bg-[#bb1e1e] justify-center"
+        onClick={storeAction.onClick}
+      >
+        <Plus className="size-4 mr-1" />
+        {storeAction.label}
+      </Button>
+    )
+  ) : null;
+
   // Common template for actions (Right side)
   const commonActions = (
     <div className="flex items-center gap-2">
       <Button variant="ghost" size="icon" className="size-9 rounded-full">
         <Bell className="size-5" />
       </Button>
-      {showActionButton && (
-        <Link href={actionHref}>
-          <Button className={`hidden md:flex rounded-[8px] bg-[#ea2525] hover:bg-[#bb1e1e] justify-center ${buttonWidths[actionText] || ""}`}>
-            <Plus className="size-4" />
-            {actionText}
-          </Button>
-        </Link>
-      )}
+      {isOrganizationRoute
+        ? orgActionButton
+        : showActionButton && (
+            <Link href={actionHref}>
+              <Button
+                className={`hidden md:flex rounded-[8px] bg-[#ea2525] hover:bg-[#bb1e1e] justify-center ${buttonWidths[actionText] || ""}`}
+              >
+                <Plus className="size-4" />
+                {actionText}
+              </Button>
+            </Link>
+          )}
     </div>
   );
 
@@ -122,7 +158,7 @@ export function DynamicHeader() {
           </div>
         </div>
 
-        {/* Right Side: Common Actions + Account Switcher */}
+        {/* Right Side: Common Actions */}
         <div className="flex items-center gap-4">{commonActions}</div>
       </div>
     </header>
