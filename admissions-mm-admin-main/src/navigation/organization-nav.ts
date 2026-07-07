@@ -97,6 +97,7 @@ export const organizationNavItems: NavGroup[] = [
         icon: Settings,
         subItems: [
           { title: "Organization", url: "/organization/settings/organization" },
+          { title: "Courses", url: "/organization/settings/courses" },
           { title: "Locations", url: "/organization/settings/locations" },
           { title: "Videos", url: "/organization/settings/videos" },
           { title: "Category", url: "/organization/settings/category" },
