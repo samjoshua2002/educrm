@@ -200,7 +200,7 @@ export default function BranchesPage() {
   }, [allBranches, searchQuery, statusDraft, appliedAdvanced]);
 
   // Desktop Pagination (10 per page)
-  const itemsPerPage = 10;
+  const itemsPerPage = 5;
   const totalPages = Math.ceil(filteredBranches.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
@@ -562,8 +562,8 @@ export default function BranchesPage() {
                         variant={isActive ? "default" : "outline"}
                         className={`h-9 w-9 p-0 text-sm border shadow-2xs rounded-[6px] transition-colors ${
                           isActive
-                            ? "bg-background border-border text-foreground font-semibold hover:bg-muted/15 dark:hover:bg-muted/5 shadow-xs"
-                            : "border-border/80 bg-transparent text-muted-foreground hover:bg-muted/30 dark:hover:bg-muted/10 hover:text-foreground font-normal"
+                            ? "bg-[#EA2525] border-[#EA2525] text-white font-semibold hover:bg-[#D61F1F] shadow-xs"
+                            : "border-border/80 bg-background text-muted-foreground hover:bg-muted/30 dark:hover:bg-muted/10 hover:text-foreground font-normal"
                         }`}
                         onClick={() => setCurrentPage(page)}
                       >

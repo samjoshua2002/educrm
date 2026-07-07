@@ -22,6 +22,7 @@ import {
   UserCheck,
 } from "lucide-react";
 import Link from "next/link";
+import { usePageHeaderStore } from "@/stores/page-header-store";
 
 import {
   AlertDialog,
@@ -131,7 +132,7 @@ export default function SuperadminOrganizationUsersPage({
 
   // API Hooks
   const { data: orgData } = useOrganization(orgId);
-  const { data: teamResponse, isLoading, error } = useTeam(orgId, currentPage);
+  const { data: teamResponse, isLoading, error } = useTeam(orgId, 1, 100);
   const { data: branchesResponse } = useBranches(orgId, 1, 100);
   const { mutate: createUser, isPending: isCreating } = useCreateUser(orgId);
   const { mutate: updateUser, isPending: isUpdating } = useUpdateUser(orgId);
@@ -154,6 +155,21 @@ export default function SuperadminOrganizationUsersPage({
     setFormRole(ROLES[0]);
     setFormDialogOpen(true);
   }
+
+  const setHeader = usePageHeaderStore((s) => s.setHeader);
+  const clearHeader = usePageHeaderStore((s) => s.clearHeader);
+  React.useEffect(() => {
+    setHeader({
+      title: "Staff Management",
+      description: orgName ? `Manage access for ${orgName}` : "Monitor and manage access for organization staff.",
+      action: {
+        label: "Add Member",
+        onClick: openCreateDialog,
+      },
+    });
+    return () => clearHeader();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orgName]);
 
   function openEditDialog(user: User) {
     setEditingUser(user);
@@ -226,11 +242,13 @@ export default function SuperadminOrganizationUsersPage({
     });
   }, [team, searchQuery, roleFilter]);
 
-  const totalPages = pagination?.totalPages ?? 1;
-  const totalCount = pagination?.total ?? team.length;
-  const startIndex = (currentPage - 1) * 10;
-  const endIndex = startIndex + filteredTeam.length;
-  const paginatedTeam = filteredTeam;
+  // Desktop Pagination (5 per page)
+  const itemsPerPage = 5;
+  const totalPages = Math.ceil(filteredTeam.length / itemsPerPage);
+  const totalCount = filteredTeam.length;
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedTeam = filteredTeam.slice(startIndex, endIndex);
 
   const mobileTeam = React.useMemo(
     () => filteredTeam.slice(0, mobileVisibleCount),
@@ -285,30 +303,15 @@ export default function SuperadminOrganizationUsersPage({
   return (
     <>
       <div className="flex flex-col min-h-screen bg-background">
-        {/* Sticky Header with breadcrumb */}
-        <div className="sticky top-0 z-10 bg-background/40 backdrop-blur-md flex items-center justify-between px-4 md:px-6 py-3 border-b">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-col gap-4 p-4 md:p-6">
+          <div className="flex items-center gap-2 mb-2">
             <Link href="/superadmin/organizations">
-              <Button variant="ghost" size="icon" className="rounded-full h-8 w-8">
-                <ChevronLeft className="h-5 w-5" />
+              <Button variant="outline" size="sm" className="h-8 gap-1 rounded-[8px] border-border/80 text-muted-foreground hover:text-foreground bg-card">
+                <ChevronLeft className="h-4 w-4" />
+                Back to Organizations
               </Button>
             </Link>
-            <div>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground font-semibold">
-                <span>Superadmin</span>
-                <span>/</span>
-                <span>Organizations</span>
-                <span>/</span>
-                <span className="text-foreground font-bold">{orgName}</span>
-              </div>
-              <h1 className="text-xl font-bold tracking-tight mt-0.5 text-left">
-                Staff Management
-              </h1>
-            </div>
           </div>
-        </div>
-
-        <div className="flex flex-col gap-4 p-4 md:p-6">
           {/* Team Quick Stats */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Card 1: Total Staff */}
@@ -396,16 +399,6 @@ export default function SuperadminOrganizationUsersPage({
                   </Select>
                 </div>
               </div>
-
-              {/* Add Member Button */}
-              <Button
-                variant="outline"
-                className="w-full sm:w-auto shrink-0 border border-border h-[39px] text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground cursor-pointer"
-                onClick={openCreateDialog}
-              >
-                <Plus className="mr-2 size-4" />
-                Add Member
-              </Button>
             </div>
           </div>
 
@@ -462,12 +455,12 @@ export default function SuperadminOrganizationUsersPage({
                   paginatedTeam.map((user: User) => (
                     <TableRow
                       key={user.id}
-                      className="border-b border-[#e2e8f0] hover:bg-muted/15 transition-colors"
+                      className="border-b border-[#e2e8f0] hover:bg-muted/15 transition-colors h-[86px]"
                     >
-                      <TableCell className="py-[20px] px-[24px] align-middle text-left">
+                      <TableCell className="py-[24px] px-[24px] align-middle text-left">
                         <div className="font-semibold text-[#1e293b] text-[14px]">{user.name}</div>
                       </TableCell>
-                      <TableCell className="py-[20px] px-[24px] align-middle text-left">
+                      <TableCell className="py-[24px] px-[24px] align-middle text-left">
                         <div className="text-xs space-y-0.5">
                           <div className="flex items-center gap-1.5 text-[#475569]">
                             <Mail className="size-3" /> {user.email}
@@ -479,15 +472,15 @@ export default function SuperadminOrganizationUsersPage({
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="py-[20px] px-[24px] align-middle text-[#475569] text-[14px] text-left">
+                      <TableCell className="py-[24px] px-[24px] align-middle text-[#475569] text-[14px] text-left">
                         {branches.find((b) => b.id === user.branchId)?.name || "Central"}
                       </TableCell>
-                      <TableCell className="py-[20px] px-[24px] align-middle text-left">
+                      <TableCell className="py-[24px] px-[24px] align-middle text-left">
                         <Badge variant="secondary" className={roleStyles[user.role] || ""}>
                           {formatRole(user.role)}
                         </Badge>
                       </TableCell>
-                      <TableCell className="py-[20px] px-[24px] align-middle text-left">
+                      <TableCell className="py-[24px] px-[24px] align-middle text-left">
                         <Badge
                           variant="secondary"
                           className={user.isActive !== false ? statusStyles.Active : statusStyles.Inactive}
@@ -495,7 +488,7 @@ export default function SuperadminOrganizationUsersPage({
                           {user.isActive !== false ? "Active" : "Inactive"}
                         </Badge>
                       </TableCell>
-                      <TableCell className="py-[20px] px-[24px] align-middle text-right">
+                      <TableCell className="py-[24px] px-[24px] align-middle text-right">
                         <div className="flex justify-end">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -574,8 +567,8 @@ export default function SuperadminOrganizationUsersPage({
                           variant={isActive ? "default" : "outline"}
                           className={`h-9 w-9 p-0 text-sm border shadow-2xs rounded-[6px] transition-colors ${
                             isActive
-                              ? "bg-background border-border text-foreground font-semibold hover:bg-muted/15 dark:hover:bg-muted/5 shadow-xs"
-                              : "border-border/80 bg-transparent text-muted-foreground hover:bg-muted/30 dark:hover:bg-muted/10 hover:text-foreground font-normal"
+                              ? "bg-[#EA2525] border-[#EA2525] text-white font-semibold hover:bg-[#D61F1F] shadow-xs"
+                              : "border-border/80 bg-background text-muted-foreground hover:bg-muted/30 dark:hover:bg-muted/10 hover:text-foreground font-normal"
                           }`}
                           onClick={() => setCurrentPage(page)}
                         >

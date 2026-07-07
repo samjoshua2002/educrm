@@ -85,7 +85,7 @@ function OrgStatusBadge({ status, className }: { status: string; className?: str
 
 export default function OrganizationsPage() {
   const [page, setPage] = React.useState(1);
-  const [limit, setLimit] = React.useState(10);
+  const [limit, setLimit] = React.useState(8);
   
   const [searchQuery, setSearchQuery] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState("all");
@@ -285,9 +285,9 @@ export default function OrganizationsPage() {
                 filteredOrganizations.map((org: Organization) => (
                   <TableRow
                     key={org.id}
-                    className="border-b border-border/80 hover:bg-muted/15 dark:hover:bg-muted/5 transition-colors"
+                    className="border-b border-border/80 hover:bg-muted/15 dark:hover:bg-muted/5 transition-colors h-[86px]"
                   >
-                    <TableCell className="py-5 px-6 align-middle">
+                    <TableCell className="py-[24px] px-[24px] align-middle">
                       <div className="flex flex-col gap-0.5">
                         <div className="font-semibold text-foreground text-sm tracking-tight flex items-center gap-2">
                           {org.name}
@@ -298,7 +298,7 @@ export default function OrganizationsPage() {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="py-5 px-6 align-middle">
+                    <TableCell className="py-[24px] px-[24px] align-middle">
                       <div className="flex flex-col gap-0.5">
                         <div className="font-medium text-foreground text-sm tracking-tight">
                           {org.email}
@@ -308,19 +308,19 @@ export default function OrganizationsPage() {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="py-5 px-6 align-middle">
+                    <TableCell className="py-[24px] px-[24px] align-middle">
                       <OrgStatusBadge status={org.status} />
                     </TableCell>
-                    <TableCell className="py-5 px-6 align-middle text-sm text-foreground/80 font-normal">
+                    <TableCell className="py-[24px] px-[24px] align-middle text-sm text-foreground/80 font-normal">
                       <div className="flex items-center gap-2">
                         <CalendarDays className="size-4 text-muted-foreground" />
                         {new Date(org.subscriptionEnd).toLocaleDateString()}
                       </div>
                     </TableCell>
-                    <TableCell className="py-5 px-6 align-middle text-sm text-foreground/80 font-normal">
+                    <TableCell className="py-[24px] px-[24px] align-middle text-sm text-foreground/80 font-normal">
                       {new Date(org.createdAt).toLocaleDateString()}
                     </TableCell>
-                    <TableCell className="py-5 px-3 align-middle text-right">
+                    <TableCell className="py-[24px] px-[24px] align-middle text-right">
                       <div className="flex justify-end">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>

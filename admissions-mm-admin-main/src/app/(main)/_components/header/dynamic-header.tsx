@@ -39,7 +39,8 @@ export function DynamicHeader() {
   const applicantName = getApplicantName();
 
   const getTitle = () => {
-    if (isOrganizationRoute) return storeTitle ?? "Organization";
+    if (storeTitle) return storeTitle;
+    if (isOrganizationRoute) return "Organization";
     if (pathname.startsWith("/dashboard")) return "Dashboard Overview";
     if (pathname.startsWith("/lead-manager")) return "Lead Management";
     if (pathname.startsWith("/gd-interview")) return "GD & Interview";
@@ -57,7 +58,8 @@ export function DynamicHeader() {
   const title = getTitle();
 
   const getSubtitle = () => {
-    if (isOrganizationRoute) return storeDescription ?? null;
+    if (storeDescription) return storeDescription;
+    if (isOrganizationRoute) return null;
     if (pathname.startsWith("/dashboard"))
       return `Welcome back, ${userName}. Here's what's happening today.`;
 
@@ -125,7 +127,7 @@ export function DynamicHeader() {
       <Button variant="ghost" size="icon" className="size-9 rounded-full">
         <Bell className="size-5" />
       </Button>
-      {isOrganizationRoute
+      {(storeAction || isOrganizationRoute)
         ? orgActionButton
         : showActionButton && (
             <Link href={actionHref}>
