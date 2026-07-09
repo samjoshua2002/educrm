@@ -19,6 +19,9 @@ export class FormTemplate {
   @Column({ name: 'is_active', default: true })
   isActive: boolean;
 
+  @Column({ name: 'original_form_id', type: 'uuid', nullable: true })
+  originalFormId: string;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }

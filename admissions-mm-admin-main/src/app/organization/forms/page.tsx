@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   EllipsisVertical,
   Pencil,
@@ -17,6 +18,7 @@ import {
   Eye,
   Copy,
   Calendar,
+  LayoutTemplate,
 } from "lucide-react";
 
 import {
@@ -57,7 +59,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useForms, useDuplicateForm, useDeleteForm } from "@/hooks/use-forms";
+import {
+  useForms,
+  useDuplicateForm,
+  useDeleteForm,
+  useCreateTemplateFromForm,
+  useFormTemplates,
+  useRemoveTemplateByFormId,
+} from "@/hooks/use-forms";
 import { Form } from "@/types/form";
 import { usePageHeader } from "@/hooks/use-page-header";
 
@@ -81,6 +90,8 @@ export default function OrganizationFormsPage() {
     },
   });
 
+  const router = useRouter();
+
   // Mobile load more
   const [mobileVisibleCount, setMobileVisibleCount] = React.useState(5);
   const [deleteFormId, setDeleteFormId] = React.useState<string | null>(null);
@@ -88,8 +99,22 @@ export default function OrganizationFormsPage() {
   // Pagination for API (we fetch 50 at a time for search/filter consistency in frontend like branches)
   const itemsPerPage = 5;
   const { data: formsResponse, isLoading, error } = useForms(1, 50, searchQuery);
+  const { data: templatesResponse } = useFormTemplates();
   const { mutate: duplicateForm } = useDuplicateForm();
   const deleteFormMutation = useDeleteForm();
+  const { mutate: saveAsTemplate, isPending: isSavingTemplate } = useCreateTemplateFromForm();
+  const { mutate: removeTemplateByFormId, isPending: isRemovingTemplate } = useRemoveTemplateByFormId();
+
+  const templates = templatesResponse?.data || [];
+  const isTemplateMap = React.useMemo(() => {
+    const map = new Map<string, boolean>();
+    templates.forEach((t) => {
+      if (t.originalFormId) {
+        map.set(t.originalFormId, true);
+      }
+    });
+    return map;
+  }, [templates]);
 
   const allForms = formsResponse?.data || [];
   
@@ -105,6 +130,18 @@ export default function OrganizationFormsPage() {
 
   function handleDuplicate(id: string) {
     duplicateForm(id);
+  }
+
+  function handleSaveAsTemplate(id: string) {
+    saveAsTemplate(id, {
+      onSuccess: () => {
+        router.push("/organization/forms/create");
+      },
+    });
+  }
+
+  function handleRemoveTemplate(id: string) {
+    removeTemplateByFormId(id);
   }
 
   const filteredForms = React.useMemo(() => {
@@ -404,6 +441,25 @@ export default function OrganizationFormsPage() {
                               <Copy className="size-4" />
                               Duplicate
                             </DropdownMenuItem>
+                             {isTemplateMap.has(item.id) ? (
+                              <DropdownMenuItem
+                                className="gap-2 text-[13px] text-destructive focus:text-destructive focus:bg-destructive/10"
+                                onClick={() => handleRemoveTemplate(item.id)}
+                                disabled={isRemovingTemplate}
+                              >
+                                <Trash2 className="size-4" />
+                                Remove Template
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem
+                                className="gap-2 text-[13px]"
+                                onClick={() => handleSaveAsTemplate(item.id)}
+                                disabled={isSavingTemplate}
+                              >
+                                <LayoutTemplate className="size-4" />
+                                Make as Template
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               variant="destructive"
@@ -564,6 +620,25 @@ export default function OrganizationFormsPage() {
                             <Copy className="size-4" />
                             Duplicate
                           </DropdownMenuItem>
+                           {isTemplateMap.has(item.id) ? (
+                            <DropdownMenuItem
+                              className="gap-2 text-[13px] text-destructive focus:text-destructive focus:bg-destructive/10"
+                              onClick={() => handleRemoveTemplate(item.id)}
+                              disabled={isRemovingTemplate}
+                            >
+                              <Trash2 className="size-4" />
+                              Remove Template
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem
+                              className="gap-2 text-[13px]"
+                              onClick={() => handleSaveAsTemplate(item.id)}
+                              disabled={isSavingTemplate}
+                            >
+                              <LayoutTemplate className="size-4" />
+                              Make as Template
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
                             variant="destructive"

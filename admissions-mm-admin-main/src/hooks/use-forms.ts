@@ -136,8 +136,75 @@ export function useFormTemplates() {
   return useQuery({
     queryKey: ["form-templates"],
     queryFn: () => apiGet<PaginatedResponse<Template>>("/form-templates"),
+    staleTime: 0, // Always re-fetch when navigating to the page
   });
 }
+
+// 7b. Save Form as Template
+export function useCreateTemplateFromForm() {
+  const queryClient = useQueryClient();
+  const user = useAuthStore((state) => state.user);
+  const orgId = user?.organizationId;
+
+  return useMutation({
+    mutationFn: (formId: string) =>
+      apiPost<Template>(
+        `/form-templates/from-form/${formId}/org/${orgId}`,
+        {}
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["form-templates"] });
+      toast.success("Form saved as template successfully");
+    },
+    onError: (error: any) => {
+      toast.error(
+        error.response?.data?.message || "Failed to save form as template"
+      );
+    },
+  });
+}
+
+// 7c. Delete Template
+export function useDeleteTemplate() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (templateId: string) =>
+      apiDelete<void>(`/form-templates/${templateId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["form-templates"] });
+      toast.success("Template deleted successfully");
+    },
+    onError: (error: any) => {
+      toast.error(
+        error.response?.data?.message || "Failed to delete template"
+      );
+    },
+  });
+}
+
+// 7d. Remove Template by original Form ID
+export function useRemoveTemplateByFormId() {
+  const queryClient = useQueryClient();
+  const user = useAuthStore((state) => state.user);
+  const orgId = user?.organizationId;
+
+  return useMutation({
+    mutationFn: (formId: string) =>
+      apiDelete<void>(`/form-templates/from-form/${formId}/org/${orgId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["form-templates"] });
+      toast.success("Form template removed successfully");
+    },
+    onError: (error: any) => {
+      toast.error(
+        error.response?.data?.message || "Failed to remove form template"
+      );
+    },
+  });
+}
+
+
 
 // 8. Form Responses
 export function useFormResponses(

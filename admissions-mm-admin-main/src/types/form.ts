@@ -43,6 +43,7 @@ export interface Template {
   id: string;
   name: string;
   fields: FormField[];
+  originalFormId?: string;
 }
 
 export interface FormResponse {
