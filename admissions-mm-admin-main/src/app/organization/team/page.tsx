@@ -124,8 +124,8 @@ export default function TeamPage() {
   const [formBranch, setFormBranch] = React.useState<string>("none");
   const [formRole, setFormRole] = React.useState<string>(ROLES[0]);
 
-  // Hook Data — use page-by-page fetching matching original hook signature
-  const { data: teamResponse, isLoading, error } = useTeam(currentPage);
+  // Fetch all (or max 100) and paginate on the client
+  const { data: teamResponse, isLoading, error } = useTeam(1, 100);
   const { data: branchesResponse } = useBranches(1, 100);
   const { mutate: createUser, isPending: isCreating } = useCreateUser();
   const { mutate: updateUser, isPending: isUpdating } = useUpdateUser();
@@ -236,12 +236,13 @@ export default function TeamPage() {
     });
   }, [team, searchQuery, roleFilter]);
 
-  // Use server-side pagination totals; client-side filter on current page data
-  const totalPages = pagination?.totalPages ?? 1;
-  const totalCount = pagination?.total ?? team.length;
-  const startIndex = (currentPage - 1) * 10;
-  const endIndex = startIndex + filteredTeam.length;
-  const paginatedTeam = filteredTeam;
+  // Desktop Pagination (5 per page)
+  const itemsPerPage = 5;
+  const totalPages = Math.ceil(filteredTeam.length / itemsPerPage);
+  const totalCount = filteredTeam.length;
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedTeam = filteredTeam.slice(startIndex, endIndex);
 
   // Mobile: show up to mobileVisibleCount from current page
   const mobileTeam = React.useMemo(
@@ -440,12 +441,12 @@ export default function TeamPage() {
                 paginatedTeam.map((user: User) => (
                   <TableRow
                     key={user.id}
-                    className="border-b border-[#e2e8f0] hover:bg-muted/15 transition-colors"
+                    className="border-b border-[#e2e8f0] hover:bg-muted/15 transition-colors h-[86px]"
                   >
-                    <TableCell className="py-[20px] px-[24px] align-middle">
+                    <TableCell className="py-[24px] px-[24px] align-middle">
                       <div className="font-semibold text-[#1e293b] text-[14px]">{user.name}</div>
                     </TableCell>
-                    <TableCell className="py-[20px] px-[24px] align-middle">
+                    <TableCell className="py-[24px] px-[24px] align-middle">
                       <div className="text-xs space-y-0.5">
                         <div className="flex items-center gap-1.5 text-[#475569]">
                           <Mail className="size-3" /> {user.email}
@@ -457,15 +458,15 @@ export default function TeamPage() {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="py-[20px] px-[24px] align-middle text-[#475569] text-[14px]">
+                    <TableCell className="py-[24px] px-[24px] align-middle text-[#475569] text-[14px]">
                       {branches.find((b) => b.id === user.branchId)?.name || "Central"}
                     </TableCell>
-                    <TableCell className="py-[20px] px-[24px] align-middle">
+                    <TableCell className="py-[24px] px-[24px] align-middle">
                       <Badge variant="secondary" className={roleStyles[user.role] || ""}>
                         {formatRole(user.role)}
                       </Badge>
                     </TableCell>
-                    <TableCell className="py-[20px] px-[24px] align-middle">
+                    <TableCell className="py-[24px] px-[24px] align-middle">
                       <Badge
                         variant="secondary"
                         className={user.isActive !== false ? statusStyles.Active : statusStyles.Inactive}
@@ -473,7 +474,7 @@ export default function TeamPage() {
                         {user.isActive !== false ? "Active" : "Inactive"}
                       </Badge>
                     </TableCell>
-                    <TableCell className="py-[20px] px-[24px] align-middle text-right">
+                    <TableCell className="py-[24px] px-[24px] align-middle text-right">
                       <div className="flex justify-end">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -552,8 +553,8 @@ export default function TeamPage() {
                         variant={isActive ? "default" : "outline"}
                         className={`h-9 w-9 p-0 text-sm border shadow-2xs rounded-[6px] transition-colors ${
                           isActive
-                            ? "bg-background border-border text-foreground font-semibold hover:bg-muted/15 dark:hover:bg-muted/5 shadow-xs"
-                            : "border-border/80 bg-transparent text-muted-foreground hover:bg-muted/30 dark:hover:bg-muted/10 hover:text-foreground font-normal"
+                            ? "bg-[#EA2525] border-[#EA2525] text-white font-semibold hover:bg-[#D61F1F] shadow-xs"
+                            : "border-border/80 bg-background text-muted-foreground hover:bg-muted/30 dark:hover:bg-muted/10 hover:text-foreground font-normal"
                         }`}
                         onClick={() => setCurrentPage(page)}
                       >

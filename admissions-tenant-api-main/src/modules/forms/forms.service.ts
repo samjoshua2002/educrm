@@ -111,6 +111,47 @@ export class FormsService {
     return this.templateRepository.find({ where: { isActive: true } });
   }
 
+  async saveFormAsTemplate(formId: string, orgId: string): Promise<FormTemplate> {
+    const form = await this.findOne(formId, orgId);
+    
+    // Check if template already exists for this formId
+    const existing = await this.templateRepository.findOne({ where: { originalFormId: formId } });
+    if (existing) {
+      existing.name = form.name;
+      existing.fields = form.fields;
+      return this.templateRepository.save(existing);
+    }
+
+    const template = this.templateRepository.create({
+      name: form.name,
+      fields: form.fields,
+      originalFormId: formId,
+      isActive: true,
+    });
+    return this.templateRepository.save(template);
+  }
+
+  async deleteTemplate(templateId: string): Promise<void> {
+    const template = await this.templateRepository.findOne({ where: { id: templateId } });
+    if (!template) {
+      throw new NotFoundException(`Template with ID ${templateId} not found`);
+    }
+    await this.templateRepository.remove(template);
+  }
+
+  async removeTemplateByFormId(formId: string, orgId: string): Promise<void> {
+    // Validate form ownership first
+    await this.findOne(formId, orgId);
+
+    const template = await this.templateRepository.findOne({ where: { originalFormId: formId } });
+    if (!template) {
+      throw new NotFoundException(`Template for form ID ${formId} not found`);
+    }
+    await this.templateRepository.remove(template);
+  }
+
+
+
   async submitResponse(formId: string, dto: SubmitFormDto): Promise<FormResponse> {
     const form = await this.formRepository.findOne({ where: { id: formId } });
     if (!form) {

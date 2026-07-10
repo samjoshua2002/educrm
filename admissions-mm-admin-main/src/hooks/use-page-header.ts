@@ -20,7 +20,7 @@ export function usePageHeader({ title, description, action }: UsePageHeaderOptio
   const clearHeader = usePageHeaderStore((s) => s.clearHeader);
 
   useEffect(() => {
-    setHeader({ title, description: description ?? null, action: action ?? null });
+    setHeader({ title, description: description ?? undefined, action: action ?? null });
     return () => {
       clearHeader();
     };

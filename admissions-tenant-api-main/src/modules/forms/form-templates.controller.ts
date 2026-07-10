@@ -1,7 +1,13 @@
 import {
   Controller,
   Get,
+  Post,
+  Delete,
+  Param,
+  ParseUUIDPipe,
   UseGuards,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { FormsService } from './forms.service.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
@@ -21,4 +27,35 @@ export class FormTemplatesController {
   findAll() {
     return this.formsService.findAllTemplates();
   }
+
+  @Post('from-form/:formId/org/:orgId')
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN)
+  @ResponseMessage('Form saved as template successfully')
+  saveFromForm(
+    @Param('formId', ParseUUIDPipe) formId: string,
+    @Param('orgId', ParseUUIDPipe) orgId: string,
+  ) {
+    return this.formsService.saveFormAsTemplate(formId, orgId);
+  }
+
+  @Delete(':id')
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN)
+  @ResponseMessage('Template deleted successfully')
+  @HttpCode(HttpStatus.OK)
+  deleteTemplate(@Param('id', ParseUUIDPipe) id: string) {
+    return this.formsService.deleteTemplate(id);
+  }
+
+  @Delete('from-form/:formId/org/:orgId')
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN)
+  @ResponseMessage('Template removed successfully')
+  @HttpCode(HttpStatus.OK)
+  removeTemplateByFormId(
+    @Param('formId', ParseUUIDPipe) formId: string,
+    @Param('orgId', ParseUUIDPipe) orgId: string,
+  ) {
+    return this.formsService.removeTemplateByFormId(formId, orgId);
+  }
 }
+
+
