@@ -188,6 +188,7 @@ export function usePublicForm(slug: string) {
     queryKey: ["public-form", slug],
     queryFn: () => publicGet<Form>(`/public/forms/${slug}`),
     enabled: !!slug,
+    staleTime: 0,
   });
 }
 

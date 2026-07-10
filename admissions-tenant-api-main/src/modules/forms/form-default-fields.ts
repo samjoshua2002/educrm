@@ -34,19 +34,29 @@ export const DEFAULT_FORM_FIELDS = [
     type: 'email',
     label: 'Email',
     placeholder: 'Enter your email address...',
-    required: false,
+    required: true,
     systemField: true,
   },
 ];
 
 export function isSystemField(field: { id?: string; label?: string }): boolean {
-  return (
-    SYSTEM_FIELD_IDS.includes(field.id as (typeof SYSTEM_FIELD_IDS)[number]) ||
-    RESERVED_LABELS.has(field.label?.toLowerCase() ?? '')
-  );
+  return !!field.id && SYSTEM_FIELD_IDS.includes(field.id as (typeof SYSTEM_FIELD_IDS)[number]);
 }
 
-export function mergeDefaultFormFields(fields: unknown[]): typeof DEFAULT_FORM_FIELDS {
-  const custom = (fields ?? []).filter((f: { id?: string; label?: string }) => !isSystemField(f));
-  return [...DEFAULT_FORM_FIELDS, ...(custom as typeof DEFAULT_FORM_FIELDS)];
+export function mergeDefaultFormFields(fields: any[]): any[] {
+  const systemFields = DEFAULT_FORM_FIELDS.map((defaultField) => {
+    const existing = (fields ?? []).find((f) => f && f.id === defaultField.id);
+    if (existing) {
+      return {
+        ...defaultField,
+        ...existing,
+        systemField: true,
+        id: defaultField.id,
+      };
+    }
+    return defaultField;
+  });
+
+  const customFields = (fields ?? []).filter((f) => f && !isSystemField(f));
+  return [...systemFields, ...customFields];
 }
