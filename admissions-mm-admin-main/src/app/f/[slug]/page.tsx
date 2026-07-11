@@ -217,7 +217,7 @@ export default function PublicFormPage({
                         required={field.required}
                       >
                         <SelectTrigger
-                          className={`w-full bg-slate-50/50 border-slate-200 h-11 focus:ring-primary/20 ${errors[field.id] ? "border-destructive/50" : ""}`}
+                          className={`w-full bg-slate-50/50 border-slate-200 h-11 focus-visible:ring-0 focus-visible:border-slate-400 focus:border-slate-400 focus:ring-0 transition-colors ${errors[field.id] ? "border-destructive/50" : ""}`}
                         >
                           <SelectValue
                             placeholder={
@@ -269,7 +269,7 @@ export default function PublicFormPage({
                         id={field.id}
                         placeholder={field.placeholder}
                         required={field.required}
-                        className={`bg-slate-50/50 border-slate-200 min-h-[100px] focus:ring-primary/20 ${errors[field.id] ? "border-destructive/50" : ""}`}
+                        className={`bg-slate-50/50 border-slate-200 min-h-[100px] focus-visible:ring-0 focus-visible:border-slate-400 focus:border-slate-400 focus:ring-0 transition-colors ${errors[field.id] ? "border-destructive/50" : ""}`}
                         onChange={(e) =>
                           handleInputChange(field.id, e.target.value)
                         }
@@ -312,7 +312,7 @@ export default function PublicFormPage({
                         }
                         placeholder={field.placeholder}
                         required={field.required}
-                        className={`bg-slate-50/50 border-slate-200 h-11 focus:ring-primary/20 ${errors[field.id] ? "border-destructive/50" : ""}`}
+                        className={`bg-slate-50/50 border-slate-200 h-11 focus-visible:ring-0 focus-visible:border-slate-400 focus:border-slate-400 focus:ring-0 transition-colors ${errors[field.id] ? "border-destructive/50" : ""}`}
                         onChange={(e) =>
                           handleInputChange(field.id, e.target.value)
                         }
@@ -325,7 +325,7 @@ export default function PublicFormPage({
               <div className="pt-6">
                 <Button
                   type="submit"
-                  className="w-full h-12 text-sm font-black uppercase tracking-widest shadow-xl shadow-primary/20 transition-all active:scale-[0.98]"
+                  className="w-full h-12 text-sm font-black uppercase tracking-widest bg-[#2563EA] hover:bg-[#1d4ed8] text-white shadow-xl shadow-blue-500/20 transition-all active:scale-[0.98]"
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? (
@@ -338,9 +338,11 @@ export default function PublicFormPage({
                   )}
                 </Button>
                 <div className="flex items-center justify-center gap-4 mt-6">
-                  <div className="flex items-center gap-1.5 grayscale opacity-50">
-                    <div className="h-4 w-4 bg-primary rounded-sm" />
-                    <span className="text-[10px] font-bold uppercase tracking-tighter">
+                  <div className="flex items-center gap-1.5 opacity-60">
+                    <div className="h-4 w-4 rounded bg-slate-400 flex items-center justify-center text-white text-[9px] font-black leading-none select-none">
+                      M
+                    </div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
                       Powered by Admission MM
                     </span>
                   </div>
