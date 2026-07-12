@@ -75,4 +75,13 @@ export class CoursesController {
   ) {
     return this.coursesService.remove(id, orgId, req.user.sub);
   }
+
+  @Delete(':id/hard-delete')
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN)
+  hardDelete(
+    @Param('id') id: string,
+    @Param('orgId') orgId: string,
+  ) {
+    return this.coursesService.hardDelete(id, orgId);
+  }
 }

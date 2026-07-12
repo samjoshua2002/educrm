@@ -95,6 +95,13 @@ export class CoursesService {
     return this.courseRepository.save(course);
   }
 
+  async hardDelete(id: string, orgId: string) {
+    const course = await this.findOne(id, orgId);
+    await this.courseRepository.remove(course);
+    this.logger.warn(`Course ${id} permanently deleted from org ${orgId}.`);
+    return { message: 'Course permanently deleted.' };
+  }
+
   async validateCourseExists(courseId: string, orgId: string): Promise<Course> {
     const course = await this.courseRepository.findOne({
       where: { id: courseId, organizationId: orgId }

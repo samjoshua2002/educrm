@@ -983,6 +983,103 @@ CREATE INDEX IF NOT EXISTS idx_leads_course_id ON leads(course_id);
 
 
 -- ============================================================
--- END OF SCHEMA
+-- SAMPLE DATA: Courses, Academic Sessions & Course Sessions
+-- (Inserts only if the organization has no courses yet)
+-- Replace '00000000-0000-0000-0000-000000000000' with your
+-- actual organization UUID from the organizations table.
 -- ============================================================
 
+/*
+  HOW TO USE:
+  1. Run:  SELECT id, name FROM organizations;
+  2. Copy your org UUID and replace the placeholder below.
+  3. Run the whole block.
+*/
+
+DO $$
+DECLARE
+  v_org_id UUID;
+  v_session_2526 UUID;
+  v_session_2627 UUID;
+  v_course_pgdm UUID;
+  v_course_mba UUID;
+  v_course_exec UUID;
+  v_course_btech UUID;
+  v_course_bca UUID;
+BEGIN
+
+  -- ── Step 1: Pick the first org automatically (or hardcode yours) ──────────
+  SELECT id INTO v_org_id FROM organizations LIMIT 1;
+
+  IF v_org_id IS NULL THEN
+    RAISE NOTICE 'No organization found. Skipping sample data.';
+    RETURN;
+  END IF;
+
+  -- Skip if courses already exist for this org
+  IF EXISTS (SELECT 1 FROM courses WHERE organization_id = v_org_id) THEN
+    RAISE NOTICE 'Courses already exist for org %. Skipping sample insert.', v_org_id;
+    RETURN;
+  END IF;
+
+  RAISE NOTICE 'Inserting sample data for org: %', v_org_id;
+
+  -- ── Step 2: Academic Sessions ─────────────────────────────────────────────
+  INSERT INTO academic_sessions
+    (organization_id, name, display_name, start_date, end_date, is_current, is_active, created_at, updated_at)
+  VALUES
+    (v_org_id, '2025-26', 'Academic Year 2025–2026', '2025-07-01', '2026-06-30', FALSE, TRUE, NOW(), NOW()),
+    (v_org_id, '2026-27', 'Academic Year 2026–2027', '2026-07-01', '2027-06-30', TRUE,  TRUE, NOW(), NOW())
+  ON CONFLICT (organization_id, name) DO NOTHING;
+
+  SELECT id INTO v_session_2526 FROM academic_sessions WHERE organization_id = v_org_id AND name = '2025-26';
+  SELECT id INTO v_session_2627 FROM academic_sessions WHERE organization_id = v_org_id AND name = '2026-27';
+
+  -- ── Step 3: Courses ───────────────────────────────────────────────────────
+  INSERT INTO courses
+    (organization_id, name, code, department, duration, duration_months, is_active, created_at, updated_at)
+  VALUES
+    (v_org_id, 'PGDM (Two-Year, Full-Time)',  'PGDM-FT',   'School of Management',  '2 Years', 24, TRUE, NOW(), NOW()),
+    (v_org_id, 'MBA (Two-Year, Full-Time)',   'MBA-FT',    'School of Management',  '2 Years', 24, TRUE, NOW(), NOW()),
+    (v_org_id, 'Executive PGDM',             'EXEC-PGDM', 'School of Management',  '1 Year',  12, TRUE, NOW(), NOW()),
+    (v_org_id, 'B.Tech Computer Science',    'BTECH-CSE', 'School of Engineering', '4 Years', 48, TRUE, NOW(), NOW()),
+    (v_org_id, 'B.C.A (Hons.)',              'BCA-HONS',  'School of Computing',   '3 Years', 36, TRUE, NOW(), NOW())
+  ON CONFLICT (organization_id, code) DO NOTHING;
+
+  SELECT id INTO v_course_pgdm  FROM courses WHERE organization_id = v_org_id AND code = 'PGDM-FT';
+  SELECT id INTO v_course_mba   FROM courses WHERE organization_id = v_org_id AND code = 'MBA-FT';
+  SELECT id INTO v_course_exec  FROM courses WHERE organization_id = v_org_id AND code = 'EXEC-PGDM';
+  SELECT id INTO v_course_btech FROM courses WHERE organization_id = v_org_id AND code = 'BTECH-CSE';
+  SELECT id INTO v_course_bca   FROM courses WHERE organization_id = v_org_id AND code = 'BCA-HONS';
+
+  -- ── Step 4: Course Sessions (link course ↔ session with seats & fee) ──────
+  IF v_session_2526 IS NOT NULL THEN
+    INSERT INTO course_sessions
+      (organization_id, course_id, academic_session_id, total_seats, fee_amount, is_active, created_at, updated_at)
+    VALUES
+      (v_org_id, v_course_pgdm,  v_session_2526, 120, 185000.00, TRUE, NOW(), NOW()),
+      (v_org_id, v_course_mba,   v_session_2526,  60, 220000.00, TRUE, NOW(), NOW()),
+      (v_org_id, v_course_exec,  v_session_2526,  40, 195000.00, TRUE, NOW(), NOW()),
+      (v_org_id, v_course_btech, v_session_2526,  90, 110000.00, TRUE, NOW(), NOW()),
+      (v_org_id, v_course_bca,   v_session_2526,  60,  75000.00, TRUE, NOW(), NOW())
+    ON CONFLICT (organization_id, course_id, academic_session_id) DO NOTHING;
+  END IF;
+
+  IF v_session_2627 IS NOT NULL THEN
+    INSERT INTO course_sessions
+      (organization_id, course_id, academic_session_id, total_seats, fee_amount, is_active, created_at, updated_at)
+    VALUES
+      (v_org_id, v_course_pgdm,  v_session_2627, 130, 195000.00, TRUE, NOW(), NOW()),
+      (v_org_id, v_course_mba,   v_session_2627,  70, 235000.00, TRUE, NOW(), NOW()),
+      (v_org_id, v_course_exec,  v_session_2627,  45, 205000.00, TRUE, NOW(), NOW()),
+      (v_org_id, v_course_btech, v_session_2627, 100, 120000.00, TRUE, NOW(), NOW()),
+      (v_org_id, v_course_bca,   v_session_2627,  60,  80000.00, TRUE, NOW(), NOW())
+    ON CONFLICT (organization_id, course_id, academic_session_id) DO NOTHING;
+  END IF;
+
+  RAISE NOTICE 'Sample data inserted successfully.';
+END $$;
+
+-- ============================================================
+-- END OF SCHEMA
+-- ============================================================
