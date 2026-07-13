@@ -26,6 +26,7 @@ import {
   Pencil,
   GripHorizontal,
   MoreVertical,
+  Bell,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -45,6 +46,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { usePageHeaderStore } from "@/stores/page-header-store";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
@@ -584,7 +592,11 @@ export default function OrganizationFormBuilderPage({
     }
   };
 
-  const handleSave = (publish: boolean = false) => {
+  const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
+  const setHeader = usePageHeaderStore((s) => s.setHeader);
+  const clearHeader = usePageHeaderStore((s) => s.clearHeader);
+
+  const handleSave = React.useCallback((publish: boolean = false) => {
     const status = publish ? "active" : localStatus;
     updateForm({
       id,
@@ -595,7 +607,77 @@ export default function OrganizationFormBuilderPage({
         status: status as any,
       },
     });
-  };
+  }, [id, localName, localSlug, localStatus, localFields, updateForm]);
+
+  React.useEffect(() => {
+    setHeader({
+      customLeftNode: (
+        <div className="flex flex-col">
+          <h1 className="text-sm font-bold text-slate-800 leading-tight">Form Creation</h1>
+          <span className="text-[10px] text-slate-500 leading-none">
+            Create and manage admission forms for campaigns
+          </span>
+        </div>
+      ),
+      customRightNode: (
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" className="size-9 rounded-full text-slate-600 hover:bg-slate-100">
+            <Bell className="size-5" />
+          </Button>
+          
+          <div className="flex items-center -space-x-px">
+            <Button
+              size="sm"
+              className="h-9 font-semibold bg-[#EA2525] hover:bg-[#d32020] text-white shadow-sm rounded-l-[8px] rounded-r-none border-r border-[#d32020]"
+              disabled={isSaving}
+              onClick={() => handleSave(true)}
+            >
+              {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Save Form
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="sm"
+                  className="h-9 px-2 bg-[#EA2525] hover:bg-[#d32020] text-white shadow-sm rounded-r-[8px] rounded-l-none"
+                  disabled={isSaving}
+                >
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[120px] bg-white border border-slate-200">
+                <DropdownMenuItem
+                  className="text-xs font-semibold text-slate-700 cursor-pointer flex items-center hover:bg-slate-50 focus:bg-slate-50"
+                  disabled={isSaving}
+                  onClick={() => handleSave(false)}
+                >
+                  <Save className="h-3.5 w-3.5 mr-2 text-slate-500" />
+                  Save Draft
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="bg-slate-100" />
+                <DropdownMenuItem
+                  className="text-xs font-semibold text-slate-700 cursor-pointer flex items-center hover:bg-slate-50 focus:bg-slate-50"
+                  disabled={isSaving}
+                  onClick={() => {
+                    if (form?.slug) {
+                      window.open(`/f/${form.slug}`, "_blank");
+                    }
+                  }}
+                >
+                  <Eye className="h-3.5 w-3.5 mr-2 text-slate-500" />
+                  Preview
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+      )
+    });
+
+    return () => {
+      clearHeader();
+    };
+  }, [localName, localSlug, isSaving, form?.slug, handleSave, setHeader, clearHeader]);
 
   if (isLoading) {
     return (
@@ -634,7 +716,7 @@ export default function OrganizationFormBuilderPage({
   const selectedField = localFields.find((f) => f.id === selectedFieldId);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-3rem)] overflow-hidden bg-muted/20">
+    <div className="flex flex-col h-[calc(100vh-3.5rem)] overflow-hidden bg-muted/20">
       <style dangerouslySetInnerHTML={{ __html: `
         .no-scrollbar::-webkit-scrollbar {
           display: none !important;
@@ -644,108 +726,41 @@ export default function OrganizationFormBuilderPage({
           scrollbar-width: none !important;
         }
       `}} />
-      <Tabs
-        value={activeTab}
-        onValueChange={(val) => setActiveTab(val as any)}
-        className="flex-1 flex flex-col overflow-hidden"
-      >
-        {/* Builder Header */}
-        <header className="h-14 border-b bg-background flex items-center justify-between px-4 shrink-0 shadow-sm">
-          <div className="flex items-center gap-3">
+
+      <main className="flex-1 flex overflow-hidden">
+        {/* Left Sidebar: Components */}
+        <aside className="w-72 border-r bg-background flex flex-col shrink-0">
+          {/* Form Title & Settings */}
+          <div className="p-4 flex items-center gap-2">
             <Link href="/organization/forms">
-              <Button variant="ghost" size="icon" className="rounded-full">
+              <Button variant="ghost" size="icon" className="rounded-full h-8 w-8 !text-[#120352] hover:bg-slate-100 -ml-4 shrink-0">
                 <ChevronLeft className="h-5 w-5" />
               </Button>
             </Link>
-            <div className="flex flex-col">
-              <h1 className="text-base font-bold text-slate-800">Form Creation</h1>
-              <span className="text-xs text-slate-500">
-                Create and manage admission forms for campaigns
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center -space-x-px">
+            <input
+              className="bg-transparent border-none focus-visible:ring-0 p-0 w-full h-auto focus:outline-none text-[#0A0A0A] placeholder:text-slate-400"
+              style={{
+                fontFamily: "Inter, sans-serif",
+                fontSize: "24px",
+                fontWeight: 600,
+                lineHeight: "normal",
+              }}
+              value={localName}
+              onChange={(e) => handleNameChange(e.target.value)}
+              placeholder="Untitled Form"
+            />
             <Button
-              size="sm"
-              className="h-9 font-semibold bg-[#EA2525] hover:bg-[#d32020] text-white shadow-sm rounded-l-[8px] rounded-r-none border-r border-[#d32020]"
-              disabled={isSaving}
-              onClick={() => handleSave(true)}
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-slate-500 hover:text-slate-700 hover:bg-slate-100 shrink-0"
+              onClick={() => setIsSettingsOpen(true)}
             >
-              {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Save Form
+              <Settings className="h-4 w-4" />
             </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  size="sm"
-                  className="h-9 px-2 bg-[#EA2525] hover:bg-[#d32020] text-white shadow-sm rounded-r-[8px] rounded-l-none"
-                  disabled={isSaving}
-                >
-                  <ChevronDown className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[120px] bg-white border border-slate-200">
-                <DropdownMenuItem
-                  className="text-xs font-semibold text-slate-700 cursor-pointer flex items-center hover:bg-slate-50 focus:bg-slate-50"
-                  disabled={isSaving}
-                  onClick={() => handleSave(false)}
-                >
-                  <Save className="h-3.5 w-3.5 mr-2 text-slate-500" />
-                  Save Draft
-                </DropdownMenuItem>
-                <DropdownMenuSeparator className="bg-slate-100" />
-                <DropdownMenuItem
-                  className="text-xs font-semibold text-slate-700 cursor-pointer flex items-center hover:bg-slate-50 focus:bg-slate-50"
-                  disabled={isSaving}
-                  onClick={() => window.open(`/f/${form.slug}`, "_blank")}
-                >
-                  <Eye className="h-3.5 w-3.5 mr-2 text-slate-500" />
-                  Preview
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
           </div>
-        </header>
 
-        <main className="flex-1 flex overflow-hidden">
-          <TabsContent
-            value="build"
-            className="flex-1 flex m-0 overflow-hidden"
-          >
-            {/* Left Sidebar: Components */}
-            <aside className="w-72 border-r bg-background flex flex-col shrink-0">
-              {/* Form Title & Settings */}
-              <div className="p-4 border-b space-y-4">
-                <div className="flex items-center justify-between gap-2">
-                  <Input
-                    className="bg-transparent border-none focus-visible:ring-0 p-0 w-full h-auto focus:outline-none"
-                    style={{
-                      color: "#0A0A0A",
-                      fontFamily: "Inter, sans-serif",
-                      fontSize: "24px",
-                      fontWeight: 600,
-                      lineHeight: "normal",
-                    }}
-                    value={localName}
-                    onChange={(e) => handleNameChange(e.target.value)}
-                    placeholder="Untitled"
-                  />
-                  <button
-                    type="button"
-                    className="flex items-center justify-center hover:bg-slate-100 rounded-md transition-colors"
-                    style={{ width: "24px", height: "24px" }}
-                    onClick={() => setActiveTab(activeTab === "build" ? "settings" : "build")}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
-                      <path d="M10.825 22C10.375 22 9.98748 21.85 9.66248 21.55C9.33748 21.25 9.14165 20.8833 9.07498 20.45L8.84998 18.8C8.63331 18.7167 8.42915 18.6167 8.23748 18.5C8.04581 18.3833 7.85831 18.2583 7.67498 18.125L6.12498 18.775C5.70831 18.9583 5.29165 18.975 4.87498 18.825C4.45831 18.675 4.13331 18.4083 3.89998 18.025L2.72498 15.975C2.49165 15.5917 2.42498 15.1833 2.52498 14.75C2.62498 14.3167 2.84998 13.9583 3.19998 13.675L4.52498 12.675C4.50831 12.5583 4.49998 12.4458 4.49998 12.3375V11.6625C4.49998 11.5542 4.50831 11.4417 4.52498 11.325L3.19998 10.325C2.84998 10.0417 2.62498 9.68333 2.52498 9.25C2.42498 8.81667 2.49165 8.40833 2.72498 8.025L3.89998 5.975C4.13331 5.59167 4.45831 5.325 4.87498 5.175C5.29165 5.025 5.70831 5.04167 6.12498 5.225L7.67498 5.875C7.85831 5.74167 8.04998 5.61667 8.24998 5.5C8.44998 5.38333 8.64998 5.28333 8.84998 5.2L9.07498 3.55C9.14165 3.11667 9.33748 2.75 9.66248 2.45C9.98748 2.15 10.375 2 10.825 2H13.175C13.625 2 14.0125 2.15 14.3375 2.45C14.6625 2.75 14.8583 3.11667 14.925 3.55L15.15 5.2C15.3666 5.28333 15.5708 5.38333 15.7625 5.5C15.9541 5.61667 16.1416 5.74167 16.325 5.875L17.875 5.225C18.2916 5.04167 18.7083 5.025 19.125 5.175C19.5416 5.325 19.8666 5.59167 20.1 5.975L21.275 8.025C21.5083 8.40833 21.575 8.81667 21.475 9.25C21.375 9.68333 21.15 10.0417 20.8 10.325L19.475 11.325C19.4916 11.4417 19.5 11.5542 19.5 11.6625V12.3375C19.5 12.4458 19.4833 12.5583 19.45 12.675L20.775 13.675C21.125 13.9583 21.35 14.3167 21.45 14.75C21.55 15.1833 21.4833 15.5917 21.25 15.975L20.05 18.025C19.8166 18.4083 19.4916 18.675 19.075 18.825C18.6583 18.975 18.2416 18.9583 17.825 18.775L16.325 18.125C16.1416 18.2583 15.95 18.3833 15.75 18.5C15.55 18.6167 15.35 18.7167 15.15 18.8L14.925 20.45C14.8583 20.8833 14.6625 21.25 14.3375 21.55C14.0125 21.85 13.625 22 13.175 22H10.825ZM12.05 15.5C13.0166 15.5 13.8416 15.1583 14.525 14.475C15.2083 13.7917 15.55 12.9667 15.55 12C15.55 11.0333 15.2083 10.2083 14.525 9.525C13.8416 8.84167 13.0166 8.5 12.05 8.5C11.0666 8.5 10.2375 8.84167 9.56248 9.525C8.88748 10.2083 8.54998 11.0333 8.54998 12C8.54998 12.9667 8.88748 13.7917 9.56248 14.475C10.2375 15.1583 11.0666 15.5 12.05 15.5Z" fill="#415876"/>
-                    </svg>
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex-1 overflow-y-auto no-scrollbar">
-                <div className="p-4 space-y-6">
+          <div className="flex-1 overflow-y-auto no-scrollbar">
+            <div className="p-4 space-y-6">
                   {/* Basic Elements Section */}
                   <div>
                     <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
@@ -823,7 +838,7 @@ export default function OrganizationFormBuilderPage({
                           subtitle: "Validation included",
                           svg: (
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="16" viewBox="0 0 20 16" fill="none">
-                              <path d="M18 0H2C0.9 0 0 0.9 0 2V14C0 15.1 0.9 16 2 16H18C19.1 16 20 15.1 20 14V2C20 0.9 19.1 0 18 0ZM18 4L10 9L2 4V2L10 7L18 2V4Z" fill="#415876"/>
+                              <path d="M2 16C1.45 16 0.979167 15.8042 0.5875 15.4125C0.195833 15.0208 0 14.55 0 14V2C0 1.45 0.195833 0.979167 0.5875 0.5875C0.979167 0.195833 1.45 0 2 0H18C18.55 0 19.0208 0.195833 19.4125 0.5875C19.8042 0.979167 20 1.45 20 2V14C20 14.55 19.8042 15.0208 19.4125 15.4125C19.0208 15.8042 18.55 16 18 16H2ZM10 9L2 4V14H18V4L10 9ZM10 7L18 2H2L10 7ZM2 4V2V4V14V4Z" fill="#415876"/>
                             </svg>
                           )
                         },
@@ -883,11 +898,16 @@ export default function OrganizationFormBuilderPage({
                         return (
                           <button
                             key={item.type}
-                            className="w-full text-left border border-slate-100 hover:border-blue-500 hover:bg-blue-50/30 flex items-center transition-all group rounded-[4px] bg-[#FAFAFA]"
+                            className="w-full text-left flex items-center transition-all group"
                             style={{
-                              padding: "6px 12px 6px 12px",
+                              display: "flex",
+                              padding: "12px",
+                              alignItems: "center",
                               gap: "12px",
                               alignSelf: "stretch",
+                              borderRadius: "4px",
+                              border: "1px solid var(--Neutral-300, #D4D4D4)",
+                              background: "var(--Neutral-50, #FAFAFA)",
                             }}
                             type="button"
                             onClick={() => addField(item.type, item.label)}
@@ -904,7 +924,17 @@ export default function OrganizationFormBuilderPage({
                                 {item.label}
                               </span>
                               {item.subtitle && (
-                                <span className="text-[9px] text-slate-400 mt-1 leading-none">
+                                <span
+                                  style={{
+                                    color: "var(--Colorsecondary-text-color, #475569)",
+                                    fontFamily: "Inter, sans-serif",
+                                    fontSize: "11px",
+                                    fontStyle: "normal",
+                                    fontWeight: 400,
+                                    lineHeight: "16.5px",
+                                  }}
+                                  className="mt-1"
+                                >
                                   {item.subtitle}
                                 </span>
                               )}
@@ -1091,23 +1121,21 @@ export default function OrganizationFormBuilderPage({
                 </div>
               )}
             </aside>
-          </TabsContent>
+        </main>
 
-          <TabsContent
-            value="settings"
-            className="flex-1 m-0 bg-muted/20 overflow-y-auto p-8 flex justify-center animate-none"
-          >
+        {/* Form Settings Dialog Popup */}
+        <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
+          <DialogContent className="max-w-2xl bg-white p-0 overflow-hidden border border-slate-200 rounded-[16px] gap-0">
             <div
               style={{
-                display: "inline-flex",
-                padding: "40px",
+                display: "flex",
+                padding: "32px",
                 flexDirection: "column",
                 alignItems: "flex-start",
                 gap: "24px",
-                borderRadius: "16px",
                 background: "#FFF",
               }}
-              className="w-full max-w-2xl h-fit shadow-sm border border-slate-100"
+              className="w-full"
             >
               {/* Form Settings Header */}
               <div className="flex items-center gap-2">
@@ -1248,7 +1276,7 @@ export default function OrganizationFormBuilderPage({
                   General Configuration
                 </h3>
                 <div
-                  className="flex items-center justify-between p-6 bg-[#EFF6FF] rounded-[8px] gap-4 self-stretch"
+                  className="flex items-center justify-between p-6 bg-[#EFF6FF] rounded-[8px] gap-4 self-stretch w-full"
                 >
                   <div className="space-y-0.5">
                     <Label
@@ -1321,9 +1349,8 @@ export default function OrganizationFormBuilderPage({
                 </div>
               </div>
             </div>
-          </TabsContent>
-        </main>
-      </Tabs>
-    </div>
-  );
-}
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
+  }

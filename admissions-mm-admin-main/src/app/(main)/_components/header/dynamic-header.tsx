@@ -23,6 +23,8 @@ export function DynamicHeader() {
   const storeTitle = usePageHeaderStore((s) => s.title);
   const storeDescription = usePageHeaderStore((s) => s.description);
   const storeAction = usePageHeaderStore((s) => s.action);
+  const customLeftNode = usePageHeaderStore((s) => s.customLeftNode);
+  const customRightNode = usePageHeaderStore((s) => s.customRightNode);
 
   const isOrganizationRoute = pathname.startsWith("/organization");
 
@@ -146,22 +148,28 @@ export function DynamicHeader() {
     <header className="sticky top-0 z-10 bg-background/40 backdrop-blur-md flex h-14 shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear">
       <div className="flex w-full items-center justify-between px-4 lg:px-6">
         {/* Left Side: Sidebar Trigger + Dynamic Title */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 flex-1">
           <SidebarTrigger className="lg:hidden !text-[#120352] hover:!text-[#120352]/80 hover:bg-zinc-100/50 dark:hover:bg-zinc-800/50" />
-          <div className="flex flex-col">
-            <h1 className="text-lg font-semibold tracking-tight leading-tight">
-              {title}
-            </h1>
-            {subtitle && (
-              <p className="text-[10px] text-slate-500 font-normal leading-none mt-0.5">
-                {subtitle}
-              </p>
-            )}
-          </div>
+          {customLeftNode ? (
+            customLeftNode
+          ) : (
+            <div className="flex flex-col">
+              <h1 className="text-lg font-semibold tracking-tight leading-tight">
+                {title}
+              </h1>
+              {subtitle && (
+                <p className="text-[10px] text-slate-500 font-normal leading-none mt-0.5">
+                  {subtitle}
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Right Side: Common Actions */}
-        <div className="flex items-center gap-4">{commonActions}</div>
+        <div className="flex items-center gap-4 shrink-0">
+          {customRightNode ? customRightNode : commonActions}
+        </div>
       </div>
     </header>
   );

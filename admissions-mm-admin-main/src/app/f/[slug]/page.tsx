@@ -217,7 +217,7 @@ export default function PublicFormPage({
                         required={field.required}
                       >
                         <SelectTrigger
-                          className={`w-full bg-slate-50/50 border-slate-200 h-11 focus-visible:ring-0 focus-visible:border-slate-400 focus:border-slate-400 focus:ring-0 transition-colors ${errors[field.id] ? "border-destructive/50" : ""}`}
+                          className={`w-full bg-slate-50/50 border-slate-200 h-11 focus:ring-primary/20 ${errors[field.id] ? "border-destructive/50" : ""}`}
                         >
                           <SelectValue
                             placeholder={
@@ -269,7 +269,7 @@ export default function PublicFormPage({
                         id={field.id}
                         placeholder={field.placeholder}
                         required={field.required}
-                        className={`bg-slate-50/50 border-slate-200 min-h-[100px] focus-visible:ring-0 focus-visible:border-slate-400 focus:border-slate-400 focus:ring-0 transition-colors ${errors[field.id] ? "border-destructive/50" : ""}`}
+                        className={`bg-slate-50/50 border-slate-200 min-h-[100px] focus:ring-primary/20 ${errors[field.id] ? "border-destructive/50" : ""}`}
                         onChange={(e) =>
                           handleInputChange(field.id, e.target.value)
                         }
@@ -312,7 +312,7 @@ export default function PublicFormPage({
                         }
                         placeholder={field.placeholder}
                         required={field.required}
-                        className={`bg-slate-50/50 border-slate-200 h-11 focus-visible:ring-0 focus-visible:border-slate-400 focus:border-slate-400 focus:ring-0 transition-colors ${errors[field.id] ? "border-destructive/50" : ""}`}
+                        className={`bg-slate-50/50 border-slate-200 h-11 focus:ring-primary/20 ${errors[field.id] ? "border-destructive/50" : ""}`}
                         onChange={(e) =>
                           handleInputChange(field.id, e.target.value)
                         }
