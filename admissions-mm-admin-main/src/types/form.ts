@@ -9,7 +9,9 @@ export type FieldType =
   | "radio"
   | "file"
   | "payment"
-  | "textarea";
+  | "textarea"
+  | "metadata"
+  | "banner";
 
 export interface FormField {
   id: string;
@@ -24,6 +26,13 @@ export interface FormField {
     regex?: string;
   };
   systemField?: boolean;
+  halfWidth?: boolean;
+  alignment?: "left" | "center" | "right";
+  fontSize?: "sm" | "base" | "lg" | "xl";
+  textColor?: string;
+  maxSize?: number;
+  maxFiles?: number;
+  allowedTypes?: string[];
 }
 
 export interface Form {

@@ -27,21 +27,27 @@ import {
   GripHorizontal,
   MoreVertical,
   Bell,
+  Sparkles,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   DropdownMenu,
-  DropdownMenuContent,
+  DropdownMenuContent, 
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -70,6 +76,7 @@ import {
   SortableContext,
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
+  rectSortingStrategy,
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -96,6 +103,73 @@ const FIELD_LIBRARY = [
   { type: "file", label: "File Upload", icon: Upload },
   { type: "payment", label: "Collexo Payment", icon: CreditCard },
 ];
+
+function renderFormattedLabel(label: string) {
+  if (!label) return "";
+  
+  const lines = label.split("\n");
+  let inUl = false;
+  let inOl = false;
+  let processedLines = [];
+  
+  for (let line of lines) {
+    // Unordered lists: starting with - or *
+    const ulMatch = line.match(/^(\s*)[-*]\s+(.*)$/);
+    if (ulMatch) {
+      if (inOl) {
+        processedLines.push("</ol>");
+        inOl = false;
+      }
+      if (!inUl) {
+        processedLines.push("<ul class='list-disc pl-5 my-1.5 space-y-1'>");
+        inUl = true;
+      }
+      processedLines.push(`<li>${ulMatch[2]}</li>`);
+      continue;
+    }
+    
+    // Ordered lists: starting with 1., 2. etc
+    const olMatch = line.match(/^(\s*)\d+\.\s+(.*)$/);
+    if (olMatch) {
+      if (inUl) {
+        processedLines.push("</ul>");
+        inUl = false;
+      }
+      if (!inOl) {
+        processedLines.push("<ol class='list-decimal pl-5 my-1.5 space-y-1'>");
+        inOl = true;
+      }
+      processedLines.push(`<li>${olMatch[2]}</li>`);
+      continue;
+    }
+    
+    if (inUl) {
+      processedLines.push("</ul>");
+      inUl = false;
+    }
+    if (inOl) {
+      processedLines.push("</ol>");
+      inOl = false;
+    }
+    
+    processedLines.push(line);
+  }
+  
+  if (inUl) processedLines.push("</ul>");
+  if (inOl) processedLines.push("</ol>");
+  
+  let html = processedLines.join("\n")
+    .replace(/\*\*(.*?)\*\//g, "<strong>$1</strong>")
+    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+    .replace(/<b>(.*?)<\/b>/g, "<strong>$1</strong>")
+    .replace(/\*(.*?)\*/g, "<em>$1</em>")
+    .replace(/<i>(.*?)<\/i>/g, "<em>$1</em>")
+    .replace(/<u>(.*?)<\/u>/g, "<span class='underline'>$1</span>")
+    .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" class="text-indigo-600 hover:text-indigo-850 underline font-semibold">$1</a>')
+    .replace(/<a href="(.*?)">(.*?)<\/a>/g, '<a href="$1" target="_blank" class="text-indigo-600 hover:text-indigo-850 underline font-semibold">$2</a>');
+    
+  return <span dangerouslySetInnerHTML={{ __html: html }} />;
+}
 
 function CustomSwitch({
   checked,
@@ -153,13 +227,164 @@ function SortableField({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: field.id, disabled: field.systemField });
+  } = useSortable({ id: field.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     zIndex: isDragging ? 10 : 1,
   };
+
+  if (field.type === "banner") {
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        onClick={onSelect}
+        className={`relative p-5 rounded-[4px] border border-dashed transition-all cursor-pointer group shadow-sm flex flex-col ${
+          isDragging ? "opacity-30 border-primary" : ""
+        } ${
+          isSelected
+            ? "border-indigo-400 bg-[#FAFAFA] shadow-md"
+            : "bg-white hover:bg-[#FAFAFA] hover:shadow-md border-slate-200"
+        } ${
+          "col-span-1 md:col-span-2"
+        }`}
+      >
+        {/* Centered Drag Handle */}
+        <div
+          {...attributes}
+          {...listeners}
+          className="flex justify-center w-full opacity-0 group-hover:opacity-40 hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing pb-2 -mt-2"
+        >
+          <GripHorizontal className="h-4 w-4" />
+        </div>
+
+        {/* Toolbar (only visible when selected) */}
+        {isSelected && (
+          <div className="flex items-center justify-between border-b border-slate-100 pb-2 mb-3" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 uppercase tracking-widest">
+            
+              <span>Banner Formatting</span>
+            </div>
+            
+            <div className="flex items-center gap-3 bg-slate-50 px-2.5 py-1.5 rounded border border-slate-200 text-slate-500">
+              {/* Alignment */}
+              <div className="flex items-center gap-1 border-r pr-2.5">
+                <button
+                  type="button"
+                  onClick={() => onUpdateField(field.id, { alignment: "left" })}
+                  className={`p-1 rounded hover:bg-slate-200 transition-colors cursor-pointer ${field.alignment === "left" || !field.alignment ? "text-indigo-600 bg-indigo-50" : ""}`}
+                >
+                  <AlignLeft className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onUpdateField(field.id, { alignment: "center" })}
+                  className={`p-1 rounded hover:bg-slate-200 transition-colors cursor-pointer ${field.alignment === "center" ? "text-indigo-600 bg-indigo-50" : ""}`}
+                >
+                  <AlignCenter className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onUpdateField(field.id, { alignment: "right" })}
+                  className={`p-1 rounded hover:bg-slate-200 transition-colors cursor-pointer ${field.alignment === "right" ? "text-indigo-600 bg-indigo-50" : ""}`}
+                >
+                  <AlignRight className="h-3.5 w-3.5" />
+                </button>
+              </div>
+
+              {/* Size */}
+              <div className="flex items-center gap-1 border-r pr-2.5">
+                <span className="text-[9px] font-bold uppercase text-slate-400 select-none mr-0.5">Size</span>
+                <select
+                  value={field.fontSize || "base"}
+                  onChange={(e) => onUpdateField(field.id, { fontSize: e.target.value as any })}
+                  className="text-[10px] bg-white border border-slate-200 rounded px-1.5 py-0.5 font-medium cursor-pointer focus:outline-none"
+                >
+                  <option value="sm">Small</option>
+                  <option value="base">Normal</option>
+                  <option value="lg">Large</option>
+                  <option value="xl">X-Large</option>
+                </select>
+              </div>
+
+              {/* Color */}
+              <div className="flex items-center gap-1">
+                <span className="text-[9px] font-bold uppercase text-slate-400 select-none">Color</span>
+                <input
+                  type="color"
+                  value={field.textColor || "#1e293b"}
+                  onChange={(e) => onUpdateField(field.id, { textColor: e.target.value })}
+                  className="w-4 h-4 p-0 bg-transparent border-none cursor-pointer rounded-full overflow-hidden shrink-0"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Content Preview / Rendered */}
+        <div className="space-y-1 flex-1">
+          <div 
+            className="text-lg font-bold text-slate-800"
+            style={{ textAlign: field.alignment || "left" }}
+          >
+            {renderFormattedLabel(field.label || "Banner Title")}
+          </div>
+          <div 
+            style={{ 
+              textAlign: field.alignment || "left",
+              color: field.textColor || "#475569"
+            }}
+            className={`leading-relaxed whitespace-pre-line ${
+              field.fontSize === "sm"
+                ? "text-xs"
+                : field.fontSize === "lg"
+                ? "text-base"
+                : field.fontSize === "xl"
+                ? "text-lg"
+                : "text-sm"
+            }`}
+          >
+            {renderFormattedLabel(field.placeholder || "Enter description content or instructions list...")}
+          </div>
+        </div>
+
+        {/* Card Action footer */}
+        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-slate-400">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-semibold bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded border border-indigo-100 uppercase tracking-wider">
+              Instruction Banner
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-slate-400 hover:text-slate-600"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDuplicate(field);
+              }}
+            >
+              <Copy className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-slate-400 hover:text-red-500"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRemove(field.id);
+              }}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -172,39 +397,36 @@ function SortableField({
         isSelected
           ? "border-slate-400 bg-[#FAFAFA] shadow-md"
           : "bg-white hover:bg-[#FAFAFA] hover:shadow-md border-slate-200"
+      } ${
+        `col-span-1 ${field.halfWidth ? "md:col-span-1" : "md:col-span-2"}`
       }`}
     >
       {/* Centered Drag Handle */}
-      {!field.systemField && (
-        <div
-          {...attributes}
-          {...listeners}
-          className="flex justify-center w-full opacity-0 group-hover:opacity-40 hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing pb-2 -mt-2"
-        >
-          <GripHorizontal className="h-4 w-4" />
-        </div>
-      )}
+      <div
+        {...attributes}
+        {...listeners}
+        className="flex justify-center w-full opacity-0 group-hover:opacity-40 hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing pb-2 -mt-2"
+      >
+        <GripHorizontal className="h-4 w-4" />
+      </div>
 
       {/* Label and Blue line divider */}
       <div className="space-y-2 flex-1">
         <div className="flex items-center justify-between">
-          <input
-            value={field.label}
-            onChange={(e) => onUpdateField(field.id, { label: e.target.value })}
-            style={{
-              fontFamily: "Inter, sans-serif",
-              fontSize: "16px",
-              fontWeight: 400,
-              lineHeight: "21px",
-              color: "#000",
-              background: "transparent",
-              border: "none",
-            }}
-            className="w-full focus:outline-none focus:ring-0 p-0 font-normal border-none"
-            onClick={(e) => e.stopPropagation()}
-            placeholder="Field Label"
-          />
-          {field.required && <span className="text-destructive font-bold text-sm">*</span>}
+          <div 
+            className="w-full text-base font-semibold text-slate-900 pointer-events-none select-none"
+            style={{ fontFamily: "Inter, sans-serif", lineHeight: "21px" }}
+          >
+            {renderFormattedLabel(field.label || "Field Label")}
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {field.halfWidth && (
+              <span className="text-[10px] font-semibold bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded border border-indigo-100 uppercase tracking-wider">
+                ½ Width
+              </span>
+            )}
+            {field.required && <span className="text-destructive font-bold text-sm">*</span>}
+          </div>
         </div>
         
         {/* Blue Divider Line */}
@@ -259,7 +481,6 @@ function SortableField({
                     <div className="w-1.5 h-1.5 rounded-full bg-slate-300" />
                     <input
                       value={opt.label}
-                      disabled={field.systemField && field.id === "location"}
                       onChange={(e) => {
                         const newOptions = [...(field.options || [])];
                         newOptions[idx] = { ...opt, label: e.target.value };
@@ -267,41 +488,37 @@ function SortableField({
                       }}
                       className="text-sm text-slate-700 bg-transparent border-none focus:outline-none focus:ring-0 p-0"
                     />
-                    {!(field.systemField && field.id === "location") && (
-                      <button
-                        type="button"
-                        className="text-slate-400 hover:text-red-500 text-xs ml-auto"
-                        onClick={() => {
-                          const newOptions = (field.options || []).filter((_, i) => i !== idx);
-                          onUpdateField(field.id, { options: newOptions });
-                        }}
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      className="text-slate-400 hover:text-red-500 text-xs ml-auto"
+                      onClick={() => {
+                        const newOptions = (field.options || []).filter((_, i) => i !== idx);
+                        onUpdateField(field.id, { options: newOptions });
+                      }}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
                   </div>
                 ))}
               </div>
-              {!(field.systemField && field.id === "location") && (
-                <button
-                  type="button"
-                  className="flex items-center gap-1.5 text-slate-400 hover:text-slate-600 text-xs pl-3 mt-1.5"
-                  onClick={() => {
-                    const currentOptions = field.options || [];
-                    onUpdateField(field.id, {
-                      options: [
-                        ...currentOptions,
-                        {
-                          id: Math.random().toString(36).substr(2, 6),
-                          label: `Option ${currentOptions.length + 1}`,
-                        },
-                      ],
-                    });
-                  }}
-                >
-                  <span className="text-xs">+ Add Option</span>
-                </button>
-              )}
+              <button
+                type="button"
+                className="flex items-center gap-1.5 text-slate-400 hover:text-slate-600 text-xs pl-3 mt-1.5"
+                onClick={() => {
+                  const currentOptions = field.options || [];
+                  onUpdateField(field.id, {
+                    options: [
+                      ...currentOptions,
+                      {
+                        id: Math.random().toString(36).substr(2, 6),
+                        label: `Option ${currentOptions.length + 1}`,
+                      },
+                    ],
+                  });
+                }}
+              >
+                <span className="text-xs">+ Add Option</span>
+              </button>
             </div>
           )}
           {field.type === "radio" && (
@@ -469,6 +686,13 @@ export default function OrganizationFormBuilderPage({
     null,
   );
   const [emailNotifications, setEmailNotifications] = React.useState(true);
+  const [linkDialogOpen, setLinkDialogOpen] = React.useState(false);
+  const [linkUrl, setLinkUrl] = React.useState("https://");
+  const [linkTarget, setLinkTarget] = React.useState<"label" | "description">("label");
+  const [selectionState, setSelectionState] = React.useState<{
+    start: number;
+    end: number;
+  } | null>(null);
 
   // Helper to slugify text
   const slugify = (text: string) =>
@@ -486,8 +710,21 @@ export default function OrganizationFormBuilderPage({
   // Sync with API data
   React.useEffect(() => {
     if (form) {
-      // Normalize fields to ensure options are objects {id, label}
+      // Normalize fields to ensure options are objects {id, label} and convert metadata fields to banners
       let normalizedFields = (form.fields || []).map((field) => {
+        if (field.id === "form_metadata" || field.type === "metadata") {
+          return {
+            ...field,
+            id: field.id === "form_metadata" ? `banner_${Math.random().toString(36).substr(2, 9)}` : field.id,
+            type: "banner" as const,
+            label: "Form Instructions",
+            placeholder: field.placeholder || "Please fill in the details below to proceed with your application.",
+            required: false,
+            alignment: (field as any).alignment || "left",
+            fontSize: (field as any).fontSize || "base",
+            textColor: (field as any).textColor || "#1e293b",
+          };
+        }
         if (field.options && Array.isArray(field.options)) {
           return {
             ...field,
@@ -578,14 +815,161 @@ export default function OrganizationFormBuilderPage({
     );
   };
 
+  const openLabelLinkDialog = () => {
+    if (!selectedFieldId) return;
+    const input = document.getElementById("field-label") as HTMLInputElement;
+    if (!input) return;
+
+    setLinkTarget("label");
+    setSelectionState({
+      start: input.selectionStart || 0,
+      end: input.selectionEnd || 0,
+    });
+    setLinkUrl("https://");
+    setLinkDialogOpen(true);
+  };
+
+  const openDescriptionLinkDialog = () => {
+    if (!selectedFieldId) return;
+    const textarea = document.getElementById("field-description") as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    setLinkTarget("description");
+    setSelectionState({
+      start: textarea.selectionStart || 0,
+      end: textarea.selectionEnd || 0,
+    });
+    setLinkUrl("https://");
+    setLinkDialogOpen(true);
+  };
+
+  const handleInsertLink = () => {
+    if (!selectedFieldId || !selectionState) return;
+    const { start, end } = selectionState;
+    const currentField = localFields.find((f) => f.id === selectedFieldId);
+    if (!currentField) return;
+
+    if (linkTarget === "label") {
+      const text = currentField.label || "";
+      const selectedText = text.substring(start, end);
+      const formatted = `[${selectedText || "link text"}](${linkUrl})`;
+      const newLabel = text.substring(0, start) + formatted + text.substring(end);
+      updateField(selectedFieldId, { label: newLabel });
+      
+      // Refocus input
+      setTimeout(() => {
+        const input = document.getElementById("field-label") as HTMLInputElement;
+        if (input) {
+          input.focus();
+          const newCursorPos = start + formatted.length;
+          input.setSelectionRange(newCursorPos, newCursorPos);
+        }
+      }, 0);
+    } else {
+      const text = currentField.placeholder || "";
+      const selectedText = text.substring(start, end);
+      const formatted = `[${selectedText || "link text"}](${linkUrl})`;
+      const newDescription = text.substring(0, start) + formatted + text.substring(end);
+      updateField(selectedFieldId, { placeholder: newDescription });
+
+      // Refocus textarea
+      setTimeout(() => {
+        const textarea = document.getElementById("field-description") as HTMLTextAreaElement;
+        if (textarea) {
+          textarea.focus();
+          const newCursorPos = start + formatted.length;
+          textarea.setSelectionRange(newCursorPos, newCursorPos);
+        }
+      }, 0);
+    }
+
+    setLinkDialogOpen(false);
+    setSelectionState(null);
+  };
+
+  const applyLabelFormat = (format: "bold" | "italic" | "underline") => {
+    if (!selectedFieldId) return;
+    const input = document.getElementById("field-label") as HTMLInputElement;
+    if (!input) return;
+
+    const start = input.selectionStart || 0;
+    const end = input.selectionEnd || 0;
+    const currentField = localFields.find((f) => f.id === selectedFieldId);
+    if (!currentField) return;
+    
+    const text = currentField.label || "";
+    const selectedText = text.substring(start, end);
+
+    let formatted = "";
+    if (format === "bold") {
+      formatted = `**${selectedText || "bold text"}**`;
+    } else if (format === "italic") {
+      formatted = `*${selectedText || "italic text"}*`;
+    } else if (format === "underline") {
+      formatted = `<u>${selectedText || "underlined text"}</u>`;
+    }
+
+    const newLabel = text.substring(0, start) + formatted + text.substring(end);
+    updateField(selectedFieldId, { label: newLabel });
+
+    // Refocus the input
+    setTimeout(() => {
+      input.focus();
+      const newCursorPos = start + formatted.length;
+      input.setSelectionRange(newCursorPos, newCursorPos);
+    }, 0);
+  };
+
+  const applyDescriptionFormat = (format: "bold" | "italic" | "underline" | "bullet" | "ordered") => {
+    if (!selectedFieldId) return;
+    const textarea = document.getElementById("field-description") as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart || 0;
+    const end = textarea.selectionEnd || 0;
+    const currentField = localFields.find((f) => f.id === selectedFieldId);
+    if (!currentField) return;
+    
+    const text = currentField.placeholder || "";
+    const selectedText = text.substring(start, end);
+
+    let formatted = "";
+    if (format === "bold") {
+      formatted = `**${selectedText || "bold text"}**`;
+    } else if (format === "italic") {
+      formatted = `*${selectedText || "italic text"}*`;
+    } else if (format === "underline") {
+      formatted = `<u>${selectedText || "underlined text"}</u>`;
+    } else if (format === "bullet") {
+      formatted = selectedText
+        ? selectedText
+            .split("\n")
+            .map((line) => line.startsWith("- ") ? line : `- ${line}`)
+            .join("\n")
+        : "- bullet point";
+    } else if (format === "ordered") {
+      formatted = selectedText
+        ? selectedText
+            .split("\n")
+            .map((line, idx) => line.match(/^\d+\.\s+/) ? line : `${idx + 1}. ${line}`)
+            .join("\n")
+        : "1. list item";
+    }
+
+    const newDescription = text.substring(0, start) + formatted + text.substring(end);
+    updateField(selectedFieldId, { placeholder: newDescription });
+
+    // Refocus the textarea
+    setTimeout(() => {
+      textarea.focus();
+      const newCursorPos = start + formatted.length;
+      textarea.setSelectionRange(newCursorPos, newCursorPos);
+    }, 0);
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (over && active.id !== over.id) {
-      const activeField = localFields.find((i) => i.id === active.id);
-      const overField = localFields.find((i) => i.id === over.id);
-      if (activeField?.systemField || overField?.systemField) {
-        return;
-      }
       const oldIndex = localFields.findIndex((i) => i.id === active.id);
       const newIndex = localFields.findIndex((i) => i.id === over.id);
       setLocalFields((prev) => arrayMove(prev, oldIndex, newIndex));
@@ -611,20 +995,29 @@ export default function OrganizationFormBuilderPage({
 
   React.useEffect(() => {
     setHeader({
-      customLeftNode: (
-        <div className="flex flex-col">
-          <h1 className="text-sm font-bold text-slate-800 leading-tight">Form Creation</h1>
-          <span className="text-[10px] text-slate-500 leading-none">
-            Create and manage admission forms for campaigns
-          </span>
-        </div>
-      ),
+      title: "Form Creation",
+      description: "Create and manage admission forms for campaigns",
+      customLeftNode: null,
       customRightNode: (
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" className="size-9 rounded-full text-slate-600 hover:bg-slate-100">
             <Bell className="size-5" />
           </Button>
           
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9 font-semibold text-slate-700 border-slate-200 hover:bg-slate-50 rounded-[8px] flex items-center"
+            onClick={() => {
+              if (localSlug || form?.slug) {
+                window.open(`/f/${localSlug || form?.slug}`, "_blank");
+              }
+            }}
+          >
+            <Eye className="h-4 w-4 mr-2 text-slate-500" />
+            Preview
+          </Button>
+
           <div className="flex items-center -space-x-px">
             <Button
               size="sm"
@@ -659,8 +1052,8 @@ export default function OrganizationFormBuilderPage({
                   className="text-xs font-semibold text-slate-700 cursor-pointer flex items-center hover:bg-slate-50 focus:bg-slate-50"
                   disabled={isSaving}
                   onClick={() => {
-                    if (form?.slug) {
-                      window.open(`/f/${form.slug}`, "_blank");
+                    if (localSlug || form?.slug) {
+                      window.open(`/f/${localSlug || form?.slug}`, "_blank");
                     }
                   }}
                 >
@@ -731,18 +1124,17 @@ export default function OrganizationFormBuilderPage({
         {/* Left Sidebar: Components */}
         <aside className="w-72 border-r bg-background flex flex-col shrink-0">
           {/* Form Title & Settings */}
-          <div className="p-4 flex items-center gap-2">
+          <div className="p-4 flex items-center gap-2 border-b border-slate-100 shrink-0">
             <Link href="/organization/forms">
               <Button variant="ghost" size="icon" className="rounded-full h-8 w-8 !text-[#120352] hover:bg-slate-100 -ml-4 shrink-0">
                 <ChevronLeft className="h-5 w-5" />
               </Button>
             </Link>
             <input
-              className="bg-transparent border-none focus-visible:ring-0 p-0 w-full h-auto focus:outline-none text-[#0A0A0A] placeholder:text-slate-400"
+              className="bg-transparent border-none focus-visible:ring-0 p-0 w-full h-auto focus:outline-none text-[#0A0A0A] placeholder:text-slate-400 font-semibold"
               style={{
                 fontFamily: "Inter, sans-serif",
-                fontSize: "24px",
-                fontWeight: 600,
+                fontSize: "20px",
                 lineHeight: "normal",
               }}
               value={localName}
@@ -801,11 +1193,25 @@ export default function OrganizationFormBuilderPage({
                             </svg>
                           )
                         },
+                        {
+                          type: "banner",
+                          label: "Banner",
+                          width: "16px",
+                          height: "16px",
+                          svg: (
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#415876" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                              <rect width="20" height="12" x="2" y="6" rx="2" />
+                              <path d="M12 12h.01" />
+                              <path d="M17 12h.01" />
+                              <path d="M7 12h.01" />
+                            </svg>
+                          )
+                        }
                       ].map((item) => (
                         <button
                           key={item.type}
                           type="button"
-                          className="flex flex-col justify-center items-center self-stretch w-full hover:shadow-sm hover:border-slate-400 transition-all animate-none"
+                          className="flex flex-col justify-center items-center self-stretch w-full hover:shadow-sm hover:border-slate-400 transition-all animate-none cursor-pointer"
                           style={{
                             padding: "12px 8px 12px 8px",
                             borderRadius: "4px",
@@ -948,8 +1354,17 @@ export default function OrganizationFormBuilderPage({
               </div>
             </aside>
 
-            <div className="flex-1 bg-white overflow-y-auto" style={{ padding: "30px" }}>
-              <div className="w-full space-y-4">
+            <div
+              className="flex-1 overflow-y-auto"
+              style={{
+                padding: "30px",
+                backgroundColor: "#fafbfc",
+                backgroundImage: "radial-gradient(#e2e8f0 1.5px, transparent 1.5px)",
+                backgroundSize: "24px 24px",
+              }}
+            >
+              <div className="w-full max-w-4xl mx-auto space-y-6">
+
                 <div className="space-y-4">
                   <DndContext
                     sensors={sensors}
@@ -957,24 +1372,28 @@ export default function OrganizationFormBuilderPage({
                     onDragEnd={handleDragEnd}
                   >
                     <SortableContext
-                      items={localFields.map((f) => f.id)}
-                      strategy={verticalListSortingStrategy}
+                      items={localFields.filter((f) => f.id !== "form_metadata").map((f) => f.id)}
+                      strategy={rectSortingStrategy}
                     >
-                      {localFields.map((field) => (
-                        <SortableField
-                          key={field.id}
-                          field={field}
-                          isSelected={selectedFieldId === field.id}
-                          onSelect={() => setSelectedFieldId(field.id)}
-                          onRemove={removeField}
-                          onDuplicate={duplicateField}
-                          onUpdateField={updateField}
-                        />
-                      ))}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {localFields
+                          .filter((field) => field.id !== "form_metadata")
+                          .map((field) => (
+                            <SortableField
+                              key={field.id}
+                              field={field}
+                              isSelected={selectedFieldId === field.id}
+                              onSelect={() => setSelectedFieldId(field.id)}
+                              onRemove={removeField}
+                              onDuplicate={duplicateField}
+                              onUpdateField={updateField}
+                            />
+                          ))}
+                      </div>
                     </SortableContext>
                   </DndContext>
 
-                  {localFields.length === 0 && (
+                  {localFields.filter((f) => f.id !== "form_metadata").length === 0 && (
                     <div className="py-20 text-center border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-4 bg-slate-50/50">
                       <div className="p-4 rounded-full bg-white shadow-sm border">
                         <Plus className="h-8 w-8 text-primary opacity-20" />
@@ -1025,7 +1444,48 @@ export default function OrganizationFormBuilderPage({
 
                   {/* Label Edit */}
                   <div className="space-y-1.5">
-                    <Label htmlFor="field-label" className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Field Label</Label>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="field-label" className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Field Label</Label>
+                      
+                      {/* Rich Text Helper Toolbar */}
+                      <div className="flex items-center gap-1.5 text-slate-400 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
+                        <button
+                          type="button"
+                          onClick={() => applyLabelFormat("bold")}
+                          className="text-[10px] font-black hover:text-slate-800 p-0.5 cursor-pointer"
+                          title="Bold (**text**)"
+                        >
+                          B
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => applyLabelFormat("italic")}
+                          className="text-[10px] italic hover:text-slate-800 p-0.5 cursor-pointer"
+                          title="Italic (*text*)"
+                        >
+                          I
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => applyLabelFormat("underline")}
+                          className="text-[10px] underline hover:text-slate-800 p-0.5 cursor-pointer"
+                          title="Underline (<u>text</u>)"
+                        >
+                          U
+                        </button>
+                        <button
+                          type="button"
+                          onClick={openLabelLinkDialog}
+                          className="text-[10px] hover:text-slate-800 p-0.5 cursor-pointer flex items-center"
+                          title="Hyperlink ([text](url))"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
                     <Input
                       id="field-label"
                       value={selectedField.label}
@@ -1036,7 +1496,7 @@ export default function OrganizationFormBuilderPage({
                   </div>
 
                   {/* Placeholder Edit (Show only if type allows it) */}
-                  {!["radio", "checkbox", "payment"].includes(selectedField.type) && (
+                  {!["radio", "checkbox", "payment", "banner"].includes(selectedField.type) && (
                     <div className="space-y-1.5">
                       <Label htmlFor="field-placeholder" className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Placeholder</Label>
                       <Input
@@ -1049,40 +1509,180 @@ export default function OrganizationFormBuilderPage({
                     </div>
                   )}
 
+                  {/* Banner Description Edit */}
+                  {selectedField.type === "banner" && (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="field-description" className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Banner Description</Label>
+                        
+                        {/* Rich Text Helper Toolbar */}
+                        <div className="flex items-center gap-1.5 text-slate-400 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
+                          <button
+                            type="button"
+                            onClick={() => applyDescriptionFormat("bold")}
+                            className="text-[10px] font-black hover:text-slate-800 p-0.5 cursor-pointer"
+                            title="Bold (**text**)"
+                          >
+                            B
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => applyDescriptionFormat("italic")}
+                            className="text-[10px] italic hover:text-slate-800 p-0.5 cursor-pointer"
+                            title="Italic (*text*)"
+                          >
+                            I
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => applyDescriptionFormat("underline")}
+                            className="text-[10px] underline hover:text-slate-800 p-0.5 cursor-pointer"
+                            title="Underline (<u>text</u>)"
+                          >
+                            U
+                          </button>
+                          <button
+                            type="button"
+                            onClick={openDescriptionLinkDialog}
+                            className="text-[10px] hover:text-slate-800 p-0.5 cursor-pointer flex items-center"
+                            title="Hyperlink ([text](url))"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => applyDescriptionFormat("bullet")}
+                            className="text-[9px] hover:text-slate-800 p-0.5 cursor-pointer font-bold"
+                            title="Bullet List (- item)"
+                          >
+                            • List
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => applyDescriptionFormat("ordered")}
+                            className="text-[9px] hover:text-slate-800 p-0.5 cursor-pointer font-bold"
+                            title="Numbered List (1. item)"
+                          >
+                            1. List
+                          </button>
+                        </div>
+                      </div>
+                      <Textarea
+                        id="field-description"
+                        value={selectedField.placeholder || ""}
+                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => updateField(selectedField.id, { placeholder: e.target.value })}
+                        placeholder="Enter banner description or instructions..."
+                        rows={6}
+                        className="text-sm border-slate-200 focus-visible:ring-0 focus-visible:border-slate-400 transition-colors focus:outline-none leading-relaxed"
+                      />
+                    </div>
+                  )}
+
+                  {/* File Upload Settings */}
+                  {selectedField.type === "file" && (
+                    <div className="space-y-4 pt-2 border-t border-slate-100 mt-2">
+                      <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">File Configuration</h4>
+                      
+                      {/* Max File Size (MB) */}
+                      <div className="space-y-1.5">
+                        <Label htmlFor="file-max-size" className="text-xs font-semibold text-slate-700">Max File Size (MB)</Label>
+                        <Input
+                          id="file-max-size"
+                          type="number"
+                          value={selectedField.maxSize || 5}
+                          onChange={(e) => updateField(selectedField.id, { maxSize: parseInt(e.target.value) || 5 })}
+                          placeholder="e.g. 5"
+                          min={1}
+                          className="h-10 text-sm border-slate-200 focus-visible:ring-0 focus-visible:border-slate-400 transition-colors"
+                        />
+                      </div>
+
+                      {/* Max Number of Files */}
+                      <div className="space-y-1.5">
+                        <Label htmlFor="file-max-files" className="text-xs font-semibold text-slate-700">Max Number of Files</Label>
+                        <Input
+                          id="file-max-files"
+                          type="number"
+                          value={selectedField.maxFiles || 1}
+                          onChange={(e) => updateField(selectedField.id, { maxFiles: parseInt(e.target.value) || 1 })}
+                          placeholder="e.g. 1"
+                          min={1}
+                          className="h-10 text-sm border-slate-200 focus-visible:ring-0 focus-visible:border-slate-400 transition-colors"
+                        />
+                      </div>
+
+                      {/* Allowed File Types */}
+                      <div className="space-y-2">
+                        <Label className="text-xs font-semibold text-slate-700">Allowed File Types</Label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {[
+                            { label: "PDF Document (.pdf)", value: "pdf" },
+                            { label: "Word Document (.docx)", value: "docx" },
+                            { label: "Images (.jpeg, .png)", value: "image" },
+                            { label: "Excel Spreadsheet (.xlsx)", value: "xlsx" }
+                          ].map((t) => {
+                            const currentTypes = selectedField.allowedTypes || ["pdf", "docx", "image"];
+                            const isChecked = currentTypes.includes(t.value);
+                            return (
+                              <div key={t.value} className="flex items-center space-x-2 bg-slate-50 px-2 py-1.5 rounded border border-slate-200/60 hover:bg-slate-100/50">
+                                <Checkbox
+                                  id={`file-type-${t.value}`}
+                                  checked={isChecked}
+                                  onCheckedChange={(checked) => {
+                                    const next = checked
+                                      ? [...currentTypes, t.value]
+                                      : currentTypes.filter((x) => x !== t.value);
+                                    updateField(selectedField.id, { allowedTypes: next });
+                                  }}
+                                />
+                                <Label
+                                  htmlFor={`file-type-${t.value}`}
+                                  className="text-[10px] font-medium leading-none cursor-pointer text-slate-600 flex-1 select-none"
+                                >
+                                  {t.label}
+                                </Label>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
 
                   {/* Option List for Select, Radio, Checkbox */}
                   {["select", "radio", "checkbox"].includes(selectedField.type) && (
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Options</Label>
-                        {!(selectedField.systemField && selectedField.id === "location") && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              const currentOptions = selectedField.options || [];
-                              updateField(selectedField.id, {
-                                options: [
-                                  ...currentOptions,
-                                  {
-                                    id: Math.random().toString(36).substr(2, 6),
-                                    label: `Option ${currentOptions.length + 1}`,
-                                  },
-                                ],
-                              });
-                            }}
-                            className="h-6 px-2 text-xs font-semibold text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                          >
-                            + Add Option
-                          </Button>
-                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            const currentOptions = selectedField.options || [];
+                            updateField(selectedField.id, {
+                              options: [
+                                ...currentOptions,
+                                {
+                                  id: Math.random().toString(36).substr(2, 6),
+                                  label: `Option ${currentOptions.length + 1}`,
+                                },
+                              ],
+                            });
+                          }}
+                          className="h-6 px-2 text-xs font-semibold text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                        >
+                          + Add Option
+                        </Button>
                       </div>
                       <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
                         {(selectedField.options || []).map((opt, idx) => (
                           <div key={opt.id} className="flex items-center gap-2">
                             <Input
                               value={opt.label}
-                              disabled={selectedField.systemField && selectedField.id === "location"}
                               onChange={(e) => {
                                 const newOptions = [...(selectedField.options || [])];
                                 newOptions[idx] = { ...opt, label: e.target.value };
@@ -1090,24 +1690,58 @@ export default function OrganizationFormBuilderPage({
                               }}
                               className="h-8 text-xs focus-visible:ring-0 focus-visible:border-slate-400 border-slate-200 transition-colors"
                             />
-                            {!(selectedField.systemField && selectedField.id === "location") && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50 shrink-0"
-                                onClick={() => {
-                                  const newOptions = (selectedField.options || []).filter((_, i) => i !== idx);
-                                  updateField(selectedField.id, { options: newOptions });
-                                }}
-                              >
-                                <X className="h-3.5 w-3.5" />
-                              </Button>
-                            )}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50 shrink-0"
+                              onClick={() => {
+                                const newOptions = (selectedField.options || []).filter((_, i) => i !== idx);
+                                updateField(selectedField.id, { options: newOptions });
+                              }}
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
                           </div>
                         ))}
                       </div>
                     </div>
                   )}
+
+                  <Separator />
+
+                  {/* Width & Validation Toggles */}
+                  <div className="space-y-4 pt-2">
+                    {selectedField.type !== "banner" && (
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label className="text-xs font-semibold text-slate-700">Half Row Width</Label>
+                          <p className="text-[10px] text-slate-500">Render field side-by-side with another field</p>
+                        </div>
+                        <Switch
+                          checked={selectedField.halfWidth || false}
+                          onCheckedChange={(val) => {
+                            updateField(selectedField.id, { halfWidth: val });
+                          }}
+                        />
+                      </div>
+                    )}
+
+                    {selectedField.type !== "banner" && (
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label className="text-xs font-semibold text-slate-700">Required Field</Label>
+                          <p className="text-[10px] text-slate-500">Make this field mandatory for submission</p>
+                        </div>
+                        <Switch
+                          checked={selectedField.required || false}
+                          disabled={selectedField.systemField}
+                          onCheckedChange={(val) => {
+                            updateField(selectedField.id, { required: val });
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-slate-400">
@@ -1348,6 +1982,41 @@ export default function OrganizationFormBuilderPage({
                   </button>
                 </div>
               </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
+          <DialogContent className="sm:max-w-[420px] rounded-lg">
+            <DialogHeader>
+              <DialogTitle className="text-sm font-bold text-slate-800 uppercase tracking-wider">Insert Link</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="link-url" className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Link URL</Label>
+                <Input
+                  id="link-url"
+                  value={linkUrl}
+                  onChange={(e) => setLinkUrl(e.target.value)}
+                  placeholder="https://example.com"
+                  className="h-10 text-sm border-slate-200 focus-visible:ring-0 focus-visible:border-slate-400 transition-colors"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <Button 
+                variant="outline" 
+                onClick={() => setLinkDialogOpen(false)}
+                className="h-9 px-4 text-xs font-bold uppercase tracking-wider text-slate-500 border-slate-200 hover:bg-slate-50"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleInsertLink}
+                className="h-9 px-4 text-xs font-bold uppercase tracking-wider bg-[#120352] hover:bg-[#0c023d] text-white rounded-[4px]"
+              >
+                Insert Link
+              </Button>
             </div>
           </DialogContent>
         </Dialog>

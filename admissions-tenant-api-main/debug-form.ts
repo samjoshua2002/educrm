@@ -5,7 +5,7 @@ import { FormsService } from './src/modules/forms/forms.service.js';
 async function checkForm() {
   const app = await NestFactory.createApplicationContext(AppModule);
   const formsService = app.get(FormsService);
-  const slug = 'ug-admission-2024-6718';
+  const slug = 'untitled-form-5432';
   try {
     const form = await formsService.findBySlug(slug);
     console.log('FORM SLUG:', form.slug);

@@ -44,19 +44,25 @@ export function isSystemField(field: { id?: string; label?: string }): boolean {
 }
 
 export function mergeDefaultFormFields(fields: any[]): any[] {
-  const systemFields = DEFAULT_FORM_FIELDS.map((defaultField) => {
-    const existing = (fields ?? []).find((f) => f && f.id === defaultField.id);
-    if (existing) {
+  if (!fields || fields.length === 0) {
+    return [...DEFAULT_FORM_FIELDS];
+  }
+
+  const processedFields = fields.map((f) => {
+    if (f && isSystemField(f)) {
+      const defaultField = DEFAULT_FORM_FIELDS.find((df) => df.id === f.id);
       return {
         ...defaultField,
-        ...existing,
+        ...f,
         systemField: true,
-        id: defaultField.id,
       };
     }
-    return defaultField;
-  });
+    return f;
+  }).filter(Boolean);
 
-  const customFields = (fields ?? []).filter((f) => f && !isSystemField(f));
-  return [...systemFields, ...customFields];
+  const missingSystemFields = DEFAULT_FORM_FIELDS.filter(
+    (df) => !processedFields.some((pf) => pf && pf.id === df.id)
+  );
+
+  return [...processedFields, ...missingSystemFields];
 }

@@ -52,21 +52,26 @@ export function isSystemField(field: Pick<FormField, "id" | "label">): boolean {
   return SYSTEM_FIELD_IDS.includes(field.id as SystemFieldId);
 }
 
-/** Ensures all 4 system fields exist first; strips duplicate custom copies, keeping user customizations on system fields. */
 export function ensureDefaultFormFields(fields: FormField[]): FormField[] {
-  const systemFields = DEFAULT_FORM_FIELDS.map((defaultField) => {
-    const existing = (fields ?? []).find((f) => f.id === defaultField.id);
-    if (existing) {
+  if (!fields || fields.length === 0) {
+    return [...DEFAULT_FORM_FIELDS];
+  }
+
+  const processedFields = fields.map((f) => {
+    if (isSystemField(f)) {
+      const defaultField = DEFAULT_FORM_FIELDS.find((df) => df.id === f.id);
       return {
         ...defaultField,
-        ...existing,
+        ...f,
         systemField: true,
-        id: defaultField.id,
       };
     }
-    return defaultField;
+    return f;
   });
 
-  const customFields = (fields ?? []).filter((f) => !isSystemField(f));
-  return [...systemFields, ...customFields];
+  const missingSystemFields = DEFAULT_FORM_FIELDS.filter(
+    (df) => !processedFields.some((pf) => pf.id === df.id)
+  );
+
+  return [...processedFields, ...missingSystemFields];
 }

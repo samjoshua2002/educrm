@@ -11,7 +11,7 @@ import { users } from "@/data/users";
 
 import { AccountSwitcher } from "../sidebar/account-switcher";
 import { useAuthStore } from "@/stores/auth-store";
-import { getStoredApplications } from "@/hooks/use-applications";
+import { applications as mockApplications } from "@/data/mock-applications";
 
 export function DynamicHeader() {
   const pathname = usePathname();
@@ -22,8 +22,21 @@ export function DynamicHeader() {
     const segments = pathname.split("/").filter(Boolean);
     const appNo = segments[segments.length - 1];
     if (appNo) {
-      const appsList = getStoredApplications();
-      const app = appsList.find((a) => a.applicationNo === appNo);
+      let appsList: any[] = [];
+      try {
+        if (typeof window !== "undefined") {
+          const stored = localStorage.getItem("applications");
+          if (stored) {
+            appsList = JSON.parse(stored);
+          }
+        }
+      } catch (e) {
+        console.error(e);
+      }
+      if (!appsList || appsList.length === 0) {
+        appsList = mockApplications;
+      }
+      const app = appsList.find((a: any) => a.applicationNo === appNo);
       if (app) return app.name.toUpperCase();
     }
     return "MS. ANBUKARASI A";

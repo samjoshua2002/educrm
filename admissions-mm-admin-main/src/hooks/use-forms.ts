@@ -85,7 +85,21 @@ export function useUpdateForm() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["forms"] });
       queryClient.invalidateQueries({ queryKey: ["form", variables.id] });
-      toast.success("Form updated successfully");
+      
+      // Allow custom success message or check if template query param is present
+      const urlParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+      const isFromTemplate = urlParams?.get("template") === "true";
+      
+      if (isFromTemplate) {
+        toast.success("Form created successfully from template");
+        // Clear the query parameter after showing the toast so subsequent saves say "Form updated successfully"
+        if (typeof window !== "undefined") {
+          const newUrl = window.location.pathname;
+          window.history.replaceState({}, "", newUrl);
+        }
+      } else {
+        toast.success("Form updated successfully");
+      }
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || "Failed to update form");

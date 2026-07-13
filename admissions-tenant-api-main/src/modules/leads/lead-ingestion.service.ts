@@ -179,11 +179,7 @@ export class LeadIngestionService {
         // 3. Option-based fields validation (Check both id and label for compatibility)
         if (['select', 'radio', 'checkbox'].includes(field.type)) {
           let options = field.options || [];
-          if (field.id === 'location' && form.organization?.branches) {
-            options = form.organization.branches
-              .filter((b: any) => b.isActive)
-              .map((b: any) => ({ id: b.id, label: b.name }));
-          }
+
           const optionIds = options.map((opt: any) => String(opt.id || opt).trim());
           const optionLabels = options.map((opt: any) => String(opt.label || opt).trim().toLowerCase());
           

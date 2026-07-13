@@ -7,6 +7,7 @@ import {
   MoreVertical,
   CheckCircle2,
   Trash2,
+  ChevronLeft,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
@@ -42,6 +43,7 @@ import {
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePageHeader } from "@/hooks/use-page-header";
+import Link from "next/link";
 
 /**
  * DynamicFormPreview renders a miniature, CSS-styled visual mockup
@@ -158,8 +160,12 @@ export default function OrganizationCreateFormPage() {
         data: { fields },
       });
 
-      toast.success("Form initialized successfully");
-      router.push(`/organization/forms/${newForm.id}/edit`);
+      if (template) {
+        router.push(`/organization/forms/${newForm.id}/edit?template=true`);
+      } else {
+        toast.success("Form created successfully");
+        router.push(`/organization/forms/${newForm.id}/edit`);
+      }
     } catch (err) {
       // Error handled by mutation toast
     }
@@ -207,9 +213,16 @@ export default function OrganizationCreateFormPage() {
             {/* Left Side: Title, Description, and Search */}
             <div className="space-y-6 w-full max-w-[566px]">
               <div className="space-y-3 pt-4">
-                <h2 className="text-[32px] font-medium tracking-tight text-[#120352] leading-[normal]">
-                  What are you building today?
-                </h2>
+                <div className="flex items-center gap-3">
+                  <Link href="/organization/forms">
+                    <Button variant="outline" size="icon" className="size-8 rounded-xl border-border/80 text-muted-foreground hover:text-foreground bg-card flex items-center justify-center shrink-0">
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                  <h2 className="text-[32px] font-medium tracking-tight text-[#120352] leading-[normal]">
+                    What are you building today?
+                  </h2>
+                </div>
                 <p className="text-[#171717] text-[12px] leading-relaxed">
                   Select a starting point for your new form. Whether it's a student
                   application, an enrollment survey, or a custom internal workflow, we
@@ -266,11 +279,11 @@ export default function OrganizationCreateFormPage() {
           </div>
 
           {/* Template Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5 w-full">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5 w-full">
             {/* Blank Option Card */}
             <div
               onClick={() => !isProcessing && handleSelectTemplate()}
-              className={`group bg-white border border-[#d4d4d4] rounded-[12px] py-[50px] px-[20px] flex flex-col items-center justify-center text-center gap-5 min-h-[270px] shadow-[0px_2px_2px_rgba(0,0,0,0.05)] transition-all duration-200 hover:border-[#2563ea] ${
+              className={`group bg-white border border-[#d4d4d4] rounded-[12px] py-[30px] px-[15px] flex flex-col items-center justify-center text-center gap-5 aspect-[3/4] max-h-[340px] w-full max-w-[280px] mx-auto shadow-[0px_2px_2px_rgba(0,0,0,0.05)] transition-all duration-200 hover:border-[#2563ea] ${
                 isProcessing ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
               }`}
             >
@@ -292,9 +305,9 @@ export default function OrganizationCreateFormPage() {
               Array.from({ length: 3 }).map((_, i) => (
                 <Card
                   key={i}
-                  className="h-[270px] border border-[#c6c5d4] rounded-[12px] flex flex-col overflow-hidden shadow-[0px_2px_4px_0px_rgba(0,0,0,0.05)]"
+                  className="aspect-[3/4] max-h-[340px] w-full max-w-[280px] mx-auto border border-[#c6c5d4] rounded-[12px] flex flex-col overflow-hidden shadow-[0px_2px_4px_0px_rgba(0,0,0,0.05)]"
                 >
-                  <Skeleton className="h-[120px] w-full shrink-0" />
+                  <Skeleton className="h-[50%] w-full shrink-0" />
                   <CardContent className="p-3 flex-1 flex flex-col justify-between">
                     <div className="space-y-1.5">
                       <Skeleton className="h-4 w-3/4" />
@@ -313,12 +326,12 @@ export default function OrganizationCreateFormPage() {
                 <div
                   key={template.id}
                   onClick={() => !isProcessing && handleSelectTemplate(template.id)}
-                  className={`bg-white border border-[#c6c5d4] rounded-[12px] overflow-hidden flex flex-col h-[270px] shadow-[0px_2px_4px_0px_rgba(0,0,0,0.05)] transition-all duration-200 hover:border-[#2563ea] ${
+                  className={`bg-white border border-[#c6c5d4] rounded-[12px] overflow-hidden flex flex-col aspect-[3/4] max-h-[340px] w-full max-w-[280px] mx-auto shadow-[0px_2px_4px_0px_rgba(0,0,0,0.05)] transition-all duration-200 hover:border-[#2563ea] ${
                     isProcessing ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
                   }`}
                 >
                   {/* Visual Preview Area */}
-                  <div className="h-[120px] relative overflow-hidden bg-slate-50 border-b border-slate-100 flex items-center justify-center shrink-0">
+                  <div className="h-[50%] relative overflow-hidden bg-slate-50 border-b border-slate-100 flex items-center justify-center shrink-0">
                     {template.name === "Student Enrollment" ? (
                       <img
                         src="/images/5be0336622abc63a7154d598c6e79a01db273c5a.png"
