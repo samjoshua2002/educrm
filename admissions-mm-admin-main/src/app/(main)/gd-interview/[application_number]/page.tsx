@@ -55,7 +55,11 @@ import { toast } from "sonner";
 export default function GDInterviewDetailsPage() {
   const params = useParams();
   const applicationNumber = params.application_number as string;
-  const { data: appData, isLoading } = useApplication(applicationNumber);
+  const listMatch = gdInterviews.find(
+    (item) => item.applicationNo === applicationNumber,
+  );
+
+  const { data: fetchedAppData, isLoading } = useApplication(applicationNumber, { enabled: !listMatch });
 
   const [activeEditSection, setActiveEditSection] = React.useState<
     | "academics"
@@ -71,7 +75,7 @@ export default function GDInterviewDetailsPage() {
     setActiveEditSection(null);
   };
 
-  if (isLoading) {
+  if (isLoading && !listMatch) {
     return (
       <div className="flex items-center justify-center min-h-screen w-full bg-white">
         <div className="flex flex-col items-center gap-2">
@@ -84,6 +88,28 @@ export default function GDInterviewDetailsPage() {
     );
   }
 
+  const appData = fetchedAppData || (listMatch ? {
+    applicationNo: listMatch.applicationNo,
+    applicant: {
+      name: listMatch.name,
+      email: listMatch.email,
+      primaryMobile: listMatch.phone,
+    },
+    appliedFor: listMatch.course,
+    education: {
+      tenth: { percentage: "85" },
+      twelfth: { percentage: "92" },
+      graduation: { percentageTillLast: "75" },
+    },
+    entranceTests: [
+      { exam: "CAT", score: "99", percentile: "99" }
+    ],
+    preferences: {
+      preference1: listMatch.confirmedCampus || "Kochi",
+      preference2: "Chennai",
+    }
+  } : null);
+
   if (!appData) {
     return (
       <div className="flex items-center justify-center min-h-screen w-full bg-white">
@@ -91,10 +117,6 @@ export default function GDInterviewDetailsPage() {
       </div>
     );
   }
-
-  const listMatch = gdInterviews.find(
-    (item) => item.applicationNo === applicationNumber,
-  );
 
   const interviewData = {
     applicationNo: appData.applicationNo,

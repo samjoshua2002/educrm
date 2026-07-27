@@ -414,8 +414,15 @@ function SortableField({
       <div className="space-y-2 flex-1">
         <div className="flex items-center justify-between">
           <div 
-            className="w-full text-base font-semibold text-slate-900 pointer-events-none select-none"
-            style={{ fontFamily: "Inter, sans-serif", lineHeight: "21px" }}
+            className="w-full pointer-events-none select-none"
+            style={{ 
+              color: "#000",
+              fontFamily: "Inter, sans-serif",
+              fontSize: "16px",
+              fontStyle: "normal",
+              fontWeight: 400,
+              lineHeight: "21px"
+            }}
           >
             {renderFormattedLabel(field.label || "Field Label")}
           </div>

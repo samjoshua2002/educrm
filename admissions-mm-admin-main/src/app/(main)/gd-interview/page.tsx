@@ -713,42 +713,14 @@ export default function GDInterviewPage() {
                               <EllipsisVertical className="size-4" />
                               <span className="sr-only">Open menu</span>
                             </Button>
-                          </DropdownMenuTrigger>
+                  </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-40">
-                            {(() => {
-                              const appExists = activeAppNos.includes(
-                                item.applicationNo,
-                              );
-                              return (
-                                <DropdownMenuItem
-                                  className="gap-2"
-                                  disabled={!appExists}
-                                  onClick={(e) => {
-                                    if (!appExists) {
-                                      e.preventDefault();
-                                      toast.error(
-                                        `Application details for ${item.applicationNo} not found.`,
-                                      );
-                                    }
-                                  }}
-                                  asChild={appExists}
-                                >
-                                  {appExists ? (
-                                    <Link
-                                      href={`/gd-interview/${item.applicationNo}`}
-                                    >
-                                      <Eye className="size-4" />
-                                      View
-                                    </Link>
-                                  ) : (
-                                    <span className="flex items-center gap-2 text-muted-foreground opacity-50 cursor-not-allowed">
-                                      <Eye className="size-4" />
-                                      View (Not Found)
-                                    </span>
-                                  )}
-                                </DropdownMenuItem>
-                              );
-                            })()}
+                            <DropdownMenuItem className="gap-2" asChild>
+                              <Link href={`/gd-interview/${item.applicationNo}`}>
+                                <Eye className="size-4" />
+                                View
+                              </Link>
+                            </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               variant="destructive"
@@ -897,40 +869,12 @@ export default function GDInterviewPage() {
                         </DropdownMenuTrigger>
 
                         <DropdownMenuContent align="end" className="w-40">
-                          {(() => {
-                            const appExists = activeAppNos.includes(
-                              item.applicationNo,
-                            );
-                            return (
-                              <DropdownMenuItem
-                                className="gap-2"
-                                disabled={!appExists}
-                                onClick={(e) => {
-                                  if (!appExists) {
-                                    e.preventDefault();
-                                    toast.error(
-                                      `Application details for ${item.applicationNo} not found.`,
-                                    );
-                                  }
-                                }}
-                                asChild={appExists}
-                              >
-                                {appExists ? (
-                                  <Link
-                                    href={`/gd-interview/${item.applicationNo}`}
-                                  >
-                                    <Eye className="size-4" />
-                                    View
-                                  </Link>
-                                ) : (
-                                  <span className="flex items-center gap-2 text-muted-foreground opacity-50 cursor-not-allowed">
-                                    <Eye className="size-4" />
-                                    View (Not Found)
-                                  </span>
-                                )}
-                              </DropdownMenuItem>
-                            );
-                          })()}
+                          <DropdownMenuItem className="gap-2" asChild>
+                            <Link href={`/gd-interview/${item.applicationNo}`}>
+                              <Eye className="size-4" />
+                              View
+                            </Link>
+                          </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
                             variant="destructive"

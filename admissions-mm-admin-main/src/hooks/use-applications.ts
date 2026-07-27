@@ -403,7 +403,7 @@ export function useApplications(page = 1, limit = 20, search?: string, status?: 
 }
 
 // 2. Fetch single application details
-export function useApplication(applicationNo: string) {
+export function useApplication(applicationNo: string, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ["application", applicationNo],
     queryFn: async () => {
@@ -411,7 +411,7 @@ export function useApplication(applicationNo: string) {
       const raw = await apiGet<any>(`/applications/${applicationNo}`);
       return mapApiToApplicationDetail(raw);
     },
-    enabled: !!applicationNo,
+    enabled: options?.enabled !== undefined ? options.enabled : !!applicationNo,
   });
 }
 
