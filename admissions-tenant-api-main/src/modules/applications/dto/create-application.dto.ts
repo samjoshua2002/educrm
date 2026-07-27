@@ -6,26 +6,53 @@ import {
   IsObject,
   IsArray,
   ValidateNested,
-  IsNotEmpty,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class ApplicantDto {
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  name: string;
+  name?: string;
 
-  @IsEmail()
-  @IsNotEmpty()
-  email: string;
-
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  phone: string;
+  email?: string;
+
+  @IsOptional()
+  @IsString()
+  phone?: string;
 
   @IsOptional()
   @IsString()
   altPhone?: string;
+
+  @IsOptional()
+  @IsString()
+  gender?: string;
+
+  @IsOptional()
+  @IsString()
+  dateOfBirth?: string;
+
+  @IsOptional()
+  @IsString()
+  religion?: string;
+
+  @IsOptional()
+  @IsString()
+  nationality?: string;
+
+  @IsOptional()
+  @IsString()
+  aadhaarNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  category?: string;
+
+  @IsOptional()
+  @IsString()
+  maritalStatus?: string;
 }
 
 export class CreateApplicationDto {
@@ -41,18 +68,19 @@ export class CreateApplicationDto {
   @IsOptional()
   program?: string;
 
-  @IsUUID()
-  @IsNotEmpty()
-  courseId: string;
-
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  academicSession: string;
+  courseId?: string;
 
+  @IsOptional()
+  @IsString()
+  academicSession?: string;
+
+  @IsOptional()
   @IsObject()
   @ValidateNested()
   @Type(() => ApplicantDto)
-  applicant: ApplicantDto;
+  applicant?: ApplicantDto;
 
   @IsOptional()
   @IsObject()
@@ -69,6 +97,10 @@ export class CreateApplicationDto {
   @IsOptional()
   @IsArray()
   entranceTests?: any[];
+
+  @IsOptional()
+  @IsArray()
+  parentDetails?: any[];
 
   @IsOptional()
   @IsObject()

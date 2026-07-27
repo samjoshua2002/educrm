@@ -23,8 +23,14 @@ export class ApplicationEntranceTest {
   @Column({ name: 'test_name', length: 100 })
   testName: string;
 
+  @Column({ name: 'roll_no', length: 100, nullable: true })
+  rollNo: string;
+
   @Column({ name: 'month_year', length: 50, nullable: true })
   monthYear: string;
+
+  @Column({ name: 'result_status', length: 50, nullable: true })
+  resultStatus: string;
 
   @Column({ name: 'composite_score', type: 'decimal', precision: 10, scale: 2, nullable: true })
   compositeScore: number;

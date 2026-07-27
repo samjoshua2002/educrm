@@ -68,14 +68,27 @@ import {
 } from "@/components/ui/select";
 
 import { useApplication, useUpdateApplication, ApplicationDetail } from "@/hooks/use-applications";
+import { useBranches } from "@/hooks/use-branches";
 import { gdInterviews } from "@/data/mock-gd-interviews";
 import { toast } from "sonner";
 
 export default function ApplicationDetailsPage() {
   const params = useParams();
-  const applicationNumber = params.application_number as string;
+  const rawParam = params.application_number;
+  const applicationNumber = React.useMemo(() => {
+    if (Array.isArray(rawParam)) return rawParam.map(decodeURIComponent).join("/");
+    return rawParam ? decodeURIComponent(rawParam as string) : "";
+  }, [rawParam]);
   const { data: appData, isLoading } = useApplication(applicationNumber);
   const updateMutation = useUpdateApplication();
+  const { data: branchesData } = useBranches(1, 100);
+  const branchesList = branchesData?.data || [];
+
+  const getBranchName = React.useCallback((val?: string) => {
+    if (!val) return "Not selected";
+    const found = branchesList.find((b) => b.id === val || b.name.toLowerCase() === val.toLowerCase());
+    return found ? found.name : val;
+  }, [branchesList]);
 
   const hasGDInterview = React.useMemo(() => {
     return gdInterviews.some(
@@ -491,16 +504,16 @@ export default function ApplicationDetailsPage() {
                   >
                     Preference 1
                   </span>
-                  <span className="font-bold text-slate-800 text-base">
-                    {applicationData.preferences.preference1}
+                  <span className="font-bold text-slate-800 text-base font-sans">
+                    {getBranchName(applicationData.preferences.preference1)}
                   </span>
                 </div>
                 <div className="flex flex-col space-y-1.5 p-4 bg-[#F8FAFC] rounded-lg border border-slate-100">
                   <span className="font-sans text-[10px] font-bold leading-[15px] tracking-[-0.5px] uppercase text-[#64748B]">
                     Preference 2
                   </span>
-                  <span className="font-bold text-slate-800 text-base">
-                    {applicationData.preferences.preference2}
+                  <span className="font-bold text-slate-800 text-base font-sans">
+                    {getBranchName(applicationData.preferences.preference2)}
                   </span>
                 </div>
               </div>
@@ -1012,6 +1025,7 @@ export default function ApplicationDetailsPage() {
           {activeEditSection === "preferences" && (
             <EditPreferencesForm
               appData={applicationData}
+              branchesList={branchesList}
               onSave={handleSave}
               onClose={() => setActiveEditSection(null)}
             />
@@ -1426,7 +1440,7 @@ function EditPersonalForm({ appData, onSave, onClose }: FormProps) {
   );
 }
 
-function EditPreferencesForm({ appData, onSave, onClose }: FormProps) {
+function EditPreferencesForm({ appData, onSave, onClose, branchesList = [] }: FormProps & { branchesList?: any[] }) {
   const [formData, setFormData] = React.useState({
     preference1: appData.preferences.preference1,
     preference2: appData.preferences.preference2,
@@ -1466,9 +1480,19 @@ function EditPreferencesForm({ appData, onSave, onClose }: FormProps) {
             <SelectValue placeholder="Select Preference 1" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="Main Campus">Main Campus</SelectItem>
-            <SelectItem value="City Campus">City Campus</SelectItem>
-            <SelectItem value="South Campus">South Campus</SelectItem>
+            {branchesList.length > 0 ? (
+              branchesList.map((branch) => (
+                <SelectItem key={branch.id} value={branch.id}>
+                  {branch.name} {branch.city ? `(${branch.city})` : ""}
+                </SelectItem>
+              ))
+            ) : (
+              <>
+                <SelectItem value="Main Campus">Main Campus</SelectItem>
+                <SelectItem value="City Campus">City Campus</SelectItem>
+                <SelectItem value="South Campus">South Campus</SelectItem>
+              </>
+            )}
           </SelectContent>
         </Select>
       </div>
@@ -1493,9 +1517,19 @@ function EditPreferencesForm({ appData, onSave, onClose }: FormProps) {
             <SelectValue placeholder="Select Preference 2" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="Main Campus">Main Campus</SelectItem>
-            <SelectItem value="City Campus">City Campus</SelectItem>
-            <SelectItem value="South Campus">South Campus</SelectItem>
+            {branchesList.length > 0 ? (
+              branchesList.map((branch) => (
+                <SelectItem key={branch.id} value={branch.id}>
+                  {branch.name} {branch.city ? `(${branch.city})` : ""}
+                </SelectItem>
+              ))
+            ) : (
+              <>
+                <SelectItem value="Main Campus">Main Campus</SelectItem>
+                <SelectItem value="City Campus">City Campus</SelectItem>
+                <SelectItem value="South Campus">South Campus</SelectItem>
+              </>
+            )}
           </SelectContent>
         </Select>
       </div>
@@ -1888,15 +1922,19 @@ function EditEducationForm({ appData, onSave, onClose }: FormProps) {
 }
 
 function EditEntranceForm({ appData, onSave, onClose }: FormProps) {
+  const initialTests = (appData.entranceTests && appData.entranceTests.length > 0)
+    ? appData.entranceTests.map((test: any) => ({
+        exam: test.exam || "CAT",
+        rollNo: test.rollNo === "-" ? "" : test.rollNo,
+        month: test.month === "-" ? "" : test.month,
+        status: test.status === "-" ? "Declared" : test.status,
+        score: test.score === "-" ? "" : test.score,
+        percentile: test.percentile === "-" ? "" : test.percentile,
+      }))
+    : [{ exam: "CAT", rollNo: "", month: "", status: "Declared", score: "", percentile: "" }];
+
   const [formData, setFormData] = React.useState({
-    entranceTests: appData.entranceTests.map((test: any) => ({
-      exam: test.exam,
-      rollNo: test.rollNo,
-      month: test.month,
-      status: test.status,
-      score: test.score,
-      percentile: test.percentile,
-    })),
+    entranceTests: initialTests,
   });
 
   const handleFieldChange = (index: number, field: string, value: string) => {
@@ -1908,6 +1946,15 @@ function EditEntranceForm({ appData, onSave, onClose }: FormProps) {
       };
       return { entranceTests: updatedTests };
     });
+  };
+
+  const handleAddTest = () => {
+    setFormData((prev) => ({
+      entranceTests: [
+        ...prev.entranceTests,
+        { exam: "MAT", rollNo: "", month: "", status: "Declared", score: "", percentile: "" },
+      ],
+    }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -1926,26 +1973,47 @@ function EditEntranceForm({ appData, onSave, onClose }: FormProps) {
     >
       {formData.entranceTests.map((test: any, index: number) => (
         <div
-          key={test.exam}
+          key={index}
           className="flex flex-col gap-3 p-4 border rounded-lg bg-white"
         >
-          <div className="border-b pb-1.5">
+          <div className="border-b pb-1.5 flex justify-between items-center">
             <h4 className="font-bold text-slate-800 text-sm">
-              {test.exam} Details
+              Test #{index + 1} Details
             </h4>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5 col-span-1">
               <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
-                Roll No
+                Exam Name
+              </Label>
+              <Select
+                value={test.exam}
+                onValueChange={(val) => handleFieldChange(index, "exam", val)}
+              >
+                <SelectTrigger className="border-[#D4D4D4] rounded-[8px] h-9 text-[13px] bg-white">
+                  <SelectValue placeholder="Select Exam" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="CAT">CAT</SelectItem>
+                  <SelectItem value="XAT">XAT</SelectItem>
+                  <SelectItem value="MAT">MAT</SelectItem>
+                  <SelectItem value="CMAT">CMAT</SelectItem>
+                  <SelectItem value="ATMA">ATMA</SelectItem>
+                  <SelectItem value="GMAT">GMAT</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1.5 col-span-1">
+              <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                Roll No / Reg No
               </Label>
               <Input
                 value={test.rollNo}
                 onChange={(e) =>
                   handleFieldChange(index, "rollNo", e.target.value)
                 }
+                placeholder="e.g. 23091024"
                 className="border-[#D4D4D4] rounded-[8px] h-9 text-[13px] bg-white"
-                required
               />
             </div>
             <div className="flex flex-col gap-1.5 col-span-1">
@@ -1957,8 +2025,8 @@ function EditEntranceForm({ appData, onSave, onClose }: FormProps) {
                 onChange={(e) =>
                   handleFieldChange(index, "month", e.target.value)
                 }
+                placeholder="e.g. Nov 2024"
                 className="border-[#D4D4D4] rounded-[8px] h-9 text-[13px] bg-white"
-                required
               />
             </div>
             <div className="flex flex-col gap-1.5 col-span-1">
@@ -1977,11 +2045,10 @@ function EditEntranceForm({ appData, onSave, onClose }: FormProps) {
                   <SelectItem value="Awaiting Result">
                     Awaiting Result
                   </SelectItem>
-                  <SelectItem value="-">-</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex flex-col gap-1.5 col-span-1">
+            <div className="flex flex-col gap-1.5 col-span-2">
               <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
                 Percentile
               </Label>
@@ -1990,13 +2057,22 @@ function EditEntranceForm({ appData, onSave, onClose }: FormProps) {
                 onChange={(e) =>
                   handleFieldChange(index, "percentile", e.target.value)
                 }
+                placeholder="e.g. 85.5"
                 className="border-[#D4D4D4] rounded-[8px] h-9 text-[13px] bg-white"
-                required
               />
             </div>
           </div>
         </div>
       ))}
+
+      <Button
+        type="button"
+        variant="outline"
+        onClick={handleAddTest}
+        className="w-full h-9 text-xs font-semibold text-[#2563EB] border-[#2563EB]/30 hover:bg-[#2563EB]/5"
+      >
+        + Add Entrance Test
+      </Button>
 
       <div className="flex items-center gap-3 pt-4 border-t border-[#E5E5E5] mt-2">
         <Button

@@ -41,7 +41,9 @@ export class UpdateEducationDto {
 
 export class EntranceTestRecordDto {
   @IsString() testName: string;
+  @IsString() @IsOptional() rollNo?: string;
   @IsString() @IsOptional() monthYear?: string;
+  @IsString() @IsOptional() resultStatus?: string;
   @IsNumber() @IsOptional() compositeScore?: number;
   @IsNumber() @IsOptional() percentile?: number;
 }

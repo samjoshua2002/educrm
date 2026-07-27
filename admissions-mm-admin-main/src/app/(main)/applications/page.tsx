@@ -64,6 +64,7 @@ import {
 } from "@/components/ui/table";
 
 import { type Application, useApplications, useDeleteApplication } from "@/hooks/use-applications";
+import { usePageHeader } from "@/hooks/use-page-header";
 
 
 const paymentStatusStyles: Record<string, string> = {
@@ -138,6 +139,15 @@ export default function ApplicationsPage() {
   const [appliedProgram, setAppliedProgram] = React.useState("all");
   const [currentPage, setCurrentPage] = React.useState(1);
   const itemsPerPage = 8;
+
+  usePageHeader({
+    title: "Applications",
+    description: "View and manage all applications submitted to your organization.",
+    action: {
+      label: "Add Application",
+      href: "/my-application",
+    },
+  });
 
   const { data: applicationsResponse, isLoading } = useApplications(1, 200, appliedSearch || undefined);
 
@@ -781,7 +791,7 @@ export default function ApplicationsPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-40">
                             <DropdownMenuItem className="gap-2" asChild>
-                              <Link href={`/applications/${app.applicationNo}`}>
+                              <Link href={`/organization/applications/${encodeURIComponent(app.applicationNo)}`}>
                                 <Eye className="size-4" />
                                 View
                               </Link>
@@ -935,7 +945,7 @@ export default function ApplicationsPage() {
 
                         <DropdownMenuContent align="end" className="w-40">
                           <DropdownMenuItem className="gap-2" asChild>
-                            <Link href={`/applications/${app.applicationNo}`}>
+                            <Link href={`/organization/applications/${encodeURIComponent(app.applicationNo)}`}>
                               <Eye className="size-4" />
                               View
                             </Link>

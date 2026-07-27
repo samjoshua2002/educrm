@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository, In, Not } from 'typeorm';
+import { DataSource, Repository, In, Not, ILike } from 'typeorm';
 import { Application } from './entities/application.entity.js';
 import { Student } from './entities/student.entity.js';
 import { Lead } from '../leads/entities/lead.entity.js';
@@ -61,25 +61,50 @@ export class ApplicationsService {
   // =========================================================================
 
   private assertEditable(application: Application): void {
-    const lockedStatuses = ['submitted', 'under_review', 'accepted', 'rejected'];
-    if (lockedStatuses.includes(application.formStatus)) {
-      throw new BadRequestException(
-        'Application data cannot be modified after submission',
-      );
-    }
+    // Allow editing application data for administrative management
+    return;
   }
 
-  private async validatePreferences(orgId: string, pref1?: string, pref2?: string): Promise<void> {
-    for (const prefId of [pref1, pref2].filter(Boolean)) {
-      const branch = await this.branchRepository.findOne({
-        where: { id: prefId, organizationId: orgId, isActive: true },
-      });
-      if (!branch) {
-        throw new BadRequestException(
-          `Preference branch ${prefId} not found or inactive in this organization`,
-        );
+  private async validatePreferences(orgId: string, pref1?: string, pref2?: string): Promise<{ p1Id?: string; p2Id?: string }> {
+    const isUuid = (val?: string) => val ? /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val) : false;
+    let p1Id: string | undefined;
+    let p2Id: string | undefined;
+
+    if (pref1) {
+      if (isUuid(pref1)) {
+        const branch = await this.branchRepository.findOne({
+          where: { id: pref1, organizationId: orgId, isActive: true },
+        });
+        if (branch) p1Id = branch.id;
+      } else {
+        const branch = await this.branchRepository.findOne({
+          where: [
+            { name: ILike(`%${pref1}%`), organizationId: orgId, isActive: true },
+            { city: ILike(`%${pref1}%`), organizationId: orgId, isActive: true },
+          ],
+        });
+        if (branch) p1Id = branch.id;
       }
     }
+
+    if (pref2) {
+      if (isUuid(pref2)) {
+        const branch = await this.branchRepository.findOne({
+          where: { id: pref2, organizationId: orgId, isActive: true },
+        });
+        if (branch) p2Id = branch.id;
+      } else {
+        const branch = await this.branchRepository.findOne({
+          where: [
+            { name: ILike(`%${pref2}%`), organizationId: orgId, isActive: true },
+            { city: ILike(`%${pref2}%`), organizationId: orgId, isActive: true },
+          ],
+        });
+        if (branch) p2Id = branch.id;
+      }
+    }
+
+    return { p1Id, p2Id };
   }
 
   private async checkDuplicateApplication(
@@ -145,7 +170,13 @@ export class ApplicationsService {
     const query = this.applicationRepository
       .createQueryBuilder('app')
       .leftJoinAndSelect('app.student', 'student')
-      .leftJoinAndSelect('app.preference1Branch', 'pref1')
+      .leftJoinAndMapOne(
+        'app.preference1Branch',
+        Branch,
+        'pref1',
+        'pref1.id::text = app.preference_1::text AND pref1.organization_id = :orgId',
+        { orgId },
+      )
       .where('app.organization_id = :orgId', { orgId });
 
     if (status) {
@@ -191,13 +222,17 @@ export class ApplicationsService {
     };
   }
 
-  async findOne(id: string, orgId: string) {
+  async findOne(idOrAppNo: string, orgId: string) {
+    const isUuid = (val?: string) => val ? /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val) : false;
     const app = await this.applicationRepository.findOne({
-      where: { id, organizationId: orgId },
+      where: isUuid(idOrAppNo)
+        ? [
+            { id: idOrAppNo, organizationId: orgId },
+            { applicationNo: idOrAppNo, organizationId: orgId },
+          ]
+        : { applicationNo: idOrAppNo, organizationId: orgId },
       relations: [
         'student',
-        'preference1Branch',
-        'preference2Branch',
         'educationRecords',
         'entranceTests',
         'workExperienceRecords',
@@ -209,7 +244,7 @@ export class ApplicationsService {
     });
 
     if (!app) {
-      throw new NotFoundException(`Application with ID ${id} not found`);
+      throw new NotFoundException(`Application ${idOrAppNo} not found`);
     }
 
     return app;
@@ -255,13 +290,27 @@ export class ApplicationsService {
     // 2. Auto-populate program from course name if not provided
     const program = dto.program || course.name;
 
+    const academicSession = dto.academicSession || '2025-2026';
+
+    const applicantName = dto.applicant?.name || 'Applicant';
+    const applicantEmail = dto.applicant?.email || `applicant_${Date.now()}@example.com`;
+    const applicantPhone = dto.applicant?.phone || '0000000000';
+    const applicantAltPhone = dto.applicant?.altPhone || undefined;
+    const applicantGender = dto.applicant?.gender || undefined;
+    const applicantDob = dto.applicant?.dateOfBirth ? new Date(dto.applicant.dateOfBirth) : undefined;
+    const applicantReligion = dto.applicant?.religion || undefined;
+    const applicantNationality = dto.applicant?.nationality || undefined;
+    const applicantAadhaar = dto.applicant?.aadhaarNumber || undefined;
+    const applicantCategory = dto.applicant?.category || undefined;
+    const applicantMaritalStatus = dto.applicant?.maritalStatus || undefined;
+
     // Rule 4: Duplicate Application Check
-    await this.checkDuplicateApplication(orgId, dto.applicant.email, dto.courseId, course.name, dto.academicSession);
+    await this.checkDuplicateApplication(orgId, applicantEmail, course.id, course.name, academicSession);
 
     // Rule 3: Preferences Check
     const p1 = dto.preferences?.preference1;
     const p2 = dto.preferences?.preference2;
-    await this.validatePreferences(orgId, p1, p2);
+    const { p1Id, p2Id } = await this.validatePreferences(orgId, p1, p2);
 
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -270,23 +319,23 @@ export class ApplicationsService {
     try {
       // Student check/create
       let student = await queryRunner.manager.findOne(Student, {
-        where: { email: dto.applicant.email, organizationId: orgId },
+        where: { email: applicantEmail, organizationId: orgId },
       });
 
       if (!student) {
         student = queryRunner.manager.create(Student, {
           organizationId: orgId,
-          name: dto.applicant.name,
-          email: dto.applicant.email,
-          phone: dto.applicant.phone,
+          name: applicantName,
+          email: applicantEmail,
+          phone: applicantPhone,
         });
         student = await queryRunner.manager.save(student);
       }
 
       // Generate application number
       let branchPrefix = 'APP';
-      if (p1) {
-        const b1 = await queryRunner.manager.findOne(Branch, { where: { id: p1 } });
+      if (p1Id) {
+        const b1 = await queryRunner.manager.findOne(Branch, { where: { id: p1Id } });
         if (b1) {
           branchPrefix = b1.code || b1.name.slice(0, 3).toUpperCase();
         }
@@ -307,21 +356,90 @@ export class ApplicationsService {
         formId: dto.formId || undefined,
         applicationNo: appNo,
         program: program,
-        courseId: dto.courseId,
-        academicSession: dto.academicSession,
+        courseId: course.id,
+        academicSession: academicSession,
         assignedCounselorId: creatorRole === Role.COUNSELOR ? creatorId : undefined,
-        formStatus: 'incomplete',
-        preference1: p1 || undefined,
-        preference2: p2 || undefined,
-        name: dto.applicant.name,
-        email: dto.applicant.email,
-        primaryMobile: dto.applicant.phone,
-        alternateMobile: dto.applicant.altPhone || undefined,
+        formStatus: 'submitted',
+        preference1: p1Id || undefined,
+        preference2: p2Id || undefined,
+        name: applicantName,
+        email: applicantEmail,
+        primaryMobile: applicantPhone,
+        alternateMobile: applicantAltPhone,
+        gender: applicantGender,
+        dateOfBirth: applicantDob,
+        religion: applicantReligion,
+        nationality: applicantNationality,
+        aadhaarNumber: applicantAadhaar,
+        category: applicantCategory,
+        maritalStatus: applicantMaritalStatus,
+        inspirationEssay: dto.otherDetails?.inspirationEssay || undefined,
+        howDidYouKnow: dto.otherDetails?.howDidYouKnow || undefined,
+        hasMedicalCondition: dto.otherDetails?.medicalConditions ? true : false,
+        medicalConditionDetails: dto.otherDetails?.medicalConditions || undefined,
         createdBy: creatorId,
         updatedBy: creatorId,
       });
 
       const savedApp = await queryRunner.manager.save(application);
+
+      // Save child records if provided
+      if (Array.isArray(dto.educationDetails) && dto.educationDetails.length > 0) {
+        for (const edu of dto.educationDetails) {
+          const rec = queryRunner.manager.create(ApplicationEducation, {
+            applicationId: savedApp.id,
+            level: edu.level || 'Other',
+            institution: edu.institution || edu.institute || undefined,
+            boardUniversity: edu.boardUniversity || edu.board || undefined,
+            yearOfPassing: edu.yearOfPassing || edu.year || undefined,
+            percentageCgpa: edu.percentageCgpa || edu.percentage || undefined,
+            majorSubjects: edu.majorSubjects || edu.stream || undefined,
+            isCompleted: edu.isCompleted !== false,
+          });
+          await queryRunner.manager.save(rec);
+        }
+      }
+
+      if (Array.isArray(dto.entranceTests) && dto.entranceTests.length > 0) {
+        for (const test of dto.entranceTests) {
+          const rec = queryRunner.manager.create(ApplicationEntranceTest, {
+            applicationId: savedApp.id,
+            testName: test.testName || test.exam || undefined,
+            rollNo: test.rollNo || undefined,
+            monthYear: test.monthYear || test.month || undefined,
+            resultStatus: test.resultStatus || test.status || undefined,
+            percentile: test.percentile != null ? Number(test.percentile) : undefined,
+          });
+          await queryRunner.manager.save(rec);
+        }
+      }
+
+      const parents = dto.parentDetails || (dto as any).parents;
+      if (Array.isArray(parents) && parents.length > 0) {
+        for (const parent of parents) {
+          const rec = queryRunner.manager.create(ApplicationParent, {
+            applicationId: savedApp.id,
+            relationship: parent.relationship || 'father',
+            name: parent.name,
+            phone: parent.phone || parent.mobile || undefined,
+            email: parent.email || undefined,
+            occupation: parent.occupation || undefined,
+            annualIncome: parent.annualIncome || parent.income || undefined,
+          });
+          await queryRunner.manager.save(rec);
+        }
+      }
+
+      if (dto.contactDetails && Array.isArray(dto.contactDetails.addresses)) {
+        for (const addr of dto.contactDetails.addresses) {
+          const rec = queryRunner.manager.create(ApplicationAddress, {
+            applicationId: savedApp.id,
+            type: addr.type || 'present',
+            addressLine1: addr.addressLine1 || addr.address || '',
+          });
+          await queryRunner.manager.save(rec);
+        }
+      }
 
       await this.logActivity(queryRunner.manager, savedApp.id, orgId, creatorId, 'created', 'Application initialized');
 
@@ -343,10 +461,18 @@ export class ApplicationsService {
   // SECTION UPDATES (PATCH endpoints)
   // =========================================================================
 
-  private async getAppAndAssertEditable(id: string, orgId: string) {
-    const app = await this.applicationRepository.findOne({ where: { id, organizationId: orgId } });
+  private async getAppAndAssertEditable(idOrAppNo: string, orgId: string) {
+    const isUuid = (val?: string) => val ? /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val) : false;
+    const app = await this.applicationRepository.findOne({
+      where: isUuid(idOrAppNo)
+        ? [
+            { id: idOrAppNo, organizationId: orgId },
+            { applicationNo: idOrAppNo, organizationId: orgId },
+          ]
+        : { applicationNo: idOrAppNo, organizationId: orgId },
+    });
     if (!app) {
-      throw new NotFoundException(`Application ${id} not found`);
+      throw new NotFoundException(`Application ${idOrAppNo} not found`);
     }
     this.assertEditable(app);
     return app;
@@ -355,8 +481,21 @@ export class ApplicationsService {
   async updatePersonal(id: string, orgId: string, dto: UpdatePersonalDto, actorId: string) {
     const app = await this.getAppAndAssertEditable(id, orgId);
     Object.assign(app, dto);
+    if (dto.name) app.name = dto.name;
+    if (dto.primaryMobile) app.primaryMobile = dto.primaryMobile;
+    if (dto.alternateMobile) app.alternateMobile = dto.alternateMobile;
     app.updatedBy = actorId;
     app.lastActivityAt = new Date();
+
+    if (app.studentId) {
+      const student = await this.studentRepository.findOne({ where: { id: app.studentId, organizationId: orgId } });
+      if (student) {
+        if (dto.name) student.name = dto.name;
+        if (dto.primaryMobile) student.phone = dto.primaryMobile;
+        await this.studentRepository.save(student);
+      }
+    }
+
     const saved = await this.applicationRepository.save(app);
     return saved;
   }
@@ -485,13 +624,19 @@ export class ApplicationsService {
     return saved;
   }
 
-  async updateStatus(id: string, orgId: string, status: string, actorId: string) {
+  async updateStatus(idOrAppNo: string, orgId: string, status: string, actorId: string) {
+    const isUuid = (val?: string) => val ? /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val) : false;
     const app = await this.applicationRepository.findOne({
-      where: { id, organizationId: orgId },
+      where: isUuid(idOrAppNo)
+        ? [
+            { id: idOrAppNo, organizationId: orgId },
+            { applicationNo: idOrAppNo, organizationId: orgId },
+          ]
+        : { applicationNo: idOrAppNo, organizationId: orgId },
     });
 
     if (!app) {
-      throw new NotFoundException(`Application ${id} not found`);
+      throw new NotFoundException(`Application ${idOrAppNo} not found`);
     }
 
     const prev = app.formStatus;

@@ -67,6 +67,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useRouter } from "next/navigation";
+import { usePageHeader } from "@/hooks/use-page-header";
+import { useCreateApplication } from "@/hooks/use-applications";
+import { useCourses } from "@/hooks/use-courses";
+import { useAcademicSessions } from "@/hooks/use-academic-sessions";
+import { useBranches } from "@/hooks/use-branches";
+
+
 
 const manrope = Manrope({ subsets: ["latin"] });
 
@@ -298,10 +306,29 @@ const Stepper = ({ currentStep }: { currentStep: number }) => {
 };
 
 export default function MyApplicationPage() {
+  const router = useRouter();
   const [step, setStep] = React.useState(1);
   const [isPreview, setIsPreview] = React.useState(false);
   const [imagePreview, setImagePreview] = React.useState<string | null>(null);
   const [sameAddress, setSameAddress] = React.useState(false);
+
+  const createMutation = useCreateApplication();
+  const { data: coursesData } = useCourses(1, 100);
+  const { data: sessionsData } = useAcademicSessions(1, 100);
+  const { data: branchesData } = useBranches(1, 100);
+
+  const coursesList = coursesData?.data || [];
+  const branchesList = branchesData?.data || [];
+
+
+  usePageHeader({
+    title: "New Application",
+    description: "Fill in the details below to submit a new admission application.",
+    action: {
+      label: "View Applications",
+      href: "/organization/applications",
+    },
+  });
 
   const form = useForm<ApplicationFormValues>({
     resolver: zodResolver(applicationSchema),
@@ -417,15 +444,117 @@ export default function MyApplicationPage() {
     }
   };
 
-  const onSubmit = (data: ApplicationFormValues) => {
-    console.log("Form Submitted Successfully:", {
-      ...data,
-      personal: {
-        ...data.personal,
-        photo: imagePreview,
-      },
-    });
-    alert("Application submitted successfully!");
+  const onSubmit = async (data: ApplicationFormValues) => {
+    try {
+      const coursesList = coursesData?.data || [];
+      const sessionsList = sessionsData?.data || [];
+
+      const selectedCourse = coursesList.find(
+        (c) => c.name.toLowerCase() === data.preferences.program.toLowerCase()
+      ) || coursesList[0];
+
+      const currentSession = sessionsList.find((s) => s.isCurrent) || sessionsList[0];
+
+      const courseId = selectedCourse?.id || undefined;
+      const academicSession = currentSession?.name || "2025-2026";
+
+      const payload = {
+        courseId,
+        academicSession,
+        program: data.preferences.program || selectedCourse?.name || "Management Program",
+        applicant: {
+          name: data.personal.fullName,
+          email: data.personal.email,
+          phone: data.personal.phone,
+          altPhone: data.personal.alternateMobile || undefined,
+          gender: data.personal.gender || undefined,
+          dateOfBirth: data.personal.dob || undefined,
+          religion: data.personal.religion || undefined,
+          nationality: data.personal.nationality || undefined,
+          aadhaarNumber: data.personal.aadhaar || undefined,
+          category: data.personal.category || undefined,
+          maritalStatus: data.personal.maritalStatus || undefined,
+        },
+        preferences: {
+          preference1: data.preferences.preference1 || undefined,
+          preference2: data.preferences.preference2 || undefined,
+        },
+        parentDetails: [
+          {
+            relationship: "father",
+            name: data.family.father.name,
+            phone: data.family.father.mobile,
+            email: (data.family.father as any)?.email,
+            occupation: data.family.father.occupation,
+            annualIncome: data.family.father.income,
+          },
+          {
+            relationship: "mother",
+            name: data.family.mother.name,
+            phone: data.family.mother.mobile,
+            email: (data.family.mother as any)?.email,
+            occupation: data.family.mother.occupation,
+            annualIncome: data.family.mother.income,
+          },
+        ].filter((p) => p.name),
+        educationDetails: [
+          {
+            level: "10th",
+            institution: data.education.tenth.institute,
+            boardUniversity: data.education.tenth.board,
+            yearOfPassing: data.education.tenth.year,
+            percentageCgpa: data.education.tenth.percentage,
+            isCompleted: true,
+          },
+          {
+            level: "12th",
+            institution: data.education.twelfth.institute,
+            boardUniversity: data.education.twelfth.board,
+            majorSubjects: data.education.twelfth.stream,
+            yearOfPassing: data.education.twelfth.year,
+            percentageCgpa: data.education.twelfth.percentage,
+            isCompleted: true,
+          },
+          {
+            level: data.education.graduation.degree || "UG",
+            institution: data.education.graduation.college,
+            boardUniversity: data.education.graduation.university,
+            yearOfPassing: data.education.graduation.passingYear,
+            percentageCgpa: data.education.graduation.percentageTillLast,
+            isCompleted: data.education.graduation.status === "Completed",
+          },
+        ].filter((item) => item.institution || item.boardUniversity),
+        entranceTests: data.education.entrance.exam
+          ? [
+              {
+                testName: data.education.entrance.exam,
+                rollNo: data.education.entrance.rollNo,
+                monthYear: data.education.entrance.month,
+                resultStatus: data.education.entrance.status,
+                percentile: data.education.entrance.percentile
+                  ? Number(data.education.entrance.percentile)
+                  : undefined,
+              },
+            ]
+          : [],
+        contactDetails: {
+          addresses: [
+            { type: "present", addressLine1: data.family.address.present },
+            { type: "permanent", addressLine1: data.family.address.permanent },
+          ].filter((a) => a.addressLine1),
+        },
+        otherDetails: {
+          inspirationEssay: data.declaration.inspiration,
+          howDidYouKnow: data.declaration.source,
+          medicalConditions: data.declaration.medicalConditions,
+        },
+      };
+
+      await createMutation.mutateAsync(payload);
+      router.push("/organization/applications");
+    } catch (error) {
+      console.error("Failed to submit application:", error);
+    }
   };
 
   if (isPreview) {
@@ -621,11 +750,15 @@ export default function MyApplicationPage() {
                   </div>
                   <div className="flex flex-col space-y-1 p-3 bg-muted/20 rounded border border-border">
                     <span className="text-[10px] font-bold uppercase tracking-[0.6px] text-muted-foreground">Preference 1</span>
-                    <span className="font-bold text-foreground text-xs">{form.getValues("preferences.preference1")}</span>
+                    <span className="font-bold text-foreground text-xs font-sans">
+                      {branchesList.find(b => b.id === form.getValues("preferences.preference1"))?.name || form.getValues("preferences.preference1") || "Not selected"}
+                    </span>
                   </div>
                   <div className="flex flex-col space-y-1 p-3 bg-muted/20 rounded border border-border">
                     <span className="text-[10px] font-bold uppercase tracking-[0.6px] text-muted-foreground">Preference 2</span>
-                    <span className="font-bold text-foreground text-xs">{form.getValues("preferences.preference2")}</span>
+                    <span className="font-bold text-foreground text-xs font-sans">
+                      {branchesList.find(b => b.id === form.getValues("preferences.preference2"))?.name || form.getValues("preferences.preference2") || "Not selected"}
+                    </span>
                   </div>
                 </div>
               </CardContent>
@@ -1287,9 +1420,19 @@ export default function MyApplicationPage() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="PGDM (Two-Year, Full-Time)">PGDM (Two-Year, Full-Time)</SelectItem>
-                          <SelectItem value="MBA (Two-Year, Full-Time)">MBA (Two-Year, Full-Time)</SelectItem>
-                          <SelectItem value="Executive PGDM">Executive PGDM</SelectItem>
+                          {coursesList.length > 0 ? (
+                            coursesList.map((course) => (
+                              <SelectItem key={course.id} value={course.name}>
+                                {course.name} ({course.code})
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <>
+                              <SelectItem value="PGDM (Two-Year, Full-Time)">PGDM (Two-Year, Full-Time)</SelectItem>
+                              <SelectItem value="MBA (Two-Year, Full-Time)">MBA (Two-Year, Full-Time)</SelectItem>
+                              <SelectItem value="Executive PGDM">Executive PGDM</SelectItem>
+                            </>
+                          )}
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -1310,9 +1453,19 @@ export default function MyApplicationPage() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="Main Campus">Main Campus</SelectItem>
-                          <SelectItem value="City Campus">City Campus</SelectItem>
-                          <SelectItem value="South Campus">South Campus</SelectItem>
+                          {branchesList.length > 0 ? (
+                            branchesList.map((branch) => (
+                              <SelectItem key={branch.id} value={branch.id}>
+                                {branch.name} {branch.city ? `(${branch.city})` : ""}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <>
+                              <SelectItem value="Main Campus">Main Campus</SelectItem>
+                              <SelectItem value="City Campus">City Campus</SelectItem>
+                              <SelectItem value="South Campus">South Campus</SelectItem>
+                            </>
+                          )}
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -1332,9 +1485,19 @@ export default function MyApplicationPage() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="Main Campus">Main Campus</SelectItem>
-                          <SelectItem value="City Campus">City Campus</SelectItem>
-                          <SelectItem value="South Campus">South Campus</SelectItem>
+                          {branchesList.length > 0 ? (
+                            branchesList.map((branch) => (
+                              <SelectItem key={branch.id} value={branch.id}>
+                                {branch.name} {branch.city ? `(${branch.city})` : ""}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <>
+                              <SelectItem value="Main Campus">Main Campus</SelectItem>
+                              <SelectItem value="City Campus">City Campus</SelectItem>
+                              <SelectItem value="South Campus">South Campus</SelectItem>
+                            </>
+                          )}
                         </SelectContent>
                       </Select>
                       <FormMessage />

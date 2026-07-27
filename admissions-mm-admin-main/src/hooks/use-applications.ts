@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { apiGet, apiPatch } from "@/lib/api";
+import { apiGet, apiPatch, apiPost } from "@/lib/api";
 
 // ============================================================================
 // TYPES
@@ -124,11 +124,12 @@ function mapApiToApplicationDetail(apiData: any): ApplicationDetail {
   const twelfth = educationRecords.find((r: any) =>
     r.level?.toLowerCase().includes("12") || r.level?.toLowerCase() === "twelfth"
   );
-  const graduation = educationRecords.find((r: any) =>
-    r.level?.toLowerCase().includes("graduat") ||
-    r.level?.toLowerCase() === "ug" ||
-    r.level?.toLowerCase() === "bachelor"
-  );
+  const graduation = educationRecords.find((r: any) => {
+    if (!r || !r.level) return false;
+    const l = r.level.toLowerCase();
+    if (l.includes("10") || l.includes("tenth") || l.includes("12") || l.includes("twelfth")) return false;
+    return true;
+  });
 
   // Map parent records array → father/mother objects
   const parentRecords: any[] = apiData.parentRecords || [];
@@ -150,11 +151,11 @@ function mapApiToApplicationDetail(apiData: any): ApplicationDetail {
   // Map entrance tests array → UI test rows
   const entranceTestRecords: any[] = apiData.entranceTests || [];
   const mappedTests: EntranceTest[] = entranceTestRecords.map((t: any) => ({
-    exam: t.testName,
-    rollNo: t.rollNo || "-",
-    month: t.monthYear || "-",
-    status: t.resultStatus || "-",
-    score: t.compositeScore != null ? String(t.compositeScore) : "-",
+    exam: t.testName || t.exam || "-",
+    rollNo: t.rollNo || t.rollNumber || t.registrationNo || "-",
+    month: t.monthYear || t.month || "-",
+    status: t.resultStatus || t.status || "-",
+    score: t.compositeScore != null ? String(t.compositeScore) : t.score || "-",
     percentile: t.percentile != null ? String(t.percentile) : "-",
   }));
 
@@ -165,10 +166,10 @@ function mapApiToApplicationDetail(apiData: any): ApplicationDetail {
     status: apiData.formStatus,
     appliedFor: apiData.program || "",
     applicant: {
-      name: student.name || apiData.name || "",
+      name: apiData.name || student.name || "",
       photo: "",
-      email: student.email || apiData.email || "",
-      primaryMobile: student.phone || apiData.primaryMobile || "",
+      email: apiData.email || student.email || "",
+      primaryMobile: apiData.primaryMobile || student.phone || "",
       alternateMobile: apiData.alternateMobile || "",
       gender: apiData.gender || "",
       dob: apiData.dateOfBirth ? new Date(apiData.dateOfBirth).toLocaleDateString("en-IN") : "",
@@ -182,8 +183,8 @@ function mapApiToApplicationDetail(apiData: any): ApplicationDetail {
       maritalStatus: apiData.maritalStatus || "",
     },
     preferences: {
-      preference1: apiData.preference1 || "",
-      preference2: apiData.preference2 || "",
+      preference1: apiData.preference1Branch?.name || apiData.preference1 || "",
+      preference2: apiData.preference2Branch?.name || apiData.preference2 || "",
     },
     entranceTests: mappedTests,
     education: {
@@ -331,9 +332,11 @@ function toEntranceTestsPayload(updatedData: ApplicationDetail) {
   return {
     records: updatedData.entranceTests.map((t) => ({
       testName: t.exam,
-      monthYear: t.month !== "-" ? t.month : undefined,
-      compositeScore: t.score !== "-" ? Number(t.score) : undefined,
-      percentile: t.percentile !== "-" ? Number(t.percentile) : undefined,
+      rollNo: t.rollNo !== "-" && t.rollNo ? t.rollNo : undefined,
+      monthYear: t.month !== "-" && t.month ? t.month : undefined,
+      resultStatus: t.status !== "-" && t.status ? t.status : undefined,
+      compositeScore: t.score !== "-" && t.score ? Number(t.score) : undefined,
+      percentile: t.percentile !== "-" && t.percentile ? Number(t.percentile) : undefined,
     })),
   };
 }
@@ -407,8 +410,8 @@ export function useApplication(applicationNo: string, options?: { enabled?: bool
   return useQuery({
     queryKey: ["application", applicationNo],
     queryFn: async () => {
-      // The detail endpoint uses applicationNo as path param
-      const raw = await apiGet<any>(`/applications/${applicationNo}`);
+      const encodedNo = encodeURIComponent(applicationNo);
+      const raw = await apiGet<any>(`/applications/${encodedNo}`);
       return mapApiToApplicationDetail(raw);
     },
     enabled: options?.enabled !== undefined ? options.enabled : !!applicationNo,
@@ -429,7 +432,8 @@ export function useUpdateApplication() {
       section: "personal" | "preferences" | "education" | "entrance" | "parents" | "additional" | "contact";
       data: ApplicationDetail;
     }) => {
-      const base = `/applications/${applicationNo}`;
+      const encodedNo = encodeURIComponent(applicationNo);
+      const base = `/applications/${encodedNo}`;
 
       switch (section) {
         case "personal":
@@ -479,7 +483,8 @@ export function useUpdateApplicationStatus() {
       applicationNo: string;
       status: string;
     }) => {
-      return apiPatch(`/applications/${applicationNo}/status`, { status });
+      const encodedNo = encodeURIComponent(applicationNo);
+      return apiPatch(`/applications/${encodedNo}/status`, { status });
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["applications"] });
@@ -500,7 +505,8 @@ export function useSubmitApplication() {
 
   return useMutation({
     mutationFn: async (applicationNo: string) => {
-      return apiPatch(`/applications/${applicationNo}/submit`);
+      const encodedNo = encodeURIComponent(applicationNo);
+      return apiPatch(`/applications/${encodedNo}/submit`);
     },
     onSuccess: (_, applicationNo) => {
       queryClient.invalidateQueries({ queryKey: ["applications"] });
@@ -532,7 +538,26 @@ export function useDeleteApplication() {
   });
 }
 
+// 6. Create application
+export function useCreateApplication() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: any) => {
+      return apiPost<any>("/applications", payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["applications"] });
+      toast.success("Application created successfully");
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Failed to create application");
+    },
+  });
+}
+
 // Legacy alias kept for backward compat with applications list page
 export function useUpdateApplicationSummary() {
   return useUpdateApplicationStatus();
 }
+

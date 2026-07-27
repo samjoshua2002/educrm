@@ -72,9 +72,13 @@ import { gdInterviews } from "@/data/mock-gd-interviews";
 import { toast } from "sonner";
 
 export default function ApplicationDetailsPage() {
-  const params = useParams();
   const router = useRouter();
-  const applicationNumber = params.application_number as string;
+  const params = useParams();
+  const rawParam = params.application_number;
+  const applicationNumber = React.useMemo(() => {
+    if (Array.isArray(rawParam)) return rawParam.map(decodeURIComponent).join("/");
+    return rawParam ? decodeURIComponent(rawParam as string) : "";
+  }, [rawParam]);
   const { data: appData, isLoading } = useApplication(applicationNumber);
   const updateMutation = useUpdateApplication();
 
