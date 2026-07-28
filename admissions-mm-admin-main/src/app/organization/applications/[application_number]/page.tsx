@@ -28,6 +28,7 @@ import {
   Building,
   Pencil,
   ExternalLink,
+  Wallet,
 } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -498,6 +499,14 @@ export default function ApplicationDetailsPage() {
             </CardHeader>
             <CardContent className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex flex-col space-y-1.5 p-4 bg-[#F8FAFC] rounded-lg border border-slate-100 md:col-span-2">
+                  <span className={`${manrope.className} text-[10px] font-bold leading-[15px] tracking-[-0.5px] uppercase text-[#1A237E]`}>
+                    Program Applied
+                  </span>
+                  <span className="font-bold text-slate-800 text-base font-sans">
+                    {applicationData.appliedFor || "-"}
+                  </span>
+                </div>
                 <div className="flex flex-col space-y-1.5 p-4 bg-[#F8FAFC] rounded-lg border border-slate-100">
                   <span
                     className={`${manrope.className} text-[10px] font-bold leading-[15px] tracking-[-0.5px] uppercase text-[#1A237E]`}
@@ -831,32 +840,70 @@ export default function ApplicationDetailsPage() {
             <CardContent className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Father Card */}
-                <div className="border border-[#E5E5E5] rounded-lg p-4 bg-white flex h-[175px] items-start gap-4 justify-self-stretch w-full">
-                  <div className="h-10 w-10 rounded bg-[#DBEAFE] text-[#1E40AF] flex items-center justify-center font-bold text-sm shrink-0">
-                    Fa
-                  </div>
-                  <div className="flex flex-col gap-3 text-xs">
-                    <div className="space-y-0.5">
-                      <p className="text-sm font-bold text-slate-800 leading-tight">
+                <div className="border border-[#E5E5E5] rounded-xl bg-white flex flex-col justify-self-stretch w-full shadow-sm">
+                  {/* Top Header */}
+                  <div className="flex items-center gap-4 p-5 bg-white rounded-t-xl">
+                    <div className="h-12 w-12 rounded-[12px] bg-[#EFF6FF] text-[#2563EB] flex items-center justify-center font-bold text-sm shrink-0">
+                      Fa
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                      <p className="text-[15px] font-bold text-slate-800 leading-tight">
                         {applicationData.parents.father.name}
                       </p>
-                      <p className="text-[10px] font-bold leading-[15px] tracking-[-0.25px] uppercase text-[#64748B] font-sans">
+                      <p className="text-[10px] font-bold tracking-[0.5px] uppercase text-[#2563EB] font-sans">
                         FATHER
                       </p>
                     </div>
-                    <div className="space-y-0.5">
-                      <span className="text-[10px] font-bold leading-[15px] tracking-[-0.25px] uppercase text-[#64748B] font-sans">
-                        PHONE
-                      </span>
-                      <p className="font-semibold text-sm text-slate-800">
-                        {applicationData.parents.father.mobile}
-                      </p>
+                  </div>
+                  
+                  {/* Divider */}
+                  <div className="h-[1px] w-full bg-[#E5E5E5]" />
+                  
+                  {/* Middle Section (Phone & Income) */}
+                  <div className="flex items-center p-5 pt-6 bg-white">
+                    <div className="flex-1 flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-[10px] bg-[#F1F5F9] flex items-center justify-center text-[#64748B] shrink-0">
+                        <Phone className="h-[18px] w-[18px]" />
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wider">
+                          PHONE
+                        </span>
+                        <p className="font-bold text-[13px] text-slate-800">
+                          {applicationData.parents.father.mobile}
+                        </p>
+                      </div>
                     </div>
-                    <div className="space-y-0.5">
-                      <span className="text-[10px] font-bold leading-[15px] tracking-[-0.25px] uppercase text-[#64748B] font-sans">
-                        OCCUPATION
-                      </span>
-                      <p className="font-semibold text-sm text-slate-800">
+                    <div className="flex-1 flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-[10px] bg-[#F1F5F9] flex items-center justify-center text-[#64748B] shrink-0">
+                        <Wallet className="h-[18px] w-[18px]" />
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wider">
+                          INCOME
+                        </span>
+                        <p className="font-bold text-[13px] text-slate-800">
+                          {applicationData.parents.father.income || "-"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Dashed Divider */}
+                  <div className="px-5 bg-white">
+                    <div className="w-full border-t border-dashed border-[#E5E5E5]" />
+                  </div>
+
+                  {/* Bottom Section (Occupation) */}
+                  <div className="flex flex-col p-5 pb-6 gap-3 bg-white rounded-b-xl">
+                    <span className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wider">
+                      OCCUPATION
+                    </span>
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-[10px] bg-[#F1F5F9] flex items-center justify-center text-[#64748B] shrink-0">
+                        <Briefcase className="h-[18px] w-[18px]" />
+                      </div>
+                      <p className="font-bold text-[13px] text-slate-800">
                         {applicationData.parents.father.occupation}
                       </p>
                     </div>
@@ -864,32 +911,70 @@ export default function ApplicationDetailsPage() {
                 </div>
 
                 {/* Mother Card */}
-                <div className="border border-[#E5E5E5] rounded-lg p-4 bg-white flex h-[175px] items-start gap-4 justify-self-stretch w-full">
-                  <div className="h-10 w-10 rounded bg-[#FCE7F3] text-[#9D174D] flex items-center justify-center font-bold text-sm shrink-0">
-                    Mo
-                  </div>
-                  <div className="flex flex-col gap-3 text-xs">
-                    <div className="space-y-0.5">
-                      <p className="text-sm font-bold text-slate-800 leading-tight">
+                <div className="border border-[#E5E5E5] rounded-xl bg-white flex flex-col justify-self-stretch w-full shadow-sm">
+                  {/* Top Header */}
+                  <div className="flex items-center gap-4 p-5 bg-white rounded-t-xl">
+                    <div className="h-12 w-12 rounded-[12px] bg-[#EFF6FF] text-[#2563EB] flex items-center justify-center font-bold text-sm shrink-0">
+                      Mo
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                      <p className="text-[15px] font-bold text-slate-800 leading-tight">
                         {applicationData.parents.mother.name}
                       </p>
-                      <p className="text-[10px] font-bold leading-[15px] tracking-[-0.25px] uppercase text-[#64748B] font-sans">
+                      <p className="text-[10px] font-bold tracking-[0.5px] uppercase text-[#2563EB] font-sans">
                         MOTHER
                       </p>
                     </div>
-                    <div className="space-y-0.5">
-                      <span className="text-[10px] font-bold leading-[15px] tracking-[-0.25px] uppercase text-[#64748B] font-sans">
-                        PHONE
-                      </span>
-                      <p className="font-semibold text-sm text-slate-800">
-                        {applicationData.parents.mother.mobile}
-                      </p>
+                  </div>
+                  
+                  {/* Divider */}
+                  <div className="h-[1px] w-full bg-[#E5E5E5]" />
+                  
+                  {/* Middle Section (Phone & Income) */}
+                  <div className="flex items-center p-5 pt-6 bg-white">
+                    <div className="flex-1 flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-[10px] bg-[#F1F5F9] flex items-center justify-center text-[#64748B] shrink-0">
+                        <Phone className="h-[18px] w-[18px]" />
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wider">
+                          PHONE
+                        </span>
+                        <p className="font-bold text-[13px] text-slate-800">
+                          {applicationData.parents.mother.mobile}
+                        </p>
+                      </div>
                     </div>
-                    <div className="space-y-0.5">
-                      <span className="text-[10px] font-bold leading-[15px] tracking-[-0.25px] uppercase text-[#64748B] font-sans">
-                        OCCUPATION
-                      </span>
-                      <p className="font-semibold text-sm text-slate-800">
+                    <div className="flex-1 flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-[10px] bg-[#F1F5F9] flex items-center justify-center text-[#64748B] shrink-0">
+                        <Wallet className="h-[18px] w-[18px]" />
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wider">
+                          INCOME
+                        </span>
+                        <p className="font-bold text-[13px] text-slate-800">
+                          {applicationData.parents.mother.income || "-"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Dashed Divider */}
+                  <div className="px-5 bg-white">
+                    <div className="w-full border-t border-dashed border-[#E5E5E5]" />
+                  </div>
+
+                  {/* Bottom Section (Occupation) */}
+                  <div className="flex flex-col p-5 pb-6 gap-3 bg-white rounded-b-xl">
+                    <span className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wider">
+                      OCCUPATION
+                    </span>
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-[10px] bg-[#F1F5F9] flex items-center justify-center text-[#64748B] shrink-0">
+                        <Briefcase className="h-[18px] w-[18px]" />
+                      </div>
+                      <p className="font-bold text-[13px] text-slate-800">
                         {applicationData.parents.mother.occupation}
                       </p>
                     </div>
@@ -957,6 +1042,14 @@ export default function ApplicationDetailsPage() {
                   <p className="font-bold text-slate-800 text-sm">
                     {applicationData.other.medicalConditions}
                   </p>
+                  {(applicationData.other.medicalConditions && applicationData.other.medicalConditions.toLowerCase() !== "none" && applicationData.other.medicalConditionDocument) && (
+                    <div className="mt-2">
+                      <a href="#" className="flex items-center gap-1.5 text-[#2563EB] hover:underline text-xs font-medium">
+                        <FileText className="h-3.5 w-3.5" />
+                        View Document
+                      </a>
+                    </div>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -1444,12 +1537,14 @@ function EditPreferencesForm({ appData, onSave, onClose, branchesList = [] }: Fo
   const [formData, setFormData] = React.useState({
     preference1: appData.preferences.preference1,
     preference2: appData.preferences.preference2,
+    appliedFor: appData.appliedFor,
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const updatedData = {
       ...appData,
+      appliedFor: formData.appliedFor,
       preferences: {
         preference1: formData.preference1,
         preference2: formData.preference2,
@@ -1460,6 +1555,33 @@ function EditPreferencesForm({ appData, onSave, onClose, branchesList = [] }: Fo
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4 pt-3 pb-1">
+      <div className="flex flex-col gap-2">
+        <Label
+          htmlFor="appliedFor"
+          className="text-[#64748B] font-semibold text-[12px] uppercase font-sans"
+        >
+          Program Applied For
+        </Label>
+        <Select
+          value={formData.appliedFor}
+          onValueChange={(val) =>
+            setFormData((prev) => ({ ...prev, appliedFor: val }))
+          }
+        >
+          <SelectTrigger
+            id="appliedFor"
+            className="w-full border-[#D4D4D4] bg-white rounded-[8px] h-10 text-[14px]"
+          >
+            <SelectValue placeholder="Select Program" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="PGDM (Two-Year, Full-Time)">PGDM (Two-Year, Full-Time)</SelectItem>
+            <SelectItem value="MBA (Two-Year, Full-Time)">MBA (Two-Year, Full-Time)</SelectItem>
+            <SelectItem value="Executive PGDM">Executive PGDM</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       <div className="flex flex-col gap-2">
         <Label
           htmlFor="preference1"
@@ -2099,9 +2221,11 @@ function EditParentsForm({ appData, onSave, onClose }: FormProps) {
     fatherName: appData.parents.father.name,
     fatherMobile: appData.parents.father.mobile,
     fatherOccupation: appData.parents.father.occupation,
+    fatherIncome: appData.parents.father.income,
     motherName: appData.parents.mother.name,
     motherMobile: appData.parents.mother.mobile,
     motherOccupation: appData.parents.mother.occupation,
+    motherIncome: appData.parents.mother.income,
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -2115,12 +2239,14 @@ function EditParentsForm({ appData, onSave, onClose }: FormProps) {
           name: formData.fatherName,
           mobile: formData.fatherMobile,
           occupation: formData.fatherOccupation,
+          income: formData.fatherIncome,
         },
         mother: {
           ...appData.parents.mother,
           name: formData.motherName,
           mobile: formData.motherMobile,
           occupation: formData.motherOccupation,
+          income: formData.motherIncome,
         },
       },
     };
@@ -2162,6 +2288,21 @@ function EditParentsForm({ appData, onSave, onClose }: FormProps) {
         />
       </div>
       <div className="flex flex-col gap-1.5 col-span-1">
+        <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+          Annual Income
+        </Label>
+        <Input
+          value={formData.fatherIncome}
+          onChange={(e) =>
+            setFormData((prev) => ({
+              ...prev,
+              fatherIncome: e.target.value,
+            }))
+          }
+          className="border-[#D4D4D4] rounded-[8px] h-9 text-[13px]"
+        />
+      </div>
+      <div className="flex flex-col gap-1.5 col-span-2">
         <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
           Occupation
         </Label>
@@ -2209,6 +2350,21 @@ function EditParentsForm({ appData, onSave, onClose }: FormProps) {
       </div>
       <div className="flex flex-col gap-1.5 col-span-1">
         <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+          Annual Income
+        </Label>
+        <Input
+          value={formData.motherIncome}
+          onChange={(e) =>
+            setFormData((prev) => ({
+              ...prev,
+              motherIncome: e.target.value,
+            }))
+          }
+          className="border-[#D4D4D4] rounded-[8px] h-9 text-[13px]"
+        />
+      </div>
+      <div className="flex flex-col gap-1.5 col-span-2">
+        <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
           Occupation
         </Label>
         <Input
@@ -2248,7 +2404,9 @@ function EditAdditionalForm({ appData, onSave, onClose }: FormProps) {
   const [formData, setFormData] = React.useState({
     inspiration: appData.other.inspiration,
     source: appData.other.source,
-    medicalConditions: appData.other.medicalConditions,
+    hasMedicalCondition: appData.other.medicalConditions !== "None" ? "yes" : "no",
+    medicalConditions: appData.other.medicalConditions !== "None" ? appData.other.medicalConditions : "",
+    medicalConditionDocument: appData.other.medicalConditionDocument || "",
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -2258,7 +2416,8 @@ function EditAdditionalForm({ appData, onSave, onClose }: FormProps) {
       other: {
         inspiration: formData.inspiration,
         source: formData.source,
-        medicalConditions: formData.medicalConditions,
+        medicalConditions: formData.hasMedicalCondition === "yes" ? formData.medicalConditions : "None",
+        medicalConditionDocument: formData.medicalConditionDocument,
       },
     };
     onSave(updatedData);
@@ -2303,25 +2462,69 @@ function EditAdditionalForm({ appData, onSave, onClose }: FormProps) {
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label
-          htmlFor="medicalConditions"
-          className="text-[#64748B] font-semibold text-[12px] uppercase font-sans"
-        >
-          Medical Conditions
+        <Label className="text-[#64748B] font-semibold text-[12px] uppercase font-sans">
+          Do you have any medical conditions?
         </Label>
-        <Input
-          id="medicalConditions"
-          value={formData.medicalConditions}
-          onChange={(e) =>
+        <Select
+          value={formData.hasMedicalCondition}
+          onValueChange={(val) =>
             setFormData((prev) => ({
               ...prev,
-              medicalConditions: e.target.value,
+              hasMedicalCondition: val,
+              medicalConditions: val === "no" ? "" : prev.medicalConditions,
             }))
           }
-          className="border-[#D4D4D4] rounded-[8px] h-10 text-[14px]"
-          required
-        />
+        >
+          <SelectTrigger className="w-full border-[#D4D4D4] rounded-[8px] h-10 text-[14px]">
+            <SelectValue placeholder="Select Yes or No" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="no">No</SelectItem>
+            <SelectItem value="yes">Yes</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
+
+      {formData.hasMedicalCondition === "yes" && (
+        <>
+          <div className="flex flex-col gap-2">
+            <Label
+              htmlFor="medicalConditions"
+              className="text-[#64748B] font-semibold text-[12px] uppercase font-sans"
+            >
+              Description of Medical Condition
+            </Label>
+            <Input
+              id="medicalConditions"
+              value={formData.medicalConditions}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  medicalConditions: e.target.value,
+                }))
+              }
+              placeholder="Briefly describe the medical condition"
+              className="border-[#D4D4D4] rounded-[8px] h-10 text-[14px]"
+              required
+            />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label
+              htmlFor="medicalConditionDocument"
+              className="text-[#64748B] font-semibold text-[12px] uppercase font-sans"
+            >
+              Medical Document (PDF, JPG, JPEG)
+            </Label>
+            <Input
+              id="medicalConditionDocument"
+              type="file"
+              accept=".pdf,.jpg,.jpeg"
+              className="border-[#D4D4D4] rounded-[8px] h-10 text-[14px] cursor-pointer pt-2"
+            />
+          </div>
+        </>
+      )}
 
       <div className="flex items-center gap-3 pt-4 border-t border-[#E5E5E5] mt-2">
         <Button

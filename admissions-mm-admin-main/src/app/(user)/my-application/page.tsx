@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Manrope } from "next/font/google";
@@ -144,13 +144,13 @@ const applicationSchema = z.object({
       percentageTillLast: z.string().min(1, "Score/Percentage is required"),
       mode: z.string().min(1, "Mode of study is required"),
     }),
-    entrance: z.object({
+    entrance: z.array(z.object({
       exam: z.string().min(1, "Entrance exam is required"),
       rollNo: z.string().min(1, "Roll number is required"),
       month: z.string().min(1, "Month/Year is required"),
       status: z.string().min(1, "Status is required"),
       percentile: z.string().min(1, "Percentile is required"),
-    }),
+    })).min(1, "At least one entrance test is required"),
   }),
   family: z.object({
     father: z.object({
@@ -173,7 +173,9 @@ const applicationSchema = z.object({
   declaration: z.object({
     inspiration: z.string().min(10, "Motivation statement must be at least 10 words"),
     source: z.string().min(1, "Source is required"),
+    hasMedicalCondition: z.string().optional(),
     medicalConditions: z.string().optional(),
+    medicalConditionDocument: z.string().optional(),
     agreed: z.boolean().refine((val) => val === true, "You must agree to the declaration"),
   }),
 });
@@ -272,7 +274,7 @@ const Stepper = ({ currentStep }: { currentStep: number }) => {
                   return null;
                 })()}
               </div>
-              <div className="mt-3 flex flex-col items-center text-center">
+              <div className="mt-2 md:mt-3 hidden md:flex flex-col items-center text-center">
                 <span
                   style={{
                     color: "#171717",
@@ -374,13 +376,13 @@ export default function MyApplicationPage() {
           percentageTillLast: "",
           mode: "",
         },
-        entrance: {
+        entrance: [{
           exam: "",
           rollNo: "",
           month: "",
           status: "",
           percentile: "",
-        },
+        }],
       },
       family: {
         father: {
@@ -403,11 +405,18 @@ export default function MyApplicationPage() {
       declaration: {
         inspiration: "",
         source: "",
+        hasMedicalCondition: "no",
         medicalConditions: "",
+        medicalConditionDocument: "",
         agreed: false,
       },
     },
     mode: "onChange",
+  });
+
+  const { fields: entranceFields, append: appendEntrance, remove: removeEntrance } = useFieldArray({
+    control: form.control,
+    name: "education.entrance",
   });
 
   const nextStep = async () => {
@@ -524,19 +533,15 @@ export default function MyApplicationPage() {
             isCompleted: data.education.graduation.status === "Completed",
           },
         ].filter((item) => item.institution || item.boardUniversity),
-        entranceTests: data.education.entrance.exam
-          ? [
-              {
-                testName: data.education.entrance.exam,
-                rollNo: data.education.entrance.rollNo,
-                monthYear: data.education.entrance.month,
-                resultStatus: data.education.entrance.status,
-                percentile: data.education.entrance.percentile
-                  ? Number(data.education.entrance.percentile)
-                  : undefined,
-              },
-            ]
-          : [],
+        entranceTests: data.education.entrance
+          .filter((test) => test.exam && test.exam.trim() !== "")
+          .map((test) => ({
+            testName: test.exam,
+            rollNo: test.rollNo,
+            monthYear: test.month,
+            resultStatus: test.status,
+            percentile: test.percentile ? Number(test.percentile) : undefined,
+          })),
         contactDetails: {
           addresses: [
             { type: "present", addressLine1: data.family.address.present },
@@ -546,7 +551,8 @@ export default function MyApplicationPage() {
         otherDetails: {
           inspirationEssay: data.declaration.inspiration,
           howDidYouKnow: data.declaration.source,
-          medicalConditions: data.declaration.medicalConditions,
+          hasMedicalCondition: data.declaration.hasMedicalCondition === "yes",
+          medicalConditions: data.declaration.hasMedicalCondition === "yes" ? data.declaration.medicalConditions : undefined,
         },
       };
 
@@ -559,7 +565,7 @@ export default function MyApplicationPage() {
 
   if (isPreview) {
     return (
-      <div className={`max-w-7xl mx-auto py-10 px-6 bg-white flex flex-col gap-6 ${manrope.className}`}>
+      <div className={`max-w-7xl mx-auto py-6 md:py-10 px-4 md:px-6 bg-white flex flex-col gap-6 ${manrope.className}`}>
         {/* Review Title Banner */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border border-border bg-muted/20 p-5 rounded-[8px]">
           <div>
@@ -853,8 +859,9 @@ export default function MyApplicationPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
                     <TableRow className="hover:bg-transparent border-b border-input">
                       <TableHead className="text-[10px] font-bold uppercase tracking-[0.6px] text-muted-foreground pl-6">Exam</TableHead>
                       <TableHead className="text-[10px] font-bold uppercase tracking-[0.6px] text-muted-foreground px-4">Roll No</TableHead>
@@ -864,19 +871,22 @@ export default function MyApplicationPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    <TableRow className="bg-muted/5 hover:bg-muted/10">
-                      <TableCell className="font-bold text-foreground text-xs pl-6 py-3">{form.getValues("education.entrance.exam")}</TableCell>
-                      <TableCell className="font-mono text-xs text-muted-foreground px-4 py-3">{form.getValues("education.entrance.rollNo")}</TableCell>
-                      <TableCell className="text-muted-foreground text-xs px-4 py-3">{form.getValues("education.entrance.month")}</TableCell>
-                      <TableCell className="px-4 py-3">
-                        <Badge variant="outline" className="bg-[#D1FAE5] text-[#16A34A] border-[#A7F3D0] font-bold text-[8px] rounded px-1.5 py-0 leading-normal">
-                          {form.getValues("education.entrance.status")}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right font-bold text-foreground pr-6 py-3 text-xs">{form.getValues("education.entrance.percentile")}</TableCell>
-                    </TableRow>
+                    {form.getValues("education.entrance").map((test: any, i: number) => (
+                      <TableRow key={i} className="bg-muted/5 hover:bg-muted/10">
+                        <TableCell className="font-bold text-foreground text-xs pl-6 py-3">{test.exam}</TableCell>
+                        <TableCell className="font-mono text-xs text-muted-foreground px-4 py-3">{test.rollNo}</TableCell>
+                        <TableCell className="text-muted-foreground text-xs px-4 py-3">{test.month}</TableCell>
+                        <TableCell className="px-4 py-3">
+                          <Badge variant="outline" className="bg-[#D1FAE5] text-[#16A34A] border-[#A7F3D0] font-bold text-[8px] rounded px-1.5 py-0 leading-normal">
+                            {test.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right font-bold text-foreground pr-6 py-3 text-xs">{test.percentile}</TableCell>
+                      </TableRow>
+                    ))}
                   </TableBody>
                 </Table>
+                </div>
               </CardContent>
             </Card>
 
@@ -999,7 +1009,7 @@ export default function MyApplicationPage() {
   }
 
   return (
-    <div className={`max-w-7xl mx-auto py-10 px-6 pb-20 bg-white w-full ${manrope.className}`}>
+    <div className={`max-w-7xl mx-auto py-6 md:py-10 px-4 md:px-6 pb-20 bg-white w-full ${manrope.className}`}>
       {/* Redesigned Header Block */}
       <div className="flex flex-col mb-10 space-y-4 w-full">
         <div>
@@ -1062,20 +1072,10 @@ export default function MyApplicationPage() {
               description="Provide your identity and demographic details."
               icon={<User className="size-5 text-muted-foreground" />}
             >
-              <div className="flex gap-6">
+              <div className="flex flex-col md:flex-row gap-6">
                 {/* Photo Upload Container (Left Column) */}
                 <div 
-                  style={{
-                    height: "386px",
-                    flexShrink: 0,
-                    alignSelf: "stretch",
-                    display: "flex",
-                    width: "190.5px",
-                    flexDirection: "column",
-                    justifyContent: "flex-start",
-                    alignItems: "flex-start",
-                    gap: "16px"
-                  }}
+                  className="w-full md:w-[190.5px] h-auto md:h-[386px] shrink-0 flex flex-col items-center md:items-start gap-4"
                 >
                   <div className="relative inline-block shrink-0">
                     <div 
@@ -1272,7 +1272,12 @@ export default function MyApplicationPage() {
                     <FormItem className="space-y-0">
                       <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px]">Date of Birth</FormLabel>
                       <FormControl>
-                        <Input type="date" className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground tracking-wider" {...field} />
+                        <div className="relative">
+                          <Input type="date" className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground tracking-wider pr-10 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-10 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:z-10" {...field} />
+                          <span className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-slate-500">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" /><path d="M16 2v4" /><path d="M8 2v4" /><path d="M3 10h18" /></svg>
+                          </span>
+                        </div>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1787,92 +1792,119 @@ export default function MyApplicationPage() {
                     <p className="text-[16px] font-medium text-foreground">Entrance Exam Details</p>
                     <p className="text-[14px] text-muted-foreground">Details of the national level entrance test qualified.</p>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-5">
-                    <FormField
-                      control={form.control}
-                      name="education.entrance.exam"
-                      render={({ field }) => (
-                        <FormItem className="space-y-0">
-                          <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px]">Entrance Exam</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full data-[placeholder]:text-foreground bg-white tracking-wider">
-                                <SelectValue placeholder="Select Exam" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="CAT">GMAT / CAT</SelectItem>
-                              <SelectItem value="GRE">GRE / MAT</SelectItem>
-                              <SelectItem value="XAT">XAT</SelectItem>
-                              <SelectItem value="CMAT">CMAT</SelectItem>
-                              <SelectItem value="MAT">MAT</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="education.entrance.rollNo"
-                      render={({ field }) => (
-                        <FormItem className="space-y-0">
-                          <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px]">Roll Number</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Exam roll number" className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground tracking-wider" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="education.entrance.month"
-                      render={({ field }) => (
-                        <FormItem className="space-y-0">
-                          <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px]">Month/Year of Exam</FormLabel>
-                          <FormControl>
-                            <Input placeholder="e.g. Nov 2024" className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground tracking-wider" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="education.entrance.status"
-                      render={({ field }) => (
-                        <FormItem className="space-y-0">
-                          <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px]">Exam Status</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full data-[placeholder]:text-foreground bg-white tracking-wider">
-                                <SelectValue placeholder="Select Status" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="Completed">Completed</SelectItem>
-                              <SelectItem value="Awaiting Result">Awaiting Result</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="education.entrance.percentile"
-                      render={({ field }) => (
-                        <FormItem className="space-y-0">
-                          <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px]">Scored Percentile</FormLabel>
-                          <FormControl>
-                            <Input placeholder="e.g. 96.50" className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground tracking-wider" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+                  
+                  {entranceFields.map((field, index) => (
+                    <div key={field.id} className="flex flex-col gap-4 p-5 border border-border/60 rounded-xl bg-slate-50/50">
+                      <div className="flex items-center justify-between pb-3 border-b border-border/40">
+                        <p className="text-[14px] font-bold text-slate-800">Test #{index + 1} Details</p>
+                        {index > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => removeEntrance(index)}
+                            className="text-[12px] font-semibold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1 rounded-md transition-colors"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+                        <FormField
+                          control={form.control}
+                          name={`education.entrance.${index}.exam`}
+                          render={({ field: inputField }) => (
+                            <FormItem className="space-y-0">
+                              <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px]">Exam Name</FormLabel>
+                              <Select onValueChange={inputField.onChange} defaultValue={inputField.value}>
+                                <FormControl>
+                                  <SelectTrigger className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full data-[placeholder]:text-foreground bg-white tracking-wider">
+                                    <SelectValue placeholder="Select Exam" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="CAT">CAT</SelectItem>
+                                  <SelectItem value="GMAT">GMAT</SelectItem>
+                                  <SelectItem value="GRE">GRE</SelectItem>
+                                  <SelectItem value="XAT">XAT</SelectItem>
+                                  <SelectItem value="CMAT">CMAT</SelectItem>
+                                  <SelectItem value="MAT">MAT</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name={`education.entrance.${index}.rollNo`}
+                          render={({ field: inputField }) => (
+                            <FormItem className="space-y-0">
+                              <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px]">Roll No / Reg No</FormLabel>
+                              <FormControl>
+                                <Input placeholder="e.g. 23091024" className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground tracking-wider bg-white" {...inputField} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name={`education.entrance.${index}.month`}
+                          render={({ field: inputField }) => (
+                            <FormItem className="space-y-0">
+                              <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px]">Month/Year</FormLabel>
+                              <FormControl>
+                                <Input placeholder="e.g. Nov 2024" className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground tracking-wider bg-white" {...inputField} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name={`education.entrance.${index}.status`}
+                          render={({ field: inputField }) => (
+                            <FormItem className="space-y-0">
+                              <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px]">Status</FormLabel>
+                              <Select onValueChange={inputField.onChange} defaultValue={inputField.value}>
+                                <FormControl>
+                                  <SelectTrigger className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full data-[placeholder]:text-foreground bg-white tracking-wider">
+                                    <SelectValue placeholder="Select Status" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="Declared">Declared</SelectItem>
+                                  <SelectItem value="Awaiting Result">Awaiting Result</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name={`education.entrance.${index}.percentile`}
+                          render={({ field: inputField }) => (
+                            <FormItem className="space-y-0 md:col-span-2">
+                              <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px]">Percentile</FormLabel>
+                              <FormControl>
+                                <Input placeholder="e.g. 85.5" className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground tracking-wider bg-white" {...inputField} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
+                  ))}
+
+                  <button
+                    type="button"
+                    onClick={() => appendEntrance({ exam: "", rollNo: "", month: "", status: "", percentile: "" })}
+                    className="w-full h-10 mt-2 border border-blue-200 text-blue-600 bg-blue-50/50 hover:bg-blue-50 hover:border-blue-300 rounded-[8px] flex items-center justify-center gap-2 text-[14px] font-semibold transition-colors cursor-pointer"
+                  >
+                    + Add Entrance Test
+                  </button>
                 </div>
               </div>
             </StepCard>
@@ -2161,17 +2193,57 @@ export default function MyApplicationPage() {
 
                 <FormField
                   control={form.control}
-                  name="declaration.medicalConditions"
+                  name="declaration.hasMedicalCondition"
                   render={({ field }) => (
                     <FormItem className="space-y-0">
-                      <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px]">Medical Conditions / Allergies (Optional)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Specify any medical conditions, or 'None'" className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground tracking-wider" {...field} />
-                      </FormControl>
+                      <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px]">Do you have any medical conditions?</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger className="w-full border border-input h-[40px] rounded-[8px] text-[12px]">
+                            <SelectValue placeholder="Select Yes or No" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="no">No</SelectItem>
+                          <SelectItem value="yes">Yes</SelectItem>
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+
+                {form.watch("declaration.hasMedicalCondition") === "yes" && (
+                  <div className="space-y-6 pt-2">
+                    <FormField
+                      control={form.control}
+                      name="declaration.medicalConditions"
+                      render={({ field }) => (
+                        <FormItem className="space-y-0">
+                          <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px]">Description of Medical Condition</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Briefly describe the medical condition" className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground tracking-wider" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="declaration.medicalConditionDocument"
+                      render={({ field }) => (
+                        <FormItem className="space-y-0">
+                          <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px]">Medical Document (PDF, JPG, JPEG)</FormLabel>
+                          <FormControl>
+                            <Input type="file" accept=".pdf,.jpg,.jpeg" className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground tracking-wider cursor-pointer" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
 
                 <FormField
                   control={form.control}
@@ -2202,11 +2274,11 @@ export default function MyApplicationPage() {
           )}
 
           {/* Stepper Navigation Buttons */}
-          <div className="flex items-center justify-between pt-6 border-t border-input">
+          <div className="flex items-center justify-end gap-3 pt-6 border-t border-input">
             <Button
               type="button"
               onClick={prevStep}
-              className={`h-[44px] px-6 text-[16px] font-medium text-white rounded-[8px] cursor-pointer bg-[#2563EA] hover:bg-[#1d4ed8] border-0 shadow-sm flex items-center justify-center gap-[5px] ${step === 1 ? "invisible" : ""}`}
+              className={`h-[44px] px-6 text-[16px] font-medium text-white rounded-[8px] cursor-pointer bg-[#2563EA] hover:bg-[#1d4ed8] border-0 shadow-sm flex items-center justify-center gap-[5px] ${step === 1 ? "hidden" : "flex"}`}
             >
               <ChevronLeft className="size-4" /><span>Previous</span>
             </Button>

@@ -91,6 +91,7 @@ export interface ApplicationDetail {
     inspiration: string;
     source: string;
     medicalConditions: string;
+    medicalConditionDocument?: string;
   };
 }
 
@@ -239,6 +240,7 @@ function mapApiToApplicationDetail(apiData: any): ApplicationDetail {
       inspiration: apiData.inspirationEssay || "",
       source: apiData.howDidYouKnow || "",
       medicalConditions: apiData.hasMedicalCondition ? apiData.medicalConditionDetails || "Yes" : "None",
+      medicalConditionDocument: apiData.medicalConditionDocument || "",
     },
   };
 }

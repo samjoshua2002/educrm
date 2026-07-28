@@ -145,7 +145,7 @@ export function DynamicHeader() {
   );
 
   return (
-    <header className="sticky top-0 z-10 bg-background/40 backdrop-blur-md flex h-14 shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear">
+    <header className="sticky top-0 z-40 bg-background/40 backdrop-blur-md flex h-14 shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear">
       <div className="flex w-full items-center justify-between px-4 lg:px-6">
         {/* Left Side: Sidebar Trigger + Dynamic Title */}
         <div className="flex items-center gap-4 flex-1">
