@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiGet, apiDelete, apiPatch } from "@/lib/api";
+import { apiGet, apiDelete, apiPatch, apiPost } from "@/lib/api";
 import { PaginatedResponse } from "@/types/api";
 import { useAuthStore } from "@/stores/auth-store";
 import { toast } from "sonner";
@@ -25,10 +25,11 @@ export interface Lead {
   isDuplicate: boolean;
   duplicateCount: number;
   rawPayload: any;
-  assignedTo?: string;
+  assignedTo?: string | null;
   assignedAt?: string;
   createdAt: string;
   status: string; // 'unverified' | 'verified' | 'disqualified'
+  scoreBand?: string;
 }
 
 export function useLeads(
@@ -37,20 +38,81 @@ export function useLeads(
   search?: string,
   explicitOrgId?: string,
   status?: string,
+  filters?: {
+    assignedTo?: string;
+    scoreBand?: string;
+    state?: string;
+    city?: string;
+    source?: string;
+    stage?: string;
+  }
 ) {
   const currentUser = useAuthStore((state) => state.user);
   const orgId = explicitOrgId || currentUser?.organizationId;
 
   return useQuery({
-    queryKey: ["leads", { orgId, page, limit, search, status }],
+    queryKey: ["leads", { orgId, page, limit, search, status, filters }],
     queryFn: () =>
       apiGet<PaginatedResponse<Lead>>(`/organizations/${orgId}/leads`, {
         page,
         limit,
         search: search || undefined,
         status: status || undefined,
+        assignedTo: filters?.assignedTo || undefined,
+        scoreBand: filters?.scoreBand || undefined,
+        state: filters?.state || undefined,
+        city: filters?.city || undefined,
+        source: filters?.source || undefined,
+        stage: filters?.stage || undefined,
       }),
     enabled: !!orgId,
+  });
+}
+
+export function useLead(leadId?: string, explicitOrgId?: string) {
+  const currentUser = useAuthStore((state) => state.user);
+  const orgId = explicitOrgId || currentUser?.organizationId;
+
+  return useQuery({
+    queryKey: ["leads", leadId, { orgId }],
+    queryFn: () => apiGet<Lead>(`/organizations/${orgId}/leads/${leadId}`),
+    enabled: !!orgId && !!leadId,
+  });
+}
+
+export function useCreateLead(explicitOrgId?: string) {
+  const queryClient = useQueryClient();
+  const currentUser = useAuthStore((state) => state.user);
+  const orgId = explicitOrgId || currentUser?.organizationId;
+
+  return useMutation({
+    mutationFn: (data: Partial<Lead>) =>
+      apiPost(`/organizations/${orgId}/leads`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["leads"] });
+      toast.success("Lead created successfully");
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || "Failed to create lead");
+    },
+  });
+}
+
+export function useUpdateLead() {
+  const queryClient = useQueryClient();
+  const currentUser = useAuthStore((state) => state.user);
+  const orgId = currentUser?.organizationId;
+
+  return useMutation({
+    mutationFn: ({ leadId, data }: { leadId: string; data: Partial<Lead> }) =>
+      apiPatch(`/organizations/${orgId}/leads/${leadId}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["leads"] });
+      toast.success("Lead updated successfully");
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || "Failed to update lead");
+    },
   });
 }
 

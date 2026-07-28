@@ -3,12 +3,16 @@
 import * as React from "react";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useCreateLead } from "@/hooks/use-leads";
+import { useTeam } from "@/hooks/use-team";
 
 import { ChevronLeft, Check } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { INDIAN_STATES, STATE_CITIES_MAP } from "@/lib/locations";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -44,40 +48,15 @@ const CAMPAIGNS = [
   "Spring 2026",
 ] as const;
 
-const INDIAN_STATES = [
-  "Andhra Pradesh",
-  "Arunachal Pradesh",
-  "Assam",
-  "Bihar",
-  "Chhattisgarh",
-  "Goa",
-  "Gujarat",
-  "Haryana",
-  "Himachal Pradesh",
-  "Jharkhand",
-  "Karnataka",
-  "Kerala",
-  "Madhya Pradesh",
-  "Maharashtra",
-  "Manipur",
-  "Meghalaya",
-  "Mizoram",
-  "Nagaland",
-  "Odisha",
-  "Punjab",
-  "Rajasthan",
-  "Sikkim",
-  "Tamil Nadu",
-  "Telangana",
-  "Tripura",
-  "Uttar Pradesh",
-  "Uttarakhand",
-  "West Bengal",
-  "Delhi",
-  "Jammu and Kashmir",
-  "Ladakh",
-  "Puducherry",
+const STAGES = [
+  "New",
+  "Contacted",
+  "Interested",
+  "Qualified",
+  "Converted",
+  "Lost",
 ] as const;
+const STATUSES = ["Hot", "Warm", "Cold"] as const;
 
 export default function AddLeadPage() {
   const [form, setForm] = React.useState({
@@ -99,10 +78,39 @@ export default function AddLeadPage() {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
+  const router = useRouter();
+  const createLead = useCreateLead();
+  const { data: teamData } = useTeam(1, 100);
+  const teamMembers = teamData?.data || [];
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    // TODO: submit to API
-    console.log(form);
+    
+    // Split name into first and last name
+    const nameParts = form.name.trim().split(" ");
+    const firstName = nameParts[0] || "";
+    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
+
+    createLead.mutate({
+      firstName,
+      lastName,
+      email: form.email || undefined,
+      phone: form.mobile || undefined,
+      city: form.city || undefined,
+      state: form.state || undefined,
+      source: form.source || undefined,
+      utmSource: form.source || undefined,
+      utmMedium: form.medium || undefined,
+      utmCampaign: form.campaign || undefined,
+      status: "unverified",
+      scoreBand: form.status ? form.status.toLowerCase() : undefined,
+      assignedTo: form.assignedTo || null,
+      rawPayload: { notes: form.notes, stage: form.stage }
+    }, {
+      onSuccess: () => {
+        router.push("/organization/lead-manager");
+      }
+    });
   }
 
   return (
@@ -207,7 +215,7 @@ export default function AddLeadPage() {
                     </Label>
                     <Select
                       value={form.state}
-                      onValueChange={(v) => set("state", v)}
+                      onValueChange={(val) => setForm({ ...form, state: val, city: "" })}
                     >
                       <SelectTrigger
                         id="state"
@@ -231,13 +239,28 @@ export default function AddLeadPage() {
                     >
                       City
                     </Label>
-                    <Input
-                      id="city"
-                      placeholder="e.g., Mumbai"
+                    <Select
                       value={form.city}
-                      onChange={(e) => set("city", e.target.value)}
-                      className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground"
-                    />
+                      onValueChange={(val) => setForm({ ...form, city: val })}
+                      disabled={!form.state}
+                    >
+                      <SelectTrigger className="w-full h-10 border border-input rounded-[8px] text-[12px] text-foreground">
+                        <SelectValue placeholder="Select City" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {form.state && STATE_CITIES_MAP[form.state] ? (
+                          STATE_CITIES_MAP[form.state].map((c) => (
+                            <SelectItem key={c} value={c}>
+                              {c}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="none" disabled>
+                            Select a state first
+                          </SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </section>
@@ -371,26 +394,26 @@ export default function AddLeadPage() {
               </h2>
 
               <div className="flex flex-col gap-5">
-                {/* Source */}
+                {/* Stage */}
                 <div className="flex flex-col gap-2">
                   <Label
-                    htmlFor="crm-source"
+                    htmlFor="crm-stage"
                     className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground"
                   >
-                    Source
+                    Stage
                   </Label>
                   <Select
-                    value={form.source}
-                    onValueChange={(v) => set("source", v)}
+                    value={form.stage}
+                    onValueChange={(v) => set("stage", v)}
                   >
                     <SelectTrigger
-                      id="crm-source"
+                      id="crm-stage"
                       className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full data-[placeholder]:text-foreground"
                     >
-                      <SelectValue placeholder="Select Source" />
+                      <SelectValue placeholder="Select Stage" />
                     </SelectTrigger>
                     <SelectContent>
-                      {SOURCES.map((s) => (
+                      {STAGES.map((s) => (
                         <SelectItem key={s} value={s}>
                           {s}
                         </SelectItem>
@@ -399,56 +422,57 @@ export default function AddLeadPage() {
                   </Select>
                 </div>
 
-                {/* Medium */}
+                {/* Status */}
                 <div className="flex flex-col gap-2">
                   <Label
-                    htmlFor="crm-medium"
+                    htmlFor="crm-status"
                     className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground"
                   >
-                    Medium
+                    Status
                   </Label>
                   <Select
-                    value={form.medium}
-                    onValueChange={(v) => set("medium", v)}
+                    value={form.status}
+                    onValueChange={(v) => set("status", v)}
                   >
                     <SelectTrigger
-                      id="crm-medium"
+                      id="crm-status"
                       className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full data-[placeholder]:text-foreground"
                     >
-                      <SelectValue placeholder="Select Medium" />
+                      <SelectValue placeholder="Select Status" />
                     </SelectTrigger>
                     <SelectContent>
-                      {MEDIUMS.map((m) => (
-                        <SelectItem key={m} value={m}>
-                          {m}
+                      {STATUSES.map((s) => (
+                        <SelectItem key={s} value={s}>
+                          {s}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
 
-                {/* Campaign */}
+                {/* Assigned To */}
                 <div className="flex flex-col gap-2">
                   <Label
-                    htmlFor="crm-campaign"
+                    htmlFor="crm-assigned"
                     className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground"
                   >
-                    Campaign
+                    Assigned To
                   </Label>
                   <Select
-                    value={form.campaign}
-                    onValueChange={(v) => set("campaign", v)}
+                    value={form.assignedTo || "unassigned"}
+                    onValueChange={(v) => set("assignedTo", v === "unassigned" ? "" : v)}
                   >
                     <SelectTrigger
-                      id="crm-campaign"
+                      id="crm-assigned"
                       className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full data-[placeholder]:text-foreground"
                     >
-                      <SelectValue placeholder="Select Campaign" />
+                      <SelectValue placeholder="Unassigned" />
                     </SelectTrigger>
                     <SelectContent>
-                      {CAMPAIGNS.map((c) => (
-                        <SelectItem key={c} value={c}>
-                          {c}
+                      <SelectItem value="unassigned">Unassigned</SelectItem>
+                      {teamMembers.map((member) => (
+                        <SelectItem key={member.id} value={member.id}>
+                          {member.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -460,9 +484,10 @@ export default function AddLeadPage() {
                 <Button
                   className="w-full bg-ring hover:bg-ring/90 text-primary-foreground flex items-center justify-center gap-2 h-11 text-base font-medium rounded-[8px]"
                   onClick={handleSubmit}
+                  disabled={createLead.isPending}
                 >
                   <Check className="size-5" />
-                  Save Lead
+                  {createLead.isPending ? "Saving..." : "Save Lead"}
                 </Button>
                 <Link href="/organization/lead-manager" className="w-full">
                   <Button

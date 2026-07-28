@@ -25,11 +25,23 @@ import { AssignLeadDto } from './dto/assign-lead.dto.js';
 import { AddLeadNoteDto } from './dto/add-lead-note.dto.js';
 import { UpdateLeadStatusDto } from './dto/update-lead-status.dto.js';
 import { CloseLeadDto } from './dto/close-lead.dto.js';
+import { CreateLeadDto } from './dto/create-lead.dto.js';
+import { UpdateLeadDto } from './dto/update-lead.dto.js';
 
 @Controller('organizations/:orgId/leads')
 @UseGuards(JwtAuthGuard, RolesGuard, TenantGuard)
 export class LeadsController {
   constructor(private readonly leadsService: LeadsService) {}
+
+  @Post()
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.LEAD_MANAGER, Role.COUNSELOR)
+  @ResponseMessage('Lead created successfully')
+  create(
+    @Param('orgId', ParseUUIDPipe) orgId: string,
+    @Body() dto: CreateLeadDto,
+  ) {
+    return this.leadsService.create(orgId, dto);
+  }
 
   @Get()
   @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.LEAD_MANAGER)
@@ -41,12 +53,7 @@ export class LeadsController {
   ) {
     return this.leadsService.findAll(
       orgId,
-      queryDto as PaginationDto,
-      queryDto.search,
-      queryDto.status,
-      queryDto.assignedTo,
-      queryDto.followUpDate,
-      queryDto.scoreBand,
+      queryDto,
       req?.user?.sub,
     );
   }
@@ -59,6 +66,18 @@ export class LeadsController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.leadsService.findOne(id, orgId);
+  }
+
+  @Patch(':id')
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.LEAD_MANAGER, Role.COUNSELOR)
+  @ResponseMessage('Lead updated successfully')
+  update(
+    @Param('orgId', ParseUUIDPipe) orgId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateLeadDto,
+    @Request() req: any,
+  ) {
+    return this.leadsService.update(id, orgId, req.user.sub, dto);
   }
 
   @Patch(':id/status')

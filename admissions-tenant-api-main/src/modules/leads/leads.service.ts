@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Lead, LeadStatus } from './entities/lead.entity.js';
+import { LeadQueryDto } from './dto/lead-query.dto.js';
 import { PaginationDto } from '../../common/dto/pagination.dto.js';
 import { LeadActivity } from './entities/lead-activity.entity.js';
 import { VerifyLeadDto } from './dto/verify-lead.dto.js';
@@ -23,14 +24,44 @@ export class LeadsService {
     private readonly userRepository: Repository<User>,
   ) {}
 
+  async create(orgId: string, dto: any): Promise<Lead> {
+    const leadData = this.leadRepository.create({
+      ...dto,
+      organizationId: orgId,
+    } as Partial<Lead>);
+    const saved = await this.leadRepository.save(leadData);
+    
+    await this.logActivity({
+      leadId: saved.id,
+      organizationId: saved.organizationId,
+      action: 'created',
+      content: 'Lead created manually',
+      newStatus: saved.status,
+    });
+    
+    return saved;
+  }
+
+  async update(id: string, orgId: string, actorId: string, dto: any): Promise<Lead> {
+    const lead = await this.findOne(id, orgId);
+    Object.assign(lead, dto);
+    const updated = await this.leadRepository.save(lead);
+    
+    await this.logActivity({
+      leadId: updated.id,
+      organizationId: updated.organizationId,
+      actorId,
+      action: 'updated',
+      content: 'Lead updated manually',
+      newStatus: updated.status,
+    });
+    
+    return updated;
+  }
+
   async findAll(
     orgId: string,
-    paginationDto: PaginationDto,
-    search?: string,
-    status?: string,
-    assignedTo?: string,
-    followUpDate?: string,
-    scoreBand?: string,
+    queryDto: LeadQueryDto,
     userId?: string,
   ) {
     const query = this.leadRepository.createQueryBuilder('lead')
@@ -38,40 +69,56 @@ export class LeadsService {
       .addSelect(['assignedToUser.id', 'assignedToUser.name', 'assignedToUser.role'])
       .where('lead.organization_id = :orgId', { orgId });
 
-    if (status) {
-      query.andWhere('lead.status = :status', { status });
+    if (queryDto.status) {
+      query.andWhere('lead.status = :status', { status: queryDto.status });
     }
 
-    if (search) {
+    if (queryDto.search) {
       query.andWhere(
         '(lead.first_name ILIKE :search OR lead.last_name ILIKE :search OR lead.email ILIKE :search OR lead.phone ILIKE :search)',
-        { search: `%${search}%` },
+        { search: `%${queryDto.search}%` },
       );
     }
 
-    if (assignedTo) {
-      const assignedValue = assignedTo === 'me' ? userId : assignedTo;
+    if (queryDto.assignedTo) {
+      const assignedValue = queryDto.assignedTo === 'me' ? userId : queryDto.assignedTo;
       if (assignedValue) {
         query.andWhere('lead.assigned_to = :assignedTo', { assignedTo: assignedValue });
       }
     }
 
-    if (followUpDate) {
-      query.andWhere('DATE(lead.next_follow_up_at) = :followUpDate', { followUpDate });
+    if (queryDto.followUpDate) {
+      query.andWhere('DATE(lead.next_follow_up_at) = :followUpDate', { followUpDate: queryDto.followUpDate });
     }
 
-    if (scoreBand) {
-      query.andWhere('lead.score_band = :scoreBand', { scoreBand });
+    if (queryDto.scoreBand) {
+      query.andWhere('lead.score_band = :scoreBand', { scoreBand: queryDto.scoreBand });
+    }
+
+    if (queryDto.state) {
+      query.andWhere('lead.state = :state', { state: queryDto.state });
+    }
+
+    if (queryDto.city) {
+      query.andWhere('lead.city = :city', { city: queryDto.city });
+    }
+
+    if (queryDto.source) {
+      query.andWhere('lead.source = :source', { source: queryDto.source });
+    }
+
+    if (queryDto.stage) {
+      query.andWhere("lead.raw_payload->>'stage' = :stage", { stage: queryDto.stage });
     }
 
     const [data, total] = await query
-      .skip(paginationDto.skip)
-      .take(paginationDto.limit)
+      .skip(queryDto.skip)
+      .take(queryDto.limit)
       .orderBy('lead.createdAt', 'DESC')
       .getManyAndCount();
 
-    const totalPages = Math.ceil(total / paginationDto.limit);
-    return { data, total, totalPages, page: paginationDto.page, limit: paginationDto.limit };
+    const totalPages = Math.ceil(total / queryDto.limit);
+    return { data, total, totalPages, page: queryDto.page, limit: queryDto.limit };
   }
 
   async findOne(id: string, orgId: string): Promise<Lead> {

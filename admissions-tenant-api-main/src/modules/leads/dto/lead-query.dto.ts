@@ -21,4 +21,20 @@ export class LeadQueryDto extends PaginationDto {
   @IsOptional()
   @IsString()
   scoreBand?: string;
+
+  @IsOptional()
+  @IsString()
+  state?: string;
+
+  @IsOptional()
+  @IsString()
+  city?: string;
+
+  @IsOptional()
+  @IsString()
+  source?: string;
+
+  @IsOptional()
+  @IsString()
+  stage?: string;
 }

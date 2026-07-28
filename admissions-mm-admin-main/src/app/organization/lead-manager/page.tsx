@@ -64,6 +64,7 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { useLeads, useDeleteLead, useUpdateLeadStatus } from "@/hooks/use-leads";
+import { useTeam } from "@/hooks/use-team";
 import { toast } from "sonner";
 import { usePageHeader } from "@/hooks/use-page-header";
 
@@ -288,40 +289,7 @@ const CAMPAIGNS = [
   "Spring 2026",
 ] as const;
 
-const INDIAN_STATES = [
-  "Andhra Pradesh",
-  "Arunachal Pradesh",
-  "Assam",
-  "Bihar",
-  "Chhattisgarh",
-  "Goa",
-  "Gujarat",
-  "Haryana",
-  "Himachal Pradesh",
-  "Jharkhand",
-  "Karnataka",
-  "Kerala",
-  "Madhya Pradesh",
-  "Maharashtra",
-  "Manipur",
-  "Meghalaya",
-  "Mizoram",
-  "Nagaland",
-  "Odisha",
-  "Punjab",
-  "Rajasthan",
-  "Sikkim",
-  "Tamil Nadu",
-  "Telangana",
-  "Tripura",
-  "Uttar Pradesh",
-  "Uttarakhand",
-  "West Bengal",
-  "Delhi",
-  "Jammu and Kashmir",
-  "Ladakh",
-  "Puducherry",
-] as const;
+
 
 const stageStyles: Record<string, string> = {
   New: "bg-[#D9770633] text-[#9A3412] dark:bg-orange-500/20 dark:text-orange-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
@@ -372,6 +340,14 @@ export default function LeadManagerPage() {
   const [editForm, setEditForm] = React.useState<any | null>(null);
   const [deleteLeadId, setDeleteLeadId] = React.useState<string | null>(null);
 
+  const [appliedAdvanced, setAppliedAdvanced] = React.useState({
+    city: "",
+    state: "",
+    source: "",
+    assignedTo: "",
+    status: "all",
+  });
+
   // Hook API Calls
   const { data: leadsResponse, isLoading, error } = useLeads(
     currentPage,
@@ -379,7 +355,18 @@ export default function LeadManagerPage() {
     searchQuery || undefined,
     undefined,
     "unverified",
+    {
+      assignedTo: appliedAdvanced.assignedTo !== "all" ? appliedAdvanced.assignedTo : undefined,
+      scoreBand: statusDraft !== "all" ? statusDraft.toLowerCase() : (appliedAdvanced.status !== "all" ? appliedAdvanced.status.toLowerCase() : undefined),
+      state: appliedAdvanced.state !== "all" ? appliedAdvanced.state : undefined,
+      city: appliedAdvanced.city !== "all" ? appliedAdvanced.city : undefined,
+      source: appliedAdvanced.source !== "all" ? appliedAdvanced.source : undefined,
+      stage: stageDraft !== "all" ? stageDraft : undefined,
+    }
   );
+
+  const { data: teamData } = useTeam(1, 100);
+  const teamMembers = teamData?.data || [];
 
   const { mutate: updateStatus } = useUpdateLeadStatus();
   const { mutate: deleteLead } = useDeleteLead();
@@ -396,8 +383,10 @@ export default function LeadManagerPage() {
       source: item.source || "Direct",
       medium: item.utmMedium || "N/A",
       campaign: item.utmCampaign || "N/A",
-      stage: item.isDuplicate ? "Duplicate" : "New",
-      status: item.status || "unverified",
+      stage: item.rawPayload?.stage || (item.isDuplicate ? "Duplicate" : "New"),
+      status: item.scoreBand 
+        ? item.scoreBand.charAt(0).toUpperCase() + item.scoreBand.slice(1) 
+        : "Warm",
       assignedToUser: item.assignedToUser ? {
         name: item.assignedToUser.name,
         role: item.assignedToUser.role?.replace('_', ' ')?.toLowerCase()
@@ -407,13 +396,7 @@ export default function LeadManagerPage() {
     }));
   }, [leadsResponse]);
 
-  const [appliedAdvanced, setAppliedAdvanced] = React.useState({
-    city: "",
-    state: "",
-    source: "",
-    assignedTo: "",
-    status: "all",
-  });
+
 
   React.useEffect(() => {
     setMobileVisibleCount(5);
@@ -679,6 +662,9 @@ export default function LeadManagerPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Counselors</SelectItem>
+                    {teamMembers.map((m: any) => (
+                      <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -708,7 +694,7 @@ export default function LeadManagerPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All States</SelectItem>
-                      {INDIAN_STATES.map((s) => (
+                      {Array.from(new Set(leadsState.map((l: any) => l.state).filter((s: string) => s && s !== "N/A"))).map((s: any) => (
                         <SelectItem key={s} value={s}>{s}</SelectItem>
                       ))}
                     </SelectContent>
@@ -728,6 +714,9 @@ export default function LeadManagerPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Cities</SelectItem>
+                      {Array.from(new Set(leadsState.map((l: any) => l.city).filter((c: string) => c && c !== "N/A"))).map((c: any) => (
+                        <SelectItem key={c} value={c}>{c}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -843,12 +832,6 @@ export default function LeadManagerPage() {
                           <span className="font-semibold text-foreground text-sm tracking-tight block">
                             {item.assignedToUser.name}
                           </span>
-                          <Badge 
-                            variant="secondary" 
-                            className="font-semibold text-[10px] px-2 py-0.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/80 rounded-md shrink-0 uppercase tracking-wider"
-                          >
-                            {item.assignedToUser.role}
-                          </Badge>
                         </div>
                       ) : (
                         <span className="text-muted-foreground italic text-xs font-normal">

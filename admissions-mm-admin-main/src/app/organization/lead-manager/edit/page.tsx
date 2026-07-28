@@ -4,12 +4,14 @@ import * as React from "react";
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-
+import { useLead, useUpdateLead } from "@/hooks/use-leads";
+import { useTeam } from "@/hooks/use-team";
 import { ChevronLeft, Check } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { INDIAN_STATES, STATE_CITIES_MAP } from "@/lib/locations";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -55,116 +57,49 @@ const STAGES = [
 ] as const;
 const STATUSES = ["Hot", "Warm", "Cold"] as const;
 
-const INDIAN_STATES = [
-  "Andhra Pradesh",
-  "Arunachal Pradesh",
-  "Assam",
-  "Bihar",
-  "Chhattisgarh",
-  "Goa",
-  "Gujarat",
-  "Haryana",
-  "Himachal Pradesh",
-  "Jharkhand",
-  "Karnataka",
-  "Kerala",
-  "Madhya Pradesh",
-  "Maharashtra",
-  "Manipur",
-  "Meghalaya",
-  "Mizoram",
-  "Nagaland",
-  "Odisha",
-  "Punjab",
-  "Rajasthan",
-  "Sikkim",
-  "Tamil Nadu",
-  "Telangana",
-  "Tripura",
-  "Uttar Pradesh",
-  "Uttarakhand",
-  "West Bengal",
-  "Delhi",
-  "Jammu and Kashmir",
-  "Ladakh",
-  "Puducherry",
-] as const;
-
-// Comprehensive mock database matching page.tsx for direct ID lookup
-const MOCK_LEADS = [
-  {
-    id: 1,
-    name: "John Doe",
-    email: "john.doe@example.com",
-    mobile: "+1 234 567 890",
-    state: "California",
-    city: "Los Angeles",
-    source: "Google Ads",
-    medium: "CPC",
-    campaign: "Spring 2025",
-    stage: "New",
-    status: "Hot",
-    assignedTo: "Alice Brown",
-    notes: "Interested in the standard program.",
-  },
-  {
-    id: 2,
-    name: "Jane Smith",
-    email: "jane.smith@example.com",
-    mobile: "+1 234 567 891",
-    state: "Texas",
-    city: "Houston",
-    source: "Facebook",
-    medium: "Social",
-    campaign: "Summer 2025",
-    stage: "Contacted",
-    status: "Warm",
-    assignedTo: "Bob Wilson",
-    notes: "Requires follow-up next Tuesday.",
-  },
-  {
-    id: 11,
-    name: "Samjoshua",
-    email: "samjoshua@example.com",
-    mobile: "+91 7902089317",
-    state: "Kerala",
-    city: "Trivandrum",
-    source: "Google Ads",
-    medium: "Organic",
-    campaign: "Summer 2025",
-    stage: "Converted",
-    status: "Hot",
-    assignedTo: "Carol Martinez",
-    notes: "Premium lead with high conversion rate.",
-  },
-];
-
 function EditLeadForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const leadId = searchParams.get("id");
 
-  // Lookup lead or default to Samjoshua
-  const matchedLead = React.useMemo(() => {
-    if (!leadId) return MOCK_LEADS[2]; // Default to Samjoshua
-    const found = MOCK_LEADS.find((l) => l.id.toString() === leadId);
-    return found || MOCK_LEADS[2];
-  }, [leadId]);
+  const { data: lead, isLoading } = useLead(leadId || "");
+  const updateLead = useUpdateLead();
+  const { data: teamData } = useTeam(1, 100);
+  const teamMembers = teamData?.data || [];
 
   const [form, setForm] = React.useState({
-    name: matchedLead.name,
-    email: matchedLead.email,
-    mobile: matchedLead.mobile,
-    city: matchedLead.city,
-    state: matchedLead.state,
-    source: matchedLead.source,
-    medium: matchedLead.medium,
-    campaign: matchedLead.campaign,
-    stage: matchedLead.stage,
-    status: matchedLead.status,
-    assignedTo: matchedLead.assignedTo,
-    notes: matchedLead.notes || "",
+    name: "",
+    email: "",
+    mobile: "",
+    city: "",
+    state: "",
+    source: "",
+    medium: "",
+    campaign: "",
+    stage: "New",
+    status: "",
+    assignedTo: "",
+    notes: "",
   });
+
+  React.useEffect(() => {
+    if (lead) {
+      setForm({
+        name: `${lead.firstName || ""} ${lead.lastName || ""}`.trim(),
+        email: lead.email || "",
+        mobile: lead.phone || "",
+        city: lead.city || "",
+        state: lead.state || "",
+        source: lead.source || "",
+        medium: lead.utmMedium || "",
+        campaign: lead.utmCampaign || "",
+        stage: lead.rawPayload?.stage || "New", 
+        status: lead.scoreBand ? lead.scoreBand.charAt(0).toUpperCase() + lead.scoreBand.slice(1) : "Warm",
+        assignedTo: lead.assignedTo || "",
+        notes: lead.rawPayload?.notes || "",
+      });
+    }
+  }, [lead]);
 
   function set(key: keyof typeof form, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -172,11 +107,42 @@ function EditLeadForm() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    console.log("Saving updated lead:", form);
+    if (!leadId) return;
 
-    // Save locally or execute callback logic (frontend focus)
-    // We navigate back to the main manager page
-    router.push("/organization/lead-manager");
+    const nameParts = form.name.trim().split(" ");
+    const firstName = nameParts[0] || "";
+    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
+
+    updateLead.mutate({
+      leadId,
+      data: {
+        firstName,
+        lastName,
+        email: form.email || undefined,
+        phone: form.mobile || undefined,
+        city: form.city || undefined,
+        state: form.state || undefined,
+        source: form.source || undefined,
+        utmSource: form.source || undefined,
+        utmMedium: form.medium || undefined,
+        utmCampaign: form.campaign || undefined,
+        scoreBand: form.status ? form.status.toLowerCase() : undefined,
+        assignedTo: form.assignedTo || null,
+        rawPayload: { ...lead?.rawPayload, notes: form.notes, stage: form.stage }
+      }
+    }, {
+      onSuccess: () => {
+        router.push("/organization/lead-manager");
+      }
+    });
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
   }
 
   return (
@@ -279,13 +245,24 @@ function EditLeadForm() {
                     >
                       State
                     </Label>
-                    <Input
-                      id="state"
-                      placeholder="e.g., Kerala"
+                    <Select
                       value={form.state}
-                      onChange={(e) => set("state", e.target.value)}
-                      className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground"
-                    />
+                      onValueChange={(val) => setForm({ ...form, state: val, city: "" })}
+                    >
+                      <SelectTrigger
+                        id="state"
+                        className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full data-[placeholder]:text-foreground"
+                      >
+                        <SelectValue placeholder="Select State" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {INDIAN_STATES.map((s) => (
+                          <SelectItem key={s} value={s}>
+                            {s}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="flex flex-col gap-2">
                     <Label
@@ -294,13 +271,28 @@ function EditLeadForm() {
                     >
                       City
                     </Label>
-                    <Input
-                      id="city"
-                      placeholder="e.g., Mumbai"
+                    <Select
                       value={form.city}
-                      onChange={(e) => set("city", e.target.value)}
-                      className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground"
-                    />
+                      onValueChange={(val) => setForm({ ...form, city: val })}
+                      disabled={!form.state}
+                    >
+                      <SelectTrigger className="w-full h-10 border border-input rounded-[8px] text-[12px] text-foreground">
+                        <SelectValue placeholder="Select City" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {form.state && STATE_CITIES_MAP[form.state] ? (
+                          STATE_CITIES_MAP[form.state].map((c) => (
+                            <SelectItem key={c} value={c}>
+                              {c}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="none" disabled>
+                            Select a state first
+                          </SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </section>
@@ -492,13 +484,25 @@ function EditLeadForm() {
                   >
                     Assigned To
                   </Label>
-                  <Input
-                    id="crm-assigned"
-                    placeholder="e.g., Carol Martinez"
-                    value={form.assignedTo}
-                    onChange={(e) => set("assignedTo", e.target.value)}
-                    className="border border-input h-[40px] rounded-[8px] text-[12px]"
-                  />
+                  <Select
+                    value={form.assignedTo || "unassigned"}
+                    onValueChange={(v) => set("assignedTo", v === "unassigned" ? "" : v)}
+                  >
+                    <SelectTrigger
+                      id="crm-assigned"
+                      className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full data-[placeholder]:text-foreground"
+                    >
+                      <SelectValue placeholder="Unassigned" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unassigned">Unassigned</SelectItem>
+                      {teamMembers.map((member) => (
+                        <SelectItem key={member.id} value={member.id}>
+                          {member.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
@@ -506,9 +510,10 @@ function EditLeadForm() {
                 <Button
                   className="w-full bg-ring hover:bg-ring/90 text-primary-foreground flex items-center justify-center gap-2 h-11 text-base font-medium rounded-[8px]"
                   onClick={handleSubmit}
+                  disabled={updateLead.isPending}
                 >
                   <Check className="size-5" />
-                  Save Lead
+                  {updateLead.isPending ? "Saving..." : "Save Lead"}
                 </Button>
                 <Link href="/organization/lead-manager" className="w-full">
                   <Button
