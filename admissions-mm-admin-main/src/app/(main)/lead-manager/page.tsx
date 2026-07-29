@@ -63,12 +63,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  useLeads,
-  useDeleteLead,
-  useUpdateLeadStatus,
-} from "@/hooks/use-leads";
+import { useLeads, useDeleteLead, useUpdateLeadStatus } from "@/hooks/use-leads";
+import { useTeam } from "@/hooks/use-team";
 import { toast } from "sonner";
+import { usePageHeader } from "@/hooks/use-page-header";
 
 type Lead = {
   id: string | number;
@@ -87,7 +85,7 @@ type Lead = {
 
 const leads: Lead[] = [
   {
-    id: "",
+    id: 1,
     name: "John Doe",
     email: "john.doe@example.com",
     mobile: "+1 234 567 890",
@@ -101,7 +99,7 @@ const leads: Lead[] = [
     assignedTo: "Alice Brown",
   },
   {
-    id: "",
+    id: 2,
     name: "Jane Smith",
     email: "jane.smith@example.com",
     mobile: "+1 234 567 891",
@@ -115,7 +113,7 @@ const leads: Lead[] = [
     assignedTo: "Bob Wilson",
   },
   {
-    id: "",
+    id: 3,
     name: "Robert Johnson",
     email: "robert.j@example.com",
     mobile: "+1 234 567 892",
@@ -129,7 +127,7 @@ const leads: Lead[] = [
     assignedTo: "Alice Brown",
   },
   {
-    id: "",
+    id: 4,
     name: "Emily Davis",
     email: "emily.davis@example.com",
     mobile: "+1 234 567 893",
@@ -143,7 +141,7 @@ const leads: Lead[] = [
     assignedTo: "Bob Wilson",
   },
   {
-    id: "",
+    id: 5,
     name: "Michael Chen",
     email: "michael.chen@example.com",
     mobile: "+1 234 567 894",
@@ -157,7 +155,7 @@ const leads: Lead[] = [
     assignedTo: "Alice Brown",
   },
   {
-    id: "",
+    id: 6,
     name: "Sarah Williams",
     email: "sarah.w@example.com",
     mobile: "+1 234 567 895",
@@ -171,7 +169,7 @@ const leads: Lead[] = [
     assignedTo: "Carol Martinez",
   },
   {
-    id: "",
+    id: 7,
     name: "David Kumar",
     email: "david.kumar@example.com",
     mobile: "+1 234 567 896",
@@ -185,7 +183,7 @@ const leads: Lead[] = [
     assignedTo: "Carol Martinez",
   },
   {
-    id: "",
+    id: 8,
     name: "Priya Sharma",
     email: "priya.sharma@example.com",
     mobile: "+1 234 567 897",
@@ -199,7 +197,7 @@ const leads: Lead[] = [
     assignedTo: "Bob Wilson",
   },
   {
-    id: "",
+    id: 9,
     name: "James Taylor",
     email: "james.t@example.com",
     mobile: "+1 234 567 898",
@@ -213,7 +211,7 @@ const leads: Lead[] = [
     assignedTo: "Alice Brown",
   },
   {
-    id: "",
+    id: 10,
     name: "Anita Patel",
     email: "anita.patel@example.com",
     mobile: "+1 234 567 899",
@@ -227,7 +225,7 @@ const leads: Lead[] = [
     assignedTo: "Carol Martinez",
   },
   {
-    id: "",
+    id: 11,
     name: "Samjoshua",
     email: "[EMAIL_ADDRESS]",
     mobile: "+91 7902089317",
@@ -241,7 +239,7 @@ const leads: Lead[] = [
     assignedTo: "Carol Martinez",
   },
   {
-    id: "",
+    id: 12,
     name: "Samjoshua",
     email: "[EMAIL_ADDRESS]",
     mobile: "+91 7902089317",
@@ -256,6 +254,42 @@ const leads: Lead[] = [
   },
 ];
 
+const STAGES = [
+  "New",
+  "Contacted",
+  "Interested",
+  "Qualified",
+  "Converted",
+  "Lost",
+] as const;
+const STATUSES = ["Hot", "Warm", "Cold"] as const;
+
+const SOURCES = [
+  "Google Ads",
+  "Facebook",
+  "Instagram",
+  "LinkedIn",
+  "Website",
+  "Referral",
+  "Other",
+] as const;
+const MEDIUMS = [
+  "CPC",
+  "Social",
+  "Organic",
+  "Word of Mouth",
+  "Email",
+  "Other",
+] as const;
+const CAMPAIGNS = [
+  "Spring 2025",
+  "Summer 2025",
+  "Fall 2025",
+  "Winter 2025",
+  "Spring 2026",
+] as const;
+
+
 
 const stageStyles: Record<string, string> = {
   New: "bg-[#D9770633] text-[#9A3412] dark:bg-orange-500/20 dark:text-orange-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
@@ -265,11 +299,11 @@ const stageStyles: Record<string, string> = {
     "bg-[#F3E8FF] text-[#6B21A8] dark:bg-purple-500/20 dark:text-purple-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
   Qualified:
     "bg-[#05966933] text-[#065F46] dark:bg-emerald-500/20 dark:text-emerald-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
-  Lost: "bg-[#FEE2E2] text-[#B91C1C] dark:bg-red-500/20 dark:text-red-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
+Lost:
+  "bg-[#FEE2E2] text-[#B91C1C] dark:bg-red-500/20 dark:text-red-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
 
-  Converted:
-    "bg-[#DBEAFE] text-[#1D4ED8] dark:bg-green-500/20 dark:text-green-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
-};
+Converted:
+  "bg-[#DBEAFE] text-[#1D4ED8] dark:bg-green-500/20 dark:text-green-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",};
 
 const statusStyles: Record<string, string> = {
   Hot: "bg-[#FEE2E2] text-[#991B1B] dark:bg-rose-500/20 dark:text-rose-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
@@ -281,6 +315,15 @@ export default function LeadManagerPage() {
   const [currentPage, setCurrentPage] = React.useState(1);
   const itemsPerPage = 8;
   const [mobileVisibleCount, setMobileVisibleCount] = React.useState(5);
+
+  usePageHeader({
+    title: "Lead Management",
+    description: "View and manage all unverified leads assigned to your organization.",
+    action: {
+      label: "Add Lead",
+      href: "/organization/lead-manager/create",
+    },
+  });
 
   const [searchQuery, setSearchQuery] = React.useState("");
   const [stageDraft, setStageDraft] = React.useState("all");
@@ -297,18 +340,33 @@ export default function LeadManagerPage() {
   const [editForm, setEditForm] = React.useState<any | null>(null);
   const [deleteLeadId, setDeleteLeadId] = React.useState<string | null>(null);
 
+  const [appliedAdvanced, setAppliedAdvanced] = React.useState({
+    city: "",
+    state: "",
+    source: "",
+    assignedTo: "",
+    status: "all",
+  });
+
   // Hook API Calls
-  const {
-    data: leadsResponse,
-    isLoading,
-    error,
-  } = useLeads(
+  const { data: leadsResponse, isLoading, error } = useLeads(
     currentPage,
     itemsPerPage,
     searchQuery || undefined,
     undefined,
     "unverified",
+    {
+      assignedTo: appliedAdvanced.assignedTo !== "all" ? appliedAdvanced.assignedTo : undefined,
+      scoreBand: statusDraft !== "all" ? statusDraft.toLowerCase() : (appliedAdvanced.status !== "all" ? appliedAdvanced.status.toLowerCase() : undefined),
+      state: appliedAdvanced.state !== "all" ? appliedAdvanced.state : undefined,
+      city: appliedAdvanced.city !== "all" ? appliedAdvanced.city : undefined,
+      source: appliedAdvanced.source !== "all" ? appliedAdvanced.source : undefined,
+      stage: stageDraft !== "all" ? stageDraft : undefined,
+    }
   );
+
+  const { data: teamData } = useTeam(1, 100);
+  const teamMembers = teamData?.data || [];
 
   const { mutate: updateStatus } = useUpdateLeadStatus();
   const { mutate: deleteLead } = useDeleteLead();
@@ -325,8 +383,10 @@ export default function LeadManagerPage() {
       source: item.source || "Direct",
       medium: item.utmMedium || "N/A",
       campaign: item.utmCampaign || "N/A",
-      stage: item.isDuplicate ? "Duplicate" : "New",
-      status: item.status || "unverified",
+      stage: item.rawPayload?.stage || (item.isDuplicate ? "Duplicate" : "New"),
+      status: item.scoreBand 
+        ? item.scoreBand.charAt(0).toUpperCase() + item.scoreBand.slice(1) 
+        : "Warm",
       assignedToUser: item.assignedToUser ? {
         name: item.assignedToUser.name,
         role: item.assignedToUser.role?.replace('_', ' ')?.toLowerCase()
@@ -336,38 +396,7 @@ export default function LeadManagerPage() {
     }));
   }, [leadsResponse]);
 
-  // Dynamic filter options derived from live leadsState
-  const uniqueStages = React.useMemo(() =>
-    Array.from(new Set(leadsState.map((l) => l.stage))).filter(Boolean).sort(),
-  [leadsState]);
 
-  const uniqueStatuses = React.useMemo(() =>
-    Array.from(new Set(leadsState.map((l) => l.status))).filter(Boolean).sort(),
-  [leadsState]);
-
-  const uniqueSources = React.useMemo(() =>
-    Array.from(new Set(leadsState.map((l) => l.source))).filter(Boolean).sort(),
-  [leadsState]);
-
-  const uniqueStates = React.useMemo(() =>
-    Array.from(new Set(leadsState.map((l) => l.state))).filter((s) => s && s !== "N/A").sort(),
-  [leadsState]);
-
-  const uniqueCities = React.useMemo(() =>
-    Array.from(new Set(leadsState.map((l) => l.city))).filter((c) => c && c !== "N/A").sort(),
-  [leadsState]);
-
-  const uniqueAssignees = React.useMemo(() =>
-    Array.from(new Set(leadsState.map((l) => l.assignedTo))).filter((a) => a && a !== "Unassigned").sort(),
-  [leadsState]);
-
-  const [appliedAdvanced, setAppliedAdvanced] = React.useState({
-    city: "",
-    state: "",
-    source: "",
-    assignedTo: "",
-    status: "all",
-  });
 
   React.useEffect(() => {
     setMobileVisibleCount(5);
@@ -393,7 +422,7 @@ export default function LeadManagerPage() {
     deleteLead(id, {
       onSuccess: () => {
         setDeleteLeadId(null);
-      },
+      }
     });
   }
 
@@ -516,7 +545,7 @@ export default function LeadManagerPage() {
                   <SelectContent>
                     <SelectItem value="all">All Stages</SelectItem>
 
-                    {uniqueStages.map((s) => (
+                    {STAGES.map((s) => (
                       <SelectItem key={s} value={s}>
                         {s}
                       </SelectItem>
@@ -541,7 +570,7 @@ export default function LeadManagerPage() {
                   <SelectContent>
                     <SelectItem value="all">All Statuses</SelectItem>
 
-                    {uniqueStatuses.map((s) => (
+                    {STATUSES.map((s) => (
                       <SelectItem key={s} value={s}>
                         {s}
                       </SelectItem>
@@ -565,15 +594,14 @@ export default function LeadManagerPage() {
                 )}
               </Button>
             </div>
-
           </div>
         </div>
 
         <Dialog open={advancedOpen} onOpenChange={setAdvancedOpen}>
-          <DialogContent className="sm:max-w-[580px]  px-6  bg-white rounded-2xl gap-5 border border-slate-200 overflow-y-auto max-h-[90vh] text-left">
+          <DialogContent className="sm:max-w-[580px] px-6 bg-white rounded-2xl gap-5 border border-slate-200 overflow-y-auto max-h-[90vh] text-left">
 
             {/* Card 1: Lead Filters */}
-            <div className="bg-white shadow-2xs rounded-xl p-5 md:p-6 flex flex-col gap-4 ">
+            <div className="bg-white shadow-2xs rounded-xl p-5 md:p-6 flex flex-col gap-4">
               <div className="flex items-center gap-3 mb-1">
                 <div className="w-10 h-10 bg-[#F5F5F5] text-black border rounded-[10px] flex items-center justify-center shrink-0">
                   <Hash className="size-5" />
@@ -581,7 +609,7 @@ export default function LeadManagerPage() {
                 <h3 className="text-[17px] font-bold text-[#0F172A]">Lead Filters</h3>
               </div>
 
-              {/* Source — full width */}
+              {/* Source */}
               <div className="flex flex-col gap-2">
                 <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
                   Source
@@ -595,14 +623,14 @@ export default function LeadManagerPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Sources</SelectItem>
-                    {uniqueSources.map((s) => (
+                    {SOURCES.map((s) => (
                       <SelectItem key={s} value={s}>{s}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
 
-              {/* Lead Status — full width */}
+              {/* Lead Status */}
               <div className="flex flex-col gap-2">
                 <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
                   Lead Status
@@ -613,14 +641,14 @@ export default function LeadManagerPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Statuses</SelectItem>
-                    {uniqueStatuses.map((s) => (
+                    {STATUSES.map((s) => (
                       <SelectItem key={s} value={s}>{s}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
 
-              {/* Assigned To — full width */}
+              {/* Assigned To */}
               <div className="flex flex-col gap-2">
                 <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
                   Assigned To
@@ -634,8 +662,8 @@ export default function LeadManagerPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Counselors</SelectItem>
-                    {uniqueAssignees.map((a) => (
-                      <SelectItem key={a} value={a}>{a}</SelectItem>
+                    {teamMembers.map((m: any) => (
+                      <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -643,7 +671,7 @@ export default function LeadManagerPage() {
             </div>
 
             {/* Card 2: Location */}
-            <div className="bg-white shadow-2xs rounded-xl p-5 md:p-6  flex flex-col gap-4 ">
+            <div className="bg-white shadow-2xs rounded-xl p-5 md:p-6 flex flex-col gap-4">
               <div className="flex items-center gap-3 mb-1">
                 <div className="w-10 h-10 bg-[#F5F5F5] text-black border rounded-[10px] flex items-center justify-center shrink-0">
                   <MapPin className="size-5" />
@@ -666,7 +694,7 @@ export default function LeadManagerPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All States</SelectItem>
-                      {uniqueStates.map((s) => (
+                      {Array.from(new Set(leadsState.map((l: any) => l.state).filter((s: string) => s && s !== "N/A"))).map((s: any) => (
                         <SelectItem key={s} value={s}>{s}</SelectItem>
                       ))}
                     </SelectContent>
@@ -686,7 +714,7 @@ export default function LeadManagerPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Cities</SelectItem>
-                      {uniqueCities.map((c) => (
+                      {Array.from(new Set(leadsState.map((l: any) => l.city).filter((c: string) => c && c !== "N/A"))).map((c: any) => (
                         <SelectItem key={c} value={c}>{c}</SelectItem>
                       ))}
                     </SelectContent>
@@ -804,12 +832,6 @@ export default function LeadManagerPage() {
                           <span className="font-semibold text-foreground text-sm tracking-tight block">
                             {item.assignedToUser.name}
                           </span>
-                          <Badge 
-                            variant="secondary" 
-                            className="font-semibold text-[10px] px-2 py-0.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/80 rounded-md shrink-0 uppercase tracking-wider"
-                          >
-                            {item.assignedToUser.role}
-                          </Badge>
                         </div>
                       ) : (
                         <span className="text-muted-foreground italic text-xs font-normal">
@@ -842,31 +864,21 @@ export default function LeadManagerPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-32">
                             <DropdownMenuItem className="gap-2" asChild>
-                              <Link href={`/lead-manager/edit?id=${item.id}`}>
+                              <Link href={`/organization/lead-manager/edit?id=${item.id}`}>
                                 <Pencil className="size-4" />
                                 Edit
                               </Link>
                             </DropdownMenuItem>
-                            <DropdownMenuItem
+                            <DropdownMenuItem 
                               className="gap-2 text-emerald-600 focus:text-emerald-600 cursor-pointer font-medium"
-                              onClick={() =>
-                                updateStatus({
-                                  leadId: String(item.id),
-                                  status: "verified",
-                                })
-                              }
+                              onClick={() => updateStatus({ leadId: String(item.id), status: "verified" })}
                             >
                               <Check className="size-4 text-emerald-600" />
                               Verify
                             </DropdownMenuItem>
-                            <DropdownMenuItem
+                            <DropdownMenuItem 
                               className="gap-2 text-rose-600 focus:text-rose-600 cursor-pointer font-medium"
-                              onClick={() =>
-                                updateStatus({
-                                  leadId: String(item.id),
-                                  status: "disqualified",
-                                })
-                              }
+                              onClick={() => updateStatus({ leadId: String(item.id), status: "disqualified" })}
                             >
                               <Trash2 className="size-4 text-rose-600" />
                               Disqualify
@@ -911,47 +923,47 @@ export default function LeadManagerPage() {
               <div className="flex items-center gap-2 flex-wrap">
                 {/* Previous button */}
                 <Button
-                  variant="outline"
-                  className="h-9 px-4 border border-border/80 bg-background text-foreground text-sm font-normal rounded-[6px] hover:bg-muted/30 hover:text-[var(--primary)] dark:hover:bg-muted/10 transition-colors shadow-2xs"
-                  onClick={() => {
-                    if (currentPage > 1) setCurrentPage(currentPage - 1);
-                  }}
-                  disabled={currentPage === 1}
-                >
-                  Previous
-                </Button>
-
-                <div className="flex items-center gap-1">
-                  {visiblePages.map((page) => {
-                    const isActive = currentPage === page;
-                    return (
-                      <Button
-                        key={page}
-                        variant={isActive ? "default" : "outline"}
-                        className={`h-9 w-9 p-0 text-sm border shadow-2xs rounded-[6px] transition-colors ${
-                          isActive
-                            ? "bg-[#EA2525] border-[#EA2525] text-white font-semibold hover:bg-[#D61F1F] shadow-xs"
-                            : "border-border/80 bg-background text-muted-foreground hover:bg-muted/30 dark:hover:bg-muted/10 hover:text-foreground font-normal"
-                        }`}
-                        onClick={() => setCurrentPage(page)}
-                      >
-                        {page}
-                      </Button>
-                    );
-                  })}
-                </div>
-
-                <Button
-                  variant="outline"
-                  className="h-9 px-4 border border-border/80 bg-background text-foreground text-sm font-normal rounded-[6px] hover:bg-muted/30 hover:text-[var(--primary)] dark:hover:bg-muted/10 transition-colors shadow-2xs"
-                  onClick={() => {
-                    if (currentPage < totalPages)
-                      setCurrentPage(currentPage + 1);
-                  }}
-                  disabled={currentPage === totalPages}
-                >
-                  Next
-                </Button>
+                 variant="outline"
+                 className="h-9 px-4 border border-border/80 bg-background text-foreground text-sm font-normal rounded-[6px] hover:bg-muted/30 hover:text-[var(--primary)] dark:hover:bg-muted/10 transition-colors shadow-2xs"
+                 onClick={() => {
+                   if (currentPage > 1) setCurrentPage(currentPage - 1);
+                 }}
+                 disabled={currentPage === 1}
+               >
+                 Previous
+               </Button>
+               
+                               <div className="flex items-center gap-1">
+                                 {visiblePages.map((page) => {
+                                   const isActive = currentPage === page;
+                                   return (
+                                     <Button
+                                       key={page}
+                                       variant={isActive ? "default" : "outline"}
+                                       className={`h-9 w-9 p-0 text-sm border shadow-2xs rounded-[6px] transition-colors ${
+                                         isActive
+                                           ? "bg-[#EA2525] border-[#EA2525] text-white font-semibold hover:bg-[#D61F1F] shadow-xs"
+                                           : "border-border/80 bg-background text-muted-foreground hover:bg-muted/30 dark:hover:bg-muted/10 hover:text-foreground font-normal"
+                                       }`}
+                                       onClick={() => setCurrentPage(page)}
+                                     >
+                                       {page}
+                                     </Button>
+                                   );
+                                 })}
+                               </div>
+               
+                 <Button
+                 variant="outline"
+                 className="h-9 px-4 border border-border/80 bg-background text-foreground text-sm font-normal rounded-[6px] hover:bg-muted/30 hover:text-[var(--primary)] dark:hover:bg-muted/10 transition-colors shadow-2xs"
+                 onClick={() => {
+                   if (currentPage < totalPages)
+                     setCurrentPage(currentPage + 1);
+                 }}
+                 disabled={currentPage === totalPages}
+               >
+                 Next
+               </Button>
               </div>
             )}
           </div>
@@ -1027,12 +1039,12 @@ export default function LeadManagerPage() {
 
                         <DropdownMenuContent align="end" className="w-32">
                           <DropdownMenuItem className="gap-2" asChild>
-                            <Link href={`/lead-manager/edit?id=${item.id}`}>
+                            <Link href={`/organization/lead-manager/edit?id=${item.id}`}>
                               <Pencil className="size-4" />
                               Edit
                             </Link>
                           </DropdownMenuItem>
-                          <DropdownMenuItem
+                          <DropdownMenuItem 
                             className="gap-2 text-emerald-600 focus:text-emerald-600 cursor-pointer font-medium"
                             onClick={() =>
                               updateStatus({
@@ -1044,7 +1056,7 @@ export default function LeadManagerPage() {
                             <Check className="size-4 text-emerald-600" />
                             Verify
                           </DropdownMenuItem>
-                          <DropdownMenuItem
+                          <DropdownMenuItem 
                             className="gap-2 text-rose-600 focus:text-rose-600 cursor-pointer font-medium"
                             onClick={() =>
                               updateStatus({

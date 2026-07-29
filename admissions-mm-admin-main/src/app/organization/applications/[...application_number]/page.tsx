@@ -7,7 +7,7 @@ import { Manrope } from "next/font/google";
 const manrope = Manrope({ subsets: ["latin"] });
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 
 import {
   ArrowLeft,
@@ -70,10 +70,13 @@ import {
 
 import { useApplication, useUpdateApplication, ApplicationDetail } from "@/hooks/use-applications";
 import { useBranches } from "@/hooks/use-branches";
+import { useCourses } from "@/hooks/use-courses";
 import { gdInterviews } from "@/data/mock-gd-interviews";
 import { toast } from "sonner";
+import { usePageHeader } from "@/hooks/use-page-header";
 
 export default function ApplicationDetailsPage() {
+  const router = useRouter();
   const params = useParams();
   const rawParam = params.application_number;
   const applicationNumber = React.useMemo(() => {
@@ -82,8 +85,17 @@ export default function ApplicationDetailsPage() {
   }, [rawParam]);
   const { data: appData, isLoading } = useApplication(applicationNumber);
   const updateMutation = useUpdateApplication();
+
+  usePageHeader({
+    title: "Applications",
+    description: "View and manage all applications submitted to your organization.",
+  
+  });
+
   const { data: branchesData } = useBranches(1, 100);
   const branchesList = branchesData?.data || [];
+  const { data: coursesData } = useCourses(1, 100);
+  const coursesList = coursesData?.data || [];
 
   const getBranchName = React.useCallback((val?: string) => {
     if (!val) return "Not selected";
@@ -149,8 +161,8 @@ export default function ApplicationDetailsPage() {
       {/* Hero Banner Card */}
       {/* Hero Banner Card */}
       <div className="relative grid grid-cols-[auto_1fr] w-full p-[24px] gap-y-[6px] gap-x-[16px] md:gap-x-[32px] rounded-[8px] border border-[#D4D4D4] bg-white shadow-[0_1px_2px_0_rgba(0,0,0,0.05)]">
-        <Link
-          href="/organization/applications"
+        <button
+          onClick={() => router.back()}
           className="absolute top-3 left-3 hover:opacity-80 transition-opacity p-1"
         >
           <svg
@@ -168,7 +180,7 @@ export default function ApplicationDetailsPage() {
               strokeLinejoin="round"
             />
           </svg>
-        </Link>
+        </button>
         <Avatar className="h-16 w-16 md:h-20 md:w-20 border-4 border-slate-100 shadow-xs shrink-0 col-start-1 row-start-1 md:row-span-2 mt-2 md:mt-0">
           <AvatarImage
             src={applicationData.applicant.photo}
@@ -1119,6 +1131,7 @@ export default function ApplicationDetailsPage() {
             <EditPreferencesForm
               appData={applicationData}
               branchesList={branchesList}
+              coursesList={coursesList}
               onSave={handleSave}
               onClose={() => setActiveEditSection(null)}
             />
@@ -1533,18 +1546,18 @@ function EditPersonalForm({ appData, onSave, onClose }: FormProps) {
   );
 }
 
-function EditPreferencesForm({ appData, onSave, onClose, branchesList = [] }: FormProps & { branchesList?: any[] }) {
+function EditPreferencesForm({ appData, onSave, onClose, branchesList = [], coursesList = [] }: FormProps & { branchesList?: any[], coursesList?: any[] }) {
   const [formData, setFormData] = React.useState({
     preference1: appData.preferences.preference1,
     preference2: appData.preferences.preference2,
-    appliedFor: appData.appliedFor,
+    courseId: appData.courseId,
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const updatedData = {
       ...appData,
-      appliedFor: formData.appliedFor,
+      courseId: formData.courseId,
       preferences: {
         preference1: formData.preference1,
         preference2: formData.preference2,
@@ -1563,9 +1576,9 @@ function EditPreferencesForm({ appData, onSave, onClose, branchesList = [] }: Fo
           Program Applied For
         </Label>
         <Select
-          value={formData.appliedFor}
+          value={formData.courseId}
           onValueChange={(val) =>
-            setFormData((prev) => ({ ...prev, appliedFor: val }))
+            setFormData((prev) => ({ ...prev, courseId: val }))
           }
         >
           <SelectTrigger
@@ -1575,9 +1588,11 @@ function EditPreferencesForm({ appData, onSave, onClose, branchesList = [] }: Fo
             <SelectValue placeholder="Select Program" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="PGDM (Two-Year, Full-Time)">PGDM (Two-Year, Full-Time)</SelectItem>
-            <SelectItem value="MBA (Two-Year, Full-Time)">MBA (Two-Year, Full-Time)</SelectItem>
-            <SelectItem value="Executive PGDM">Executive PGDM</SelectItem>
+            {coursesList.map((course) => (
+              <SelectItem key={course.id} value={course.id}>
+                {course.name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>

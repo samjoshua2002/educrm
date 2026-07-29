@@ -19,6 +19,7 @@ export interface ApplicationDetail {
   applicationNo: string;
   status: string;
   appliedFor: string;
+  courseId: string;
   applicant: {
     name: string;
     photo: string;
@@ -166,6 +167,7 @@ function mapApiToApplicationDetail(apiData: any): ApplicationDetail {
     applicationNo: apiData.applicationNo,
     status: apiData.formStatus,
     appliedFor: apiData.program || "",
+    courseId: apiData.courseId || "",
     applicant: {
       name: apiData.name || student.name || "",
       photo: "",
@@ -289,6 +291,7 @@ function toPreferencesPayload(updatedData: ApplicationDetail) {
   return {
     preference1: updatedData.preferences.preference1 || undefined,
     preference2: updatedData.preferences.preference2 || undefined,
+    courseId: updatedData.courseId || undefined,
   };
 }
 

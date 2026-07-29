@@ -354,7 +354,7 @@ export default function LeadManagerPage() {
     itemsPerPage,
     searchQuery || undefined,
     undefined,
-    "unverified",
+    undefined,
     {
       assignedTo: appliedAdvanced.assignedTo !== "all" ? appliedAdvanced.assignedTo : undefined,
       scoreBand: statusDraft !== "all" ? statusDraft.toLowerCase() : (appliedAdvanced.status !== "all" ? appliedAdvanced.status.toLowerCase() : undefined),

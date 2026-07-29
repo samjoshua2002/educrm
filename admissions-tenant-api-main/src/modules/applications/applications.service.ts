@@ -503,6 +503,11 @@ export class ApplicationsService {
   async updatePreferences(id: string, orgId: string, dto: UpdatePreferencesDto, actorId: string) {
     const app = await this.getAppAndAssertEditable(id, orgId);
     await this.validatePreferences(orgId, dto.preference1, dto.preference2);
+    if (dto.courseId) {
+      const course = await this.coursesService.validateCourseExists(dto.courseId, orgId);
+      app.courseId = course.id;
+      app.program = course.name;
+    }
     if (dto.preference1 !== undefined) app.preference1 = dto.preference1;
     if (dto.preference2 !== undefined) app.preference2 = dto.preference2;
     app.updatedBy = actorId;

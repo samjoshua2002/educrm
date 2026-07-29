@@ -1176,14 +1176,7 @@ export default function CoursesSettingsPage() {
                                     </DropdownMenuItem>
                                   </>
                                 )}
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  className="gap-2 text-red-600 focus:text-red-600 focus:bg-red-50"
-                                  onClick={() => triggerDelete("session", session.id)}
-                                >
-                                  <Trash2 className="size-4" />
-                                  Delete Permanently
-                                </DropdownMenuItem>
+
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </div>
@@ -1339,14 +1332,7 @@ export default function CoursesSettingsPage() {
                                   </DropdownMenuItem>
                                 </>
                               )}
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                className="gap-2 text-red-600 focus:text-red-600 focus:bg-red-50"
-                                onClick={() => triggerDelete("session", session.id)}
-                              >
-                                <Trash2 className="size-4" />
-                                Delete Permanently
-                              </DropdownMenuItem>
+
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
@@ -2410,6 +2396,7 @@ export default function CoursesSettingsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
     </>
   );
 }

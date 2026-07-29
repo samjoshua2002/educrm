@@ -19,6 +19,7 @@ export class UpdatePersonalDto {
 export class UpdatePreferencesDto {
   @IsUUID() @IsOptional() preference1?: string;
   @IsUUID() @IsOptional() preference2?: string;
+  @IsUUID() @IsOptional() courseId?: string;
 }
 
 export class EducationRecordDto {

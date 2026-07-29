@@ -140,3 +140,25 @@ export function useDeleteAcademicSession() {
     },
   });
 }
+
+export function useHardDeleteAcademicSession() {
+  const queryClient = useQueryClient();
+  const user = useAuthStore((state) => state.user);
+  const orgId = user?.organizationId;
+
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiDelete(`/organizations/${orgId}/academic-sessions/${id}/hard`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["academic-sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["academic-session-current"] });
+      queryClient.invalidateQueries({ queryKey: ["course-sessions"] });
+      toast.success("Academic session permanently deleted");
+    },
+    onError: (error: any) => {
+      toast.error(
+        error.response?.data?.message || "Failed to permanently delete academic session",
+      );
+    },
+  });
+}
