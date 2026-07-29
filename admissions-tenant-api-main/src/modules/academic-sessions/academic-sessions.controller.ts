@@ -16,6 +16,7 @@ import { RolesGuard } from '../../common/guards/roles.guard.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { Role } from '../../common/enums/roles.enum.js';
+import { ResponseMessage } from '../../common/decorators/response-message.decorator.js';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('organizations/:orgId/academic-sessions')
@@ -23,6 +24,7 @@ export class AcademicSessionsController {
   constructor(private readonly academicSessionsService: AcademicSessionsService) {}
 
   @Post()
+  @ResponseMessage('Academic session created successfully')
   @Roles(Role.SUPERADMIN, Role.ORG_ADMIN)
   create(
     @Param('orgId') orgId: string,
@@ -33,23 +35,27 @@ export class AcademicSessionsController {
   }
 
   @Get()
+  @ResponseMessage('Academic sessions fetched successfully')
   @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.APPLICATION_MANAGER, Role.COUNSELOR)
   findAll(@Param('orgId') orgId: string) {
     return this.academicSessionsService.findAllByOrg(orgId);
   }
 
   @Get('current')
+  @ResponseMessage('Current academic session fetched successfully')
   findCurrent(@Param('orgId') orgId: string) {
     return this.academicSessionsService.findCurrentSession(orgId);
   }
 
   @Get(':id')
+  @ResponseMessage('Academic session details fetched successfully')
   @Roles(Role.SUPERADMIN, Role.ORG_ADMIN)
   findOne(@Param('id') id: string, @Param('orgId') orgId: string) {
     return this.academicSessionsService.findOne(id, orgId);
   }
 
   @Patch(':id')
+  @ResponseMessage('Academic session updated successfully')
   @Roles(Role.SUPERADMIN, Role.ORG_ADMIN)
   update(
     @Param('id') id: string,
@@ -61,6 +67,7 @@ export class AcademicSessionsController {
   }
 
   @Delete(':id')
+  @ResponseMessage('Academic session deactivated successfully')
   @Roles(Role.SUPERADMIN, Role.ORG_ADMIN)
   remove(
     @Param('id') id: string,

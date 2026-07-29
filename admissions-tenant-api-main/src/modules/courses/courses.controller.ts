@@ -17,6 +17,7 @@ import { RolesGuard } from '../../common/guards/roles.guard.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { Role } from '../../common/enums/roles.enum.js';
+import { ResponseMessage } from '../../common/decorators/response-message.decorator.js';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('organizations/:orgId/courses')
@@ -24,6 +25,7 @@ export class CoursesController {
   constructor(private readonly coursesService: CoursesService) {}
 
   @Post()
+  @ResponseMessage('Course created successfully')
   @Roles(Role.SUPERADMIN, Role.ORG_ADMIN)
   create(
     @Param('orgId') orgId: string,
@@ -34,6 +36,7 @@ export class CoursesController {
   }
 
   @Get()
+  @ResponseMessage('Courses fetched successfully')
   @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.APPLICATION_MANAGER, Role.COUNSELOR)
   findAll(
     @Param('orgId') orgId: string,
@@ -50,12 +53,14 @@ export class CoursesController {
   }
 
   @Get(':id')
+  @ResponseMessage('Course details fetched successfully')
   @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.APPLICATION_MANAGER, Role.COUNSELOR)
   findOne(@Param('id') id: string, @Param('orgId') orgId: string) {
     return this.coursesService.findOne(id, orgId);
   }
 
   @Patch(':id')
+  @ResponseMessage('Course updated successfully')
   @Roles(Role.SUPERADMIN, Role.ORG_ADMIN)
   update(
     @Param('id') id: string,
@@ -67,6 +72,7 @@ export class CoursesController {
   }
 
   @Delete(':id')
+  @ResponseMessage('Course deactivated successfully')
   @Roles(Role.SUPERADMIN, Role.ORG_ADMIN)
   remove(
     @Param('id') id: string,
