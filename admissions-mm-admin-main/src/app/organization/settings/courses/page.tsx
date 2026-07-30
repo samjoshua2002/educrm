@@ -552,63 +552,64 @@ export default function CoursesSettingsPage() {
         <Tabs
           value={activeTab}
           onValueChange={setActiveTab}
-          className="w-full flex flex-col gap-4"
+          className="w-full flex flex-col"
         >
           {/* Animated slider tab switch container matching red/blue/spacious aesthetics */}
-          <TabsList className="bg-[#fafafa] dark:bg-muted/5 border border-border/80 p-[4px] rounded-[10px] h-12 w-fit inline-flex items-center">
-            <TabsTrigger
-              value="courses"
-              className={cn(
-                "h-9 px-6 rounded-[8px] text-sm font-semibold transition-all duration-300 cursor-pointer shadow-none border-0",
-                "data-[state=active]:bg-[#2563EB] data-[state=active]:text-white data-[state=active]:shadow-sm text-slate-600 dark:text-slate-400 hover:text-slate-900"
-              )}
-            >
-              Courses
-            </TabsTrigger>
-            <TabsTrigger
-              value="sessions"
-              className={cn(
-                "h-9 px-6 rounded-[8px] text-sm font-semibold transition-all duration-300 cursor-pointer shadow-none border-0",
-                "data-[state=active]:bg-[#2563EB] data-[state=active]:text-white data-[state=active]:shadow-sm text-slate-600 dark:text-slate-400 hover:text-slate-900"
-              )}
-            >
-              Academic Sessions
-            </TabsTrigger>
-            <TabsTrigger
-              value="course-sessions"
-              className={cn(
-                "h-9 px-6 rounded-[8px] text-sm font-semibold transition-all duration-300 cursor-pointer shadow-none border-0",
-                "data-[state=active]:bg-[#2563EB] data-[state=active]:text-white data-[state=active]:shadow-sm text-slate-600 dark:text-slate-400 hover:text-slate-900"
-              )}
-            >
-              Course Sessions
-            </TabsTrigger>
-          </TabsList>
+          
+          <div className="border border-[#e5e5e5] rounded-[12px] bg-white shadow-sm flex flex-col w-full max-w-full overflow-hidden">
+            {/* Unified Top Header for Tabs and Search/Filters */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between p-4 border-b border-[#e2e8f0] gap-4">
+              <TabsList className="bg-transparent border-0 p-0 h-auto flex gap-6 w-full lg:w-auto overflow-x-auto justify-start rounded-none">
+                <TabsTrigger
+                  value="courses"
+                  className={cn(
+                    "p-0 h-auto bg-transparent border-0 rounded-none text-sm transition-colors cursor-pointer shadow-none data-[state=active]:bg-transparent data-[state=active]:shadow-none",
+                    "font-medium text-slate-500 hover:text-slate-800",
+                    "data-[state=active]:text-[#1e3a8a] data-[state=active]:font-bold data-[state=active]:border-b-[3px] data-[state=active]:border-[#1e3a8a] pb-2"
+                  )}
+                >
+                  Courses
+                </TabsTrigger>
+                <TabsTrigger
+                  value="sessions"
+                  className={cn(
+                    "p-0 h-auto bg-transparent border-0 rounded-none text-sm transition-colors cursor-pointer shadow-none data-[state=active]:bg-transparent data-[state=active]:shadow-none",
+                    "font-medium text-slate-500 hover:text-slate-800",
+                    "data-[state=active]:text-[#1e3a8a] data-[state=active]:font-bold data-[state=active]:border-b-[3px] data-[state=active]:border-[#1e3a8a] pb-2"
+                  )}
+                >
+                  Academic Sessions
+                </TabsTrigger>
+                <TabsTrigger
+                  value="course-sessions"
+                  className={cn(
+                    "p-0 h-auto bg-transparent border-0 rounded-none text-sm transition-colors cursor-pointer shadow-none data-[state=active]:bg-transparent data-[state=active]:shadow-none",
+                    "font-medium text-slate-500 hover:text-slate-800",
+                    "data-[state=active]:text-[#1e3a8a] data-[state=active]:font-bold data-[state=active]:border-b-[3px] data-[state=active]:border-[#1e3a8a] pb-2"
+                  )}
+                >
+                  Course Sessions
+                </TabsTrigger>
+              </TabsList>
 
-          {/* 1. COURSES TAB CONTENT */}
-          <TabsContent value="courses" className="flex flex-col gap-4 outline-none">
-            {/* Search and Filters Toolbar */}
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-              <div className="flex flex-1 w-full">
-                <div className="relative w-full">
-                  <Input
-                    placeholder="Search courses by name or code..."
-                    className="w-full pr-10 h-10"
-                    value={coursesSearch}
-                    onChange={(e) => {
-                      setCoursesSearch(e.target.value);
-                      setCoursesPage(1);
-                    }}
-                  />
-                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-muted-foreground">
-                    <Search className="size-4" />
-                  </div>
-                </div>
-              </div>
-
+              {/* Dynamic Search & Filters Area */}
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                <div className="flex items-center gap-2 w-full sm:w-auto">
-                  <div className="flex-1 min-w-0 sm:w-[140px]">
+                {activeTab === "courses" && (
+                  <>
+                    <div className="relative w-full sm:w-[300px]">
+                      <Input
+                        placeholder="Search by name, email or phone..."
+                        className="w-full pr-10 h-10 border-[#e2e8f0] rounded-[8px]"
+                        value={coursesSearch}
+                        onChange={(e) => {
+                          setCoursesSearch(e.target.value);
+                          setCoursesPage(1);
+                        }}
+                      />
+                      <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-muted-foreground">
+                        <Search className="size-4" />
+                      </div>
+                    </div>
                     <Select
                       value={coursesStatus}
                       onValueChange={(val) => {
@@ -616,22 +617,130 @@ export default function CoursesSettingsPage() {
                         setCoursesPage(1);
                       }}
                     >
-                      <SelectTrigger className="w-full h-10 text-sm">
-                        <SelectValue placeholder="All Statuses" />
+                      <SelectTrigger className="w-full sm:w-[180px] h-10 text-sm bg-slate-50 border-[#e2e8f0] rounded-[8px]">
+                        <SelectValue placeholder="Status: All Statuses" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Statuses</SelectItem>
-                        <SelectItem value="Active">Active</SelectItem>
-                        <SelectItem value="Inactive">Inactive</SelectItem>
+                        <SelectItem value="all">Status: All Statuses</SelectItem>
+                        <SelectItem value="Active">Status: Active</SelectItem>
+                        <SelectItem value="Inactive">Status: Inactive</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </>
+                )}
+                {activeTab === "sessions" && (
+                  <>
+                    <div className="relative w-full sm:w-[300px]">
+                      <Input
+                        placeholder="Search by name, email or phone..."
+                        className="w-full pr-10 h-10 border-[#e2e8f0] rounded-[8px]"
+                        value={sessionsSearch}
+                        onChange={(e) => {
+                          setSessionsSearch(e.target.value);
+                          setSessionsPage(1);
+                        }}
+                      />
+                      <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-muted-foreground">
+                        <Search className="size-4" />
+                      </div>
+                    </div>
+                    <Select
+                      value={sessionsStatus}
+                      onValueChange={(val) => {
+                        setSessionsStatus(val);
+                        setSessionsPage(1);
+                      }}
+                    >
+                      <SelectTrigger className="w-full sm:w-[180px] h-10 text-sm bg-slate-50 border-[#e2e8f0] rounded-[8px]">
+                        <SelectValue placeholder="Status: All Statuses" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Status: All Statuses</SelectItem>
+                        <SelectItem value="Active">Status: Active</SelectItem>
+                        <SelectItem value="Inactive">Status: Inactive</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </>
+                )}
+                {activeTab === "course-sessions" && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="relative w-full sm:w-[200px]">
+                      <Input
+                        placeholder="Search by name, email..."
+                        className="w-full pr-10 h-10 border-[#e2e8f0] rounded-[8px]"
+                        value={courseSessionsSearch}
+                        onChange={(e) => {
+                          setCourseSessionsSearch(e.target.value);
+                          setCourseSessionsPage(1);
+                        }}
+                      />
+                      <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-muted-foreground">
+                        <Search className="size-4" />
+                      </div>
+                    </div>
+                    <Select
+                      value={filterCourseId}
+                      onValueChange={(val) => {
+                        setFilterCourseId(val);
+                        setCourseSessionsPage(1);
+                      }}
+                    >
+                      <SelectTrigger className="w-full sm:w-[140px] h-10 text-sm bg-slate-50 border-[#e2e8f0] rounded-[8px]">
+                        <SelectValue placeholder="Course: All" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Course: All</SelectItem>
+                        {allCoursesDropdown?.data?.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            Course: {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select
+                      value={filterSessionId}
+                      onValueChange={(val) => {
+                        setFilterSessionId(val);
+                        setCourseSessionsPage(1);
+                      }}
+                    >
+                      <SelectTrigger className="w-full sm:w-[140px] h-10 text-sm bg-slate-50 border-[#e2e8f0] rounded-[8px]">
+                        <SelectValue placeholder="Session: All" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Session: All</SelectItem>
+                        {allSessionsDropdown?.data?.map((s) => (
+                          <SelectItem key={s.id} value={s.id}>
+                            Session: {s.displayName || s.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select
+                      value={courseSessionsStatus}
+                      onValueChange={(val) => {
+                        setCourseSessionsStatus(val);
+                        setCourseSessionsPage(1);
+                      }}
+                    >
+                      <SelectTrigger className="w-full sm:w-[140px] h-10 text-sm bg-slate-50 border-[#e2e8f0] rounded-[8px]">
+                        <SelectValue placeholder="Status: All Statuses" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Status: All Statuses</SelectItem>
+                        <SelectItem value="Active">Status: Active</SelectItem>
+                        <SelectItem value="Inactive">Status: Inactive</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                </div>
+                )}
               </div>
             </div>
 
-            {/* Desktop View Table */}
-            <div className="hidden lg:block border border-[#e5e5e5] rounded-[12px] bg-white overflow-hidden shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)]">
+
+          {/* 1. COURSES TAB CONTENT */}
+          <TabsContent value="courses" className="m-0 border-0 outline-none">
+            <div className="hidden lg:block w-full">
               <Table>
                 <TableHeader className="bg-[#fafafa] border-b border-[#e2e8f0]">
                   <TableRow className="hover:bg-transparent border-b border-[#e2e8f0]">
@@ -980,52 +1089,8 @@ export default function CoursesSettingsPage() {
           </TabsContent>
 
           {/* 2. ACADEMIC SESSIONS TAB CONTENT */}
-          <TabsContent value="sessions" className="flex flex-col gap-4 outline-none">
-            {/* Search and Filters Toolbar */}
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-              <div className="flex flex-1 w-full">
-                <div className="relative w-full">
-                  <Input
-                    placeholder="Search sessions by name or display title..."
-                    className="w-full pr-10 h-10"
-                    value={sessionsSearch}
-                    onChange={(e) => {
-                      setSessionsSearch(e.target.value);
-                      setSessionsPage(1);
-                    }}
-                  />
-                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-muted-foreground">
-                    <Search className="size-4" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                <div className="flex items-center gap-2 w-full sm:w-auto">
-                  <div className="flex-1 min-w-0 sm:w-[140px]">
-                    <Select
-                      value={sessionsStatus}
-                      onValueChange={(val) => {
-                        setSessionsStatus(val);
-                        setSessionsPage(1);
-                      }}
-                    >
-                      <SelectTrigger className="w-full h-10 text-sm">
-                        <SelectValue placeholder="All Statuses" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Statuses</SelectItem>
-                        <SelectItem value="Active">Active</SelectItem>
-                        <SelectItem value="Inactive">Inactive</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Desktop View Table */}
-            <div className="hidden lg:block border border-[#e5e5e5] rounded-[12px] bg-white overflow-hidden shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)]">
+          <TabsContent value="sessions" className="m-0 border-0 outline-none">
+            <div className="hidden lg:block w-full">
               <Table>
                 <TableHeader className="bg-[#fafafa] border-b border-[#e2e8f0]">
                   <TableRow className="hover:bg-transparent border-b border-[#e2e8f0]">
@@ -1416,102 +1481,8 @@ export default function CoursesSettingsPage() {
           </TabsContent>
 
           {/* 3. COURSE SESSIONS TAB CONTENT */}
-          <TabsContent
-            value="course-sessions"
-            className="flex flex-col gap-4 outline-none"
-          >
-            {/* Search and Filters Toolbar */}
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-              <div className="flex flex-1 w-full">
-                <div className="relative w-full">
-                  <Input
-                    placeholder="Search by course name or code..."
-                    className="w-full pr-10 h-10"
-                    value={courseSessionsSearch}
-                    onChange={(e) => {
-                      setCourseSessionsSearch(e.target.value);
-                      setCourseSessionsPage(1);
-                    }}
-                  />
-                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-muted-foreground">
-                    <Search className="size-4" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full lg:w-auto">
-                <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
-                  {/* Course Filter */}
-                  <div className="flex-1 min-w-0 sm:w-[150px]">
-                    <Select
-                      value={filterCourseId}
-                      onValueChange={(val) => {
-                        setFilterCourseId(val);
-                        setCourseSessionsPage(1);
-                      }}
-                    >
-                      <SelectTrigger className="w-full h-10 text-sm">
-                        <SelectValue placeholder="All Courses" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Courses</SelectItem>
-                        {allCoursesDropdown?.data?.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Session Filter */}
-                  <div className="flex-1 min-w-0 sm:w-[160px]">
-                    <Select
-                      value={filterSessionId}
-                      onValueChange={(val) => {
-                        setFilterSessionId(val);
-                        setCourseSessionsPage(1);
-                      }}
-                    >
-                      <SelectTrigger className="w-full h-10 text-sm">
-                        <SelectValue placeholder="All Sessions" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Sessions</SelectItem>
-                        {allSessionsDropdown?.data?.map((s) => (
-                          <SelectItem key={s.id} value={s.id}>
-                            {s.displayName || s.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Status Filter */}
-                  <div className="flex-1 min-w-0 sm:w-[140px]">
-                    <Select
-                      value={courseSessionsStatus}
-                      onValueChange={(val) => {
-                        setCourseSessionsStatus(val);
-                        setCourseSessionsPage(1);
-                      }}
-                    >
-                      <SelectTrigger className="w-full h-10 text-sm">
-                        <SelectValue placeholder="All Statuses" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Statuses</SelectItem>
-                        <SelectItem value="Active">Active</SelectItem>
-                        <SelectItem value="Inactive">Inactive</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Desktop View Table */}
-            <div className="hidden lg:block border border-[#e5e5e5] rounded-[12px] bg-white overflow-hidden shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)]">
+          <TabsContent value="course-sessions" className="m-0 border-0 outline-none">
+            <div className="hidden lg:block w-full">
               <Table>
                 <TableHeader className="bg-[#fafafa] border-b border-[#e2e8f0]">
                   <TableRow className="hover:bg-transparent border-b border-[#e2e8f0]">
@@ -1848,6 +1819,7 @@ export default function CoursesSettingsPage() {
               </div>
             )}
           </TabsContent>
+          </div>
         </Tabs>
       </div>
 
