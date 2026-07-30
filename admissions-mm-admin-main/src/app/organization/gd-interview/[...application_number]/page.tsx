@@ -48,18 +48,29 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-import { useApplication } from "@/hooks/use-applications";
+import { useApplication, useUpdateApplicationStatus, useUpdateGdEvaluation, useUpdateApplication } from "@/hooks/use-applications";
 import { gdInterviews } from "@/data/mock-gd-interviews";
 import { toast } from "sonner";
 
 export default function GDInterviewDetailsPage() {
   const params = useParams();
-  const applicationNumber = params.application_number as string;
+  const rawParam = params.application_number;
+  const applicationNumber = React.useMemo(() => {
+    if (!rawParam) return "";
+    if (Array.isArray(rawParam)) {
+      return rawParam.map((p) => decodeURIComponent(p)).join("/");
+    }
+    return decodeURIComponent(rawParam as string);
+  }, [rawParam]);
+
   const listMatch = gdInterviews.find(
     (item) => item.applicationNo === applicationNumber,
   );
 
   const { data: fetchedAppData, isLoading } = useApplication(applicationNumber, { enabled: !listMatch });
+  const updateStatusMutation = useUpdateApplicationStatus();
+  const updateGdEvalMutation = useUpdateGdEvaluation();
+  const updateSectionMutation = useUpdateApplication();
 
   const [activeEditSection, setActiveEditSection] = React.useState<
     | "academics"
@@ -70,10 +81,254 @@ export default function GDInterviewDetailsPage() {
     | null
   >(null);
 
-  const handleSave = (section: string, _updatedFields: any) => {
+  const [localInterviewEdits, setLocalInterviewEdits] = React.useState<{
+    academics?: any;
+    experience?: any;
+    entranceTest?: any;
+    scoring?: any;
+    decision?: any;
+  }>({});
+
+  const handleSave = (section: string, updatedFields: any) => {
     toast.success(`${section} updated successfully`);
+    setLocalInterviewEdits((prev) => ({
+      ...prev,
+      [section === "Academic Profile" ? "academics" :
+       section === "Work Experience" ? "experience" :
+       section === "Entrance Test" ? "entranceTest" :
+       section === "Evaluation & Scoring" ? "scoring" :
+       section === "Admission Decision" ? "decision" : "other"]: updatedFields
+    }));
+
+    if (section === "Academic Profile" && appData) {
+      updateSectionMutation.mutate({
+        applicationNo: applicationNumber,
+        section: "education",
+        data: {
+          ...(appData as any),
+          education: {
+            tenth: { institute: "", board: "", stream: "", year: "", ...appData.education?.tenth, percentage: String(updatedFields.tenthPercentage) },
+            twelfth: { institute: "", board: "", stream: "", year: "", ...appData.education?.twelfth, percentage: String(updatedFields.twelfthPercentage) },
+            graduation: { state: "", university: "", college: "", degree: "", mode: "", status: "", enrollmentYear: "", passingYear: "", ...appData.education?.graduation, percentageTillLast: String(updatedFields.ugPercentage), percentage: String(updatedFields.ugPercentage) },
+          }
+        } as any
+      });
+    }
+
+    if (section === "Entrance Test" && appData) {
+      const testsArray = Array.isArray(updatedFields.entranceTests)
+        ? updatedFields.entranceTests
+        : [
+            {
+              exam: updatedFields.name || "CAT",
+              rollNo: updatedFields.rollNo || "",
+              month: updatedFields.month || "",
+              status: updatedFields.status || "Declared",
+              score: String(updatedFields.score || "-"),
+              percentile: String(updatedFields.percentile || "0"),
+            }
+          ];
+
+      updateSectionMutation.mutate({
+        applicationNo: applicationNumber,
+        section: "entrance",
+        data: {
+          ...(appData as any),
+          entranceTests: testsArray,
+        } as any
+      });
+    }
+
+    if (section === "Work Experience") {
+      updateGdEvalMutation.mutate({
+        applicationNo: applicationNumber,
+        data: {
+          claimedMonths: String(updatedFields.claimedMonths || "0"),
+          validatedMonths: String(updatedFields.validatedMonths || "0"),
+        },
+      });
+    }
+
+    if (section === "Evaluation & Scoring") {
+      const gdNum = Number(updatedFields.gdScore);
+      const piNum = Number(updatedFields.piScore);
+      const payload: any = {};
+      if (!isNaN(gdNum)) payload.gdScore = gdNum;
+      if (!isNaN(piNum)) payload.piScore = piNum;
+
+      updateGdEvalMutation.mutate({
+        applicationNo: applicationNumber,
+        data: payload,
+      });
+    }
+
+    if (section === "Admission Decision") {
+      let apiStatus = "under_review";
+      if (updatedFields.campus === "Not Selected") {
+        apiStatus = "rejected";
+      } else if (updatedFields.campus !== "Awaited Scores" && updatedFields.campus) {
+        apiStatus = "accepted";
+      }
+
+      const payload: any = { status: apiStatus };
+      if (updatedFields.campus) payload.confirmedCampus = updatedFields.campus;
+      if (updatedFields.remarks !== undefined) payload.remarks = updatedFields.remarks;
+
+      updateGdEvalMutation.mutate({
+        applicationNo: applicationNumber,
+        data: payload,
+      });
+    }
+
     setActiveEditSection(null);
   };
+
+  const appData = fetchedAppData || (listMatch ? {
+    applicationNo: listMatch.applicationNo,
+    applicant: {
+      name: listMatch.name,
+      email: listMatch.email,
+      primaryMobile: listMatch.phone,
+      photo: "",
+    },
+    appliedFor: listMatch.course,
+    education: {
+      tenth: { percentage: "85" },
+      twelfth: { percentage: "92" },
+      graduation: { percentageTillLast: "75", percentage: "75" },
+    },
+    entranceTests: [
+      { exam: "CAT", score: "99", percentile: "99" }
+    ],
+    preferences: {
+      preference1: listMatch.confirmedCampus || "Kochi",
+      preference2: "Chennai",
+    }
+  } : null);
+
+  const interviewData = React.useMemo(() => {
+    if (!appData) return null;
+
+    const tenthPct = parseFloat(localInterviewEdits.academics?.tenthPercentage ?? appData.education?.tenth?.percentage ?? "0") || 0;
+    const twelfthPct = parseFloat(localInterviewEdits.academics?.twelfthPercentage ?? appData.education?.twelfth?.percentage ?? "0") || 0;
+    const ugPct = parseFloat(localInterviewEdits.academics?.ugPercentage ?? (appData.education?.graduation as any)?.percentageTillLast ?? (appData.education?.graduation as any)?.percentage ?? "0") || 0;
+
+    const tenthScore = localInterviewEdits.academics?.tenthScore ?? (tenthPct >= 80 ? 1 : 0);
+    const twelfthScore = localInterviewEdits.academics?.twelfthScore ?? (twelfthPct >= 90 ? 4 : twelfthPct >= 80 ? 3 : 2);
+    const ugScore = localInterviewEdits.academics?.ugScore ?? (ugPct >= 70 ? 2 : ugPct >= 60 ? 1 : 0);
+    const totalAcademicScore = tenthScore + twelfthScore + ugScore;
+
+    const rawTests = (appData.entranceTests && Array.isArray(appData.entranceTests))
+      ? appData.entranceTests.filter((t: any) => {
+          if (!t) return false;
+          const roll = (t.rollNo || t.rollNumber || "").toString().trim();
+          const score = (t.score || t.compositeScore || "").toString().trim();
+          const pct = (t.percentile != null ? t.percentile : "").toString().trim();
+          return Boolean((roll && roll !== "-") || (score && score !== "-") || (pct && pct !== "-"));
+        })
+      : [];
+
+    const allTests = rawTests.map((t: any) => ({
+      name: t.exam || t.testName || "CAT",
+      rollNo: t.rollNo || "-",
+      month: t.month || "-",
+      status: t.status || "Declared",
+      score: t.score || "-",
+      percentile: t.percentile != null ? String(t.percentile) : "-",
+    }));
+
+    const bestTest = rawTests.reduce((best: any, current: any) => {
+      const currentPct = parseFloat(current.percentile) || 0;
+      const bestPct = parseFloat(best?.percentile) || 0;
+      return currentPct > bestPct ? current : best;
+    }, rawTests[0]);
+
+    const rawPercentile = parseFloat(localInterviewEdits.entranceTest?.percentile ?? bestTest?.percentile ?? "0") || 0;
+    const entranceTestScore = Math.round((rawPercentile * 0.4) * 10) / 10;
+
+    const validatedExpMonths = parseInt(localInterviewEdits.experience?.validatedMonths ?? (appData as any).experience?.validatedMonths ?? "0") || 0;
+    const expScore = Math.min(5, Math.floor(validatedExpMonths / 6));
+
+    const dbGdScore = fetchedAppData?.gdEvaluation?.gdScore;
+    const dbPiScore = fetchedAppData?.gdEvaluation?.piScore;
+    const gdScore = localInterviewEdits.scoring?.gdScore ?? (dbGdScore !== undefined ? dbGdScore : (listMatch?.selectionStatus === "Accepted" ? 8 : listMatch?.selectionStatus === "Rejected" ? 3 : 5));
+    const piScore = localInterviewEdits.scoring?.piScore ?? (dbPiScore !== undefined ? dbPiScore : (listMatch?.selectionStatus === "Accepted" ? 22 : listMatch?.selectionStatus === "Rejected" ? 9 : 15));
+
+    const achievement = localInterviewEdits.scoring?.achievement ?? 0;
+    const penalty = localInterviewEdits.scoring?.penalty ?? 0;
+    const assignedTotalOther = achievement - penalty + 5;
+
+    const base = {
+      applicationNo: appData.applicationNo,
+      name: appData.applicant?.name || "",
+      email: appData.applicant?.email || "",
+      phone: appData.applicant?.primaryMobile || "",
+      appliedFor: appData.appliedFor || "",
+      interviewDetails: {
+        location: fetchedAppData?.gdEvaluation?.interviewLocation || listMatch?.interviewLocation || "Kochi",
+        date: fetchedAppData?.gdEvaluation?.interviewDate || listMatch?.date || "2026-02-07",
+        time: fetchedAppData?.gdEvaluation?.interviewTime || listMatch?.time || "14:30",
+      },
+      academics: {
+        tenth: {
+          percentage: String(tenthPct),
+          score: tenthScore,
+        },
+        twelfth: {
+          percentage: String(twelfthPct),
+          score: twelfthScore,
+        },
+        ug: {
+          percentage: String(ugPct),
+          score: ugScore,
+        },
+        totalScore: totalAcademicScore,
+      },
+      entranceTest: {
+        name: localInterviewEdits.entranceTest?.name ?? bestTest?.exam ?? "CAT",
+        score: localInterviewEdits.entranceTest?.score ?? bestTest?.score ?? "-",
+        percentile: String(rawPercentile),
+      },
+      entranceTests: allTests,
+      experience: {
+        claimedMonths: localInterviewEdits.experience?.claimedMonths ?? (appData as any).experience?.claimedMonths ?? "-",
+        validatedMonths: String(validatedExpMonths),
+        score: expScore,
+      },
+      components: {
+        achievement,
+        penalty,
+        assignedTotalOther,
+      },
+      interviewScores: {
+        gd: gdScore,
+        pi: piScore,
+        get totalGDPI() {
+          return this.gd + this.pi;
+        },
+        get compositeScore() {
+          return Math.min(100, Math.round((totalAcademicScore + entranceTestScore + expScore + this.totalGDPI + achievement - penalty) * 10) / 10);
+        },
+      },
+      discrepancy: appData.entranceTests?.every((t: any) => t.percentile === "-")
+        ? "Entrance Score Awaited"
+        : null,
+      decision: {
+        campus: localInterviewEdits.decision?.campus ?? fetchedAppData?.gdEvaluation?.confirmedCampus ?? listMatch?.confirmedCampus ?? "Awaited Scores",
+        waitlist: localInterviewEdits.decision?.waitlist ?? "Not Applicable",
+        remarks:
+          localInterviewEdits.decision?.remarks ??
+          fetchedAppData?.gdEvaluation?.remarks ??
+          (listMatch?.selectionStatus === "Accepted"
+            ? "Strong performance in GD and PI. Recommended for selection."
+            : listMatch?.selectionStatus === "Rejected"
+              ? "Does not meet the cut-off requirements."
+              : "Evaluation in progress."),
+      },
+    };
+
+    return base;
+  }, [appData, listMatch, localInterviewEdits, fetchedAppData]);
 
   if (isLoading && !listMatch) {
     return (
@@ -88,129 +343,13 @@ export default function GDInterviewDetailsPage() {
     );
   }
 
-  const appData = fetchedAppData || (listMatch ? {
-    applicationNo: listMatch.applicationNo,
-    applicant: {
-      name: listMatch.name,
-      email: listMatch.email,
-      primaryMobile: listMatch.phone,
-    },
-    appliedFor: listMatch.course,
-    education: {
-      tenth: { percentage: "85" },
-      twelfth: { percentage: "92" },
-      graduation: { percentageTillLast: "75" },
-    },
-    entranceTests: [
-      { exam: "CAT", score: "99", percentile: "99" }
-    ],
-    preferences: {
-      preference1: listMatch.confirmedCampus || "Kochi",
-      preference2: "Chennai",
-    }
-  } : null);
-
-  if (!appData) {
+  if (!appData || !interviewData) {
     return (
       <div className="flex items-center justify-center min-h-screen w-full bg-white">
         <p className="text-sm text-red-500 font-medium">Candidate not found.</p>
       </div>
     );
   }
-
-  const interviewData = {
-    applicationNo: appData.applicationNo,
-    name: appData.applicant.name,
-    email: appData.applicant.email,
-    phone: appData.applicant.primaryMobile,
-    appliedFor: appData.appliedFor,
-    interviewDetails: {
-      location: listMatch?.interviewLocation || "Kochi",
-      date: listMatch?.date || "2026-02-07",
-      time: listMatch?.time || "14:30",
-    },
-    academics: {
-      tenth: {
-        percentage: appData.education.tenth.percentage,
-        score:
-          parseInt(appData.education.tenth.percentage || "0") >= 80 ? 1 : 0,
-      },
-      twelfth: {
-        percentage: appData.education.twelfth.percentage,
-        score:
-          parseInt(appData.education.twelfth.percentage || "0") >= 90
-            ? 4
-            : parseInt(appData.education.twelfth.percentage || "0") >= 80
-              ? 3
-              : 2,
-      },
-      ug: {
-        percentage: appData.education.graduation.percentageTillLast,
-        score:
-          parseInt(appData.education.graduation.percentageTillLast || "0") >= 70
-            ? 2
-            : parseInt(
-                  appData.education.graduation.percentageTillLast || "0",
-                ) >= 60
-              ? 1
-              : 0,
-      },
-    },
-    entranceTest: {
-      name:
-        appData.entranceTests.find(
-          (t) => t.percentile !== "-" && t.percentile !== "",
-        )?.exam || "CAT",
-      score: "-",
-      percentile:
-        appData.entranceTests.find(
-          (t) => t.percentile !== "-" && t.percentile !== "",
-        )?.percentile || "-",
-    },
-    experience: {
-      claimedMonths: "-",
-      validatedMonths: "0",
-      score: 0,
-    },
-    components: {
-      achievement: 0,
-      penalty: 0,
-      assignedTotalOther: 5,
-    },
-    interviewScores: {
-      gd:
-        listMatch?.selectionStatus === "Accepted"
-          ? 8
-          : listMatch?.selectionStatus === "Rejected"
-            ? 3
-            : 5,
-      pi:
-        listMatch?.selectionStatus === "Accepted"
-          ? 22
-          : listMatch?.selectionStatus === "Rejected"
-            ? 9
-            : 15,
-      get totalGDPI() {
-        return this.gd + this.pi;
-      },
-      get compositeScore() {
-        return this.totalGDPI + 5;
-      },
-    },
-    discrepancy: appData.entranceTests.every((t) => t.percentile === "-")
-      ? "Entrance Score Awaited"
-      : null,
-    decision: {
-      campus: listMatch?.confirmedCampus || "Awaited Scores",
-      waitlist: "Not Applicable",
-      remarks:
-        listMatch?.selectionStatus === "Accepted"
-          ? "Strong performance in GD and PI. Recommended for selection."
-          : listMatch?.selectionStatus === "Rejected"
-            ? "Does not meet the cut-off requirements."
-            : "Evaluation in progress.",
-    },
-  };
 
   return (
     <div className="flex flex-col gap-6 p-6 pb-20 max-w-7xl mx-auto w-full bg-white min-h-screen">
@@ -219,7 +358,7 @@ export default function GDInterviewDetailsPage() {
       {/* Hero Header Card */}
       <div className="relative w-full p-6 rounded-[8px] border border-[#D4D4D4] bg-white shadow-[0_1px_2px_0_rgba(0,0,0,0.05)]">
         <Link
-          href="/gd-interview"
+          href="/organization/gd-interview"
           className="absolute top-3 left-3 hover:opacity-80 transition-opacity p-1 z-10"
         >
           <svg
@@ -360,7 +499,7 @@ export default function GDInterviewDetailsPage() {
                   asChild
                   className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs px-4 py-2.5 rounded-md flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer shrink-0 w-full sm:w-auto"
                 >
-                  <Link href={`/applications/${interviewData.applicationNo}`}>
+                  <Link href={`/organization/applications/${interviewData.applicationNo}`}>
                     APPLICATION
                     <ExternalLink className="h-3.5 w-3.5" />
                   </Link>
@@ -684,14 +823,14 @@ export default function GDInterviewDetailsPage() {
                     stroke="#1E293B"
                     strokeWidth="1.44833"
                     strokeLinecap="round"
-                    stroke-linejoin="round"
+                    strokeLinejoin="round"
                   />
                   <path
                     d="M7.2417 3.62061V7.24144L9.4142 9.41394"
                     stroke="#1E293B"
                     strokeWidth="1.44833"
                     strokeLinecap="round"
-                    stroke-linejoin="round"
+                    strokeLinejoin="round"
                   />
                 </svg>
                 Entrance Test
@@ -706,8 +845,7 @@ export default function GDInterviewDetailsPage() {
               </Button>
             </CardHeader>
             <CardContent className="px-5 pt-6 pb-4 w-full">
-              {interviewData.entranceTest.name === "Awaited" ||
-              !interviewData.entranceTest.name ? (
+              {(!interviewData.entranceTests || interviewData.entranceTests.length === 0) ? (
                 <div className="flex flex-col items-center justify-center py-4 text-center">
                   <AlertTriangle className="h-8 w-8 text-amber-400 mb-2 opacity-50" />
                   <p className="text-sm font-medium text-slate-600">
@@ -715,25 +853,27 @@ export default function GDInterviewDetailsPage() {
                   </p>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-slate-500">Test Name</span>
-                    <span className="font-medium">
-                      {interviewData.entranceTest.name}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-slate-500">Score</span>
-                    <div style={{ color: "#1E293B", textAlign: "right", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 700, lineHeight: "20px" }}>
-                      {interviewData.entranceTest.score}
+                <div className="space-y-6">
+                  {interviewData.entranceTests.map((test: any, idx: number) => (
+                    <div key={idx} className="space-y-4 border-t border-slate-100 pt-4 first:border-0 first:pt-0">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-slate-500">Test Name</span>
+                        <span className="font-medium">{test.name}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-slate-500">Score</span>
+                        <div style={{ color: "#1E293B", textAlign: "right", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 700, lineHeight: "20px" }}>
+                          {test.score}
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-slate-500">Percentile</span>
+                        <div style={{ color: "#E11D48", textAlign: "right", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 700, lineHeight: "20px" }}>
+                          {test.percentile}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-slate-500">Percentile</span>
-                    <div style={{ color: "#E11D48", textAlign: "right", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 700, lineHeight: "20px" }}>
-                      {interviewData.entranceTest.percentile}
-                    </div>
-                  </div>
+                  ))}
                 </div>
               )}
             </CardContent>
@@ -786,14 +926,14 @@ export default function GDInterviewDetailsPage() {
                     stroke="#1A237E"
                     strokeWidth="1.66667"
                     strokeLinecap="round"
-                    stroke-linejoin="round"
+                    strokeLinejoin="round"
                   />
                   <path
                     d="M17.0733 7.50009H12.5V2.92676C14.6356 3.6844 16.3157 5.36453 17.0733 7.50009V7.50009"
                     stroke="#1A237E"
                     strokeWidth="1.66667"
                     strokeLinecap="round"
-                    stroke-linejoin="round"
+                    strokeLinejoin="round"
                   />
                   </svg>
                 </div>
@@ -969,14 +1109,14 @@ export default function GDInterviewDetailsPage() {
                     stroke="#1E293B"
                     strokeWidth="1.44833"
                     strokeLinecap="round"
-                    stroke-linejoin="round"
+                    strokeLinejoin="round"
                   />
                   <path
                     d="M7.2417 3.62061V7.24144L9.4142 9.41394"
                     stroke="#1E293B"
                     strokeWidth="1.44833"
                     strokeLinecap="round"
-                    stroke-linejoin="round"
+                    strokeLinejoin="round"
                   />
                 </svg>
                 Admission Decision
@@ -1115,8 +1255,8 @@ export default function GDInterviewDetailsPage() {
           )}
           {activeEditSection === "entranceTest" && (
             <EditEntranceTestForm
-              data={interviewData.entranceTest}
-              onSave={(d) => handleSave("Entrance Test", d)}
+              data={appData?.entranceTests || interviewData.entranceTests}
+              onSave={(d: any) => handleSave("Entrance Test", d)}
               onClose={() => setActiveEditSection(null)}
             />
           )}
@@ -1347,67 +1487,142 @@ function EditExperienceForm({ data, onSave, onClose }: GDFormProps) {
   );
 }
 
-function EditEntranceTestForm({ data, onSave, onClose }: GDFormProps) {
+function EditEntranceTestForm({ data, onSave, onClose }: any) {
+  const rawList = Array.isArray(data) ? data : [];
+  const initialTests = (rawList && rawList.length > 0)
+    ? rawList.map((test: any) => ({
+        exam: test.exam || test.name || "CAT",
+        rollNo: test.rollNo === "-" ? "" : (test.rollNo || ""),
+        month: test.month === "-" ? "" : (test.month || ""),
+        status: test.status === "-" ? "Declared" : (test.status || "Declared"),
+        score: test.score === "-" ? "" : (test.score || ""),
+        percentile: test.percentile === "-" ? "" : (test.percentile || ""),
+      }))
+    : [{ exam: "CAT", rollNo: "", month: "", status: "Declared", score: "", percentile: "" }];
+
   const [formData, setFormData] = React.useState({
-    name: data.name,
-    score: data.score,
-    percentile: data.percentile,
+    entranceTests: initialTests,
   });
+
+  const handleFieldChange = (index: number, field: string, value: string) => {
+    setFormData((prev) => {
+      const updatedTests = [...prev.entranceTests];
+      updatedTests[index] = {
+        ...updatedTests[index],
+        [field]: value,
+      };
+      return { entranceTests: updatedTests };
+    });
+  };
+
+  const handleAddTest = () => {
+    setFormData((prev) => ({
+      entranceTests: [
+        ...prev.entranceTests,
+        { exam: "MAT", rollNo: "", month: "", status: "Declared", score: "", percentile: "" },
+      ],
+    }));
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(formData);
+    onSave({ entranceTests: formData.entranceTests });
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4 pt-5 pb-1">
-      <div className="flex flex-col gap-2">
-        <Label className="text-[#64748B] font-semibold text-[12px] leading-4 tracking-[0.6px] uppercase font-sans">
-          Test Name
-        </Label>
-        <Select
-          value={formData.name}
-          onValueChange={(val) =>
-            setFormData((prev) => ({ ...prev, name: val }))
-          }
-        >
-          <SelectTrigger className="w-full border-[#D4D4D4] bg-white rounded-[8px] h-10 text-[14px]">
-            <SelectValue placeholder="Select Test" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="CAT">CAT</SelectItem>
-            <SelectItem value="XAT">XAT</SelectItem>
-            <SelectItem value="MAT">MAT</SelectItem>
-            <SelectItem value="GMAT">GMAT</SelectItem>
-            <SelectItem value="CMAT">CMAT</SelectItem>
-            <SelectItem value="ATMA">ATMA</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="flex flex-col gap-2">
-        <Label className="text-[#64748B] font-semibold text-[12px] leading-4 tracking-[0.6px] uppercase font-sans">
-          Score
-        </Label>
-        <Input
-          value={formData.score}
-          onChange={(e) =>
-            setFormData((prev) => ({ ...prev, score: e.target.value }))
-          }
-          className="border-[#D4D4D4] rounded-[8px] h-10 text-[14px]"
-        />
-      </div>
-      <div className="flex flex-col gap-2">
-        <Label className="text-[#64748B] font-semibold text-[12px] leading-4 tracking-[0.6px] uppercase font-sans">
-          Percentile
-        </Label>
-        <Input
-          value={formData.percentile}
-          onChange={(e) =>
-            setFormData((prev) => ({ ...prev, percentile: e.target.value }))
-          }
-          className="border-[#D4D4D4] rounded-[8px] h-10 text-[14px]"
-        />
-      </div>
+    <form onSubmit={handleSubmit} className="flex flex-col gap-6 pt-3 pb-1">
+      {formData.entranceTests.map((test: any, index: number) => (
+        <div key={index} className="flex flex-col gap-3 p-4 border rounded-lg bg-white">
+          <div className="border-b pb-1.5 flex justify-between items-center">
+            <h4 className="font-bold text-slate-800 text-sm">
+              Test #{index + 1} Details
+            </h4>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5 col-span-1">
+              <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                Exam Name
+              </Label>
+              <Select
+                value={test.exam}
+                onValueChange={(val) => handleFieldChange(index, "exam", val)}
+              >
+                <SelectTrigger className="border-[#D4D4D4] rounded-[8px] h-9 text-[13px] bg-white">
+                  <SelectValue placeholder="Select Exam" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="CAT">CAT</SelectItem>
+                  <SelectItem value="XAT">XAT</SelectItem>
+                  <SelectItem value="MAT">MAT</SelectItem>
+                  <SelectItem value="CMAT">CMAT</SelectItem>
+                  <SelectItem value="ATMA">ATMA</SelectItem>
+                  <SelectItem value="GMAT">GMAT</SelectItem>
+                  <SelectItem value="CUET">CUET</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1.5 col-span-1">
+              <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                Roll No / Reg No
+              </Label>
+              <Input
+                value={test.rollNo}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFieldChange(index, "rollNo", e.target.value)}
+                placeholder="e.g. CUET998877"
+                className="border-[#D4D4D4] rounded-[8px] h-9 text-[13px] bg-white"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5 col-span-1">
+              <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                Month/Year
+              </Label>
+              <Input
+                value={test.month}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFieldChange(index, "month", e.target.value)}
+                placeholder="e.g. May 2024"
+                className="border-[#D4D4D4] rounded-[8px] h-9 text-[13px] bg-white"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5 col-span-1">
+              <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                Status
+              </Label>
+              <Select
+                value={test.status}
+                onValueChange={(val) => handleFieldChange(index, "status", val)}
+              >
+                <SelectTrigger className="border-[#D4D4D4] rounded-[8px] h-9 text-[13px] bg-white">
+                  <SelectValue placeholder="Select Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Declared">Declared</SelectItem>
+                  <SelectItem value="Awaiting Result">Awaiting Result</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1.5 col-span-2">
+              <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                Percentile
+              </Label>
+              <Input
+                value={test.percentile}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFieldChange(index, "percentile", e.target.value)}
+                placeholder="e.g. 94.00"
+                className="border-[#D4D4D4] rounded-[8px] h-9 text-[13px] bg-white"
+              />
+            </div>
+          </div>
+        </div>
+      ))}
+
+      <Button
+        type="button"
+        variant="outline"
+        onClick={handleAddTest}
+        className="w-full border-dashed border-slate-300 text-slate-700 hover:bg-slate-50 font-semibold"
+      >
+        + Add Another Entrance Test
+      </Button>
 
       <div className="flex items-center gap-3 pt-4 border-t border-[#E5E5E5] mt-2">
         <Button

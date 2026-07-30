@@ -25,6 +25,7 @@ import {
   UpdateAdditionalInfoDto,
   UpdateDeclarationDto,
   UpdatePaymentDto,
+  UpdateGdEvaluationDto,
 } from './dto/update-sections.dto.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { TenantGuard } from '../../common/guards/tenant.guard.js';
@@ -140,6 +141,12 @@ export class ApplicationsController {
   @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.APPLICATION_MANAGER, Role.COUNSELOR)
   updatePayment(@Req() req: any, @Param('applicationNo') appNo: string, @Body() dto: UpdatePaymentDto) {
     return this.applicationsService.updatePayment(appNo, req.user.organizationId, dto, req.user.sub);
+  }
+
+  @Patch(':applicationNo/gd-evaluation')
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.APPLICATION_MANAGER, Role.COUNSELOR)
+  updateGdEvaluation(@Req() req: any, @Param('applicationNo') appNo: string, @Body() dto: UpdateGdEvaluationDto) {
+    return this.applicationsService.updateGdEvaluation(appNo, req.user.organizationId, dto, req.user.sub);
   }
 
   // =========================================================================

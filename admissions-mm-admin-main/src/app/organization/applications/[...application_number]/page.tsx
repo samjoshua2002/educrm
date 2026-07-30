@@ -104,10 +104,8 @@ export default function ApplicationDetailsPage() {
   }, [branchesList]);
 
   const hasGDInterview = React.useMemo(() => {
-    return gdInterviews.some(
-      (item) => item.applicationNo === applicationNumber,
-    );
-  }, [applicationNumber]);
+    return !!appData && appData.status !== "incomplete";
+  }, [appData]);
 
   const [activeEditSection, setActiveEditSection] = React.useState<
     | "personal"
@@ -259,7 +257,7 @@ export default function ApplicationDetailsPage() {
                 asChild
                 className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs px-4 py-2.5 rounded-md flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer shrink-0 w-full sm:w-auto"
               >
-                <Link href={`/gd-interview/${applicationData.applicationNo}`}>
+                <Link href={`/organization/gd-interview/${applicationData.applicationNo}`}>
                   GD AND INTERVIEWS
                   <ExternalLink className="h-3.5 w-3.5" />
                 </Link>
@@ -682,10 +680,10 @@ export default function ApplicationDetailsPage() {
                   </div>
                   <div className="space-y-1">
                     <span className="font-sans text-[10px] font-bold leading-normal tracking-[0.5px] uppercase text-[#64748B]">
-                      Score till last sem
+                      {applicationData.education.graduation.status === "Completed" ? "Graduation Percentage" : "Score till last sem"}
                     </span>
                     <p className="font-extrabold text-lg text-[#EF4444]">
-                      {applicationData.education.graduation.percentageTillLast}
+                      {applicationData.education.graduation.percentageTillLast || applicationData.education.graduation.percentage || "-"}
                     </p>
                   </div>
                   <div className="space-y-1">
@@ -1713,6 +1711,7 @@ function EditEducationForm({ appData, onSave, onClose }: FormProps) {
       status: appData.education.graduation.status,
       passingYear: appData.education.graduation.passingYear,
       percentageTillLast: appData.education.graduation.percentageTillLast,
+      percentage: appData.education.graduation.percentage || appData.education.graduation.percentageTillLast,
       mode: appData.education.graduation.mode,
     },
   });
@@ -1997,16 +1996,17 @@ function EditEducationForm({ appData, onSave, onClose }: FormProps) {
       </div>
       <div className="flex flex-col gap-1.5 col-span-1">
         <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
-          Score Till Last Sem
+          {formData.graduation.status === "Completed" ? "Graduation Percentage (%)" : "Score Till Last Semester (%)"}
         </Label>
         <Input
-          value={formData.graduation.percentageTillLast}
+          value={formData.graduation.percentageTillLast || formData.graduation.percentage}
           onChange={(e) =>
             setFormData((prev) => ({
               ...prev,
               graduation: {
                 ...prev.graduation,
                 percentageTillLast: e.target.value,
+                percentage: e.target.value,
               },
             }))
           }

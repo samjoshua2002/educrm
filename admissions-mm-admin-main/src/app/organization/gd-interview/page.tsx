@@ -134,11 +134,57 @@ export default function GDInterviewPage() {
   });
 
   const [interviewsState, setInterviewsState] =
-    React.useState<GDInterview[]>(gdInterviews);
+    React.useState<GDInterview[]>([]);
   const [deleteId, setDeleteId] = React.useState<number | null>(null);
 
-  const { data: appsResponse } = useApplications();
-  const appsList = (appsResponse as any)?.data || appsResponse || [];
+  const { data: appsResponse } = useApplications(1, 100);
+  const appsList = React.useMemo(() => {
+    return (appsResponse as any)?.data || appsResponse || null;
+  }, [appsResponse]);
+
+  React.useEffect(() => {
+    if (!appsList || !Array.isArray(appsList)) return;
+
+    const mapped = appsList.map((app: any, index: number) => {
+      // Retain mock interview details if application numbers match
+      const mockMatch = gdInterviews.find((m) => m.applicationNo === app.applicationNo);
+      const expectedStatus: GDInterview["selectionStatus"] = app.formStatus === "accepted"
+        ? "Accepted"
+        : app.formStatus === "rejected"
+          ? "Rejected"
+          : "In Progress";
+      const expectedCampus = app.formStatus === "accepted"
+        ? (app.campus || "Main Campus")
+        : "—";
+
+      return {
+        id: app.id || index + 1,
+        applicationNo: app.applicationNo,
+        name: app.name,
+        email: app.email,
+        phone: app.phone,
+        interviewLocation: app.campus || mockMatch?.interviewLocation || "Kochi",
+        date: mockMatch?.date || "2026-02-07",
+        time: mockMatch?.time || "14:30",
+        course: app.program || mockMatch?.course || "PGDM 2026-28",
+        selectionStatus: expectedStatus,
+        confirmedCampus: expectedCampus,
+      };
+    });
+
+    setInterviewsState((prev) => {
+      // Check if there are actual diffs to prevent unnecessary renders
+      const hasChanges = prev.length !== mapped.length || prev.some((item, idx) => (
+        item.applicationNo !== mapped[idx]?.applicationNo ||
+        item.name !== mapped[idx]?.name ||
+        item.email !== mapped[idx]?.email ||
+        item.phone !== mapped[idx]?.phone ||
+        item.selectionStatus !== mapped[idx]?.selectionStatus ||
+        item.confirmedCampus !== mapped[idx]?.confirmedCampus
+      ));
+      return hasChanges ? mapped : prev;
+    });
+  }, [appsList]);
 
   const activeAppNos = React.useMemo(() => {
     if (!Array.isArray(appsList)) return [];
@@ -723,7 +769,7 @@ export default function GDInterviewPage() {
                   </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-40">
                             <DropdownMenuItem className="gap-2" asChild>
-                              <Link href={`/gd-interview/${item.applicationNo}`}>
+                              <Link href={`/organization/gd-interview/${item.applicationNo}`}>
                                 <Eye className="size-4" />
                                 View
                               </Link>
@@ -877,7 +923,7 @@ export default function GDInterviewPage() {
 
                         <DropdownMenuContent align="end" className="w-40">
                           <DropdownMenuItem className="gap-2" asChild>
-                            <Link href={`/gd-interview/${item.applicationNo}`}>
+                            <Link href={`/organization/gd-interview/${item.applicationNo}`}>
                               <Eye className="size-4" />
                               View
                             </Link>

@@ -94,6 +94,19 @@ export interface ApplicationDetail {
     medicalConditions: string;
     medicalConditionDocument?: string;
   };
+  experience?: {
+    claimedMonths?: string;
+    validatedMonths?: string;
+  };
+  gdEvaluation?: {
+    gdScore?: number;
+    piScore?: number;
+    interviewLocation?: string;
+    interviewDate?: string;
+    interviewTime?: string;
+    confirmedCampus?: string;
+    remarks?: string;
+  };
 }
 
 export interface Application {
@@ -150,16 +163,24 @@ function mapApiToApplicationDetail(apiData: any): ApplicationDetail {
       .join(", ");
   }
 
-  // Map entrance tests array → UI test rows
+  // Map entrance tests array → UI test rows (filter out empty/null entries)
   const entranceTestRecords: any[] = apiData.entranceTests || [];
-  const mappedTests: EntranceTest[] = entranceTestRecords.map((t: any) => ({
-    exam: t.testName || t.exam || "-",
-    rollNo: t.rollNo || t.rollNumber || t.registrationNo || "-",
-    month: t.monthYear || t.month || "-",
-    status: t.resultStatus || t.status || "-",
-    score: t.compositeScore != null ? String(t.compositeScore) : t.score || "-",
-    percentile: t.percentile != null ? String(t.percentile) : "-",
-  }));
+  const mappedTests: EntranceTest[] = entranceTestRecords
+    .filter((t: any) => {
+      if (!t) return false;
+      const roll = (t.rollNo || t.rollNumber || t.registrationNo || "").toString().trim();
+      const score = (t.compositeScore != null ? t.compositeScore : t.score || "").toString().trim();
+      const pct = (t.percentile != null ? t.percentile : "").toString().trim();
+      return Boolean((roll && roll !== "-") || (score && score !== "-") || (pct && pct !== "-"));
+    })
+    .map((t: any) => ({
+      exam: t.testName || t.exam || "-",
+      rollNo: t.rollNo || t.rollNumber || t.registrationNo || "-",
+      month: t.monthYear || t.month || "-",
+      status: t.resultStatus || t.status || "-",
+      score: t.compositeScore != null ? String(t.compositeScore) : t.score || "-",
+      percentile: t.percentile != null ? String(t.percentile) : "-",
+    }));
 
   const student = apiData.student || {};
 
@@ -244,6 +265,19 @@ function mapApiToApplicationDetail(apiData: any): ApplicationDetail {
       medicalConditions: apiData.hasMedicalCondition ? apiData.medicalConditionDetails || "Yes" : "None",
       medicalConditionDocument: apiData.medicalConditionDocument || "",
     },
+    experience: {
+      claimedMonths: apiData.claimedExperienceMonths || "",
+      validatedMonths: apiData.validatedExperienceMonths || "",
+    },
+    gdEvaluation: {
+      gdScore: apiData.gdScore ? parseFloat(apiData.gdScore) : undefined,
+      piScore: apiData.piScore ? parseFloat(apiData.piScore) : undefined,
+      interviewLocation: apiData.interviewLocation || "",
+      interviewDate: apiData.interviewDate ? String(apiData.interviewDate).split('T')[0] : "",
+      interviewTime: apiData.interviewTime || "",
+      confirmedCampus: apiData.confirmedCampus || "",
+      remarks: apiData.evaluationRemarks || "",
+    },
   };
 }
 
@@ -320,13 +354,13 @@ function toEducationPayload(updatedData: ApplicationDetail) {
       isCompleted: true,
     });
   }
-  if (e.graduation.college || e.graduation.university) {
+  if (e.graduation) {
     records.push({
       level: e.graduation.degree || "UG",
-      institution: e.graduation.college,
-      boardUniversity: e.graduation.university,
-      yearOfPassing: e.graduation.passingYear,
-      percentageCgpa: e.graduation.percentage,
+      institution: e.graduation.college || "College",
+      boardUniversity: e.graduation.university || "University",
+      yearOfPassing: e.graduation.passingYear || "2025",
+      percentageCgpa: e.graduation.percentageTillLast || e.graduation.percentage || "0",
       isCompleted: e.graduation.status === "Completed",
     });
   }
@@ -564,5 +598,41 @@ export function useCreateApplication() {
 // Legacy alias kept for backward compat with applications list page
 export function useUpdateApplicationSummary() {
   return useUpdateApplicationStatus();
+}
+
+export function useUpdateGdEvaluation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      applicationNo,
+      data,
+    }: {
+      applicationNo: string;
+      data: {
+        gdScore?: number;
+        piScore?: number;
+        interviewLocation?: string;
+        interviewDate?: string;
+        interviewTime?: string;
+        confirmedCampus?: string;
+        remarks?: string;
+        status?: string;
+        claimedMonths?: string;
+        validatedMonths?: string;
+      };
+    }) => {
+      const encodedNo = encodeURIComponent(applicationNo);
+      return apiPatch(`/applications/${encodedNo}/gd-evaluation`, data);
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["application", variables.applicationNo] });
+      queryClient.invalidateQueries({ queryKey: ["applications"] });
+      toast.success("Evaluation saved to database!");
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || "Failed to save evaluation");
+    },
+  });
 }
 

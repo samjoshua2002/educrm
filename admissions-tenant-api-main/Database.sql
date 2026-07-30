@@ -651,8 +651,14 @@ CREATE TABLE IF NOT EXISTS applications (
     declaration_accepted    BOOLEAN             DEFAULT FALSE,
     declaration_applicant_name VARCHAR(255),
     declaration_parent_name VARCHAR(255),
-    declaration_date        DATE,
-    declaration_place       VARCHAR(100),
+    -- GD & Interview Evaluation
+    gd_score                DECIMAL(5, 2),
+    pi_score                DECIMAL(5, 2),
+    interview_location      VARCHAR(255),
+    interview_date          DATE,
+    interview_time          VARCHAR(50),
+    confirmed_campus        VARCHAR(255),
+    evaluation_remarks      TEXT,
 
     -- Metadata
     submitted_at            TIMESTAMP,

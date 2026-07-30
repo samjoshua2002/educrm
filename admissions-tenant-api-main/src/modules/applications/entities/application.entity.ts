@@ -88,6 +88,33 @@ export class Application {
   @Column({ name: 'form_status', default: 'incomplete' })
   formStatus: string;
 
+  @Column({ name: 'gd_score', type: 'decimal', precision: 5, scale: 2, nullable: true })
+  gdScore: number;
+
+  @Column({ name: 'pi_score', type: 'decimal', precision: 5, scale: 2, nullable: true })
+  piScore: number;
+
+  @Column({ name: 'interview_location', length: 255, nullable: true })
+  interviewLocation: string;
+
+  @Column({ name: 'interview_date', type: 'date', nullable: true })
+  interviewDate: Date;
+
+  @Column({ name: 'interview_time', length: 50, nullable: true })
+  interviewTime: string;
+
+  @Column({ name: 'confirmed_campus', length: 255, nullable: true })
+  confirmedCampus: string;
+
+  @Column({ name: 'evaluation_remarks', type: 'text', nullable: true })
+  evaluationRemarks: string;
+
+  @Column({ name: 'claimed_experience_months', length: 50, nullable: true })
+  claimedExperienceMonths: string;
+
+  @Column({ name: 'validated_experience_months', length: 50, nullable: true })
+  validatedExperienceMonths: string;
+
   @Column({ name: 'payment_status', default: 'pending' })
   paymentStatus: string;
 

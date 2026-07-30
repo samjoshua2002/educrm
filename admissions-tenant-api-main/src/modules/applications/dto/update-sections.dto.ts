@@ -160,3 +160,16 @@ export class UpdatePaymentDto {
   @IsDateString() @IsOptional() paymentDate?: string;
   @IsString() @IsOptional() paymentReference?: string;
 }
+
+export class UpdateGdEvaluationDto {
+  @IsNumber() @IsOptional() gdScore?: number;
+  @IsNumber() @IsOptional() piScore?: number;
+  @IsString() @IsOptional() interviewLocation?: string;
+  @IsString() @IsOptional() interviewDate?: string;
+  @IsString() @IsOptional() interviewTime?: string;
+  @IsString() @IsOptional() confirmedCampus?: string;
+  @IsString() @IsOptional() remarks?: string;
+  @IsString() @IsOptional() status?: string;
+  @IsString() @IsOptional() claimedMonths?: string;
+  @IsString() @IsOptional() validatedMonths?: string;
+}

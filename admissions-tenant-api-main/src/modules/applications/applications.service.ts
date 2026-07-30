@@ -30,6 +30,7 @@ import {
   UpdateAdditionalInfoDto,
   UpdateDeclarationDto,
   UpdatePaymentDto,
+  UpdateGdEvaluationDto,
 } from './dto/update-sections.dto.js';
 
 import { ApplicationEducation } from './entities/application-education.entity.js';
@@ -657,6 +658,35 @@ export class ApplicationsService {
     await queryRunner.release();
 
     return saved;
+  }
+
+  async updateGdEvaluation(idOrAppNo: string, orgId: string, dto: UpdateGdEvaluationDto, actorId: string) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrAppNo);
+    const app = await this.applicationRepository.findOne({
+      where: isUuid
+        ? { id: idOrAppNo, organizationId: orgId }
+        : { applicationNo: idOrAppNo, organizationId: orgId },
+    });
+
+    if (!app) {
+      throw new NotFoundException(`Application ${idOrAppNo} not found`);
+    }
+
+    if (dto.gdScore !== undefined) app.gdScore = dto.gdScore;
+    if (dto.piScore !== undefined) app.piScore = dto.piScore;
+    if (dto.interviewLocation !== undefined) app.interviewLocation = dto.interviewLocation;
+    if (dto.interviewDate !== undefined) app.interviewDate = new Date(dto.interviewDate);
+    if (dto.interviewTime !== undefined) app.interviewTime = dto.interviewTime;
+    if (dto.confirmedCampus !== undefined) app.confirmedCampus = dto.confirmedCampus;
+    if (dto.remarks !== undefined) app.evaluationRemarks = dto.remarks;
+    if (dto.status !== undefined) app.formStatus = dto.status.toLowerCase();
+    if (dto.claimedMonths !== undefined) app.claimedExperienceMonths = dto.claimedMonths;
+    if (dto.validatedMonths !== undefined) app.validatedExperienceMonths = dto.validatedMonths;
+
+    app.updatedBy = actorId;
+    app.lastActivityAt = new Date();
+
+    return this.applicationRepository.save(app);
   }
 
   private mapStatusToFrontend(status: string): string {
