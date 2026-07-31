@@ -442,6 +442,20 @@ export class ApplicationsService {
         }
       }
 
+      if (Array.isArray(dto.workExperiences) && dto.workExperiences.length > 0) {
+        for (const exp of dto.workExperiences) {
+          if (!exp || (!exp.organization && !exp.companyName && !exp.company)) continue;
+          const rec = queryRunner.manager.create(ApplicationWorkExperience, {
+            applicationId: savedApp.id,
+            organization: exp.organization || exp.companyName || exp.company || 'Company',
+            designation: exp.designation || undefined,
+            rolesResponsibilities: exp.rolesResponsibilities || (exp.months ? `${exp.months} Months` : undefined),
+            grossSalary: exp.grossSalary || exp.salaryCtc || undefined,
+          });
+          await queryRunner.manager.save(rec);
+        }
+      }
+
       await this.logActivity(queryRunner.manager, savedApp.id, orgId, creatorId, 'created', 'Application initialized');
 
       if (verifiedLead) {

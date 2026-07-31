@@ -98,6 +98,12 @@ export interface ApplicationDetail {
     claimedMonths?: string;
     validatedMonths?: string;
   };
+  workExperiences?: Array<{
+    companyName: string;
+    designation: string;
+    months: string;
+    salaryCtc: string;
+  }>;
   gdEvaluation?: {
     gdScore?: number;
     piScore?: number;
@@ -269,6 +275,15 @@ function mapApiToApplicationDetail(apiData: any): ApplicationDetail {
       claimedMonths: apiData.claimedExperienceMonths || "",
       validatedMonths: apiData.validatedExperienceMonths || "",
     },
+    workExperiences: (apiData.workExperienceRecords || apiData.workExperiences || []).map((e: any) => {
+      const rawMonths = e.durationMonths != null ? String(e.durationMonths) : e.months ? String(e.months) : e.rolesResponsibilities ? String(e.rolesResponsibilities).replace(/[^0-9]/g, '') || String(e.rolesResponsibilities) : "";
+      return {
+        companyName: e.organization || e.companyName || e.company || "",
+        designation: e.designation || "",
+        months: rawMonths,
+        salaryCtc: e.grossSalary || e.salaryCtc || "",
+      };
+    }),
     gdEvaluation: {
       gdScore: apiData.gdScore ? parseFloat(apiData.gdScore) : undefined,
       piScore: apiData.piScore ? parseFloat(apiData.piScore) : undefined,
@@ -417,6 +432,24 @@ function toAdditionalPayload(updatedData: ApplicationDetail) {
   };
 }
 
+function toWorkExperiencePayload(updatedData: ApplicationDetail) {
+  const exps = updatedData.workExperiences || (updatedData as any).experiences || [];
+  const records = exps
+    .filter((e: any) => e && (e.companyName || e.organization || e.company))
+    .map((e: any) => {
+      const monthStr = e.months ? (String(e.months).toLowerCase().includes("month") ? String(e.months) : `${e.months} Months`) : e.rolesResponsibilities;
+      return {
+        organization: String(e.companyName || e.organization || e.company || "Company").trim(),
+        designation: String(e.designation || "").trim() || undefined,
+        rolesResponsibilities: monthStr || undefined,
+        grossSalary: String(e.salaryCtc || e.salary || e.grossSalary || "").trim() || undefined,
+      };
+    });
+  return {
+    records,
+  };
+}
+
 function parseDobToISO(dob: string): string | undefined {
   if (!dob) return undefined;
   // Handle formats like "25/05/2005" or "2005-05-25"
@@ -468,7 +501,7 @@ export function useUpdateApplication() {
       data,
     }: {
       applicationNo: string;
-      section: "personal" | "preferences" | "education" | "entrance" | "parents" | "additional" | "contact";
+      section: "personal" | "preferences" | "education" | "entrance" | "parents" | "additional" | "contact" | "experience";
       data: ApplicationDetail;
     }) => {
       const encodedNo = encodeURIComponent(applicationNo);
@@ -493,11 +526,20 @@ export function useUpdateApplication() {
           return apiPatch(`${base}/parents`, toParentsPayload(data));
         case "additional":
           return apiPatch(`${base}/additional-info`, toAdditionalPayload(data));
+        case "experience":
+          return apiPatch(`${base}/work-experience`, toWorkExperiencePayload(data));
         default:
           throw new Error(`Unknown section: ${section}`);
       }
     },
     onSuccess: (_, variables) => {
+      queryClient.setQueryData(["application", variables.applicationNo], (oldData: any) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          ...variables.data,
+        };
+      });
       queryClient.invalidateQueries({ queryKey: ["applications"] });
       queryClient.invalidateQueries({
         queryKey: ["application", variables.applicationNo],
@@ -590,7 +632,10 @@ export function useCreateApplication() {
       toast.success("Application created successfully");
     },
     onError: (err: any) => {
-      toast.error(err?.message || "Failed to create application");
+      const backendMsg = err?.response?.data?.message;
+      const msg = Array.isArray(backendMsg) ? backendMsg.join(", ") : backendMsg || err?.message || "Failed to create application";
+      console.error("[useCreateApplication] Error:", err?.response?.data || err?.message);
+      toast.error(msg);
     },
   });
 }

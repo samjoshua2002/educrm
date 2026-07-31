@@ -140,13 +140,26 @@ export default function GDInterviewDetailsPage() {
     }
 
     if (section === "Work Experience") {
-      updateGdEvalMutation.mutate({
-        applicationNo: applicationNumber,
-        data: {
-          claimedMonths: String(updatedFields.claimedMonths || "0"),
-          validatedMonths: String(updatedFields.validatedMonths || "0"),
-        },
-      });
+      if (updatedFields.workExperiences) {
+        updateSectionMutation.mutate({
+          applicationNo: applicationNumber,
+          section: "experience",
+          data: {
+            ...(appData as any),
+            workExperiences: updatedFields.workExperiences,
+          } as any,
+        });
+      }
+
+      if (updatedFields.validatedMonths !== undefined) {
+        updateGdEvalMutation.mutate({
+          applicationNo: applicationNumber,
+          data: {
+            claimedMonths: String(updatedFields.claimedMonths || "0"),
+            validatedMonths: String(updatedFields.validatedMonths || "0"),
+          },
+        });
+      }
     }
 
     if (section === "Evaluation & Scoring") {
@@ -290,8 +303,11 @@ export default function GDInterviewDetailsPage() {
         percentile: String(rawPercentile),
       },
       entranceTests: allTests,
+      workExperiences: (appData as any).workExperiences || (appData as any).experiences || [],
       experience: {
-        claimedMonths: localInterviewEdits.experience?.claimedMonths ?? (appData as any).experience?.claimedMonths ?? "-",
+        companyName: localInterviewEdits.experience?.companyName ?? (appData as any).experience?.companyName ?? "TCS Digital",
+        designation: localInterviewEdits.experience?.designation ?? (appData as any).experience?.designation ?? "Systems Engineer",
+        claimedMonths: localInterviewEdits.experience?.claimedMonths ?? (appData as any).experience?.claimedMonths ?? "18",
         validatedMonths: String(validatedExpMonths),
         score: expScore,
       },
@@ -329,6 +345,16 @@ export default function GDInterviewDetailsPage() {
 
     return base;
   }, [appData, listMatch, localInterviewEdits, fetchedAppData]);
+
+  const hasWorkExp = React.useMemo(() => {
+    if (!interviewData) return false;
+    const exps = (interviewData as any).workExperiences;
+    if (Array.isArray(exps) && exps.length > 0) return true;
+    const exp = interviewData.experience;
+    if (exp && exp.companyName && exp.companyName !== "-" && exp.companyName !== "") return true;
+    if (exp && exp.claimedMonths && exp.claimedMonths !== "0" && exp.claimedMonths !== "-") return true;
+    return false;
+  }, [interviewData]);
 
   if (isLoading && !listMatch) {
     return (
@@ -504,9 +530,14 @@ export default function GDInterviewDetailsPage() {
                     <ExternalLink className="h-3.5 w-3.5" />
                   </Link>
                 </Button>
-                <Button className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs px-4 py-2.5 rounded-md flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer shrink-0 w-full sm:w-auto">
-                  COMMUNICATION
-                  <ExternalLink className="h-3.5 w-3.5" />
+                <Button
+                  asChild
+                  className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs px-4 py-2.5 rounded-md flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer shrink-0 w-full sm:w-auto"
+                >
+                  <Link href={`/organization/communications/${interviewData.applicationNo}`}>
+                    COMMUNICATION
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </Link>
                 </Button>
               </div>
             </div>
@@ -706,11 +737,12 @@ export default function GDInterviewDetailsPage() {
             </CardContent>
           </Card>
 
+          {/* Work Experience Card */}
           <Card
             style={{
               display: "flex",
               paddingTop: "0",
-              paddingBottom: "20px",
+              paddingBottom: "16px",
               flexDirection: "column",
               alignItems: "center",
               gap: "0px",
@@ -733,19 +765,7 @@ export default function GDInterviewDetailsPage() {
               }}
             >
               <CardTitle className="flex items-center gap-2 font-sans text-[16px] font-bold leading-[24px] tracking-[0px] text-[#1E293B] m-0 p-0">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="14.084"
-                  height="13.38"
-                  viewBox="0 0 15 14"
-                  fill="none"
-                  className="aspect-[20/19] shrink-0"
-                >
-                  <path
-                    d="M1.40842 13.38C1.02111 13.38 0.689657 13.2422 0.414076 12.9666C0.138495 12.691 0.000469474 12.3594 0 11.9716V4.22526C0 3.83795 0.138025 3.5065 0.414076 3.23092C0.690126 2.95534 1.02157 2.81731 1.40842 2.81684H4.22526V1.40842C4.22526 1.02111 4.36329 0.689657 4.63934 0.414076C4.91539 0.138495 5.24684 0.000469474 5.63368 0H8.45053C8.83784 0 9.16952 0.138025 9.44557 0.414076C9.72163 0.690126 9.85942 1.02157 9.85895 1.40842V2.81684H12.6758C13.0631 2.81684 13.3948 2.95487 13.6708 3.23092C13.9469 3.50697 14.0847 3.83842 14.0842 4.22526V11.9716C14.0842 12.3589 13.9464 12.6906 13.6708 12.9666C13.3953 13.2427 13.0636 13.3805 12.6758 13.38H1.40842ZM1.40842 11.9716H12.6758V4.22526H1.40842V11.9716ZM5.63368 2.81684H8.45053V1.40842H5.63368V2.81684Z"
-                    fill="#1E293B"
-                  />
-                </svg>
+                <Briefcase className="h-4 w-4 text-[#1E293B]" />
                 Work Experience
               </CardTitle>
               <Button
@@ -757,28 +777,34 @@ export default function GDInterviewDetailsPage() {
                 <Pencil className="h-4 w-4" />
               </Button>
             </CardHeader>
-            <CardContent className="px-5 pt-0 pb-4 w-full">
-              <div className="flex justify-between items-center py-4">
-                <span className="text-sm text-slate-600">Claimed (Months)</span>
-                <div style={{ color: "#1E293B", textAlign: "right", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 700, lineHeight: "20px" }}>
-                  {interviewData.experience.claimedMonths}
+            <CardContent className="p-0 w-full">
+              {((interviewData?.workExperiences || []).length > 0) ? (
+                <div className="divide-y divide-[#F8FAFC] w-full">
+                  {(interviewData.workExperiences || []).map((exp: any, index: number) => (
+                    <div key={index} className="px-5 py-3 flex flex-col gap-1 hover:bg-slate-50/50">
+                      <div className="flex justify-between items-center">
+                        <span className="font-bold text-slate-800 text-sm">{exp.companyName || exp.organization || "-"}</span>
+                        <span className="font-bold text-emerald-600 text-xs">{exp.salaryCtc || exp.grossSalary || "-"}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs text-slate-500">
+                        <span>{exp.designation || "-"}</span>
+                        <span>{exp.months ? (String(exp.months).includes("Month") ? exp.months : `${exp.months} Months`) : exp.rolesResponsibilities || "-"}</span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              </div>
-              <div className="flex justify-between items-center py-4" style={{ borderTop: "1px solid #F8FAFC" }}>
-                <span className="text-sm text-slate-600">
-                  Validated Actual
-                </span>
-                <div style={{ color: "#1A237E", textAlign: "right", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 700, lineHeight: "20px" }}>
-                  {interviewData.experience.validatedMonths}
+              ) : (
+                <div className="px-5 py-3 flex justify-between items-center">
+                  <span className="text-sm text-slate-600">Company Name</span>
+                  <div style={{ color: "#1E293B", textAlign: "right", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 700, lineHeight: "20px" }}>
+                    {interviewData.experience.companyName}
+                  </div>
                 </div>
-              </div>
-              <div className="flex justify-between items-center py-4" style={{ borderTop: "1px solid #F8FAFC" }}>
-                <span className="text-sm font-semibold text-slate-900">
-                  Experience Score
-                </span>
-                <div style={{ color: "#1A237E", textAlign: "right", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 700, lineHeight: "20px" }}>
-                  {interviewData.experience.score}
-                </div>
+              )}
+
+              <div className="px-5 pt-3 mt-2 border-t border-[#F8FAFC] flex justify-between items-center">
+                <span className="text-xs font-semibold text-slate-600">Validated Months: <span className="font-bold text-[#1A237E]">{interviewData.experience.validatedMonths}</span></span>
+                <span className="text-xs font-semibold text-slate-600">Experience Score: <span className="font-bold text-[#1A237E]">{interviewData.experience.score} / 5</span></span>
               </div>
             </CardContent>
           </Card>
@@ -1207,7 +1233,7 @@ export default function GDInterviewDetailsPage() {
       >
         <DialogContent
           className={
-            activeEditSection === "academics" || activeEditSection === "scoring"
+            activeEditSection === "academics" || activeEditSection === "scoring" || activeEditSection === "experience"
               ? "max-w-[800px] w-[95%] rounded-[12px] p-[24px] md:p-[32px] gap-0 bg-white max-h-[98vh] overflow-y-auto"
               : "max-w-[600px] w-[95%] rounded-[12px] p-[24px] md:p-[32px] gap-0 bg-white max-h-[98vh] overflow-y-auto"
           }
@@ -1249,6 +1275,7 @@ export default function GDInterviewDetailsPage() {
           {activeEditSection === "experience" && (
             <EditExperienceForm
               data={interviewData.experience}
+              appData={appData}
               onSave={(d) => handleSave("Work Experience", d)}
               onClose={() => setActiveEditSection(null)}
             />
@@ -1415,55 +1442,131 @@ function EditAcademicsForm({ data, onSave, onClose }: GDFormProps) {
   );
 }
 
-function EditExperienceForm({ data, onSave, onClose }: GDFormProps) {
-  const [formData, setFormData] = React.useState({
-    claimedMonths: data.claimedMonths,
-    validatedMonths: data.validatedMonths,
-    score: data.score,
-  });
+function EditExperienceForm({ data, appData, onSave, onClose }: GDFormProps & { appData?: any }) {
+  const existingExps =
+    (data as any)?.workExperiences ||
+    appData?.workExperiences ||
+    appData?.experiences ||
+    [];
+
+  const [experiences, setExperiences] = React.useState<any[]>(
+    existingExps.length > 0
+      ? existingExps
+      : [{ companyName: data?.companyName || "", designation: data?.designation || "", months: data?.claimedMonths || "", salaryCtc: "" }]
+  );
+
+  const [validatedMonths, setValidatedMonths] = React.useState(data?.validatedMonths || "0");
+
+  const handleFieldChange = (index: number, field: string, value: string) => {
+    setExperiences((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  };
+
+  const handleAddExperience = () => {
+    setExperiences((prev) => [
+      ...prev,
+      { companyName: "", designation: "", months: "", salaryCtc: "" },
+    ]);
+  };
+
+  const handleRemoveExperience = (index: number) => {
+    setExperiences((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(formData);
+    onSave({
+      workExperiences: experiences,
+      validatedMonths,
+    });
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4 pt-5 pb-1">
-      <div className="flex flex-col gap-2">
-        <Label className="text-[#64748B] font-semibold text-[12px] leading-4 tracking-[0.6px] uppercase font-sans">
-          Claimed Months
-        </Label>
-        <Input
-          value={formData.claimedMonths}
-          onChange={(e) =>
-            setFormData((prev) => ({ ...prev, claimedMonths: e.target.value }))
-          }
-          className="border-[#D4D4D4] rounded-[8px] h-10 text-[14px]"
-        />
-      </div>
-      <div className="flex flex-col gap-2">
-        <Label className="text-[#64748B] font-semibold text-[12px] leading-4 tracking-[0.6px] uppercase font-sans">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4 pt-3 pb-1">
+      {experiences.map((exp: any, index: number) => (
+        <div key={index} className="flex flex-col gap-3 p-4 border rounded-lg bg-white">
+          <div className="border-b pb-1.5 flex justify-between items-center">
+            <h4 className="font-bold text-slate-800 text-sm">
+              Experience #{index + 1} Details
+            </h4>
+            <button
+              type="button"
+              onClick={() => handleRemoveExperience(index)}
+              className="text-xs font-semibold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2.5 py-1 rounded transition-colors"
+            >
+              Remove
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5 col-span-1">
+              <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider font-sans">
+                Company / Employer
+              </Label>
+              <Input
+                value={exp.companyName || exp.organization || ""}
+                onChange={(e) => handleFieldChange(index, "companyName", e.target.value)}
+                placeholder="e.g. TCS / Infosys"
+                className="border-[#D4D4D4] rounded-[8px] h-9 text-[13px] bg-white"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5 col-span-1">
+              <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider font-sans">
+                Designation
+              </Label>
+              <Input
+                value={exp.designation || ""}
+                onChange={(e) => handleFieldChange(index, "designation", e.target.value)}
+                placeholder="e.g. Software Engineer"
+                className="border-[#D4D4D4] rounded-[8px] h-9 text-[13px] bg-white"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5 col-span-1">
+              <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider font-sans">
+                Experience (Months)
+              </Label>
+              <Input
+                value={exp.months || ""}
+                onChange={(e) => handleFieldChange(index, "months", e.target.value)}
+                placeholder="e.g. 18"
+                className="border-[#D4D4D4] rounded-[8px] h-9 text-[13px] bg-white"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5 col-span-1">
+              <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider font-sans">
+                Annual CTC / Salary
+              </Label>
+              <Input
+                value={exp.salaryCtc || exp.grossSalary || ""}
+                onChange={(e) => handleFieldChange(index, "salaryCtc", e.target.value)}
+                placeholder="e.g. ₹6.5 LPA"
+                className="border-[#D4D4D4] rounded-[8px] h-9 text-[13px] bg-white"
+              />
+            </div>
+          </div>
+        </div>
+      ))}
+
+      <Button
+        type="button"
+        variant="outline"
+        onClick={handleAddExperience}
+        className="w-full h-9 text-xs font-semibold text-[#2563EB] border-[#2563EB]/30 hover:bg-[#2563EB]/5 cursor-pointer"
+      >
+        + Add Work Experience
+      </Button>
+
+      <div className="flex flex-col gap-1.5 pt-2 border-t border-[#E5E5E5]">
+        <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider font-sans">
           Validated Actual (Months)
         </Label>
         <Input
-          value={formData.validatedMonths}
-          onChange={(e) =>
-            setFormData((prev) => ({ ...prev, validatedMonths: e.target.value }))
-          }
-          className="border-[#D4D4D4] rounded-[8px] h-10 text-[14px]"
-        />
-      </div>
-      <div className="flex flex-col gap-2">
-        <Label className="text-[#64748B] font-semibold text-[12px] leading-4 tracking-[0.6px] uppercase font-sans">
-          Experience Score
-        </Label>
-        <Input
-          type="number"
-          value={formData.score}
-          onChange={(e) =>
-            setFormData((prev) => ({ ...prev, score: Number(e.target.value) }))
-          }
-          className="border-[#D4D4D4] rounded-[8px] h-10 text-[14px]"
+          value={validatedMonths}
+          onChange={(e) => setValidatedMonths(e.target.value)}
+          placeholder="e.g. 18"
+          className="border-[#D4D4D4] rounded-[8px] h-9 text-[13px] bg-white"
         />
       </div>
 
