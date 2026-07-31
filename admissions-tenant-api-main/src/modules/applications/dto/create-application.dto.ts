@@ -103,6 +103,10 @@ export class CreateApplicationDto {
   parentDetails?: any[];
 
   @IsOptional()
+  @IsArray()
+  workExperiences?: any[];
+
+  @IsOptional()
   @IsObject()
   otherDetails?: any;
 }

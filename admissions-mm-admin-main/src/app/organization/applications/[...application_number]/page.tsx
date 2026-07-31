@@ -107,6 +107,16 @@ export default function ApplicationDetailsPage() {
     return !!appData && appData.status !== "incomplete";
   }, [appData]);
 
+  const hasWorkExp = React.useMemo(() => {
+    if (!appData) return false;
+    const exp = (appData as any).experience;
+    const exps = (appData as any).workExperiences || (appData as any).experiences;
+    if (Array.isArray(exps) && exps.length > 0) return true;
+    if (exp && exp.companyName && exp.companyName !== "-" && exp.companyName !== "") return true;
+    if (exp && exp.claimedMonths && exp.claimedMonths !== "0" && exp.claimedMonths !== "-") return true;
+    return false;
+  }, [appData]);
+
   const [activeEditSection, setActiveEditSection] = React.useState<
     | "personal"
     | "preferences"
@@ -115,6 +125,7 @@ export default function ApplicationDetailsPage() {
     | "parents"
     | "additional"
     | "contact"
+    | "experience"
     | null
   >(null);
 
@@ -122,7 +133,7 @@ export default function ApplicationDetailsPage() {
     if (!activeEditSection) return;
     updateMutation.mutate({
       applicationNo: applicationNumber,
-      section: activeEditSection,
+      section: activeEditSection as any,
       data: updatedData,
     });
     setActiveEditSection(null);
@@ -275,9 +286,14 @@ export default function ApplicationDetailsPage() {
                 <ExternalLink className="h-3.5 w-3.5 opacity-50" />
               </Button>
             )}
-            <Button className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs px-4 py-2.5 rounded-md flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer shrink-0 w-full sm:w-auto">
-              COMMUNICATION
-              <ExternalLink className="h-3.5 w-3.5" />
+            <Button
+              asChild
+              className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs px-4 py-2.5 rounded-md flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer shrink-0 w-full sm:w-auto"
+            >
+              <Link href={`/organization/communications/${applicationData.applicationNo}`}>
+                COMMUNICATION
+                <ExternalLink className="h-3.5 w-3.5" />
+              </Link>
             </Button>
           </div>
         </div>
@@ -699,6 +715,78 @@ export default function ApplicationDetailsPage() {
             </CardContent>
           </Card>
 
+          {/* Work Experience Card */}
+          <Card className="shadow-xs border border-slate-200 p-0 gap-0 overflow-hidden">
+            <CardHeader
+              className="flex flex-row items-center justify-between bg-[#FAFAFA] border-b border-[#E5E5E5] space-y-0 self-stretch"
+              style={{ padding: "16px 20px 24px" }}
+            >
+              <CardTitle className="flex items-center gap-2 text-[16px] font-bold leading-[24px] text-[#1E293B] font-sans">
+                <Briefcase className="h-5 w-5 text-[#415876]" />
+                Work Experience Details
+              </CardTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-[#415876] hover:text-[#1E293B] hover:bg-slate-100 cursor-pointer"
+                onClick={() => setActiveEditSection("experience")}
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+            </CardHeader>
+            <CardContent className={((applicationData.workExperiences || (applicationData as any).experiences || []).length > 0) ? "p-0" : "p-6"}>
+              {((applicationData.workExperiences || (applicationData as any).experiences || []).length > 0) ? (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader className="bg-transparent">
+                      <TableRow>
+                        <TableHead className="font-sans text-[10px] font-bold leading-normal tracking-[0.5px] uppercase text-[#64748B] pl-6 py-3">
+                          Company / Employer
+                        </TableHead>
+                        <TableHead className="font-sans text-[10px] font-bold leading-normal tracking-[0.5px] uppercase text-[#64748B] px-4 py-3">
+                          Designation
+                        </TableHead>
+                        <TableHead className="font-sans text-[10px] font-bold leading-normal tracking-[0.5px] uppercase text-[#64748B] px-4 py-3">
+                          Duration (Months)
+                        </TableHead>
+                        <TableHead className="font-sans text-[10px] font-bold leading-normal tracking-[0.5px] uppercase text-[#64748B] text-right pr-6 py-3">
+                          Annual CTC
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(applicationData.workExperiences || (applicationData as any).experiences || []).map((exp: any, index: number) => (
+                        <TableRow key={index} className="hover:bg-slate-50">
+                          <TableCell className="font-bold text-slate-800 text-xs pl-6 py-3">{exp.companyName || exp.organization || "-"}</TableCell>
+                          <TableCell className="text-slate-600 text-xs px-4 py-3">{exp.designation || "-"}</TableCell>
+                          <TableCell className="text-slate-600 text-xs px-4 py-3">{exp.months ? `${exp.months} Months` : "-"}</TableCell>
+                          <TableCell className="text-right font-bold text-emerald-600 pr-6 py-3 text-xs">{exp.salaryCtc || exp.grossSalary || "-"}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="bg-slate-100 text-slate-600 border-slate-200 text-xs font-semibold px-2.5 py-1">
+                      No prior work experience specified (Fresher)
+                    </Badge>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setActiveEditSection("experience")}
+                    className="h-8 text-xs font-semibold text-[#2563EB] border-[#2563EB]/30 hover:bg-[#2563EB]/5 cursor-pointer"
+                  >
+                    + Add Work Experience
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           <Card className="shadow-xs border border-slate-200 p-0 gap-0 overflow-hidden">
             <CardHeader
               className="flex flex-row items-center justify-between bg-[#FAFAFA] border-b border-[#E5E5E5] space-y-0 self-stretch"
@@ -1105,6 +1193,9 @@ export default function ApplicationDetailsPage() {
               {activeEditSection === "contact" && (
                 <MapPin className="h-4 w-4 text-[#415876]" />
               )}
+              {activeEditSection === "experience" && (
+                <Briefcase className="h-4 w-4 text-[#415876]" />
+              )}
             </div>
             <DialogTitle className="text-[#0A0A0A] font-semibold text-[20px] leading-8 tracking-[-0.24px] font-sans capitalize">
               {activeEditSection === "personal" && "Personal Details"}
@@ -1115,6 +1206,7 @@ export default function ApplicationDetailsPage() {
               {activeEditSection === "parents" && "Parent's Details"}
               {activeEditSection === "additional" && "Additional Information"}
               {activeEditSection === "contact" && "Contact Information"}
+              {activeEditSection === "experience" && "Work Experience Details"}
             </DialogTitle>
           </DialogHeader>
 
@@ -1164,6 +1256,13 @@ export default function ApplicationDetailsPage() {
           )}
           {activeEditSection === "contact" && (
             <EditContactForm
+              appData={applicationData}
+              onSave={handleSave}
+              onClose={() => setActiveEditSection(null)}
+            />
+          )}
+          {activeEditSection === "experience" && (
+            <EditExperienceForm
               appData={applicationData}
               onSave={handleSave}
               onClose={() => setActiveEditSection(null)}
@@ -1407,10 +1506,15 @@ function EditPersonalForm({ appData, onSave, onClose }: FormProps) {
             <SelectValue placeholder="Select Category" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="GEN">GEN</SelectItem>
-            <SelectItem value="OBC">OBC</SelectItem>
-            <SelectItem value="SC">SC</SelectItem>
-            <SelectItem value="ST">ST</SelectItem>
+            <SelectItem value="GEN">GEN (General)</SelectItem>
+            <SelectItem value="OBC">OBC (Other Backward Class)</SelectItem>
+            <SelectItem value="BC">BC (Backward Class)</SelectItem>
+            <SelectItem value="MBC">MBC (Most Backward Class)</SelectItem>
+            <SelectItem value="SC">SC (Scheduled Caste)</SelectItem>
+            <SelectItem value="ST">ST (Scheduled Tribe)</SelectItem>
+            <SelectItem value="EWS">EWS (Economically Weaker Section)</SelectItem>
+            <SelectItem value="PwD">PwD (Person with Disability)</SelectItem>
+            <SelectItem value="Other">Other</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -1553,6 +1657,10 @@ function EditPreferencesForm({ appData, onSave, onClose, branchesList = [], cour
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (formData.preference1 === formData.preference2) {
+      toast.error("Campus Preference 1 and Preference 2 cannot be identical!");
+      return;
+    }
     const updatedData = {
       ...appData,
       courseId: formData.courseId,
@@ -1617,15 +1725,15 @@ function EditPreferencesForm({ appData, onSave, onClose, branchesList = [], cour
           <SelectContent>
             {branchesList.length > 0 ? (
               branchesList.map((branch) => (
-                <SelectItem key={branch.id} value={branch.id}>
-                  {branch.name} {branch.city ? `(${branch.city})` : ""}
+                <SelectItem key={branch.id} value={branch.id} disabled={branch.id === formData.preference2}>
+                  {branch.name} {branch.city ? `(${branch.city})` : ""} {branch.id === formData.preference2 ? "(Selected as Pref 2)" : ""}
                 </SelectItem>
               ))
             ) : (
               <>
-                <SelectItem value="Main Campus">Main Campus</SelectItem>
-                <SelectItem value="City Campus">City Campus</SelectItem>
-                <SelectItem value="South Campus">South Campus</SelectItem>
+                <SelectItem value="Main Campus" disabled={formData.preference2 === "Main Campus"}>Main Campus</SelectItem>
+                <SelectItem value="City Campus" disabled={formData.preference2 === "City Campus"}>City Campus</SelectItem>
+                <SelectItem value="South Campus" disabled={formData.preference2 === "South Campus"}>South Campus</SelectItem>
               </>
             )}
           </SelectContent>
@@ -1654,20 +1762,174 @@ function EditPreferencesForm({ appData, onSave, onClose, branchesList = [], cour
           <SelectContent>
             {branchesList.length > 0 ? (
               branchesList.map((branch) => (
-                <SelectItem key={branch.id} value={branch.id}>
-                  {branch.name} {branch.city ? `(${branch.city})` : ""}
+                <SelectItem key={branch.id} value={branch.id} disabled={branch.id === formData.preference1}>
+                  {branch.name} {branch.city ? `(${branch.city})` : ""} {branch.id === formData.preference1 ? "(Selected as Pref 1)" : ""}
                 </SelectItem>
               ))
             ) : (
               <>
-                <SelectItem value="Main Campus">Main Campus</SelectItem>
-                <SelectItem value="City Campus">City Campus</SelectItem>
-                <SelectItem value="South Campus">South Campus</SelectItem>
+                <SelectItem value="Main Campus" disabled={formData.preference1 === "Main Campus"}>Main Campus</SelectItem>
+                <SelectItem value="City Campus" disabled={formData.preference1 === "City Campus"}>City Campus</SelectItem>
+                <SelectItem value="South Campus" disabled={formData.preference1 === "South Campus"}>South Campus</SelectItem>
               </>
             )}
           </SelectContent>
         </Select>
       </div>
+
+      <div className="flex items-center gap-3 pt-4 border-t border-[#E5E5E5] mt-2">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onClose}
+          className="h-10 px-6 rounded-[8px] text-[14px] font-semibold border-[#D4D4D4] text-[#1E293B] cursor-pointer"
+        >
+          Cancel
+        </Button>
+        <Button
+          type="submit"
+          className="h-10 px-6 rounded-[8px] text-[14px] font-semibold bg-[#2563EB] hover:bg-[#1D4ED8] text-white cursor-pointer"
+        >
+          Save
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+function EditExperienceForm({ appData, onSave, onClose }: FormProps) {
+  const existingExps =
+    appData.workExperiences ||
+    ((appData as any).experiences) ||
+    ((appData as any).experience?.companyName
+      ? [
+          {
+            companyName: (appData as any).experience.companyName,
+            designation: (appData as any).experience.designation,
+            months: (appData as any).experience.claimedMonths || "",
+            salaryCtc: (appData as any).experience.salaryCtc || "",
+          },
+        ]
+      : []);
+
+  const [experiences, setExperiences] = React.useState<any[]>(
+    existingExps.length > 0
+      ? existingExps
+      : [{ companyName: "", designation: "", months: "", salaryCtc: "" }]
+  );
+
+  const handleFieldChange = (index: number, field: string, value: string) => {
+    setExperiences((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  };
+
+  const handleAddExperience = () => {
+    setExperiences((prev) => [
+      ...prev,
+      { companyName: "", designation: "", months: "", salaryCtc: "" },
+    ]);
+  };
+
+  const handleRemoveExperience = (index: number) => {
+    setExperiences((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const updatedData = {
+      ...appData,
+      workExperiences: experiences,
+    };
+    onSave(updatedData);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4 pt-3 pb-1">
+      {experiences.map((exp: any, index: number) => (
+        <div
+          key={index}
+          className="flex flex-col gap-3 p-4 border rounded-lg bg-white"
+        >
+          <div className="border-b pb-1.5 flex justify-between items-center">
+            <h4 className="font-bold text-slate-800 text-sm">
+              Experience #{index + 1} Details
+            </h4>
+            <button
+              type="button"
+              onClick={() => handleRemoveExperience(index)}
+              className="text-xs font-semibold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2.5 py-1 rounded transition-colors"
+            >
+              Remove
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5 col-span-1">
+              <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                Company / Employer
+              </Label>
+              <Input
+                value={exp.companyName || exp.organization || ""}
+                onChange={(e) =>
+                  handleFieldChange(index, "companyName", e.target.value)
+                }
+                placeholder="e.g. TCS / Infosys"
+                className="border-[#D4D4D4] rounded-[8px] h-9 text-[13px] bg-white"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5 col-span-1">
+              <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                Designation
+              </Label>
+              <Input
+                value={exp.designation || ""}
+                onChange={(e) =>
+                  handleFieldChange(index, "designation", e.target.value)
+                }
+                placeholder="e.g. Software Engineer"
+                className="border-[#D4D4D4] rounded-[8px] h-9 text-[13px] bg-white"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5 col-span-1">
+              <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                Experience (Months)
+              </Label>
+              <Input
+                value={exp.months || ""}
+                onChange={(e) =>
+                  handleFieldChange(index, "months", e.target.value)
+                }
+                placeholder="e.g. 18"
+                className="border-[#D4D4D4] rounded-[8px] h-9 text-[13px] bg-white"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5 col-span-1">
+              <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                Annual CTC / Salary
+              </Label>
+              <Input
+                value={exp.salaryCtc || exp.grossSalary || ""}
+                onChange={(e) =>
+                  handleFieldChange(index, "salaryCtc", e.target.value)
+                }
+                placeholder="e.g. ₹6.5 LPA"
+                className="border-[#D4D4D4] rounded-[8px] h-9 text-[13px] bg-white"
+              />
+            </div>
+          </div>
+        </div>
+      ))}
+
+      <Button
+        type="button"
+        variant="outline"
+        onClick={handleAddExperience}
+        className="w-full h-9 text-xs font-semibold text-[#2563EB] border-[#2563EB]/30 hover:bg-[#2563EB]/5 cursor-pointer"
+      >
+        + Add Work Experience
+      </Button>
 
       <div className="flex items-center gap-3 pt-4 border-t border-[#E5E5E5] mt-2">
         <Button
@@ -2319,19 +2581,71 @@ function EditParentsForm({ appData, onSave, onClose }: FormProps) {
       </div>
       <div className="flex flex-col gap-1.5 col-span-2">
         <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
-          Occupation
+          Father's Occupation
         </Label>
-        <Input
-          value={formData.fatherOccupation}
-          onChange={(e) =>
-            setFormData((prev) => ({
-              ...prev,
-              fatherOccupation: e.target.value,
-            }))
+        <Select
+          value={
+            [
+              "Business / Entrepreneur",
+              "Government Service / Public Sector",
+              "Private Sector Employee",
+              "Professional (Doctor, Lawyer, CA, Engineer, Architect)",
+              "Defense / Armed Forces",
+              "Teaching / Education",
+              "Agriculture / Farming",
+              "Homemaker / Housewife",
+              "Retired",
+            ].includes(formData.fatherOccupation)
+              ? formData.fatherOccupation
+              : "Other"
           }
-          className="border-[#D4D4D4] rounded-[8px] h-9 text-[13px]"
-          required
-        />
+          onValueChange={(val) => {
+            if (val === "Other") {
+              setFormData((prev) => ({ ...prev, fatherOccupation: "" }));
+            } else {
+              setFormData((prev) => ({ ...prev, fatherOccupation: val }));
+            }
+          }}
+        >
+          <SelectTrigger className="border-[#D4D4D4] rounded-[8px] h-9 text-[13px] bg-white">
+            <SelectValue placeholder="Select Occupation" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Business / Entrepreneur">Business / Entrepreneur</SelectItem>
+            <SelectItem value="Government Service / Public Sector">Government Service / Public Sector</SelectItem>
+            <SelectItem value="Private Sector Employee">Private Sector Employee</SelectItem>
+            <SelectItem value="Professional (Doctor, Lawyer, CA, Engineer, Architect)">Professional (Doctor, Lawyer, CA, Engineer, Architect)</SelectItem>
+            <SelectItem value="Defense / Armed Forces">Defense / Armed Forces</SelectItem>
+            <SelectItem value="Teaching / Education">Teaching / Education</SelectItem>
+            <SelectItem value="Agriculture / Farming">Agriculture / Farming</SelectItem>
+            <SelectItem value="Homemaker / Housewife">Homemaker / Housewife</SelectItem>
+            <SelectItem value="Retired">Retired</SelectItem>
+            <SelectItem value="Other">Other (Specify below)</SelectItem>
+          </SelectContent>
+        </Select>
+        {(![
+          "Business / Entrepreneur",
+          "Government Service / Public Sector",
+          "Private Sector Employee",
+          "Professional (Doctor, Lawyer, CA, Engineer, Architect)",
+          "Defense / Armed Forces",
+          "Teaching / Education",
+          "Agriculture / Farming",
+          "Homemaker / Housewife",
+          "Retired",
+        ].includes(formData.fatherOccupation) || formData.fatherOccupation === "") && (
+          <Input
+            placeholder="Type custom father's occupation"
+            value={formData.fatherOccupation}
+            onChange={(e) =>
+              setFormData((prev) => ({
+                ...prev,
+                fatherOccupation: e.target.value,
+              }))
+            }
+            className="border-[#D4D4D4] rounded-[8px] h-9 text-[13px] mt-1"
+          />
+        )}
       </div>
 
       <div className="col-span-2 border-b pb-2 pt-2">
@@ -2380,19 +2694,71 @@ function EditParentsForm({ appData, onSave, onClose }: FormProps) {
       </div>
       <div className="flex flex-col gap-1.5 col-span-2">
         <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
-          Occupation
+          Mother's Occupation
         </Label>
-        <Input
-          value={formData.motherOccupation}
-          onChange={(e) =>
-            setFormData((prev) => ({
-              ...prev,
-              motherOccupation: e.target.value,
-            }))
+        <Select
+          value={
+            [
+              "Homemaker / Housewife",
+              "Business / Entrepreneur",
+              "Government Service / Public Sector",
+              "Private Sector Employee",
+              "Professional (Doctor, Lawyer, CA, Engineer, Architect)",
+              "Defense / Armed Forces",
+              "Teaching / Education",
+              "Agriculture / Farming",
+              "Retired",
+            ].includes(formData.motherOccupation)
+              ? formData.motherOccupation
+              : "Other"
           }
-          className="border-[#D4D4D4] rounded-[8px] h-9 text-[13px]"
-          required
-        />
+          onValueChange={(val) => {
+            if (val === "Other") {
+              setFormData((prev) => ({ ...prev, motherOccupation: "" }));
+            } else {
+              setFormData((prev) => ({ ...prev, motherOccupation: val }));
+            }
+          }}
+        >
+          <SelectTrigger className="border-[#D4D4D4] rounded-[8px] h-9 text-[13px] bg-white">
+            <SelectValue placeholder="Select Occupation" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Homemaker / Housewife">Homemaker / Housewife</SelectItem>
+            <SelectItem value="Business / Entrepreneur">Business / Entrepreneur</SelectItem>
+            <SelectItem value="Government Service / Public Sector">Government Service / Public Sector</SelectItem>
+            <SelectItem value="Private Sector Employee">Private Sector Employee</SelectItem>
+            <SelectItem value="Professional (Doctor, Lawyer, CA, Engineer, Architect)">Professional (Doctor, Lawyer, CA, Engineer, Architect)</SelectItem>
+            <SelectItem value="Defense / Armed Forces">Defense / Armed Forces</SelectItem>
+            <SelectItem value="Teaching / Education">Teaching / Education</SelectItem>
+            <SelectItem value="Agriculture / Farming">Agriculture / Farming</SelectItem>
+            <SelectItem value="Retired">Retired</SelectItem>
+            <SelectItem value="Other">Other (Specify below)</SelectItem>
+          </SelectContent>
+        </Select>
+        {(![
+          "Homemaker / Housewife",
+          "Business / Entrepreneur",
+          "Government Service / Public Sector",
+          "Private Sector Employee",
+          "Professional (Doctor, Lawyer, CA, Engineer, Architect)",
+          "Defense / Armed Forces",
+          "Teaching / Education",
+          "Agriculture / Farming",
+          "Retired",
+        ].includes(formData.motherOccupation) || formData.motherOccupation === "") && (
+          <Input
+            placeholder="Type custom mother's occupation"
+            value={formData.motherOccupation}
+            onChange={(e) =>
+              setFormData((prev) => ({
+                ...prev,
+                motherOccupation: e.target.value,
+              }))
+            }
+            className="border-[#D4D4D4] rounded-[8px] h-9 text-[13px] mt-1"
+          />
+        )}
       </div>
 
       <div className="flex items-center gap-3 pt-4 border-t border-[#E5E5E5] mt-2 col-span-2">

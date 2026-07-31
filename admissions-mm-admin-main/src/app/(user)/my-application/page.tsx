@@ -116,11 +116,16 @@ const applicationSchema = z.object({
     aadhaar: z.string().regex(/^\d{12}$/, "Aadhaar must be exactly 12 digits"),
     maritalStatus: z.string().min(1, "Marital status is required"),
   }),
-  preferences: z.object({
-    program: z.string().min(1, "Program is required"),
-    preference1: z.string().min(1, "Campus preference 1 is required"),
-    preference2: z.string().min(1, "Campus preference 2 is required"),
-  }),
+  preferences: z
+    .object({
+      program: z.string().min(1, "Program is required"),
+      preference1: z.string().min(1, "Campus preference 1 is required"),
+      preference2: z.string().min(1, "Campus preference 2 is required"),
+    })
+    .refine((data) => data.preference1 !== data.preference2, {
+      message: "Preference 1 and Preference 2 cannot be the same campus",
+      path: ["preference2"],
+    }),
   education: z.object({
     tenth: z.object({
       institute: z.string().min(1, "Institute is required"),
@@ -144,13 +149,29 @@ const applicationSchema = z.object({
       percentageTillLast: z.string().min(1, "Score/Percentage is required"),
       mode: z.string().min(1, "Mode of study is required"),
     }),
-    entrance: z.array(z.object({
-      exam: z.string().min(1, "Entrance exam is required"),
-      rollNo: z.string().min(1, "Roll number is required"),
-      month: z.string().min(1, "Month/Year is required"),
-      status: z.string().min(1, "Status is required"),
-      percentile: z.string().min(1, "Percentile is required"),
-    })).min(1, "At least one entrance test is required"),
+    hasWorkExp: z.string().optional(),
+    experiences: z
+      .array(
+        z.object({
+          companyName: z.string().optional(),
+          designation: z.string().optional(),
+          months: z.string().optional(),
+          salaryCtc: z.string().optional(),
+          rolesDescription: z.string().optional(),
+        })
+      )
+      .optional(),
+    entrance: z
+      .array(
+        z.object({
+          exam: z.string().optional(),
+          rollNo: z.string().optional(),
+          month: z.string().optional(),
+          status: z.string().optional(),
+          percentile: z.string().optional(),
+        })
+      )
+      .optional(),
   }),
   family: z.object({
     father: z.object({
@@ -333,7 +354,7 @@ export default function MyApplicationPage() {
   });
 
   const form = useForm<ApplicationFormValues>({
-    resolver: zodResolver(applicationSchema),
+    resolver: zodResolver(applicationSchema) as any,
     defaultValues: {
       personal: {
         fullName: "",
@@ -376,6 +397,8 @@ export default function MyApplicationPage() {
           percentageTillLast: "",
           mode: "",
         },
+        hasWorkExp: "No",
+        experiences: [],
         entrance: [{
           exam: "",
           rollNo: "",
@@ -417,6 +440,11 @@ export default function MyApplicationPage() {
   const { fields: entranceFields, append: appendEntrance, remove: removeEntrance } = useFieldArray({
     control: form.control,
     name: "education.entrance",
+  });
+
+  const { fields: expFields, append: appendExp, remove: removeExp } = useFieldArray({
+    control: form.control,
+    name: "education.experiences",
   });
 
   const nextStep = async () => {
@@ -467,7 +495,7 @@ export default function MyApplicationPage() {
       const courseId = selectedCourse?.id || undefined;
       const academicSession = currentSession?.name || "2025-2026";
 
-      const payload = {
+      const payload: any = {
         courseId,
         academicSession,
         program: data.preferences.program || selectedCourse?.name || "Management Program",
@@ -533,8 +561,8 @@ export default function MyApplicationPage() {
             isCompleted: data.education.graduation.status === "Completed",
           },
         ].filter((item) => item.institution || item.boardUniversity),
-        entranceTests: data.education.entrance
-          .filter((test) => test.exam && test.exam.trim() !== "")
+        entranceTests: (data.education.entrance || [])
+          .filter((test) => test && test.exam && test.exam.trim() !== "")
           .map((test) => ({
             testName: test.exam,
             rollNo: test.rollNo,
@@ -542,6 +570,16 @@ export default function MyApplicationPage() {
             resultStatus: test.status,
             percentile: test.percentile ? Number(test.percentile) : undefined,
           })),
+        workExperiences: data.education.hasWorkExp === "Yes"
+          ? (data.education.experiences || [])
+              .filter((exp) => exp && (exp.companyName || exp.designation || exp.months))
+              .map((exp) => ({
+                organization: exp.companyName || "Company",
+                designation: exp.designation || undefined,
+                rolesResponsibilities: exp.months ? `${exp.months} Months` : undefined,
+                grossSalary: exp.salaryCtc || undefined,
+              }))
+          : [],
         contactDetails: {
           addresses: [
             { type: "present", addressLine1: data.family.address.present },
@@ -556,10 +594,21 @@ export default function MyApplicationPage() {
         },
       };
 
-      await createMutation.mutateAsync(payload);
-      router.push("/organization/applications");
-    } catch (error) {
-      console.error("Failed to submit application:", error);
+      console.log("Submitting payload:", JSON.stringify(payload, null, 2));
+
+      try {
+        await createMutation.mutateAsync(payload);
+        router.push("/organization/applications");
+      } catch (error: any) {
+        console.error("Failed to submit application:", error);
+        const errData = error?.response?.data;
+        console.error("Error response data:", errData);
+        console.error("Error message:", errData?.message || error?.message);
+        console.error("Error status:", error?.response?.status);
+        console.error("Full payload sent:", JSON.stringify(payload, null, 2));
+      }
+    } catch (error: any) {
+      console.error("Outer error:", error?.message || error);
     }
   };
 
@@ -838,8 +887,12 @@ export default function MyApplicationPage() {
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <span className="text-[12px] font-semibold uppercase tracking-[0.6px] text-muted-foreground block">Score Till Last Sem</span>
-                      <p className="font-medium text-[14px] text-red-500">{form.getValues("education.graduation.percentageTillLast")}%</p>
+                      <span className="text-[12px] font-semibold uppercase tracking-[0.6px] text-muted-foreground block">
+                        {form.watch("education.graduation.status") === "Completed" ? "Graduation Percentage" : "Score Till Last Sem"}
+                      </span>
+                      <p className="font-medium text-[14px] text-red-500">
+                        {form.getValues("education.graduation.percentageTillLast")}
+                      </p>
                     </div>
                     <div className="space-y-1">
                       <span className="text-[12px] font-semibold uppercase tracking-[0.6px] text-muted-foreground block">Mode</span>
@@ -847,6 +900,50 @@ export default function MyApplicationPage() {
                     </div>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Work Experience Details */}
+            <Card className="bg-card border border-border rounded-[8px] shadow-sm overflow-hidden">
+              <CardHeader className="bg-muted/30 border-b border-input px-6 py-4 flex flex-row items-center justify-between space-y-0">
+                <CardTitle className="flex items-center gap-2 text-[16px] font-medium text-foreground">
+                  <Briefcase className="h-4 w-4 text-muted-foreground" />
+                  Work Experience Details
+                </CardTitle>
+              </CardHeader>
+              <CardContent className={(form.watch("education.experiences") || []).filter((exp: any) => exp && (exp.companyName || exp.designation || exp.months)).length > 0 ? "p-0" : "p-6"}>
+                {(form.watch("education.experiences") || []).filter((exp: any) => exp && (exp.companyName || exp.designation || exp.months)).length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="hover:bg-transparent border-b border-input">
+                          <TableHead className="text-[10px] font-bold uppercase tracking-[0.6px] text-muted-foreground pl-6">Company / Employer</TableHead>
+                          <TableHead className="text-[10px] font-bold uppercase tracking-[0.6px] text-muted-foreground px-4">Designation</TableHead>
+                          <TableHead className="text-[10px] font-bold uppercase tracking-[0.6px] text-muted-foreground px-4">Duration (Months)</TableHead>
+                          <TableHead className="text-[10px] font-bold uppercase tracking-[0.6px] text-muted-foreground text-right pr-6">Annual CTC</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(form.watch("education.experiences") || [])
+                          .filter((exp: any) => exp && (exp.companyName || exp.designation || exp.months))
+                          .map((exp: any, i: number) => (
+                            <TableRow key={i} className="bg-muted/5 hover:bg-muted/10">
+                              <TableCell className="font-bold text-foreground text-xs pl-6 py-3">{exp.companyName || "-"}</TableCell>
+                              <TableCell className="text-muted-foreground text-xs px-4 py-3">{exp.designation || "-"}</TableCell>
+                              <TableCell className="text-muted-foreground text-xs px-4 py-3">{exp.months ? `${exp.months} Months` : "-"}</TableCell>
+                              <TableCell className="text-right font-bold text-emerald-600 pr-6 py-3 text-xs">{exp.salaryCtc || "-"}</TableCell>
+                            </TableRow>
+                          ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="bg-slate-100 text-slate-600 border-slate-200 text-xs font-semibold px-2.5 py-1">
+                      No prior work experience specified (Fresher)
+                    </Badge>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -858,35 +955,45 @@ export default function MyApplicationPage() {
                   Entrance Test Details
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                    <TableRow className="hover:bg-transparent border-b border-input">
-                      <TableHead className="text-[10px] font-bold uppercase tracking-[0.6px] text-muted-foreground pl-6">Exam</TableHead>
-                      <TableHead className="text-[10px] font-bold uppercase tracking-[0.6px] text-muted-foreground px-4">Roll No</TableHead>
-                      <TableHead className="text-[10px] font-bold uppercase tracking-[0.6px] text-muted-foreground px-4">Month/Year</TableHead>
-                      <TableHead className="text-[10px] font-bold uppercase tracking-[0.6px] text-muted-foreground px-4">Status</TableHead>
-                      <TableHead className="text-[10px] font-bold uppercase tracking-[0.6px] text-muted-foreground text-right pr-6">Percentile</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {form.getValues("education.entrance").map((test: any, i: number) => (
-                      <TableRow key={i} className="bg-muted/5 hover:bg-muted/10">
-                        <TableCell className="font-bold text-foreground text-xs pl-6 py-3">{test.exam}</TableCell>
-                        <TableCell className="font-mono text-xs text-muted-foreground px-4 py-3">{test.rollNo}</TableCell>
-                        <TableCell className="text-muted-foreground text-xs px-4 py-3">{test.month}</TableCell>
-                        <TableCell className="px-4 py-3">
-                          <Badge variant="outline" className="bg-[#D1FAE5] text-[#16A34A] border-[#A7F3D0] font-bold text-[8px] rounded px-1.5 py-0 leading-normal">
-                            {test.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right font-bold text-foreground pr-6 py-3 text-xs">{test.percentile}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                </div>
+              <CardContent className={(form.watch("education.entrance") || []).filter((test: any) => test && test.exam && test.exam.trim() !== "").length > 0 ? "p-0" : "p-6"}>
+                {(form.watch("education.entrance") || []).filter((test: any) => test && test.exam && test.exam.trim() !== "").length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="hover:bg-transparent border-b border-input">
+                          <TableHead className="text-[10px] font-bold uppercase tracking-[0.6px] text-muted-foreground pl-6">Exam</TableHead>
+                          <TableHead className="text-[10px] font-bold uppercase tracking-[0.6px] text-muted-foreground px-4">Roll No</TableHead>
+                          <TableHead className="text-[10px] font-bold uppercase tracking-[0.6px] text-muted-foreground px-4">Month/Year</TableHead>
+                          <TableHead className="text-[10px] font-bold uppercase tracking-[0.6px] text-muted-foreground px-4">Status</TableHead>
+                          <TableHead className="text-[10px] font-bold uppercase tracking-[0.6px] text-muted-foreground text-right pr-6">Percentile</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(form.watch("education.entrance") || [])
+                          .filter((test: any) => test && test.exam && test.exam.trim() !== "")
+                          .map((test: any, i: number) => (
+                            <TableRow key={i} className="bg-muted/5 hover:bg-muted/10">
+                              <TableCell className="font-bold text-foreground text-xs pl-6 py-3">{test.exam}</TableCell>
+                              <TableCell className="font-mono text-xs text-muted-foreground px-4 py-3">{test.rollNo || "-"}</TableCell>
+                              <TableCell className="text-muted-foreground text-xs px-4 py-3">{test.month || "-"}</TableCell>
+                              <TableCell className="px-4 py-3">
+                                <Badge variant="outline" className="bg-[#D1FAE5] text-[#16A34A] border-[#A7F3D0] font-bold text-[8px] rounded px-1.5 py-0 leading-normal">
+                                  {test.status || "Declared"}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-right font-bold text-foreground pr-6 py-3 text-xs">{test.percentile || "-"}</TableCell>
+                            </TableRow>
+                          ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="bg-slate-100 text-slate-600 border-slate-200 text-xs font-semibold px-2.5 py-1">
+                      No entrance test specified (Optional)
+                    </Badge>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -1296,10 +1403,15 @@ export default function MyApplicationPage() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="GEN">GEN</SelectItem>
-                          <SelectItem value="OBC">OBC</SelectItem>
-                          <SelectItem value="SC">SC</SelectItem>
-                          <SelectItem value="ST">ST</SelectItem>
+                          <SelectItem value="GEN">GEN (General)</SelectItem>
+                          <SelectItem value="OBC">OBC (Other Backward Class)</SelectItem>
+                          <SelectItem value="BC">BC (Backward Class)</SelectItem>
+                          <SelectItem value="MBC">MBC (Most Backward Class)</SelectItem>
+                          <SelectItem value="SC">SC (Scheduled Caste)</SelectItem>
+                          <SelectItem value="ST">ST (Scheduled Tribe)</SelectItem>
+                          <SelectItem value="EWS">EWS (Economically Weaker Section)</SelectItem>
+                          <SelectItem value="PwD">PwD (Person with Disability)</SelectItem>
+                          <SelectItem value="Other">Other</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -1448,66 +1560,72 @@ export default function MyApplicationPage() {
                 <FormField
                   control={form.control}
                   name="preferences.preference1"
-                  render={({ field }) => (
-                    <FormItem className="space-y-0">
-                      <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px]">Campus Preference 1</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full data-[placeholder]:text-foreground bg-white tracking-wider">
-                            <SelectValue placeholder="Select Campus Preference 1" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {branchesList.length > 0 ? (
-                            branchesList.map((branch) => (
-                              <SelectItem key={branch.id} value={branch.id}>
-                                {branch.name} {branch.city ? `(${branch.city})` : ""}
-                              </SelectItem>
-                            ))
-                          ) : (
-                            <>
-                              <SelectItem value="Main Campus">Main Campus</SelectItem>
-                              <SelectItem value="City Campus">City Campus</SelectItem>
-                              <SelectItem value="South Campus">South Campus</SelectItem>
-                            </>
-                          )}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  render={({ field }) => {
+                    const pref2Val = form.watch("preferences.preference2");
+                    return (
+                      <FormItem className="space-y-0">
+                        <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px]">Campus Preference 1</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full data-[placeholder]:text-foreground bg-white tracking-wider">
+                              <SelectValue placeholder="Select Campus Preference 1" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {branchesList.length > 0 ? (
+                              branchesList.map((branch) => (
+                                <SelectItem key={branch.id} value={branch.id} disabled={branch.id === pref2Val}>
+                                  {branch.name} {branch.city ? `(${branch.city})` : ""} {branch.id === pref2Val ? "(Selected as Pref 2)" : ""}
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <>
+                                <SelectItem value="Main Campus" disabled={pref2Val === "Main Campus"}>Main Campus {pref2Val === "Main Campus" ? "(Selected as Pref 2)" : ""}</SelectItem>
+                                <SelectItem value="City Campus" disabled={pref2Val === "City Campus"}>City Campus {pref2Val === "City Campus" ? "(Selected as Pref 2)" : ""}</SelectItem>
+                                <SelectItem value="South Campus" disabled={pref2Val === "South Campus"}>South Campus {pref2Val === "South Campus" ? "(Selected as Pref 2)" : ""}</SelectItem>
+                              </>
+                            )}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
                 />
                 <FormField
                   control={form.control}
                   name="preferences.preference2"
-                  render={({ field }) => (
-                    <FormItem className="space-y-0">
-                      <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px]">Campus Preference 2</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full data-[placeholder]:text-foreground bg-white tracking-wider">
-                            <SelectValue placeholder="Select Campus Preference 2" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {branchesList.length > 0 ? (
-                            branchesList.map((branch) => (
-                              <SelectItem key={branch.id} value={branch.id}>
-                                {branch.name} {branch.city ? `(${branch.city})` : ""}
-                              </SelectItem>
-                            ))
-                          ) : (
-                            <>
-                              <SelectItem value="Main Campus">Main Campus</SelectItem>
-                              <SelectItem value="City Campus">City Campus</SelectItem>
-                              <SelectItem value="South Campus">South Campus</SelectItem>
-                            </>
-                          )}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  render={({ field }) => {
+                    const pref1Val = form.watch("preferences.preference1");
+                    return (
+                      <FormItem className="space-y-0">
+                        <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px]">Campus Preference 2</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full data-[placeholder]:text-foreground bg-white tracking-wider">
+                              <SelectValue placeholder="Select Campus Preference 2" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {branchesList.length > 0 ? (
+                              branchesList.map((branch) => (
+                                <SelectItem key={branch.id} value={branch.id} disabled={branch.id === pref1Val}>
+                                  {branch.name} {branch.city ? `(${branch.city})` : ""} {branch.id === pref1Val ? "(Selected as Pref 1)" : ""}
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <>
+                                <SelectItem value="Main Campus" disabled={pref1Val === "Main Campus"}>Main Campus {pref1Val === "Main Campus" ? "(Selected as Pref 1)" : ""}</SelectItem>
+                                <SelectItem value="City Campus" disabled={pref1Val === "City Campus"}>City Campus {pref1Val === "City Campus" ? "(Selected as Pref 1)" : ""}</SelectItem>
+                                <SelectItem value="South Campus" disabled={pref1Val === "South Campus"}>South Campus {pref1Val === "South Campus" ? "(Selected as Pref 1)" : ""}</SelectItem>
+                              </>
+                            )}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
                 />
               </div>
             </StepCard>
@@ -1753,9 +1871,11 @@ export default function MyApplicationPage() {
                       name="education.graduation.percentageTillLast"
                       render={({ field }) => (
                         <FormItem className="space-y-0">
-                          <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px]">Score Till Last Sem (%)</FormLabel>
+                          <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px]">
+                            {form.watch("education.graduation.status") === "Completed" ? "Graduation Percentage / CGPA" : "Score Till Last Sem (%)"}
+                          </FormLabel>
                           <FormControl>
-                            <Input placeholder="e.g. 84.5" className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground tracking-wider" {...field} />
+                            <Input placeholder={form.watch("education.graduation.status") === "Completed" ? "e.g. 84.5% or 8.5 CGPA" : "e.g. 84.5"} className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground tracking-wider" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -1786,6 +1906,133 @@ export default function MyApplicationPage() {
                   </div>
                 </div>
 
+                {/* Work Experience Details */}
+                <div className="flex flex-col gap-5 py-6 border-t border-input">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex flex-col gap-1">
+                      <p className="text-[16px] font-medium text-foreground">Work Experience Details</p>
+                      <p className="text-[14px] text-muted-foreground">Prior full-time employment or professional experience (if applicable).</p>
+                    </div>
+                    <FormField
+                      control={form.control}
+                      name="education.hasWorkExp"
+                      render={({ field }) => (
+                        <FormItem className="space-y-0 w-full md:w-48 shrink-0">
+                          <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px]">Have Work Experience?</FormLabel>
+                          <Select
+                            onValueChange={(val) => {
+                              field.onChange(val);
+                              if (val === "Yes" && expFields.length === 0) {
+                                appendExp({ companyName: "", designation: "", months: "", salaryCtc: "" });
+                              } else if (val === "No") {
+                                form.setValue("education.experiences", []);
+                              }
+                            }}
+                            value={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full bg-white tracking-wider">
+                                <SelectValue placeholder="Select Option" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="No">No (Fresher)</SelectItem>
+                              <SelectItem value="Yes">Yes (Have Experience)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  {form.watch("education.hasWorkExp") === "Yes" && (
+                    <div className="flex flex-col gap-5 pt-2">
+                      {expFields.map((item, index) => (
+                        <div key={item.id} className="flex flex-col gap-4 p-5 border border-border/60 rounded-xl bg-slate-50/50">
+                          <div className="flex items-center justify-between pb-3 border-b border-border/40">
+                            <p className="text-[14px] font-bold text-slate-800">Experience #{index + 1} Details</p>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                removeExp(index);
+                                if (expFields.length <= 1) {
+                                  form.setValue("education.hasWorkExp", "No");
+                                }
+                              }}
+                              className="text-[12px] font-semibold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1 rounded-md transition-colors"
+                            >
+                              Remove Entry
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-5">
+                            <FormField
+                              control={form.control}
+                              name={`education.experiences.${index}.companyName`}
+                              render={({ field }) => (
+                                <FormItem className="space-y-0">
+                                  <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px]">Company / Employer</FormLabel>
+                                  <FormControl>
+                                    <Input placeholder="e.g. TCS / Infosys" className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground tracking-wider" {...field} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name={`education.experiences.${index}.designation`}
+                              render={({ field }) => (
+                                <FormItem className="space-y-0">
+                                  <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px]">Designation / Position</FormLabel>
+                                  <FormControl>
+                                    <Input placeholder="e.g. Software Engineer" className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground tracking-wider" {...field} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name={`education.experiences.${index}.months`}
+                              render={({ field }) => (
+                                <FormItem className="space-y-0">
+                                  <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px]">Experience (Months)</FormLabel>
+                                  <FormControl>
+                                    <Input placeholder="e.g. 18" className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground tracking-wider" {...field} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name={`education.experiences.${index}.salaryCtc`}
+                              render={({ field }) => (
+                                <FormItem className="space-y-0">
+                                  <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px]">Annual CTC / Salary</FormLabel>
+                                  <FormControl>
+                                    <Input placeholder="e.g. ₹6.5 LPA" className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground tracking-wider" {...field} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                        </div>
+                      ))}
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => appendExp({ companyName: "", designation: "", months: "", salaryCtc: "" })}
+                        className="w-full border-dashed border-slate-300 text-slate-700 hover:bg-slate-50 font-semibold h-10 cursor-pointer"
+                      >
+                        + Add Another Work Experience
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
                 {/* Entrance Exam Details */}
                 <div className="flex flex-col gap-5 pt-6">
                   <div className="flex flex-col gap-1">
@@ -1797,15 +2044,13 @@ export default function MyApplicationPage() {
                     <div key={field.id} className="flex flex-col gap-4 p-5 border border-border/60 rounded-xl bg-slate-50/50">
                       <div className="flex items-center justify-between pb-3 border-b border-border/40">
                         <p className="text-[14px] font-bold text-slate-800">Test #{index + 1} Details</p>
-                        {index > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => removeEntrance(index)}
-                            className="text-[12px] font-semibold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1 rounded-md transition-colors"
-                          >
-                            Remove
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => removeEntrance(index)}
+                          className="text-[12px] font-semibold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1 rounded-md transition-colors"
+                        >
+                          Remove
+                        </button>
                       </div>
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
@@ -1964,15 +2209,62 @@ export default function MyApplicationPage() {
                     <FormField
                       control={form.control}
                       name="family.father.occupation"
-                      render={({ field }) => (
-                        <FormItem className="space-y-0">
-                          <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px]">Father&apos;s Occupation</FormLabel>
-                          <FormControl>
-                            <Input placeholder="e.g. Business / Service" className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground tracking-wider" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+                      render={({ field }) => {
+                        const presets = [
+                          "Business / Entrepreneur",
+                          "Government Service / Public Sector",
+                          "Private Sector Employee",
+                          "Professional (Doctor, Lawyer, CA, Engineer, Architect)",
+                          "Defense / Armed Forces",
+                          "Teaching / Education",
+                          "Agriculture / Farming",
+                          "Homemaker / Housewife",
+                          "Retired",
+                        ];
+                        const isPreset = presets.includes(field.value);
+                        const [isOther, setIsOther] = React.useState(!isPreset && field.value !== "");
+
+                        return (
+                          <FormItem className="space-y-1.5">
+                            <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px]">Father&apos;s Occupation</FormLabel>
+                            <Select
+                              value={isOther ? "Other" : (field.value || "")}
+                              onValueChange={(val) => {
+                                if (val === "Other") {
+                                  setIsOther(true);
+                                  field.onChange("");
+                                } else {
+                                  setIsOther(false);
+                                  field.onChange(val);
+                                }
+                              }}
+                            >
+                              <FormControl>
+                                <SelectTrigger className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full bg-white tracking-wider">
+                                  <SelectValue placeholder="Select Occupation" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {presets.map((occ) => (
+                                  <SelectItem key={occ} value={occ}>{occ}</SelectItem>
+                                ))}
+                                <SelectItem value="Other">Other (Specify below)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            {isOther && (
+                              <FormControl>
+                                <Input
+                                  placeholder="Specify father's occupation"
+                                  className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground tracking-wider mt-2 bg-white"
+                                  value={field.value}
+                                  onChange={field.onChange}
+                                />
+                              </FormControl>
+                            )}
+                            <FormMessage />
+                          </FormItem>
+                        );
+                      }}
                     />
                     <FormField
                       control={form.control}
@@ -2036,15 +2328,62 @@ export default function MyApplicationPage() {
                     <FormField
                       control={form.control}
                       name="family.mother.occupation"
-                      render={({ field }) => (
-                        <FormItem className="space-y-0">
-                          <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px]">Mother&apos;s Occupation</FormLabel>
-                          <FormControl>
-                            <Input placeholder="e.g. Homemaker / Business" className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground tracking-wider" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+                      render={({ field }) => {
+                        const presets = [
+                          "Homemaker / Housewife",
+                          "Business / Entrepreneur",
+                          "Government Service / Public Sector",
+                          "Private Sector Employee",
+                          "Professional (Doctor, Lawyer, CA, Engineer, Architect)",
+                          "Defense / Armed Forces",
+                          "Teaching / Education",
+                          "Agriculture / Farming",
+                          "Retired",
+                        ];
+                        const isPreset = presets.includes(field.value);
+                        const [isOther, setIsOther] = React.useState(!isPreset && field.value !== "");
+
+                        return (
+                          <FormItem className="space-y-1.5">
+                            <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px]">Mother&apos;s Occupation</FormLabel>
+                            <Select
+                              value={isOther ? "Other" : (field.value || "")}
+                              onValueChange={(val) => {
+                                if (val === "Other") {
+                                  setIsOther(true);
+                                  field.onChange("");
+                                } else {
+                                  setIsOther(false);
+                                  field.onChange(val);
+                                }
+                              }}
+                            >
+                              <FormControl>
+                                <SelectTrigger className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full bg-white tracking-wider">
+                                  <SelectValue placeholder="Select Occupation" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {presets.map((occ) => (
+                                  <SelectItem key={occ} value={occ}>{occ}</SelectItem>
+                                ))}
+                                <SelectItem value="Other">Other (Specify below)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            {isOther && (
+                              <FormControl>
+                                <Input
+                                  placeholder="Specify mother's occupation"
+                                  className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground tracking-wider mt-2 bg-white"
+                                  value={field.value}
+                                  onChange={field.onChange}
+                                />
+                              </FormControl>
+                            )}
+                            <FormMessage />
+                          </FormItem>
+                        );
+                      }}
                     />
                     <FormField
                       control={form.control}
