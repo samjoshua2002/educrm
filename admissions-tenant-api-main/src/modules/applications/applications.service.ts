@@ -359,6 +359,7 @@ export class ApplicationsService {
         program: program,
         courseId: course.id,
         academicSession: academicSession,
+        photoUrl: dto.photoUrl || (dto.applicant as any)?.photoUrl || (dto.applicant as any)?.photo || undefined,
         assignedCounselorId: creatorRole === Role.COUNSELOR ? creatorId : undefined,
         formStatus: 'submitted',
         preference1: p1Id || undefined,
@@ -376,8 +377,9 @@ export class ApplicationsService {
         maritalStatus: applicantMaritalStatus,
         inspirationEssay: dto.otherDetails?.inspirationEssay || undefined,
         howDidYouKnow: dto.otherDetails?.howDidYouKnow || undefined,
-        hasMedicalCondition: dto.otherDetails?.medicalConditions ? true : false,
+        hasMedicalCondition: dto.otherDetails?.hasMedicalCondition ?? (dto.otherDetails?.medicalConditions ? true : false),
         medicalConditionDetails: dto.otherDetails?.medicalConditions || undefined,
+        medicalConditionDocument: dto.otherDetails?.medicalConditionDocument || undefined,
         createdBy: creatorId,
         updatedBy: creatorId,
       });
@@ -395,6 +397,7 @@ export class ApplicationsService {
             yearOfPassing: edu.yearOfPassing || edu.year || undefined,
             percentageCgpa: edu.percentageCgpa || edu.percentage || undefined,
             majorSubjects: edu.majorSubjects || edu.stream || undefined,
+            documentUrl: edu.documentUrl || edu.certificateUrl || undefined,
             isCompleted: edu.isCompleted !== false,
           });
           await queryRunner.manager.save(rec);
@@ -499,6 +502,11 @@ export class ApplicationsService {
     if (dto.name) app.name = dto.name;
     if (dto.primaryMobile) app.primaryMobile = dto.primaryMobile;
     if (dto.alternateMobile) app.alternateMobile = dto.alternateMobile;
+    if (dto.photoUrl) app.photoUrl = dto.photoUrl;
+    if (dto.dateOfBirth) {
+      const d = new Date(dto.dateOfBirth);
+      if (!isNaN(d.getTime())) app.dateOfBirth = d;
+    }
     app.updatedBy = actorId;
     app.lastActivityAt = new Date();
 
@@ -532,7 +540,13 @@ export class ApplicationsService {
 
   async updateAdditionalInfo(id: string, orgId: string, dto: UpdateAdditionalInfoDto, actorId: string) {
     const app = await this.getAppAndAssertEditable(id, orgId);
-    Object.assign(app, dto);
+    if (dto.inspirationEssay !== undefined) app.inspirationEssay = dto.inspirationEssay;
+    if (dto.howDidYouKnow !== undefined) app.howDidYouKnow = dto.howDidYouKnow;
+    if (dto.hasMedicalCondition !== undefined) {
+      app.hasMedicalCondition = dto.hasMedicalCondition === true || dto.hasMedicalCondition === 'true' || dto.hasMedicalCondition === 'yes';
+    }
+    if (dto.medicalConditionDetails !== undefined) app.medicalConditionDetails = dto.medicalConditionDetails;
+    if (dto.medicalConditionDocument !== undefined) app.medicalConditionDocument = dto.medicalConditionDocument;
     app.updatedBy = actorId;
     app.lastActivityAt = new Date();
     return this.applicationRepository.save(app);

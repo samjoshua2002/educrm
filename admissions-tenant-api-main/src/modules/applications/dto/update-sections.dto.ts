@@ -3,10 +3,11 @@ import { Type } from 'class-transformer';
 
 export class UpdatePersonalDto {
   @IsString() @IsOptional() name?: string;
+  @IsString() @IsOptional() email?: string;
   @IsString() @IsOptional() primaryMobile?: string;
   @IsString() @IsOptional() alternateMobile?: string;
   @IsString() @IsOptional() gender?: string;
-  @IsDateString() @IsOptional() dateOfBirth?: string;
+  @IsString() @IsOptional() dateOfBirth?: string;
   @IsString() @IsOptional() religion?: string;
   @IsString() @IsOptional() nationality?: string;
   @IsString() @IsOptional() aadhaarNumber?: string;
@@ -14,6 +15,7 @@ export class UpdatePersonalDto {
   @IsString() @IsOptional() maritalStatus?: string;
   @IsString() @IsOptional() spouseName?: string;
   @IsString() @IsOptional() spouseOccupation?: string;
+  @IsString() @IsOptional() photoUrl?: string;
 }
 
 export class UpdatePreferencesDto {
@@ -31,6 +33,7 @@ export class EducationRecordDto {
   @IsString() @IsOptional() classObtained?: string;
   @IsString() @IsOptional() majorSubjects?: string;
   @IsBoolean() @IsOptional() isCompleted?: boolean;
+  @IsString() @IsOptional() documentUrl?: string;
 }
 
 export class UpdateEducationDto {
@@ -141,8 +144,9 @@ export class UpdateOtherQualificationsDto {
 export class UpdateAdditionalInfoDto {
   @IsString() @IsOptional() inspirationEssay?: string;
   @IsString() @IsOptional() howDidYouKnow?: string;
-  @IsBoolean() @IsOptional() hasMedicalCondition?: boolean;
+  @IsOptional() hasMedicalCondition?: any;
   @IsString() @IsOptional() medicalConditionDetails?: string;
+  @IsString() @IsOptional() medicalConditionDocument?: string;
 }
 
 export class UpdateDeclarationDto {

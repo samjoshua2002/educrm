@@ -29,6 +29,9 @@ import {
   Pencil,
   ExternalLink,
   Wallet,
+  Upload,
+  Loader2,
+  Paperclip,
 } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -74,6 +77,33 @@ import { useCourses } from "@/hooks/use-courses";
 import { gdInterviews } from "@/data/mock-gd-interviews";
 import { toast } from "sonner";
 import { usePageHeader } from "@/hooks/use-page-header";
+
+function formatMobile(val?: string): string {
+  if (!val) return "";
+  const cleaned = val.replace(/\D/g, "");
+  if (cleaned.length === 10) {
+    return `${cleaned.slice(0, 5)} ${cleaned.slice(5)}`;
+  }
+  if (cleaned.length === 12 && cleaned.startsWith("91")) {
+    return `+91 ${cleaned.slice(2, 7)} ${cleaned.slice(7)}`;
+  }
+  if (cleaned.length > 5) {
+    return `${cleaned.slice(0, 5)} ${cleaned.slice(5)}`;
+  }
+  return val;
+}
+
+function formatAadhaar(val?: string): string {
+  if (!val) return "";
+  const cleaned = val.replace(/\D/g, "").slice(0, 12);
+  if (cleaned.length > 8) {
+    return `${cleaned.slice(0, 4)} ${cleaned.slice(4, 8)} ${cleaned.slice(8)}`;
+  }
+  if (cleaned.length > 4) {
+    return `${cleaned.slice(0, 4)} ${cleaned.slice(4)}`;
+  }
+  return cleaned;
+}
 
 export default function ApplicationDetailsPage() {
   const router = useRouter();
@@ -192,7 +222,7 @@ export default function ApplicationDetailsPage() {
         </button>
         <Avatar className="h-16 w-16 md:h-20 md:w-20 border-4 border-slate-100 shadow-xs shrink-0 col-start-1 row-start-1 md:row-span-2 mt-2 md:mt-0">
           <AvatarImage
-            src={applicationData.applicant.photo}
+            src={applicationData.applicant.photo || (applicationData as any).photoUrl}
             alt={applicationData.applicant.name}
           />
           <AvatarFallback className="text-xl font-bold">
@@ -259,7 +289,7 @@ export default function ApplicationDetailsPage() {
                   fill="currentColor"
                 />
               </svg>
-              {applicationData.applicant.primaryMobile}
+              {formatMobile(applicationData.applicant.primaryMobile)}
             </span>
           </div>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-[15px] shrink-0 w-full sm:w-auto lg:ml-auto mt-2 lg:mt-0">
@@ -375,10 +405,7 @@ export default function ApplicationDetailsPage() {
                     Aadhaar Number
                   </span>
                   <p className="font-semibold text-[#1E293B] tracking-wider text-base">
-                    {applicationData.applicant.aadhaar.replace(
-                      /(\d{4})(\d{4})(\d{4})/,
-                      "$1 $2 $3",
-                    )}
+                    {formatAadhaar(applicationData.applicant.aadhaar)}
                   </p>
                 </div>
 
@@ -437,7 +464,7 @@ export default function ApplicationDetailsPage() {
                     <span
                       className={`${manrope.className} text-sm font-bold text-[#1E293B] leading-5`}
                     >
-                      {applicationData.applicant.primaryMobile}
+                      {formatMobile(applicationData.applicant.primaryMobile)}
                     </span>
                   </div>
                   <div className="flex justify-between items-center w-full">
@@ -449,7 +476,7 @@ export default function ApplicationDetailsPage() {
                     <span
                       className={`${manrope.className} text-sm font-bold text-[#1E293B] leading-5`}
                     >
-                      {applicationData.applicant.alternateMobile}
+                      {formatMobile(applicationData.applicant.alternateMobile)}
                     </span>
                   </div>
                 </div>
@@ -601,8 +628,11 @@ export default function ApplicationDetailsPage() {
                       <TableHead className="px-4 font-sans text-[10px] font-bold leading-normal tracking-[0.5px] uppercase text-[#64748B]">
                         Year
                       </TableHead>
-                      <TableHead className="pr-5 font-sans text-[10px] font-bold leading-normal tracking-[0.5px] uppercase text-[#64748B] text-right">
+                      <TableHead className="px-4 font-sans text-[10px] font-bold leading-normal tracking-[0.5px] uppercase text-[#64748B]">
                         Percentage
+                      </TableHead>
+                      <TableHead className="pr-5 font-sans text-[10px] font-bold leading-normal tracking-[0.5px] uppercase text-[#64748B] text-right">
+                        Attachment (R2)
                       </TableHead>
                     </TableRow>
                   </TableHeader>
@@ -620,8 +650,22 @@ export default function ApplicationDetailsPage() {
                       <TableCell className="text-slate-600 px-4 py-4">
                         {applicationData.education.tenth.year}
                       </TableCell>
-                      <TableCell className="text-right font-bold text-slate-800 pr-5 py-4">
+                      <TableCell className="font-bold text-slate-800 px-4 py-4">
                         {applicationData.education.tenth.percentage}
+                      </TableCell>
+                      <TableCell className="text-right pr-5 py-4">
+                        {applicationData.education.tenth.documentUrl ? (
+                          <a
+                            href={applicationData.education.tenth.documentUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-[6px]"
+                          >
+                            <FileText className="h-3 w-3" /> View 10th Doc
+                          </a>
+                        ) : (
+                          <span className="text-slate-400 text-xs font-normal">None</span>
+                        )}
                       </TableCell>
                     </TableRow>
                     <TableRow>
@@ -644,8 +688,22 @@ export default function ApplicationDetailsPage() {
                       <TableCell className="text-slate-600 px-4 py-4">
                         {applicationData.education.twelfth.year}
                       </TableCell>
-                      <TableCell className="text-right font-extrabold text-[#10B981] pr-5 py-4">
+                      <TableCell className="font-extrabold text-[#10B981] px-4 py-4">
                         {applicationData.education.twelfth.percentage}
+                      </TableCell>
+                      <TableCell className="text-right pr-5 py-4">
+                        {applicationData.education.twelfth.documentUrl ? (
+                          <a
+                            href={applicationData.education.twelfth.documentUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-[6px]"
+                          >
+                            <FileText className="h-3 w-3" /> View 12th Doc
+                          </a>
+                        ) : (
+                          <span className="text-slate-400 text-xs font-normal">None</span>
+                        )}
                       </TableCell>
                     </TableRow>
                   </TableBody>
@@ -709,6 +767,23 @@ export default function ApplicationDetailsPage() {
                     <p className="font-bold text-slate-800 text-sm">
                       {applicationData.education.graduation.mode}
                     </p>
+                  </div>
+                  <div className="space-y-1 col-span-1 md:col-span-2">
+                    <span className="font-sans text-[10px] font-bold leading-normal tracking-[0.5px] uppercase text-[#64748B] block">
+                      Graduation Document Attachment (R2)
+                    </span>
+                    {applicationData.education.graduation.documentUrl ? (
+                      <a
+                        href={applicationData.education.graduation.documentUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 border border-blue-200 px-3 py-1 rounded-[6px] mt-0.5"
+                      >
+                        <FileText className="h-3.5 w-3.5" /> View Graduation Certificate
+                      </a>
+                    ) : (
+                      <span className="text-slate-400 text-xs font-normal block mt-0.5">Not attached</span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1140,11 +1215,16 @@ export default function ApplicationDetailsPage() {
                   <p className="font-bold text-slate-800 text-sm">
                     {applicationData.other.medicalConditions}
                   </p>
-                  {(applicationData.other.medicalConditions && applicationData.other.medicalConditions.toLowerCase() !== "none" && applicationData.other.medicalConditionDocument) && (
+                  {applicationData.other.medicalConditionDocument && (
                     <div className="mt-2">
-                      <a href="#" className="flex items-center gap-1.5 text-[#2563EB] hover:underline text-xs font-medium">
+                      <a
+                        href={applicationData.other.medicalConditionDocument}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-[#2563EB] hover:underline text-xs font-semibold bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-[6px]"
+                      >
                         <FileText className="h-3.5 w-3.5" />
-                        View Document
+                        View Medical Document (R2)
                       </a>
                     </div>
                   )}
@@ -1283,24 +1363,41 @@ interface FormProps {
 function EditPersonalForm({ appData, onSave, onClose }: FormProps) {
   const [formData, setFormData] = React.useState({
     name: appData.applicant.name,
+    photo: appData.applicant.photo || appData.photoUrl || "",
     email: appData.applicant.email,
-    primaryMobile: appData.applicant.primaryMobile,
+    primaryMobile: formatMobile(appData.applicant.primaryMobile),
     gender: appData.applicant.gender,
     dob: appData.applicant.dob,
     category: appData.applicant.category,
     religion: appData.applicant.religion,
-    aadhaar: appData.applicant.aadhaar,
+    aadhaar: formatAadhaar(appData.applicant.aadhaar),
     nationality: appData.applicant.nationality,
     maritalStatus: appData.applicant.maritalStatus,
   });
+
+  const [uploadingPhoto, setUploadingPhoto] = React.useState(false);
+
+  const formatForDateInput = (val: string) => {
+    if (!val) return "";
+    if (val.includes("-") && val.length === 10) return val;
+    if (val.includes("/")) {
+      const parts = val.split("/");
+      if (parts.length === 3) {
+        return `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
+      }
+    }
+    return val;
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const updatedData = {
       ...appData,
+      photoUrl: formData.photo,
       applicant: {
         ...appData.applicant,
         name: formData.name,
+        photo: formData.photo,
         email: formData.email,
         primaryMobile: formData.primaryMobile,
         gender: formData.gender,
@@ -1318,8 +1415,82 @@ function EditPersonalForm({ appData, onSave, onClose }: FormProps) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="grid grid-cols-2 gap-x-6 gap-y-3 pt-3 pb-1"
+      className="grid grid-cols-2 gap-x-6 gap-y-4 pt-3 pb-1"
     >
+      {/* APPLICANT PROFILE PHOTO UPLOAD */}
+      <div className="flex flex-col gap-2 col-span-2 p-3.5 bg-slate-50 border border-slate-200 rounded-[10px]">
+        <Label className="text-[#64748B] font-semibold text-[12px] uppercase font-sans">
+          Applicant Profile Photo (Cloudflare R2)
+        </Label>
+        <div className="flex items-center gap-4">
+          <Avatar className="h-16 w-16 border-2 border-slate-200 shadow-xs shrink-0 bg-white">
+            <AvatarImage src={formData.photo} alt={formData.name} />
+            <AvatarFallback className="font-bold text-slate-700 text-lg">
+              {formData.name ? formData.name.charAt(0) : "P"}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex flex-col gap-1.5 w-full">
+            <div className="flex items-center gap-2">
+              <Label
+                htmlFor="applicant-photo-upload"
+                className="cursor-pointer bg-white border border-slate-300 hover:border-blue-500 hover:bg-blue-50/50 text-slate-700 text-xs font-semibold px-3 py-2 rounded-[6px] flex items-center gap-2 shadow-xs transition-colors"
+              >
+                {uploadingPhoto ? (
+                  <><Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" /> Uploading to R2...</>
+                ) : (
+                  <><Upload className="h-3.5 w-3.5 text-blue-600" /> Choose & Upload Photo</>
+                )}
+              </Label>
+              <Input
+                id="applicant-photo-upload"
+                type="file"
+                accept="image/*"
+                disabled={uploadingPhoto}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setUploadingPhoto(true);
+                    try {
+                      const uploadFormData = new FormData();
+                      uploadFormData.append("file", file);
+                      uploadFormData.append("category", "profilePhoto");
+                      const res = await fetch("/api/upload", {
+                        method: "POST",
+                        body: uploadFormData,
+                      });
+                      const data = await res.json();
+                      if (data.url) {
+                        setFormData((prev) => ({ ...prev, photo: data.url }));
+                        toast.success("Profile photo uploaded to R2!");
+                      } else {
+                        toast.error(data.error || "Failed to upload photo");
+                      }
+                    } catch (err) {
+                      toast.error("Photo upload failed");
+                    } finally {
+                      setUploadingPhoto(false);
+                    }
+                  }
+                }}
+                className="hidden"
+              />
+              {formData.photo && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setFormData((prev) => ({ ...prev, photo: "" }))}
+                  className="text-xs text-red-600 border-red-200 hover:bg-red-50 h-9 px-2.5"
+                >
+                  Remove
+                </Button>
+              )}
+            </div>
+            <span className="text-[11px] text-slate-500">JPG, PNG, WEBP max 5MB</span>
+          </div>
+        </div>
+      </div>
+
       {/* FULL NAME */}
       <div className="flex flex-col gap-2 col-span-2">
         <Label
@@ -1376,7 +1547,7 @@ function EditPersonalForm({ appData, onSave, onClose }: FormProps) {
         </div>
       </div>
 
-      {/* PHONE NUMBER */}
+      {/* PHONE NUMBER (Format: 5 digits + space + 5 digits) */}
       <div className="flex flex-col gap-2 col-span-1">
         <Label
           htmlFor="primaryMobile"
@@ -1401,12 +1572,12 @@ function EditPersonalForm({ appData, onSave, onClose }: FormProps) {
           <Input
             id="primaryMobile"
             type="tel"
-            placeholder="+1 (555) 000-0000"
+            placeholder="98765 43210"
             value={formData.primaryMobile}
             onChange={(e) =>
               setFormData((prev) => ({
                 ...prev,
-                primaryMobile: e.target.value,
+                primaryMobile: formatMobile(e.target.value),
               }))
             }
             className="pl-10 border-[#D4D4D4] rounded-[8px] h-10 text-[14px]"
@@ -1443,7 +1614,7 @@ function EditPersonalForm({ appData, onSave, onClose }: FormProps) {
         </Select>
       </div>
 
-      {/* DATE OF BIRTH */}
+      {/* DATE OF BIRTH - Interactive HTML5 Calendar */}
       <div className="flex flex-col gap-2 col-span-1">
         <Label
           htmlFor="dob"
@@ -1451,38 +1622,16 @@ function EditPersonalForm({ appData, onSave, onClose }: FormProps) {
         >
           Date of Birth
         </Label>
-        <div className="relative">
-          <Input
-            id="dob"
-            type="text"
-            placeholder="Select Date"
-            value={formData.dob}
-            onChange={(e) =>
-              setFormData((prev) => ({ ...prev, dob: e.target.value }))
-            }
-            className="border-[#D4D4D4] rounded-[8px] h-10 text-[14px] pr-10"
-            required
-          />
-          <span className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#64748B"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-4 w-4"
-            >
-              <rect width="18" height="18" x="3" y="4" rx="2" />
-              <path d="M16 2v4" />
-              <path d="M8 2v4" />
-              <path d="M3 10h18" />
-            </svg>
-          </span>
-        </div>
+        <Input
+          id="dob"
+          type="date"
+          value={formatForDateInput(formData.dob)}
+          onChange={(e) =>
+            setFormData((prev) => ({ ...prev, dob: e.target.value }))
+          }
+          className="border-[#D4D4D4] rounded-[8px] h-10 text-[14px] bg-white cursor-pointer"
+          required
+        />
       </div>
 
       {/* CATEGORY */}
@@ -1551,7 +1700,7 @@ function EditPersonalForm({ appData, onSave, onClose }: FormProps) {
         </Select>
       </div>
 
-      {/* AADHAAR NUMBER */}
+      {/* AADHAAR NUMBER (Format: 4 digits + space + 4 digits + space + 4 digits) */}
       <div className="flex flex-col gap-2 col-span-2">
         <Label
           htmlFor="aadhaar"
@@ -1561,10 +1710,11 @@ function EditPersonalForm({ appData, onSave, onClose }: FormProps) {
         </Label>
         <Input
           id="aadhaar"
-          placeholder="e.g. 1234 5678 9012"
+          placeholder="1234 5678 9012"
+          maxLength={14}
           value={formData.aadhaar}
           onChange={(e) =>
-            setFormData((prev) => ({ ...prev, aadhaar: e.target.value }))
+            setFormData((prev) => ({ ...prev, aadhaar: formatAadhaar(e.target.value) }))
           }
           className="border-[#D4D4D4] rounded-[8px] h-10 text-[14px]"
           required
@@ -1958,6 +2108,7 @@ function EditEducationForm({ appData, onSave, onClose }: FormProps) {
       board: appData.education.tenth.board,
       year: appData.education.tenth.year,
       percentage: appData.education.tenth.percentage,
+      documentUrl: appData.education.tenth.documentUrl || "",
     },
     twelfth: {
       institute: appData.education.twelfth.institute,
@@ -1965,6 +2116,7 @@ function EditEducationForm({ appData, onSave, onClose }: FormProps) {
       stream: appData.education.twelfth.stream,
       year: appData.education.twelfth.year,
       percentage: appData.education.twelfth.percentage,
+      documentUrl: appData.education.twelfth.documentUrl || "",
     },
     graduation: {
       degree: appData.education.graduation.degree,
@@ -1975,8 +2127,38 @@ function EditEducationForm({ appData, onSave, onClose }: FormProps) {
       percentageTillLast: appData.education.graduation.percentageTillLast,
       percentage: appData.education.graduation.percentage || appData.education.graduation.percentageTillLast,
       mode: appData.education.graduation.mode,
+      documentUrl: appData.education.graduation.documentUrl || "",
     },
   });
+
+  const [uploadingState, setUploadingState] = React.useState<{ [key: string]: boolean }>({});
+
+  const handleDocUpload = async (file: File, key: "tenth" | "twelfth" | "graduation", category: string) => {
+    try {
+      setUploadingState((prev) => ({ ...prev, [key]: true }));
+      const uploadFormData = new FormData();
+      uploadFormData.append("file", file);
+      uploadFormData.append("category", category);
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: uploadFormData,
+      });
+      const data = await res.json();
+      if (data.url) {
+        setFormData((prev) => ({
+          ...prev,
+          [key]: { ...prev[key], documentUrl: data.url },
+        }));
+        toast.success(`${key.toUpperCase()} document uploaded to R2!`);
+      } else {
+        toast.error(data.error || "Failed to upload document");
+      }
+    } catch (err) {
+      toast.error("Document upload failed");
+    } finally {
+      setUploadingState((prev) => ({ ...prev, [key]: false }));
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -2006,8 +2188,9 @@ function EditEducationForm({ appData, onSave, onClose }: FormProps) {
       onSubmit={handleSubmit}
       className="grid grid-cols-2 gap-x-6 gap-y-4 pt-3 pb-1"
     >
-      <div className="col-span-2 pb-2">
-        <h3 className="font-bold text-slate-800 text-sm">10th Details</h3>
+      {/* 10th Details */}
+      <div className="col-span-2 pb-1 border-b border-slate-100 flex items-center justify-between">
+        <h3 className="font-bold text-slate-800 text-sm">10th Standard Details</h3>
       </div>
       <div className="flex flex-col gap-1.5 col-span-1">
         <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
@@ -2073,9 +2256,66 @@ function EditEducationForm({ appData, onSave, onClose }: FormProps) {
           required
         />
       </div>
+      {/* 10th Document Attachment */}
+      <div className="flex flex-col gap-1.5 col-span-2 bg-slate-50 p-3 rounded-lg border border-slate-200">
+        <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider flex items-center gap-1.5">
+          <Paperclip className="h-3.5 w-3.5 text-blue-600" /> 10th Marksheet / Document (Cloudflare R2)
+        </Label>
+        <div className="flex items-center gap-3">
+          {formData.tenth.documentUrl ? (
+            <div className="flex items-center gap-2">
+              <a
+                href={formData.tenth.documentUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-blue-700 bg-blue-100 hover:bg-blue-200 border border-blue-300 text-xs font-semibold px-3 py-1.5 rounded-md transition-colors"
+              >
+                <FileText className="h-3.5 w-3.5" /> View Attached 10th Doc
+              </a>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    tenth: { ...prev.tenth, documentUrl: "" },
+                  }))
+                }
+                className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50 h-8 px-2"
+              >
+                Remove
+              </Button>
+            </div>
+          ) : null}
+          <div className="flex items-center gap-2">
+            <Label
+              htmlFor="tenth-doc-upload"
+              className="cursor-pointer bg-white border border-slate-300 hover:border-blue-500 hover:bg-blue-50/50 text-slate-700 text-xs font-semibold px-3 py-1.5 rounded-[6px] flex items-center gap-2 shadow-xs transition-colors"
+            >
+              {uploadingState.tenth ? (
+                <><Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" /> Uploading...</>
+              ) : (
+                <><Upload className="h-3.5 w-3.5 text-blue-600" /> {formData.tenth.documentUrl ? "Replace File" : "Choose & Upload 10th Doc"}</>
+              )}
+            </Label>
+            <Input
+              id="tenth-doc-upload"
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png"
+              disabled={uploadingState.tenth}
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleDocUpload(file, "tenth", "tenthDoc");
+              }}
+            />
+          </div>
+        </div>
+      </div>
 
-      <div className="col-span-2 pb-2 pt-2">
-        <h3 className="font-bold text-slate-800 text-sm">12th Details</h3>
+      {/* 12th Details */}
+      <div className="col-span-2 pb-1 pt-2 border-b border-slate-100 flex items-center justify-between">
+        <h3 className="font-bold text-slate-800 text-sm">12th Standard Details</h3>
       </div>
       <div className="flex flex-col gap-1.5 col-span-1">
         <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
@@ -2165,8 +2405,65 @@ function EditEducationForm({ appData, onSave, onClose }: FormProps) {
           required
         />
       </div>
+      {/* 12th Document Attachment */}
+      <div className="flex flex-col gap-1.5 col-span-2 bg-slate-50 p-3 rounded-lg border border-slate-200">
+        <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider flex items-center gap-1.5">
+          <Paperclip className="h-3.5 w-3.5 text-blue-600" /> 12th Marksheet / Document (Cloudflare R2)
+        </Label>
+        <div className="flex items-center gap-3">
+          {formData.twelfth.documentUrl ? (
+            <div className="flex items-center gap-2">
+              <a
+                href={formData.twelfth.documentUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-blue-700 bg-blue-100 hover:bg-blue-200 border border-blue-300 text-xs font-semibold px-3 py-1.5 rounded-md transition-colors"
+              >
+                <FileText className="h-3.5 w-3.5" /> View Attached 12th Doc
+              </a>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    twelfth: { ...prev.twelfth, documentUrl: "" },
+                  }))
+                }
+                className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50 h-8 px-2"
+              >
+                Remove
+              </Button>
+            </div>
+          ) : null}
+          <div className="flex items-center gap-2">
+            <Label
+              htmlFor="twelfth-doc-upload"
+              className="cursor-pointer bg-white border border-slate-300 hover:border-blue-500 hover:bg-blue-50/50 text-slate-700 text-xs font-semibold px-3 py-1.5 rounded-[6px] flex items-center gap-2 shadow-xs transition-colors"
+            >
+              {uploadingState.twelfth ? (
+                <><Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" /> Uploading...</>
+              ) : (
+                <><Upload className="h-3.5 w-3.5 text-blue-600" /> {formData.twelfth.documentUrl ? "Replace File" : "Choose & Upload 12th Doc"}</>
+              )}
+            </Label>
+            <Input
+              id="twelfth-doc-upload"
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png"
+              disabled={uploadingState.twelfth}
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleDocUpload(file, "twelfth", "twelfthDoc");
+              }}
+            />
+          </div>
+        </div>
+      </div>
 
-      <div className="col-span-2 pb-2 pt-2">
+      {/* Graduation Details */}
+      <div className="col-span-2 pb-1 pt-2 border-b border-slate-100 flex items-center justify-between">
         <h3 className="font-bold text-slate-800 text-sm">Graduation Details</h3>
       </div>
       <div className="flex flex-col gap-1.5 col-span-1">
@@ -2298,6 +2595,62 @@ function EditEducationForm({ appData, onSave, onClose }: FormProps) {
             <SelectItem value="Part Time">Part Time</SelectItem>
           </SelectContent>
         </Select>
+      </div>
+      {/* Graduation Document Attachment */}
+      <div className="flex flex-col gap-1.5 col-span-2 bg-slate-50 p-3 rounded-lg border border-slate-200">
+        <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider flex items-center gap-1.5">
+          <Paperclip className="h-3.5 w-3.5 text-blue-600" /> Graduation Degree / Marksheet (Cloudflare R2)
+        </Label>
+        <div className="flex items-center gap-3">
+          {formData.graduation.documentUrl ? (
+            <div className="flex items-center gap-2">
+              <a
+                href={formData.graduation.documentUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-blue-700 bg-blue-100 hover:bg-blue-200 border border-blue-300 text-xs font-semibold px-3 py-1.5 rounded-md transition-colors"
+              >
+                <FileText className="h-3.5 w-3.5" /> View Graduation Cert
+              </a>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    graduation: { ...prev.graduation, documentUrl: "" },
+                  }))
+                }
+                className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50 h-8 px-2"
+              >
+                Remove
+              </Button>
+            </div>
+          ) : null}
+          <div className="flex items-center gap-2">
+            <Label
+              htmlFor="grad-doc-upload"
+              className="cursor-pointer bg-white border border-slate-300 hover:border-blue-500 hover:bg-blue-50/50 text-slate-700 text-xs font-semibold px-3 py-1.5 rounded-[6px] flex items-center gap-2 shadow-xs transition-colors"
+            >
+              {uploadingState.graduation ? (
+                <><Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" /> Uploading...</>
+              ) : (
+                <><Upload className="h-3.5 w-3.5 text-blue-600" /> {formData.graduation.documentUrl ? "Replace File" : "Choose & Upload Grad Cert"}</>
+              )}
+            </Label>
+            <Input
+              id="grad-doc-upload"
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png"
+              disabled={uploadingState.graduation}
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleDocUpload(file, "graduation", "graduationDoc");
+              }}
+            />
+          </div>
+        </div>
       </div>
 
       <div className="flex items-center gap-3 pt-4 border-t border-[#E5E5E5] mt-2 col-span-2">
@@ -2790,6 +3143,32 @@ function EditAdditionalForm({ appData, onSave, onClose }: FormProps) {
     medicalConditionDocument: appData.other.medicalConditionDocument || "",
   });
 
+  const [uploadingMedical, setUploadingMedical] = React.useState(false);
+
+  const handleMedicalDocUpload = async (file: File) => {
+    try {
+      setUploadingMedical(true);
+      const uploadFormData = new FormData();
+      uploadFormData.append("file", file);
+      uploadFormData.append("category", "medicalDoc");
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: uploadFormData,
+      });
+      const data = await res.json();
+      if (data.url) {
+        setFormData((prev) => ({ ...prev, medicalConditionDocument: data.url }));
+        toast.success("Medical document uploaded to R2!");
+      } else {
+        toast.error(data.error || "Failed to upload medical document");
+      }
+    } catch (err) {
+      toast.error("Medical document upload failed");
+    } finally {
+      setUploadingMedical(false);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const updatedData = {
@@ -2798,7 +3177,7 @@ function EditAdditionalForm({ appData, onSave, onClose }: FormProps) {
         inspiration: formData.inspiration,
         source: formData.source,
         medicalConditions: formData.hasMedicalCondition === "yes" ? formData.medicalConditions : "None",
-        medicalConditionDocument: formData.medicalConditionDocument,
+        medicalConditionDocument: formData.hasMedicalCondition === "yes" ? formData.medicalConditionDocument : "",
       },
     };
     onSave(updatedData);
@@ -2831,15 +3210,60 @@ function EditAdditionalForm({ appData, onSave, onClose }: FormProps) {
         >
           How did you know about us?
         </Label>
-        <Input
-          id="source"
-          value={formData.source}
-          onChange={(e) =>
-            setFormData((prev) => ({ ...prev, source: e.target.value }))
+        <Select
+          value={
+            [
+              "Internet Search",
+              "Social Media",
+              "Alumni Referral",
+              "Education Fair",
+              "News / Advertisement",
+              "Friends & Family",
+              "College Portal / Website",
+            ].includes(formData.source)
+              ? formData.source
+              : "Other"
           }
-          className="border-[#D4D4D4] rounded-[8px] h-10 text-[14px]"
-          required
-        />
+          onValueChange={(val) => {
+            if (val === "Other") {
+              setFormData((prev) => ({ ...prev, source: "" }));
+            } else {
+              setFormData((prev) => ({ ...prev, source: val }));
+            }
+          }}
+        >
+          <SelectTrigger className="w-full border-[#D4D4D4] rounded-[8px] h-10 text-[14px] bg-white">
+            <SelectValue placeholder="Select Source" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Internet Search">Internet Search</SelectItem>
+            <SelectItem value="Social Media">Social Media</SelectItem>
+            <SelectItem value="Alumni Referral">Alumni Referral</SelectItem>
+            <SelectItem value="Education Fair">Education Fair</SelectItem>
+            <SelectItem value="News / Advertisement">News / Advertisement</SelectItem>
+            <SelectItem value="Friends & Family">Friends & Family</SelectItem>
+            <SelectItem value="College Portal / Website">College Portal / Website</SelectItem>
+            <SelectItem value="Other">Other (Specify below)</SelectItem>
+          </SelectContent>
+        </Select>
+        {(![
+          "Internet Search",
+          "Social Media",
+          "Alumni Referral",
+          "Education Fair",
+          "News / Advertisement",
+          "Friends & Family",
+          "College Portal / Website",
+        ].includes(formData.source) || formData.source === "") && (
+          <Input
+            placeholder="Type custom source (e.g. Newspaper, Event, Referral)"
+            value={formData.source}
+            onChange={(e) =>
+              setFormData((prev) => ({ ...prev, source: e.target.value }))
+            }
+            className="border-[#D4D4D4] rounded-[8px] h-10 text-[14px] mt-1"
+          />
+        )}
       </div>
 
       <div className="flex flex-col gap-2">
@@ -2853,6 +3277,7 @@ function EditAdditionalForm({ appData, onSave, onClose }: FormProps) {
               ...prev,
               hasMedicalCondition: val,
               medicalConditions: val === "no" ? "" : prev.medicalConditions,
+              medicalConditionDocument: val === "no" ? "" : prev.medicalConditionDocument,
             }))
           }
         >
@@ -2890,19 +3315,60 @@ function EditAdditionalForm({ appData, onSave, onClose }: FormProps) {
             />
           </div>
 
-          <div className="flex flex-col gap-2">
-            <Label
-              htmlFor="medicalConditionDocument"
-              className="text-[#64748B] font-semibold text-[12px] uppercase font-sans"
-            >
-              Medical Document (PDF, JPG, JPEG)
+          <div className="flex flex-col gap-1.5 bg-slate-50 p-3 rounded-lg border border-slate-200">
+            <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider flex items-center gap-1.5">
+              <Paperclip className="h-3.5 w-3.5 text-blue-600" /> Medical Certificate / Document (Cloudflare R2)
             </Label>
-            <Input
-              id="medicalConditionDocument"
-              type="file"
-              accept=".pdf,.jpg,.jpeg"
-              className="border-[#D4D4D4] rounded-[8px] h-10 text-[14px] cursor-pointer pt-2"
-            />
+            <div className="flex items-center gap-3">
+              {formData.medicalConditionDocument ? (
+                <div className="flex items-center gap-2">
+                  <a
+                    href={formData.medicalConditionDocument}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-blue-700 bg-blue-100 hover:bg-blue-200 border border-blue-300 text-xs font-semibold px-3 py-1.5 rounded-md transition-colors"
+                  >
+                    <FileText className="h-3.5 w-3.5" /> View Attached Medical Doc
+                  </a>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        medicalConditionDocument: "",
+                      }))
+                    }
+                    className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50 h-8 px-2"
+                  >
+                    Remove
+                  </Button>
+                </div>
+              ) : null}
+              <div className="flex items-center gap-2">
+                <Label
+                  htmlFor="medical-doc-upload"
+                  className="cursor-pointer bg-white border border-slate-300 hover:border-blue-500 hover:bg-blue-50/50 text-slate-700 text-xs font-semibold px-3 py-1.5 rounded-[6px] flex items-center gap-2 shadow-xs transition-colors"
+                >
+                  {uploadingMedical ? (
+                    <><Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" /> Uploading...</>
+                  ) : (
+                    <><Upload className="h-3.5 w-3.5 text-blue-600" /> {formData.medicalConditionDocument ? "Replace File" : "Choose & Upload Medical Doc"}</>
+                  )}
+                </Label>
+                <Input
+                  id="medical-doc-upload"
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  disabled={uploadingMedical}
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleMedicalDocUpload(file);
+                  }}
+                />
+              </div>
+            </div>
           </div>
         </>
       )}
@@ -2929,8 +3395,8 @@ function EditAdditionalForm({ appData, onSave, onClose }: FormProps) {
 
 function EditContactForm({ appData, onSave, onClose }: FormProps) {
   const [formData, setFormData] = React.useState({
-    primaryMobile: appData.applicant.primaryMobile,
-    alternateMobile: appData.applicant.alternateMobile,
+    primaryMobile: formatMobile(appData.applicant.primaryMobile),
+    alternateMobile: formatMobile(appData.applicant.alternateMobile),
     presentAddress: appData.address.present,
     permanentAddress: appData.address.permanent,
     sameAsPresent: appData.address.present === appData.address.permanent,
@@ -2983,9 +3449,10 @@ function EditContactForm({ appData, onSave, onClose }: FormProps) {
           Primary Mobile
         </Label>
         <Input
+          placeholder="98765 43210"
           value={formData.primaryMobile}
           onChange={(e) =>
-            setFormData((prev) => ({ ...prev, primaryMobile: e.target.value }))
+            setFormData((prev) => ({ ...prev, primaryMobile: formatMobile(e.target.value) }))
           }
           className="border-[#D4D4D4] rounded-[8px] h-9 text-[13px]"
           required
@@ -2996,15 +3463,15 @@ function EditContactForm({ appData, onSave, onClose }: FormProps) {
           Alt Mobile
         </Label>
         <Input
+          placeholder="98765 43210"
           value={formData.alternateMobile}
           onChange={(e) =>
             setFormData((prev) => ({
               ...prev,
-              alternateMobile: e.target.value,
+              alternateMobile: formatMobile(e.target.value),
             }))
           }
           className="border-[#D4D4D4] rounded-[8px] h-9 text-[13px]"
-          required
         />
       </div>
 

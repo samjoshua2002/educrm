@@ -27,6 +27,10 @@ import {
   ArrowLeft,
   Mail,
   Phone,
+  Loader2,
+  Trash2,
+  ExternalLink,
+  FileCheck,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -115,6 +119,7 @@ const applicationSchema = z.object({
     nationality: z.string().min(1, "Nationality is required"),
     aadhaar: z.string().regex(/^\d{12}$/, "Aadhaar must be exactly 12 digits"),
     maritalStatus: z.string().min(1, "Marital status is required"),
+    photoUrl: z.string().optional(),
   }),
   preferences: z
     .object({
@@ -132,6 +137,7 @@ const applicationSchema = z.object({
       board: z.string().min(1, "Board is required"),
       year: z.string().regex(/^\d{4}$/, "Must be a 4-digit year"),
       percentage: z.string().min(1, "Percentage is required"),
+      documentUrl: z.string().optional(),
     }),
     twelfth: z.object({
       institute: z.string().min(1, "Institute is required"),
@@ -139,6 +145,7 @@ const applicationSchema = z.object({
       stream: z.string().min(1, "Stream is required"),
       year: z.string().regex(/^\d{4}$/, "Must be a 4-digit year"),
       percentage: z.string().min(1, "Percentage is required"),
+      documentUrl: z.string().optional(),
     }),
     graduation: z.object({
       degree: z.string().min(1, "Degree is required"),
@@ -148,6 +155,7 @@ const applicationSchema = z.object({
       passingYear: z.string().regex(/^\d{4}$/, "Must be a 4-digit year"),
       percentageTillLast: z.string().min(1, "Score/Percentage is required"),
       mode: z.string().min(1, "Mode of study is required"),
+      documentUrl: z.string().optional(),
     }),
     hasWorkExp: z.string().optional(),
     experiences: z
@@ -334,6 +342,34 @@ export default function MyApplicationPage() {
   const [isPreview, setIsPreview] = React.useState(false);
   const [imagePreview, setImagePreview] = React.useState<string | null>(null);
   const [sameAddress, setSameAddress] = React.useState(false);
+  const [uploadingState, setUploadingState] = React.useState<{ [key: string]: boolean }>({});
+
+  const handleFileUpload = async (file: File, fieldName: string) => {
+    try {
+      setUploadingState((prev) => ({ ...prev, [fieldName]: true }));
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("category", fieldName);
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.url) {
+        throw new Error(data.error || "Upload failed");
+      }
+
+      return data.url as string;
+    } catch (err: any) {
+      console.error("Upload error:", err);
+      alert(`Upload failed: ${err.message}`);
+      return null;
+    } finally {
+      setUploadingState((prev) => ({ ...prev, [fieldName]: false }));
+    }
+  };
 
   const createMutation = useCreateApplication();
   const { data: coursesData } = useCourses(1, 100);
@@ -368,6 +404,7 @@ export default function MyApplicationPage() {
         nationality: "Indian",
         aadhaar: "",
         maritalStatus: "",
+        photoUrl: "",
       },
       preferences: {
         program: "",
@@ -380,6 +417,7 @@ export default function MyApplicationPage() {
           board: "",
           year: "",
           percentage: "",
+          documentUrl: "",
         },
         twelfth: {
           institute: "",
@@ -387,6 +425,7 @@ export default function MyApplicationPage() {
           stream: "",
           year: "",
           percentage: "",
+          documentUrl: "",
         },
         graduation: {
           degree: "",
@@ -396,6 +435,7 @@ export default function MyApplicationPage() {
           passingYear: "",
           percentageTillLast: "",
           mode: "",
+          documentUrl: "",
         },
         hasWorkExp: "No",
         experiences: [],
@@ -470,7 +510,7 @@ export default function MyApplicationPage() {
     }
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
@@ -478,6 +518,12 @@ export default function MyApplicationPage() {
         setImagePreview(reader.result as string);
       };
       reader.readAsDataURL(file);
+
+      const r2Url = await handleFileUpload(file, "profilePhoto");
+      if (r2Url) {
+        setImagePreview(r2Url);
+        form.setValue("personal.photoUrl", r2Url);
+      }
     }
   };
 
@@ -499,6 +545,7 @@ export default function MyApplicationPage() {
         courseId,
         academicSession,
         program: data.preferences.program || selectedCourse?.name || "Management Program",
+        photoUrl: data.personal.photoUrl || imagePreview || undefined,
         applicant: {
           name: data.personal.fullName,
           email: data.personal.email,
@@ -541,6 +588,7 @@ export default function MyApplicationPage() {
             boardUniversity: data.education.tenth.board,
             yearOfPassing: data.education.tenth.year,
             percentageCgpa: data.education.tenth.percentage,
+            documentUrl: data.education.tenth.documentUrl || undefined,
             isCompleted: true,
           },
           {
@@ -550,6 +598,7 @@ export default function MyApplicationPage() {
             majorSubjects: data.education.twelfth.stream,
             yearOfPassing: data.education.twelfth.year,
             percentageCgpa: data.education.twelfth.percentage,
+            documentUrl: data.education.twelfth.documentUrl || undefined,
             isCompleted: true,
           },
           {
@@ -558,6 +607,7 @@ export default function MyApplicationPage() {
             boardUniversity: data.education.graduation.university,
             yearOfPassing: data.education.graduation.passingYear,
             percentageCgpa: data.education.graduation.percentageTillLast,
+            documentUrl: data.education.graduation.documentUrl || undefined,
             isCompleted: data.education.graduation.status === "Completed",
           },
         ].filter((item) => item.institution || item.boardUniversity),
@@ -591,6 +641,7 @@ export default function MyApplicationPage() {
           howDidYouKnow: data.declaration.source,
           hasMedicalCondition: data.declaration.hasMedicalCondition === "yes",
           medicalConditions: data.declaration.hasMedicalCondition === "yes" ? data.declaration.medicalConditions : undefined,
+          medicalConditionDocument: data.declaration.hasMedicalCondition === "yes" ? data.declaration.medicalConditionDocument : undefined,
         },
       };
 
@@ -836,7 +887,8 @@ export default function MyApplicationPage() {
                         <TableHead className="px-4 text-[10px] font-bold uppercase tracking-[0.6px] text-muted-foreground">Institute Name</TableHead>
                         <TableHead className="px-4 text-[10px] font-bold uppercase tracking-[0.6px] text-muted-foreground">Board / Stream</TableHead>
                         <TableHead className="px-4 text-[10px] font-bold uppercase tracking-[0.6px] text-muted-foreground">Year</TableHead>
-                        <TableHead className="pr-6 text-[10px] font-bold uppercase tracking-[0.6px] text-muted-foreground text-right">Percentage</TableHead>
+                        <TableHead className="px-4 text-[10px] font-bold uppercase tracking-[0.6px] text-muted-foreground">Percentage</TableHead>
+                        <TableHead className="pr-6 text-[10px] font-bold uppercase tracking-[0.6px] text-muted-foreground text-right">Attachment</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -845,7 +897,21 @@ export default function MyApplicationPage() {
                         <TableCell className="text-muted-foreground text-xs px-4 py-3">{form.getValues("education.tenth.institute")}</TableCell>
                         <TableCell className="text-muted-foreground text-xs px-4 py-3">{form.getValues("education.tenth.board")}</TableCell>
                         <TableCell className="text-muted-foreground text-xs px-4 py-3">{form.getValues("education.tenth.year")}</TableCell>
-                        <TableCell className="text-right font-bold text-foreground pr-6 py-3 text-xs">{form.getValues("education.tenth.percentage")}%</TableCell>
+                        <TableCell className="font-bold text-foreground px-4 py-3 text-xs">{form.getValues("education.tenth.percentage")}%</TableCell>
+                        <TableCell className="text-right pr-6 py-3 text-xs">
+                          {form.getValues("education.tenth.documentUrl") ? (
+                            <a
+                              href={form.getValues("education.tenth.documentUrl")}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-[6px]"
+                            >
+                              <Eye className="h-3 w-3" /> View Doc
+                            </a>
+                          ) : (
+                            <span className="text-muted-foreground text-[11px] font-normal">None</span>
+                          )}
+                        </TableCell>
                       </TableRow>
                       <TableRow className="hover:bg-muted/10 border-b border-input">
                         <TableCell className="font-semibold text-foreground pl-6 py-3 text-xs">12th</TableCell>
@@ -859,7 +925,21 @@ export default function MyApplicationPage() {
                           </div>
                         </TableCell>
                         <TableCell className="text-muted-foreground text-xs px-4 py-3">{form.getValues("education.twelfth.year")}</TableCell>
-                        <TableCell className="text-right font-bold text-emerald-600 pr-6 py-3 text-xs">{form.getValues("education.twelfth.percentage")}%</TableCell>
+                        <TableCell className="font-bold text-emerald-600 px-4 py-3 text-xs">{form.getValues("education.twelfth.percentage")}%</TableCell>
+                        <TableCell className="text-right pr-6 py-3 text-xs">
+                          {form.getValues("education.twelfth.documentUrl") ? (
+                            <a
+                              href={form.getValues("education.twelfth.documentUrl")}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-[6px]"
+                            >
+                              <Eye className="h-3 w-3" /> View Doc
+                            </a>
+                          ) : (
+                            <span className="text-muted-foreground text-[11px] font-normal">None</span>
+                          )}
+                        </TableCell>
                       </TableRow>
                     </TableBody>
                   </Table>
@@ -897,6 +977,21 @@ export default function MyApplicationPage() {
                     <div className="space-y-1">
                       <span className="text-[12px] font-semibold uppercase tracking-[0.6px] text-muted-foreground block">Mode</span>
                       <p className="font-medium text-[14px] text-foreground">{form.getValues("education.graduation.mode")}</p>
+                    </div>
+                    <div className="space-y-1 col-span-2 md:col-span-3">
+                      <span className="text-[12px] font-semibold uppercase tracking-[0.6px] text-muted-foreground block">Graduation Certificate Attachment</span>
+                      {form.getValues("education.graduation.documentUrl") ? (
+                        <a
+                          href={form.getValues("education.graduation.documentUrl")}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 border border-blue-200 px-3 py-1 rounded-[6px] mt-0.5"
+                        >
+                          <Eye className="h-3.5 w-3.5" /> View Graduation Certificate
+                        </a>
+                      ) : (
+                        <span className="text-muted-foreground text-xs font-normal block mt-0.5">Not attached</span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1082,9 +1177,23 @@ export default function MyApplicationPage() {
                     <span className="text-[12px] font-semibold uppercase tracking-[0.6px] text-muted-foreground block">HOW DID YOU KNOW ABOUT US?</span>
                     <p className="font-medium text-[14px] text-foreground">{form.getValues("declaration.source")}</p>
                   </div>
-                  <div className="space-y-1">
+                  <div className="space-y-1 col-span-2 sm:col-span-1">
                     <span className="text-[12px] font-semibold uppercase tracking-[0.6px] text-muted-foreground block">MEDICAL CONDITIONS</span>
-                    <p className="font-medium text-[14px] text-foreground">{form.getValues("declaration.medicalConditions") || "None"}</p>
+                    <p className="font-medium text-[14px] text-foreground">
+                      {form.getValues("declaration.hasMedicalCondition") === "yes"
+                        ? form.getValues("declaration.medicalConditions") || "Yes (Specified)"
+                        : "None reported"}
+                    </p>
+                    {form.getValues("declaration.hasMedicalCondition") === "yes" && form.getValues("declaration.medicalConditionDocument") && (
+                      <a
+                        href={form.getValues("declaration.medicalConditionDocument")}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-[6px] mt-1.5"
+                      >
+                        <Eye className="h-3.5 w-3.5" /> View Medical Doc
+                      </a>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -1198,7 +1307,9 @@ export default function MyApplicationPage() {
                         background: "#F7F9FC"
                       }}
                     >
-                      {imagePreview ? (
+                      {uploadingState["profilePhoto"] ? (
+                        <Loader2 className="size-6 text-primary animate-spin" />
+                      ) : imagePreview ? (
                         <img src={imagePreview} alt="Profile" className="w-full h-full object-cover" />
                       ) : (
                         <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 19 19" fill="none">
@@ -1698,6 +1809,63 @@ export default function MyApplicationPage() {
                         </FormItem>
                       )}
                     />
+                    <div className="col-span-1 md:col-span-2 pt-2">
+                      <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px] mb-2 block">
+                        10th Marksheet / Certificate Attachment
+                      </FormLabel>
+                      {form.watch("education.tenth.documentUrl") ? (
+                        <div className="flex items-center justify-between p-3 border border-emerald-200 bg-emerald-50/60 rounded-[8px]">
+                          <div className="flex items-center gap-2 overflow-hidden">
+                            <FileText className="h-5 w-5 text-emerald-600 shrink-0" />
+                            <span className="text-xs font-semibold text-emerald-900 truncate">10th_Certificate_Attached</span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <a
+                              href={form.watch("education.tenth.documentUrl")}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs font-semibold text-blue-600 hover:underline flex items-center gap-1 bg-white px-2.5 py-1 rounded border border-blue-200 shadow-xs"
+                            >
+                              <Eye className="h-3.5 w-3.5" /> View
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => form.setValue("education.tenth.documentUrl", "")}
+                              className="text-xs font-semibold text-red-600 hover:text-red-700 bg-white px-2.5 py-1 rounded border border-red-200 shadow-xs cursor-pointer"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-3">
+                          <Label
+                            htmlFor="tenth-doc-upload"
+                            className="cursor-pointer border border-dashed border-slate-300 hover:border-blue-500 bg-slate-50 hover:bg-blue-50/50 rounded-[8px] p-3 flex items-center justify-center gap-2 w-full text-xs font-semibold text-slate-700 transition-colors"
+                          >
+                            {uploadingState["tenthDoc"] ? (
+                              <><Loader2 className="h-4 w-4 animate-spin text-blue-600" /> Uploading 10th Certificate...</>
+                            ) : (
+                              <><Upload className="h-4 w-4 text-blue-600" /> Upload 10th Marksheet / Certificate (PDF, JPG, PNG)</>
+                            )}
+                          </Label>
+                          <Input
+                            id="tenth-doc-upload"
+                            type="file"
+                            accept=".pdf,.jpg,.jpeg,.png"
+                            disabled={uploadingState["tenthDoc"]}
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const url = await handleFileUpload(file, "tenthDoc");
+                                if (url) form.setValue("education.tenth.documentUrl", url);
+                              }
+                            }}
+                            className="hidden"
+                          />
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -1782,6 +1950,63 @@ export default function MyApplicationPage() {
                         </FormItem>
                       )}
                     />
+                    <div className="col-span-1 md:col-span-2 lg:col-span-3 pt-2">
+                      <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px] mb-2 block">
+                        12th Marksheet / Certificate Attachment
+                      </FormLabel>
+                      {form.watch("education.twelfth.documentUrl") ? (
+                        <div className="flex items-center justify-between p-3 border border-emerald-200 bg-emerald-50/60 rounded-[8px]">
+                          <div className="flex items-center gap-2 overflow-hidden">
+                            <FileText className="h-5 w-5 text-emerald-600 shrink-0" />
+                            <span className="text-xs font-semibold text-emerald-900 truncate">12th_Certificate_Attached</span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <a
+                              href={form.watch("education.twelfth.documentUrl")}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs font-semibold text-blue-600 hover:underline flex items-center gap-1 bg-white px-2.5 py-1 rounded border border-blue-200 shadow-xs"
+                            >
+                              <Eye className="h-3.5 w-3.5" /> View
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => form.setValue("education.twelfth.documentUrl", "")}
+                              className="text-xs font-semibold text-red-600 hover:text-red-700 bg-white px-2.5 py-1 rounded border border-red-200 shadow-xs cursor-pointer"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-3">
+                          <Label
+                            htmlFor="twelfth-doc-upload"
+                            className="cursor-pointer border border-dashed border-slate-300 hover:border-blue-500 bg-slate-50 hover:bg-blue-50/50 rounded-[8px] p-3 flex items-center justify-center gap-2 w-full text-xs font-semibold text-slate-700 transition-colors"
+                          >
+                            {uploadingState["twelfthDoc"] ? (
+                              <><Loader2 className="h-4 w-4 animate-spin text-blue-600" /> Uploading 12th Certificate...</>
+                            ) : (
+                              <><Upload className="h-4 w-4 text-blue-600" /> Upload 12th Marksheet / Certificate (PDF, JPG, PNG)</>
+                            )}
+                          </Label>
+                          <Input
+                            id="twelfth-doc-upload"
+                            type="file"
+                            accept=".pdf,.jpg,.jpeg,.png"
+                            disabled={uploadingState["twelfthDoc"]}
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const url = await handleFileUpload(file, "twelfthDoc");
+                                if (url) form.setValue("education.twelfth.documentUrl", url);
+                              }
+                            }}
+                            className="hidden"
+                          />
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -1903,6 +2128,63 @@ export default function MyApplicationPage() {
                         </FormItem>
                       )}
                     />
+                    <div className="col-span-1 md:col-span-2 lg:col-span-3 pt-2">
+                      <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px] mb-2 block">
+                        Graduation Degree / Marksheet Attachment
+                      </FormLabel>
+                      {form.watch("education.graduation.documentUrl") ? (
+                        <div className="flex items-center justify-between p-3 border border-emerald-200 bg-emerald-50/60 rounded-[8px]">
+                          <div className="flex items-center gap-2 overflow-hidden">
+                            <FileText className="h-5 w-5 text-emerald-600 shrink-0" />
+                            <span className="text-xs font-semibold text-emerald-900 truncate">Graduation_Document_Attached</span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <a
+                              href={form.watch("education.graduation.documentUrl")}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs font-semibold text-blue-600 hover:underline flex items-center gap-1 bg-white px-2.5 py-1 rounded border border-blue-200 shadow-xs"
+                            >
+                              <Eye className="h-3.5 w-3.5" /> View
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => form.setValue("education.graduation.documentUrl", "")}
+                              className="text-xs font-semibold text-red-600 hover:text-red-700 bg-white px-2.5 py-1 rounded border border-red-200 shadow-xs cursor-pointer"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-3">
+                          <Label
+                            htmlFor="grad-doc-upload"
+                            className="cursor-pointer border border-dashed border-slate-300 hover:border-blue-500 bg-slate-50 hover:bg-blue-50/50 rounded-[8px] p-3 flex items-center justify-center gap-2 w-full text-xs font-semibold text-slate-700 transition-colors"
+                          >
+                            {uploadingState["gradDoc"] ? (
+                              <><Loader2 className="h-4 w-4 animate-spin text-blue-600" /> Uploading Graduation Document...</>
+                            ) : (
+                              <><Upload className="h-4 w-4 text-blue-600" /> Upload Graduation Degree / Marksheet (PDF, JPG, PNG)</>
+                            )}
+                          </Label>
+                          <Input
+                            id="grad-doc-upload"
+                            type="file"
+                            accept=".pdf,.jpg,.jpeg,.png"
+                            disabled={uploadingState["gradDoc"]}
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const url = await handleFileUpload(file, "gradDoc");
+                                if (url) form.setValue("education.graduation.documentUrl", url);
+                              }
+                            }}
+                            className="hidden"
+                          />
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -2572,11 +2854,64 @@ export default function MyApplicationPage() {
                       control={form.control}
                       name="declaration.medicalConditionDocument"
                       render={({ field }) => (
-                        <FormItem className="space-y-0">
-                          <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px]">Medical Document (PDF, JPG, JPEG)</FormLabel>
-                          <FormControl>
-                            <Input type="file" accept=".pdf,.jpg,.jpeg" className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground tracking-wider cursor-pointer" />
-                          </FormControl>
+                        <FormItem className="space-y-1.5">
+                          <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px]">
+                            Medical Document Attachment (PDF, JPG, JPEG)
+                          </FormLabel>
+                          {field.value ? (
+                            <div className="flex items-center justify-between p-3 border border-emerald-200 bg-emerald-50/60 rounded-[8px]">
+                              <div className="flex items-center gap-2 overflow-hidden">
+                                <FileText className="h-5 w-5 text-emerald-600 shrink-0" />
+                                <span className="text-xs font-semibold text-emerald-900 truncate">Medical_Document_Attached</span>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <a
+                                  href={field.value}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs font-semibold text-blue-600 hover:underline flex items-center gap-1 bg-white px-2.5 py-1 rounded border border-blue-200 shadow-xs"
+                                >
+                                  <Eye className="h-3.5 w-3.5" /> View
+                                </a>
+                                <button
+                                  type="button"
+                                  onClick={() => field.onChange("")}
+                                  className="text-xs font-semibold text-red-600 hover:text-red-700 bg-white px-2.5 py-1 rounded border border-red-200 shadow-xs cursor-pointer"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <FormControl>
+                              <div className="flex items-center gap-3">
+                                <Label
+                                  htmlFor="medical-doc-upload"
+                                  className="cursor-pointer border border-dashed border-slate-300 hover:border-blue-500 bg-slate-50 hover:bg-blue-50/50 rounded-[8px] p-3 flex items-center justify-center gap-2 w-full text-xs font-semibold text-slate-700 transition-colors"
+                                >
+                                  {uploadingState["medicalDoc"] ? (
+                                    <><Loader2 className="h-4 w-4 animate-spin text-blue-600" /> Uploading Medical Document...</>
+                                  ) : (
+                                    <><Upload className="h-4 w-4 text-blue-600" /> Choose & Upload Medical Document (PDF, JPG, PNG)</>
+                                  )}
+                                </Label>
+                                <Input
+                                  id="medical-doc-upload"
+                                  type="file"
+                                  accept=".pdf,.jpg,.jpeg,.png"
+                                  disabled={uploadingState["medicalDoc"]}
+                                  onChange={async (e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                      const url = await handleFileUpload(file, "medicalDoc");
+                                      if (url) field.onChange(url);
+                                    }
+                                  }}
+                                  className="hidden"
+                                />
+                              </div>
+                            </FormControl>
+                          )}
                           <FormMessage />
                         </FormItem>
                       )}

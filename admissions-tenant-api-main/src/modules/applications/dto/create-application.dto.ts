@@ -53,6 +53,14 @@ export class ApplicantDto {
   @IsOptional()
   @IsString()
   maritalStatus?: string;
+
+  @IsOptional()
+  @IsString()
+  photoUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  photo?: string;
 }
 
 export class CreateApplicationDto {
@@ -75,6 +83,10 @@ export class CreateApplicationDto {
   @IsOptional()
   @IsString()
   academicSession?: string;
+
+  @IsOptional()
+  @IsString()
+  photoUrl?: string;
 
   @IsOptional()
   @IsObject()

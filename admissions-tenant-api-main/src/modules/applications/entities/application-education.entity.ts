@@ -29,10 +29,10 @@ export class ApplicationEducation {
   @Column({ name: 'board_university', length: 255, nullable: true })
   boardUniversity: string;
 
-  @Column({ name: 'year_of_passing', length: 4, nullable: true })
+  @Column({ name: 'year_of_passing', length: 50, nullable: true })
   yearOfPassing: string;
 
-  @Column({ name: 'percentage_cgpa', length: 20, nullable: true })
+  @Column({ name: 'percentage_cgpa', length: 100, nullable: true })
   percentageCgpa: string;
 
   @Column({ name: 'class_obtained', length: 50, nullable: true })
@@ -43,6 +43,9 @@ export class ApplicationEducation {
 
   @Column({ name: 'is_completed', default: true })
   isCompleted: boolean;
+
+  @Column({ name: 'document_url', type: 'text', nullable: true })
+  documentUrl: string;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
