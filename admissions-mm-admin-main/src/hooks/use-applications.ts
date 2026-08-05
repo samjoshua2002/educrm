@@ -47,6 +47,7 @@ export interface ApplicationDetail {
       stream: string;
       year: string;
       percentage: string;
+      documentUrl?: string;
     };
     twelfth: {
       institute: string;
@@ -54,6 +55,7 @@ export interface ApplicationDetail {
       stream: string;
       year: string;
       percentage: string;
+      documentUrl?: string;
     };
     graduation: {
       state: string;
@@ -66,6 +68,7 @@ export interface ApplicationDetail {
       passingYear: string;
       percentage: string;
       percentageTillLast: string;
+      documentUrl?: string;
     };
   };
   parents: {
@@ -197,7 +200,7 @@ function mapApiToApplicationDetail(apiData: any): ApplicationDetail {
     courseId: apiData.courseId || "",
     applicant: {
       name: apiData.name || student.name || "",
-      photo: "",
+      photo: apiData.photoUrl || apiData.photo || student.photo || "",
       email: apiData.email || student.email || "",
       primaryMobile: apiData.primaryMobile || student.phone || "",
       alternateMobile: apiData.alternateMobile || "",
@@ -224,6 +227,7 @@ function mapApiToApplicationDetail(apiData: any): ApplicationDetail {
         stream: tenth?.majorSubjects || "-",
         year: tenth?.yearOfPassing || "",
         percentage: tenth?.percentageCgpa || "",
+        documentUrl: tenth?.documentUrl || tenth?.certificateUrl || "",
       },
       twelfth: {
         institute: twelfth?.institution || "",
@@ -231,6 +235,7 @@ function mapApiToApplicationDetail(apiData: any): ApplicationDetail {
         stream: twelfth?.majorSubjects || "",
         year: twelfth?.yearOfPassing || "",
         percentage: twelfth?.percentageCgpa || "",
+        documentUrl: twelfth?.documentUrl || twelfth?.certificateUrl || "",
       },
       graduation: {
         state: graduationState(graduation),
@@ -243,6 +248,7 @@ function mapApiToApplicationDetail(apiData: any): ApplicationDetail {
         passingYear: graduation?.yearOfPassing || "",
         percentage: graduation?.percentageCgpa || "",
         percentageTillLast: graduation?.percentageCgpa || "",
+        documentUrl: graduation?.documentUrl || graduation?.certificateUrl || "",
       },
     },
     parents: {
@@ -269,7 +275,7 @@ function mapApiToApplicationDetail(apiData: any): ApplicationDetail {
       inspiration: apiData.inspirationEssay || "",
       source: apiData.howDidYouKnow || "",
       medicalConditions: apiData.hasMedicalCondition ? apiData.medicalConditionDetails || "Yes" : "None",
-      medicalConditionDocument: apiData.medicalConditionDocument || "",
+      medicalConditionDocument: apiData.medicalConditionDocument || apiData.medicalConditionDocumentUrl || "",
     },
     experience: {
       claimedMonths: apiData.claimedExperienceMonths || "",
@@ -308,6 +314,7 @@ function graduationState(_grad: any): string {
 function toPersonalPayload(updatedData: ApplicationDetail) {
   return {
     name: updatedData.applicant.name,
+    email: updatedData.applicant.email,
     primaryMobile: updatedData.applicant.primaryMobile,
     alternateMobile: updatedData.applicant.alternateMobile,
     gender: updatedData.applicant.gender,
@@ -317,6 +324,7 @@ function toPersonalPayload(updatedData: ApplicationDetail) {
     aadhaarNumber: updatedData.applicant.aadhaar,
     category: updatedData.applicant.category,
     maritalStatus: updatedData.applicant.maritalStatus,
+    photoUrl: updatedData.applicant.photo || (updatedData as any).photoUrl || undefined,
   };
 }
 
@@ -355,6 +363,7 @@ function toEducationPayload(updatedData: ApplicationDetail) {
       majorSubjects: e.tenth.stream,
       yearOfPassing: e.tenth.year,
       percentageCgpa: e.tenth.percentage,
+      documentUrl: e.tenth.documentUrl || undefined,
       isCompleted: true,
     });
   }
@@ -366,6 +375,7 @@ function toEducationPayload(updatedData: ApplicationDetail) {
       majorSubjects: e.twelfth.stream,
       yearOfPassing: e.twelfth.year,
       percentageCgpa: e.twelfth.percentage,
+      documentUrl: e.twelfth.documentUrl || undefined,
       isCompleted: true,
     });
   }
@@ -376,6 +386,7 @@ function toEducationPayload(updatedData: ApplicationDetail) {
       boardUniversity: e.graduation.university || "University",
       yearOfPassing: e.graduation.passingYear || "2025",
       percentageCgpa: e.graduation.percentageTillLast || e.graduation.percentage || "0",
+      documentUrl: e.graduation.documentUrl || undefined,
       isCompleted: e.graduation.status === "Completed",
     });
   }
@@ -429,6 +440,7 @@ function toAdditionalPayload(updatedData: ApplicationDetail) {
     howDidYouKnow: updatedData.other.source,
     hasMedicalCondition: hasMedical,
     medicalConditionDetails: hasMedical ? updatedData.other.medicalConditions : undefined,
+    medicalConditionDocument: hasMedical ? updatedData.other.medicalConditionDocument : undefined,
   };
 }
 
@@ -546,8 +558,25 @@ export function useUpdateApplication() {
       });
       toast.success("Application details updated successfully");
     },
-    onError: () => {
-      toast.error("Failed to update application details");
+    onError: (err: any) => {
+      const responseData = err?.response?.data;
+      let msg = "Failed to update application details";
+
+      if (responseData?.errors && typeof responseData.errors === "object") {
+        const errValues = Object.values(responseData.errors).filter(Boolean);
+        if (errValues.length > 0) {
+          msg = errValues.join(", ");
+        }
+      } else if (responseData?.message) {
+        msg = Array.isArray(responseData.message)
+          ? responseData.message.join(", ")
+          : responseData.message;
+      } else if (err?.message) {
+        msg = err.message;
+      }
+
+      console.error("[useUpdateApplication] Error:", msg, responseData || err);
+      toast.error(msg);
     },
   });
 }
@@ -632,9 +661,14 @@ export function useCreateApplication() {
       toast.success("Application created successfully");
     },
     onError: (err: any) => {
-      const backendMsg = err?.response?.data?.message;
-      const msg = Array.isArray(backendMsg) ? backendMsg.join(", ") : backendMsg || err?.message || "Failed to create application";
-      console.error("[useCreateApplication] Error:", err?.response?.data || err?.message);
+      const responseData = err?.response?.data;
+      const backendMsg = responseData?.message || err?.message;
+      const msg = Array.isArray(backendMsg)
+        ? backendMsg.join(", ")
+        : typeof backendMsg === "string"
+        ? backendMsg
+        : "Failed to create application";
+      console.error("[useCreateApplication] Error:", msg, responseData || err);
       toast.error(msg);
     },
   });

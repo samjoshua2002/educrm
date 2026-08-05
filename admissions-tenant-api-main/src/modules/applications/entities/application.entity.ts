@@ -82,7 +82,7 @@ export class Application {
   @Column({ length: 255, nullable: true })
   program: string;
 
-  @Column({ name: 'photo_url', length: 500, nullable: true })
+  @Column({ name: 'photo_url', type: 'text', nullable: true })
   photoUrl: string;
 
   @Column({ name: 'form_status', default: 'incomplete' })
@@ -197,6 +197,9 @@ export class Application {
 
   @Column({ name: 'medical_condition_details', type: 'text', nullable: true })
   medicalConditionDetails: string;
+
+  @Column({ name: 'medical_condition_document', type: 'text', nullable: true })
+  medicalConditionDocument: string;
 
   @Column({ name: 'declaration_accepted', default: false })
   declarationAccepted: boolean;
