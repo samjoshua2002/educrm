@@ -20,6 +20,7 @@ export interface FormField {
   placeholder?: string;
   required: boolean;
   options?: { id: string; label: string }[];
+  defaultValue?: string;
   validation?: {
     min?: number;
     max?: number;
@@ -46,6 +47,7 @@ export interface Form {
   createdBy: string;
   createdAt: string;
   updatedAt: string;
+  responseCount?: number;
 }
 
 export interface Template {

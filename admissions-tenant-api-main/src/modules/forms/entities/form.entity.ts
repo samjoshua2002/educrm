@@ -59,4 +59,7 @@ export class Form {
 
   @OneToMany(() => FormResponse, (response) => response.form)
   responses: FormResponse[];
+
+  /** Populated via loadRelationCountAndMap in list queries; not a DB column. */
+  responseCount?: number;
 }

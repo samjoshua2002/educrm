@@ -14,36 +14,41 @@ export class LeadAssignmentService {
     private readonly leadRepository: Repository<Lead>,
   ) {}
 
-  async assignLead(lead: Lead) {
-    // 1. Find available counselors in the organization
-    const counselors = await this.userRepository.find({
+  /**
+   * Round-robin assignment to active users of the given role within the lead's organization.
+   * Used for new-lead intake (role=LEAD_MANAGER) and for handoff on verification (role=COUNSELOR).
+   */
+  async assignLead(lead: Lead, role: Role = Role.LEAD_MANAGER) {
+    // 1. Find available users with the target role in the organization
+    const pool = await this.userRepository.find({
       where: {
         organizationId: lead.organizationId,
-        role: Role.COUNSELOR, // Only assign to counselors
+        role,
         isActive: true,
       },
     });
 
-    if (counselors.length === 0) {
+    if (pool.length === 0) {
       return null;
     }
 
-    // 2. Simple Round-Robin based on last assignment
-    // Find who has the fewest leads assigned or just pick one randomly for now
-    // A better way is to check the last lead's assignedTo.
-    const lastLead = await this.leadRepository.findOne({
-      where: { organizationId: lead.organizationId },
-      order: { assignedAt: 'DESC' },
-    });
+    // 2. Simple Round-Robin based on last assignment to a user of this same role
+    const lastLead = await this.leadRepository
+      .createQueryBuilder('lead')
+      .leftJoin('lead.assignedToUser', 'assignedToUser')
+      .where('lead.organization_id = :orgId', { orgId: lead.organizationId })
+      .andWhere('assignedToUser.role = :role', { role })
+      .orderBy('lead.assigned_at', 'DESC')
+      .getOne();
 
     let assignTo: User;
 
     if (!lastLead || !lastLead.assignedTo) {
-      assignTo = counselors[0];
+      assignTo = pool[0];
     } else {
-      const lastIndex = counselors.findIndex(c => c.id === lastLead.assignedTo);
-      const nextIndex = (lastIndex + 1) % counselors.length;
-      assignTo = counselors[nextIndex];
+      const lastIndex = pool.findIndex(c => c.id === lastLead.assignedTo);
+      const nextIndex = (lastIndex + 1) % pool.length;
+      assignTo = pool[nextIndex];
     }
 
     return {

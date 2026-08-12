@@ -8,6 +8,7 @@ export interface Lead {
   id: string;
   organizationId: string;
   branchId?: string;
+  branch?: { id: string; name: string };
   firstName?: string;
   lastName?: string;
   email?: string;
@@ -21,6 +22,7 @@ export interface Lead {
   utmMedium?: string;
   utmCampaign?: string;
   formId?: string;
+  form?: { id: string; name: string };
   campaignId?: string;
   isDuplicate: boolean;
   duplicateCount: number;
@@ -30,6 +32,7 @@ export interface Lead {
   createdAt: string;
   status: string; // 'unverified' | 'verified' | 'disqualified'
   scoreBand?: string;
+  nextFollowUpAt?: string;
 }
 
 export function useLeads(

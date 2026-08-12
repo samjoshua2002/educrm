@@ -17,11 +17,22 @@ import { organizationNavItems } from "@/navigation/organization-nav";
 import { NavMain } from "@/app/(main)/_components/sidebar/nav-main";
 import { AccountSwitcher } from "@/app/(main)/_components/sidebar/account-switcher";
 import { users } from "@/data/users";
+import { useAuthStore } from "@/stores/auth-store";
 
 export function OrganizationSidebar({
   ...props
 }: React.ComponentProps<typeof Sidebar>) {
   const { isMobile } = useSidebar();
+  const currentRole = useAuthStore((state) => state.user?.role);
+
+  const visibleNavItems = organizationNavItems
+    .map((group) => ({
+      ...group,
+      items: group.items.filter(
+        (item) => !item.roles || !currentRole || item.roles.includes(currentRole),
+      ),
+    }))
+    .filter((group) => group.items.length > 0);
 
   return (
     <Sidebar {...props}>
@@ -48,7 +59,7 @@ export function OrganizationSidebar({
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent className="pb-10">
-        <NavMain items={organizationNavItems} />
+        <NavMain items={visibleNavItems} />
       </SidebarContent>
       <SidebarFooter className="pb-4">
         <SidebarMenu>

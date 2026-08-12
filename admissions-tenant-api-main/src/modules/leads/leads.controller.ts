@@ -44,7 +44,7 @@ export class LeadsController {
   }
 
   @Get()
-  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.LEAD_MANAGER)
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.LEAD_MANAGER, Role.COUNSELOR)
   @ResponseMessage('Leads fetched successfully')
   findAll(
     @Param('orgId', ParseUUIDPipe) orgId: string,
@@ -55,17 +55,19 @@ export class LeadsController {
       orgId,
       queryDto,
       req?.user?.sub,
+      req?.user?.role,
     );
   }
 
   @Get(':id')
-  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.LEAD_MANAGER)
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.LEAD_MANAGER, Role.COUNSELOR)
   @ResponseMessage('Lead details fetched successfully')
   findOne(
     @Param('orgId', ParseUUIDPipe) orgId: string,
     @Param('id', ParseUUIDPipe) id: string,
+    @Request() req: any,
   ) {
-    return this.leadsService.findOne(id, orgId);
+    return this.leadsService.findOne(id, orgId, req.user.sub, req.user.role);
   }
 
   @Patch(':id')
@@ -77,7 +79,7 @@ export class LeadsController {
     @Body() dto: UpdateLeadDto,
     @Request() req: any,
   ) {
-    return this.leadsService.update(id, orgId, req.user.sub, dto);
+    return this.leadsService.update(id, orgId, req.user.sub, dto, req.user.role);
   }
 
   @Patch(':id/status')
@@ -87,8 +89,9 @@ export class LeadsController {
     @Param('orgId', ParseUUIDPipe) orgId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @Body('status') status: string,
+    @Request() req: any,
   ) {
-    return this.leadsService.updateStatus(id, orgId, status);
+    return this.leadsService.updateStatus(id, orgId, status, req.user.sub);
   }
 
   @Patch(':id/verify')
@@ -124,7 +127,7 @@ export class LeadsController {
     @Body() dto: AddLeadNoteDto,
     @Request() req: any,
   ) {
-    return this.leadsService.addNote(id, orgId, req.user.sub, dto);
+    return this.leadsService.addNote(id, orgId, req.user.sub, dto, req.user.role);
   }
 
   @Patch(':id/workflow-status')
@@ -136,7 +139,7 @@ export class LeadsController {
     @Body() dto: UpdateLeadStatusDto,
     @Request() req: any,
   ) {
-    return this.leadsService.updateLeadStatus(id, orgId, req.user.sub, dto);
+    return this.leadsService.updateLeadStatus(id, orgId, req.user.sub, dto, req.user.role);
   }
 
   @Patch(':id/close')
@@ -148,7 +151,7 @@ export class LeadsController {
     @Body() dto: CloseLeadDto,
     @Request() req: any,
   ) {
-    return this.leadsService.close(id, orgId, req.user.sub, dto);
+    return this.leadsService.close(id, orgId, req.user.sub, dto, req.user.role);
   }
 
   @Delete(':id')

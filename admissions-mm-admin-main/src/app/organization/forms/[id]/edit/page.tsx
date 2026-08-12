@@ -81,10 +81,14 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useForm, useUpdateForm } from "@/hooks/use-forms";
+import { useBranches } from "@/hooks/use-branches";
 import { FormField, Form, UpdateFormInput } from "@/types/form";
 import {
-  ensureDefaultFormFields,
+  DEFAULT_FORM_FIELDS,
+  SYSTEM_FIELD_IDS,
+  SystemFieldId,
   isSystemField,
+  reconcileSystemFieldOverrides,
 } from "@/lib/default-form-fields";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Loader2 } from "lucide-react";
@@ -212,6 +216,8 @@ function SortableField({
   onRemove,
   onDuplicate,
   onUpdateField,
+  branchOptions,
+  branchesLoading,
 }: {
   field: FormField;
   isSelected: boolean;
@@ -219,6 +225,8 @@ function SortableField({
   onRemove: (id: string) => void;
   onDuplicate: (field: FormField) => void;
   onUpdateField: (id: string, updates: Partial<FormField>) => void;
+  branchOptions: { id: string; label: string }[];
+  branchesLoading: boolean;
 }) {
   const {
     attributes,
@@ -476,7 +484,32 @@ function SortableField({
               Collexo payment integration
             </div>
           )}
-          {field.type === "select" && (
+          {field.type === "select" && field.id === "location" && (
+            <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
+              <div className="h-10 w-full rounded-lg border bg-white px-3 flex items-center justify-between text-muted-foreground text-sm shadow-sm mb-2">
+                <span>{field.placeholder || "Select branch..."}</span>
+                <ChevronDown className="h-4 w-4" />
+              </div>
+              <div className="space-y-1">
+                {branchesLoading ? (
+                  <div className="text-xs text-slate-400 pl-3">Loading branches...</div>
+                ) : branchOptions.length === 0 ? (
+                  <div className="text-xs text-slate-400 pl-3">No branches found for this organization</div>
+                ) : (
+                  branchOptions.map((opt) => (
+                    <div key={opt.id} className="flex items-center gap-2 pl-3">
+                      <div className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+                      <span className="text-sm text-slate-700">{opt.label}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+              <p className="text-[11px] text-slate-400 pl-3 pt-1">
+                Synced automatically from your organization's branches
+              </p>
+            </div>
+          )}
+          {field.type === "select" && field.id !== "location" && (
             <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
               <div className="h-10 w-full rounded-lg border bg-white px-3 flex items-center justify-between text-muted-foreground text-sm shadow-sm mb-2">
                 <span>{field.placeholder || "Select option..."}</span>
@@ -628,37 +661,34 @@ function SortableField({
       {/* Bottom Action Row */}
       <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-end gap-3 text-slate-400">
         {!field.systemField && (
-          <>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-slate-400 hover:text-slate-600 hover:bg-slate-50"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDuplicate(field);
-              }}
-            >
-              <Copy className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50"
-              onClick={(e) => {
-                e.stopPropagation();
-                onRemove(field.id);
-              }}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-            <div className="h-4 w-px bg-slate-200" />
-          </>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-slate-400 hover:text-slate-600 hover:bg-slate-50"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDuplicate(field);
+            }}
+          >
+            <Copy className="h-4 w-4" />
+          </Button>
         )}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50"
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove(field.id);
+          }}
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+        <div className="h-4 w-px bg-slate-200" />
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium text-slate-600">Required</span>
           <CustomSwitch
             checked={field.required || false}
-            disabled={field.systemField}
             onCheckedChange={(val) => {
               onUpdateField(field.id, { required: val });
             }}
@@ -682,6 +712,11 @@ export default function OrganizationFormBuilderPage({
   // API Hooks
   const { data: form, isLoading, isError } = useForm(id);
   const { mutate: updateForm, isPending: isSaving } = useUpdateForm();
+  const { data: branchesResponse, isLoading: isBranchesLoading } = useBranches(1, 100);
+  const branchOptions = React.useMemo(
+    () => (branchesResponse?.data || []).map((b) => ({ id: b.id, label: b.name })),
+    [branchesResponse],
+  );
 
   // Local state for batch editing
   const [activeTab, setActiveTab] = React.useState<"build" | "settings">("build");
@@ -745,12 +780,23 @@ export default function OrganizationFormBuilderPage({
         return field;
       });
 
-      setLocalFields(ensureDefaultFormFields(normalizedFields));
+      setLocalFields(reconcileSystemFieldOverrides(normalizedFields));
       setLocalName(form.name);
       setLocalSlug(form.slug);
       setLocalStatus(form.status);
     }
   }, [form]);
+
+  // Keep the Location field's options synced with the org's actual branches
+  React.useEffect(() => {
+    if (!branchesResponse) return;
+    setLocalFields((prev) => {
+      if (!prev.some((f) => f.id === "location")) return prev;
+      return prev.map((f) =>
+        f.id === "location" ? { ...f, options: branchOptions } : f,
+      );
+    });
+  }, [branchesResponse, branchOptions]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -777,15 +823,19 @@ export default function OrganizationFormBuilderPage({
     setSelectedFieldId(newField.id);
   };
 
+  const addSystemField = (fieldId: SystemFieldId) => {
+    if (localFields.some((f) => f.id === fieldId)) return;
+    const defaultField = DEFAULT_FORM_FIELDS.find((df) => df.id === fieldId);
+    if (!defaultField) return;
+    const newField =
+      fieldId === "location"
+        ? { ...defaultField, options: branchOptions }
+        : { ...defaultField };
+    setLocalFields((prev) => [...prev, newField]);
+    setSelectedFieldId(newField.id);
+  };
+
   const removeField = (fieldId: string) => {
-    const target = localFields.find((f) => f.id === fieldId);
-    if (
-      target?.systemField ||
-      isSystemField(target ?? { id: fieldId, label: "" })
-    ) {
-      toast.error("System fields cannot be removed");
-      return;
-    }
     setLocalFields((prev) => prev.filter((f) => f.id !== fieldId));
     if (selectedFieldId === fieldId) setSelectedFieldId(null);
   };
@@ -994,7 +1044,7 @@ export default function OrganizationFormBuilderPage({
       data: {
         name: localName,
         slug: localSlug,
-        fields: ensureDefaultFormFields(localFields),
+        fields: reconcileSystemFieldOverrides(localFields),
         status: status as any,
       },
     });
@@ -1238,33 +1288,13 @@ export default function OrganizationFormBuilderPage({
                     </div>
                   </div>
 
-                  {/* Student Identity Section */}
+                  {/* Input Types Section */}
                   <div>
                     <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
-                      Student Identity
+                      Input Types
                     </h3>
                     <div className="space-y-2">
                       {[
-                        {
-                          type: "email",
-                          label: "Email Address",
-                          subtitle: "Validation included",
-                          svg: (
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="16" viewBox="0 0 20 16" fill="none">
-                              <path d="M2 16C1.45 16 0.979167 15.8042 0.5875 15.4125C0.195833 15.0208 0 14.55 0 14V2C0 1.45 0.195833 0.979167 0.5875 0.5875C0.979167 0.195833 1.45 0 2 0H18C18.55 0 19.0208 0.195833 19.4125 0.5875C19.8042 0.979167 20 1.45 20 2V14C20 14.55 19.8042 15.0208 19.4125 15.4125C19.0208 15.8042 18.55 16 18 16H2ZM10 9L2 4V14H18V4L10 9ZM10 7L18 2H2L10 7ZM2 4V2V4V14V4Z" fill="#415876"/>
-                            </svg>
-                          )
-                        },
-                        {
-                          type: "phone",
-                          label: "Phone Number",
-                          subtitle: "International format",
-                          svg: (
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18" fill="none">
-                              <path d="M16.95 18C14.8667 18 12.8083 17.5458 10.775 16.6375C8.74167 15.7292 6.89167 14.4417 5.225 12.775C3.55833 11.1083 2.27083 9.25833 1.3625 7.225C0.454167 5.19167 0 3.13333 0 1.05C0 0.75 0.1 0.5 0.3 0.3C0.5 0.1 0.75 0 1.05 0H5.1C5.33333 0 5.54167 0.0791667 5.725 0.2375C5.90833 0.395833 6.01667 0.583333 6.05 0.8L6.7 4.3C6.73333 4.56667 6.725 4.79167 6.675 4.975C6.625 5.15833 6.53333 5.31667 6.4 5.45L3.975 7.9C4.30833 8.51667 4.70417 9.1125 5.1625 9.6875C5.62083 10.2625 6.125 10.8167 6.675 11.35C7.19167 11.8667 7.73333 12.3458 8.3 12.7875C8.86667 13.2292 9.46667 13.6333 10.1 14L12.45 11.65C12.6 11.5 12.7958 11.3875 13.0375 11.3125C13.2792 11.2375 13.5167 11.2167 13.75 11.25L17.2 11.95C17.4333 12.0167 17.625 12.1375 17.775 12.3125C17.925 12.4875 18 12.6833 18 12.9V16.95C18 17.25 17.9 17.5 17.7 17.7C17.5 17.9 17.25 18 16.95 18ZM3.025 6L4.675 4.35L4.25 2H2.025C2.10833 2.68333 2.225 3.35833 2.375 4.025C2.525 4.69167 2.74167 5.35 3.025 6ZM11.975 14.95C12.625 15.2333 13.2875 15.4583 13.9625 15.625C14.6375 15.7917 15.3167 15.9 16 15.95V13.75L13.65 13.275L11.975 14.95Z" fill="#415876"/>
-                            </svg>
-                          )
-                        },
                         {
                           type: "number",
                           label: "Number Input",
@@ -1357,6 +1387,64 @@ export default function OrganizationFormBuilderPage({
                       })}
                     </div>
                   </div>
+
+                  {/* System Fields Section */}
+                  <div>
+                    <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
+                      System Fields
+                    </h3>
+                    <p className="text-[11px] text-slate-400 mb-3 -mt-2">
+                      Optional. Add only the fields you want to collect and map to lead records.
+                    </p>
+                    <div className="space-y-2">
+                      {SYSTEM_FIELD_IDS.map((sysId) => {
+                        const defaultField = DEFAULT_FORM_FIELDS.find((df) => df.id === sysId);
+                        if (!defaultField) return null;
+                        const isAdded = localFields.some((f) => f.id === sysId);
+                        return (
+                          <button
+                            key={sysId}
+                            className="w-full text-left flex items-center transition-all group disabled:opacity-50 disabled:cursor-not-allowed"
+                            style={{
+                              display: "flex",
+                              padding: "12px",
+                              alignItems: "center",
+                              gap: "12px",
+                              alignSelf: "stretch",
+                              borderRadius: "4px",
+                              border: "1px solid var(--Neutral-300, #D4D4D4)",
+                              background: isAdded ? "#F1F5F9" : "var(--Neutral-50, #FAFAFA)",
+                            }}
+                            type="button"
+                            disabled={isAdded}
+                            onClick={() => addSystemField(sysId)}
+                          >
+                            <div className="flex items-center justify-center shrink-0 w-8 h-8 bg-slate-100/50 rounded-[4px]">
+                              <Sparkles className="h-[16px] w-[16px] text-slate-500 group-hover:text-blue-600" />
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-xs font-semibold text-slate-700 group-hover:text-slate-900 leading-none">
+                                {defaultField.label}
+                              </span>
+                              <span
+                                style={{
+                                  color: "var(--Colorsecondary-text-color, #475569)",
+                                  fontFamily: "Inter, sans-serif",
+                                  fontSize: "11px",
+                                  fontStyle: "normal",
+                                  fontWeight: 400,
+                                  lineHeight: "16.5px",
+                                }}
+                                className="mt-1"
+                              >
+                                {isAdded ? "Added to form" : "Optional"}
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               </div>
             </aside>
@@ -1394,6 +1482,8 @@ export default function OrganizationFormBuilderPage({
                               onRemove={removeField}
                               onDuplicate={duplicateField}
                               onUpdateField={updateField}
+                              branchOptions={branchOptions}
+                              branchesLoading={isBranchesLoading}
                             />
                           ))}
                       </div>
@@ -1661,7 +1751,31 @@ export default function OrganizationFormBuilderPage({
 
 
                   {/* Option List for Select, Radio, Checkbox */}
-                  {["select", "radio", "checkbox"].includes(selectedField.type) && (
+                  {["select", "radio", "checkbox"].includes(selectedField.type) && selectedField.id === "location" && (
+                    <div className="space-y-3">
+                      <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Options (from Branches)</Label>
+                      <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                        {isBranchesLoading ? (
+                          <p className="text-xs text-slate-400">Loading branches...</p>
+                        ) : branchOptions.length === 0 ? (
+                          <p className="text-xs text-slate-400">No branches found for this organization</p>
+                        ) : (
+                          branchOptions.map((opt) => (
+                            <div
+                              key={opt.id}
+                              className="h-8 flex items-center px-2 text-xs text-slate-700 bg-slate-50 border border-slate-200 rounded"
+                            >
+                              {opt.label}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                      <p className="text-[10px] text-slate-400">
+                        Synced automatically from your organization's branches. Manage branches in Settings.
+                      </p>
+                    </div>
+                  )}
+                  {["select", "radio", "checkbox"].includes(selectedField.type) && selectedField.id !== "location" && (
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Options</Label>
@@ -1741,7 +1855,6 @@ export default function OrganizationFormBuilderPage({
                         </div>
                         <Switch
                           checked={selectedField.required || false}
-                          disabled={selectedField.systemField}
                           onCheckedChange={(val) => {
                             updateField(selectedField.id, { required: val });
                           }}

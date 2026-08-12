@@ -299,11 +299,12 @@ const stageStyles: Record<string, string> = {
     "bg-[#F3E8FF] text-[#6B21A8] dark:bg-purple-500/20 dark:text-purple-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
   Qualified:
     "bg-[#05966933] text-[#065F46] dark:bg-emerald-500/20 dark:text-emerald-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
-Lost:
-  "bg-[#FEE2E2] text-[#B91C1C] dark:bg-red-500/20 dark:text-red-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
+  Lost:
+    "bg-[#FEE2E2] text-[#B91C1C] dark:bg-red-500/20 dark:text-red-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
 
-Converted:
-  "bg-[#DBEAFE] text-[#1D4ED8] dark:bg-green-500/20 dark:text-green-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",};
+  Converted:
+    "bg-[#DBEAFE] text-[#1D4ED8] dark:bg-green-500/20 dark:text-green-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
+};
 
 const statusStyles: Record<string, string> = {
   Hot: "bg-[#FEE2E2] text-[#991B1B] dark:bg-rose-500/20 dark:text-rose-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
@@ -349,12 +350,14 @@ export default function LeadManagerPage() {
   });
 
   // Hook API Calls
+  // Lead Manager is a working queue for leads still awaiting a verify/disqualify decision —
+  // once verified, a lead is handed off to a counselor and only shows up on the Leads page.
   const { data: leadsResponse, isLoading, error } = useLeads(
     currentPage,
     itemsPerPage,
     searchQuery || undefined,
     undefined,
-    undefined,
+    "unverified",
     {
       assignedTo: appliedAdvanced.assignedTo !== "all" ? appliedAdvanced.assignedTo : undefined,
       scoreBand: statusDraft !== "all" ? statusDraft.toLowerCase() : (appliedAdvanced.status !== "all" ? appliedAdvanced.status.toLowerCase() : undefined),
@@ -384,14 +387,16 @@ export default function LeadManagerPage() {
       medium: item.utmMedium || "N/A",
       campaign: item.utmCampaign || "N/A",
       stage: item.rawPayload?.stage || (item.isDuplicate ? "Duplicate" : "New"),
-      status: item.scoreBand 
-        ? item.scoreBand.charAt(0).toUpperCase() + item.scoreBand.slice(1) 
+      status: item.scoreBand
+        ? item.scoreBand.charAt(0).toUpperCase() + item.scoreBand.slice(1)
         : "Warm",
       assignedToUser: item.assignedToUser ? {
         name: item.assignedToUser.name,
         role: item.assignedToUser.role?.replace('_', ' ')?.toLowerCase()
       } : null,
       assignedTo: item.assignedToUser ? `${item.assignedToUser.name} (${item.assignedToUser.role.replace('_', ' ')})` : (item.assignedTo || "Unassigned"),
+      followUpAt: item.nextFollowUpAt || null,
+      followUpNote: item.rawPayload?.notes || "",
       rawLead: item
     }));
   }, [leadsResponse]);
@@ -753,7 +758,7 @@ export default function LeadManagerPage() {
                   NAME
                 </TableHead>
                 <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
-                  MOBILE
+                  CONTACT
                 </TableHead>
                 <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
                   CITY
@@ -762,7 +767,7 @@ export default function LeadManagerPage() {
                   STAGE
                 </TableHead>
                 <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
-                  STATUS
+                  FOLLOW UP
                 </TableHead>
                 <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
                   ASSIGNED TO
@@ -802,16 +807,24 @@ export default function LeadManagerPage() {
                   >
                     <TableCell className="py-5 px-6 align-middle">
                       <div className="flex flex-col gap-0.5">
-                        <div className="font-semibold text-foreground text-sm tracking-tight">
-                          {item.name}
+                        
+                        <div className="flex items-center gap-2">
+
+                          <span className="font-semibold text-foreground text-sm tracking-tight">
+                            {item.name}
+                          </span>
+                          <span className={statusStyles[item.status] ?? ""}>
+                            {item.status}
+                          </span>
                         </div>
-                        <div className="text-xs text-muted-foreground font-normal">
-                          {item.email}
-                        </div>
+                        
                       </div>
                     </TableCell>
                     <TableCell className="py-5 px-6 align-middle text-sm text-foreground/80 font-normal">
                       {item.mobile}
+                      <div className="text-xs text-muted-foreground font-normal">
+                          {item.email}
+                        </div>
                     </TableCell>
                     <TableCell className="py-5 px-6 align-middle text-sm text-foreground/80 font-normal">
                       {item.city}
@@ -822,9 +835,13 @@ export default function LeadManagerPage() {
                       </span>
                     </TableCell>
                     <TableCell className="py-5 px-6 align-middle">
-                      <span className={statusStyles[item.status] ?? ""}>
-                        {item.status}
-                      </span>
+                      <div className="flex flex-col gap-0.5">
+                        {item.followUpNote && (
+                          <div className="text-sm text-muted-foreground font-normal max-w-[180px] truncate">
+                            {item.followUpNote}
+                          </div>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="py-5 px-6 align-middle">
                       {item.assignedToUser ? (
@@ -869,14 +886,14 @@ export default function LeadManagerPage() {
                                 Edit
                               </Link>
                             </DropdownMenuItem>
-                            <DropdownMenuItem 
+                            <DropdownMenuItem
                               className="gap-2 text-emerald-600 focus:text-emerald-600 cursor-pointer font-medium"
                               onClick={() => updateStatus({ leadId: String(item.id), status: "verified" })}
                             >
                               <Check className="size-4 text-emerald-600" />
                               Verify
                             </DropdownMenuItem>
-                            <DropdownMenuItem 
+                            <DropdownMenuItem
                               className="gap-2 text-rose-600 focus:text-rose-600 cursor-pointer font-medium"
                               onClick={() => updateStatus({ leadId: String(item.id), status: "disqualified" })}
                             >
@@ -923,47 +940,46 @@ export default function LeadManagerPage() {
               <div className="flex items-center gap-2 flex-wrap">
                 {/* Previous button */}
                 <Button
-                 variant="outline"
-                 className="h-9 px-4 border border-border/80 bg-background text-foreground text-sm font-normal rounded-[6px] hover:bg-muted/30 hover:text-[var(--primary)] dark:hover:bg-muted/10 transition-colors shadow-2xs"
-                 onClick={() => {
-                   if (currentPage > 1) setCurrentPage(currentPage - 1);
-                 }}
-                 disabled={currentPage === 1}
-               >
-                 Previous
-               </Button>
-               
-                               <div className="flex items-center gap-1">
-                                 {visiblePages.map((page) => {
-                                   const isActive = currentPage === page;
-                                   return (
-                                     <Button
-                                       key={page}
-                                       variant={isActive ? "default" : "outline"}
-                                       className={`h-9 w-9 p-0 text-sm border shadow-2xs rounded-[6px] transition-colors ${
-                                         isActive
-                                           ? "bg-[#EA2525] border-[#EA2525] text-white font-semibold hover:bg-[#D61F1F] shadow-xs"
-                                           : "border-border/80 bg-background text-muted-foreground hover:bg-muted/30 dark:hover:bg-muted/10 hover:text-foreground font-normal"
-                                       }`}
-                                       onClick={() => setCurrentPage(page)}
-                                     >
-                                       {page}
-                                     </Button>
-                                   );
-                                 })}
-                               </div>
-               
-                 <Button
-                 variant="outline"
-                 className="h-9 px-4 border border-border/80 bg-background text-foreground text-sm font-normal rounded-[6px] hover:bg-muted/30 hover:text-[var(--primary)] dark:hover:bg-muted/10 transition-colors shadow-2xs"
-                 onClick={() => {
-                   if (currentPage < totalPages)
-                     setCurrentPage(currentPage + 1);
-                 }}
-                 disabled={currentPage === totalPages}
-               >
-                 Next
-               </Button>
+                  variant="outline"
+                  className="h-9 px-4 border border-border/80 bg-background text-foreground text-sm font-normal rounded-[6px] hover:bg-muted/30 hover:text-[var(--primary)] dark:hover:bg-muted/10 transition-colors shadow-2xs"
+                  onClick={() => {
+                    if (currentPage > 1) setCurrentPage(currentPage - 1);
+                  }}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </Button>
+
+                <div className="flex items-center gap-1">
+                  {visiblePages.map((page) => {
+                    const isActive = currentPage === page;
+                    return (
+                      <Button
+                        key={page}
+                        variant={isActive ? "default" : "outline"}
+                        className={`h-9 w-9 p-0 text-sm border shadow-2xs rounded-[6px] transition-colors ${isActive
+                            ? "bg-[#EA2525] border-[#EA2525] text-white font-semibold hover:bg-[#D61F1F] shadow-xs"
+                            : "border-border/80 bg-background text-muted-foreground hover:bg-muted/30 dark:hover:bg-muted/10 hover:text-foreground font-normal"
+                          }`}
+                        onClick={() => setCurrentPage(page)}
+                      >
+                        {page}
+                      </Button>
+                    );
+                  })}
+                </div>
+
+                <Button
+                  variant="outline"
+                  className="h-9 px-4 border border-border/80 bg-background text-foreground text-sm font-normal rounded-[6px] hover:bg-muted/30 hover:text-[var(--primary)] dark:hover:bg-muted/10 transition-colors shadow-2xs"
+                  onClick={() => {
+                    if (currentPage < totalPages)
+                      setCurrentPage(currentPage + 1);
+                  }}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                </Button>
               </div>
             )}
           </div>
@@ -1044,7 +1060,7 @@ export default function LeadManagerPage() {
                               Edit
                             </Link>
                           </DropdownMenuItem>
-                          <DropdownMenuItem 
+                          <DropdownMenuItem
                             className="gap-2 text-emerald-600 focus:text-emerald-600 cursor-pointer font-medium"
                             onClick={() =>
                               updateStatus({
@@ -1056,7 +1072,7 @@ export default function LeadManagerPage() {
                             <Check className="size-4 text-emerald-600" />
                             Verify
                           </DropdownMenuItem>
-                          <DropdownMenuItem 
+                          <DropdownMenuItem
                             className="gap-2 text-rose-600 focus:text-rose-600 cursor-pointer font-medium"
                             onClick={() =>
                               updateStatus({
@@ -1116,8 +1132,8 @@ export default function LeadManagerPage() {
                             <span className="text-foreground/95 font-semibold">
                               {item.assignedToUser.name}
                             </span>
-                            <Badge 
-                              variant="secondary" 
+                            <Badge
+                              variant="secondary"
                               className="font-semibold text-[9px] px-1.5 py-0 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/80 rounded-md shrink-0 uppercase tracking-wider"
                             >
                               {item.assignedToUser.role}
