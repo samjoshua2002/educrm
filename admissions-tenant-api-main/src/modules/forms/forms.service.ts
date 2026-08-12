@@ -1,9 +1,10 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Form, FormStatus } from './entities/form.entity.js';
 import { FormTemplate } from './entities/form-template.entity.js';
 import { FormResponse, ResponseStatus } from './entities/form-response.entity.js';
+import { FormStats } from './entities/form-stats.entity.js';
 import { CreateFormDto } from './dto/create-form.dto.js';
 import { UpdateFormDto } from './dto/update-form.dto.js';
 import { SubmitFormDto } from './dto/submit-form.dto.js';
@@ -20,6 +21,8 @@ export class FormsService {
     private readonly templateRepository: Repository<FormTemplate>,
     @InjectRepository(FormResponse)
     private readonly responseRepository: Repository<FormResponse>,
+    @InjectRepository(FormStats)
+    private readonly statsRepository: Repository<FormStats>,
   ) {}
 
   async create(orgId: string, dto: CreateFormDto, userId: string): Promise<Form> {
@@ -51,6 +54,18 @@ export class FormsService {
       .take(paginationDto.limit)
       .orderBy('form.createdAt', 'DESC')
       .getManyAndCount();
+
+    // Response counts live in form_stats (kept in sync on every real public
+    // submission); form_responses is not written to by the submission flow.
+    if (data.length > 0) {
+      const stats = await this.statsRepository.find({
+        where: { formId: In(data.map((f) => f.id)) },
+      });
+      const statsByFormId = new Map(stats.map((s) => [s.formId, s.totalSubmissions]));
+      data.forEach((f) => {
+        (f as any).responseCount = statsByFormId.get(f.id) ?? 0;
+      });
+    }
 
     const totalPages = Math.ceil(total / paginationDto.limit);
     return { data, total, totalPages, page: paginationDto.page, limit: paginationDto.limit };

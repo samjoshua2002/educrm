@@ -33,6 +33,8 @@ export interface NavMainItem {
   comingSoon?: boolean;
   newTab?: boolean;
   isNew?: boolean;
+  /** If set, only these roles see this item. Omit to show to everyone. */
+  roles?: string[];
 }
 
 export interface NavGroup {

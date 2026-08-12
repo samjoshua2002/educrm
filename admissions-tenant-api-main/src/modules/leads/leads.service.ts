@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Lead, LeadStatus } from './entities/lead.entity.js';
@@ -12,6 +12,7 @@ import { UpdateLeadStatusDto } from './dto/update-lead-status.dto.js';
 import { CloseLeadDto } from './dto/close-lead.dto.js';
 import { User } from '../users/entities/user.entity.js';
 import { Role } from '../../common/enums/roles.enum.js';
+import { LeadAssignmentService } from './lead-assignment.service.js';
 
 @Injectable()
 export class LeadsService {
@@ -22,6 +23,7 @@ export class LeadsService {
     private readonly leadActivityRepository: Repository<LeadActivity>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    private readonly assignmentService: LeadAssignmentService,
   ) {}
 
   async create(orgId: string, dto: any): Promise<Lead> {
@@ -42,8 +44,8 @@ export class LeadsService {
     return saved;
   }
 
-  async update(id: string, orgId: string, actorId: string, dto: any): Promise<Lead> {
-    const lead = await this.findOne(id, orgId);
+  async update(id: string, orgId: string, actorId: string, dto: any, role?: Role): Promise<Lead> {
+    const lead = await this.findOne(id, orgId, actorId, role);
     Object.assign(lead, dto);
     const updated = await this.leadRepository.save(lead);
     
@@ -63,6 +65,7 @@ export class LeadsService {
     orgId: string,
     queryDto: LeadQueryDto,
     userId?: string,
+    role?: Role,
   ) {
     const query = this.leadRepository.createQueryBuilder('lead')
       .leftJoin('lead.assignedToUser', 'assignedToUser')
@@ -80,7 +83,11 @@ export class LeadsService {
       );
     }
 
-    if (queryDto.assignedTo) {
+    // Counselors can only ever see their own assigned leads — enforced server-side,
+    // ignoring/overriding any client-supplied assignedTo value.
+    if (role === Role.COUNSELOR) {
+      query.andWhere('lead.assigned_to = :assignedTo', { assignedTo: userId });
+    } else if (queryDto.assignedTo) {
       const assignedValue = queryDto.assignedTo === 'me' ? userId : queryDto.assignedTo;
       if (assignedValue) {
         query.andWhere('lead.assigned_to = :assignedTo', { assignedTo: assignedValue });
@@ -121,26 +128,50 @@ export class LeadsService {
     return { data, total, totalPages, page: queryDto.page, limit: queryDto.limit };
   }
 
-  async findOne(id: string, orgId: string): Promise<Lead> {
+  async findOne(
+    id: string,
+    orgId: string,
+    userId?: string,
+    role?: Role,
+  ): Promise<Lead> {
     const lead = await this.leadRepository.findOne({
       where: { id, organizationId: orgId },
+      relations: ['branch', 'form'],
     });
     if (!lead) {
       throw new NotFoundException(`Lead with ID ${id} not found`);
     }
+    if (role === Role.COUNSELOR && lead.assignedTo !== userId) {
+      throw new ForbiddenException('You can only view leads assigned to you');
+    }
     return lead;
   }
 
-  async updateStatus(id: string, orgId: string, status: string): Promise<Lead> {
+  async updateStatus(id: string, orgId: string, status: string, actorId?: string): Promise<Lead> {
     const lead = await this.findOne(id, orgId);
     const previousStatus = lead.status;
     lead.status = status as LeadStatus;
+
+    let assignmentNote = '';
+    if (status === LeadStatus.VERIFIED && previousStatus !== LeadStatus.VERIFIED) {
+      // Mirrors the dedicated /verify endpoint: hand off to a counselor and stamp verification.
+      lead.verifiedBy = actorId || lead.verifiedBy;
+      lead.verifiedAt = new Date();
+      const assignment = await this.assignmentService.assignLead(lead, Role.COUNSELOR);
+      if (assignment) {
+        lead.assignedTo = assignment.userId;
+        lead.assignedAt = assignment.timestamp;
+        assignmentNote = ' and reassigned to a counselor';
+      }
+    }
+
     const updated = await this.leadRepository.save(lead);
     await this.logActivity({
       leadId: lead.id,
       organizationId: lead.organizationId,
+      actorId,
       action: 'status_changed',
-      content: `Status changed from ${previousStatus} to ${status}`,
+      content: `Status changed from ${previousStatus} to ${status}${assignmentNote}`,
       previousStatus,
       newStatus: status,
     });
@@ -159,13 +190,25 @@ export class LeadsService {
     lead.verifiedBy = actorId;
     lead.verifiedAt = new Date();
 
+    let assignmentNote = '';
+    if (nextStatus === LeadStatus.VERIFIED) {
+      // Hand off qualified leads from lead-manager queue to a counselor for follow-up.
+      const assignment = await this.assignmentService.assignLead(lead, Role.COUNSELOR);
+      if (assignment) {
+        const previousAssignedTo = lead.assignedTo;
+        lead.assignedTo = assignment.userId;
+        lead.assignedAt = assignment.timestamp;
+        assignmentNote = previousAssignedTo !== assignment.userId ? ' and reassigned to a counselor' : '';
+      }
+    }
+
     const updated = await this.leadRepository.save(lead);
     await this.logActivity({
       leadId: lead.id,
       organizationId: lead.organizationId,
       actorId,
       action: 'verified',
-      content: dto.reason || `Lead ${dto.action}d`,
+      content: `${dto.reason || `Lead ${dto.action}d`}${assignmentNote}`,
       previousStatus,
       newStatus: nextStatus,
     });
@@ -198,8 +241,8 @@ export class LeadsService {
     return updated;
   }
 
-  async addNote(id: string, orgId: string, actorId: string, dto: AddLeadNoteDto): Promise<Lead> {
-    const lead = await this.findOne(id, orgId);
+  async addNote(id: string, orgId: string, actorId: string, dto: AddLeadNoteDto, role?: Role): Promise<Lead> {
+    const lead = await this.findOne(id, orgId, actorId, role);
     if (dto.nextFollowUpAt) {
       lead.nextFollowUpAt = new Date(dto.nextFollowUpAt);
     }
@@ -220,8 +263,8 @@ export class LeadsService {
     return updated;
   }
 
-  async updateLeadStatus(id: string, orgId: string, actorId: string, dto: UpdateLeadStatusDto): Promise<Lead> {
-    const lead = await this.findOne(id, orgId);
+  async updateLeadStatus(id: string, orgId: string, actorId: string, dto: UpdateLeadStatusDto, role?: Role): Promise<Lead> {
+    const lead = await this.findOne(id, orgId, actorId, role);
     const previousStatus = lead.status;
     lead.status = dto.status as LeadStatus;
     const updated = await this.leadRepository.save(lead);
@@ -238,8 +281,8 @@ export class LeadsService {
     return updated;
   }
 
-  async close(id: string, orgId: string, actorId: string, dto: CloseLeadDto): Promise<Lead> {
-    const lead = await this.findOne(id, orgId);
+  async close(id: string, orgId: string, actorId: string, dto: CloseLeadDto, role?: Role): Promise<Lead> {
+    const lead = await this.findOne(id, orgId, actorId, role);
     const previousStatus = lead.status;
     lead.status = LeadStatus.CLOSED;
     lead.closureReason = dto.reason as any;

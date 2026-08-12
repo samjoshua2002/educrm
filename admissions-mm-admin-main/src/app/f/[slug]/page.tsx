@@ -113,6 +113,22 @@ export default function PublicFormPage({
   const [formData, setFormData] = React.useState<Record<string, any>>({});
   const [errors, setErrors] = React.useState<Record<string, string>>({});
 
+  // Seed default values (e.g. Country defaulting to "India") once the form loads
+  React.useEffect(() => {
+    if (!form?.fields) return;
+    setFormData((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      form.fields.forEach((field) => {
+        if (field.defaultValue !== undefined && (next[field.id] === undefined || next[field.id] === "")) {
+          next[field.id] = field.defaultValue;
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [form]);
+
   // UTM Data
   const utmData = React.useMemo(() => {
     const utm: Record<string, string> = {};

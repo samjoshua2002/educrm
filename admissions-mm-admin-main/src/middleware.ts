@@ -47,6 +47,19 @@ export function middleware(request: NextRequest) {
     );
   }
 
+  // 4. Leads vs Lead Manager: org_admin can use both; lead_manager only works the
+  // unverified queue (/organization/lead-manager), counselor only works verified
+  // leads (/organization/leads) once handed off.
+  if (userRole === "lead_manager" && pathname.startsWith("/organization/leads")) {
+    return NextResponse.redirect(
+      new URL("/organization/lead-manager", request.url),
+    );
+  }
+
+  if (userRole === "counselor" && pathname.startsWith("/organization/lead-manager")) {
+    return NextResponse.redirect(new URL("/organization/leads", request.url));
+  }
+
   return NextResponse.next();
 }
 

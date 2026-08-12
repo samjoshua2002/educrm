@@ -34,11 +34,13 @@ export const organizationNavItems: NavGroup[] = [
         title: "Lead Manager",
         url: "/organization/lead-manager",
         icon: LeadManagerIcon,
+        roles: ["org_admin", "lead_manager"],
       },
       {
         title: "Leads",
         url: "/organization/leads",
         icon: Link,
+        roles: ["org_admin", "counselor"],
       },
       {
         title: "Applications",
