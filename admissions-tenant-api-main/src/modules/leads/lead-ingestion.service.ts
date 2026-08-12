@@ -108,8 +108,14 @@ export class LeadIngestionService {
       });
       await manager.save(submission);
 
-      // 9. location field value = organization branch UUID → leads.branch_id
+      // 9. System field values → dedicated Lead columns
+      // location → leads.branch_id, course → leads.course_id (both optional UUIDs picked from
+      // real Branch/Course records by the form builder when configuring select options)
       const branchId = dto.data?.location || null;
+      const courseId = dto.data?.course || null;
+      const city = dto.data?.city || null;
+      const state = dto.data?.state || null;
+      const country = dto.data?.country || null;
       const { firstName, lastName } = this.extractFullName(form, dto.data);
 
       // 10. Store/Update Lead
@@ -118,6 +124,10 @@ export class LeadIngestionService {
         existingLead.isDuplicate = true;
         existingLead.rawPayload = dto.data;
         if (branchId) existingLead.branchId = branchId;
+        if (courseId) existingLead.courseId = courseId;
+        if (city) existingLead.city = city;
+        if (state) existingLead.state = state;
+        if (country) existingLead.country = country;
         if (firstName) existingLead.firstName = firstName;
         if (lastName) existingLead.lastName = lastName;
         await manager.save(existingLead);
@@ -125,6 +135,10 @@ export class LeadIngestionService {
         const lead = manager.create(Lead, {
           organizationId: form.organizationId,
           branchId: branchId,
+          courseId: courseId,
+          city: city,
+          state: state,
+          country: country,
           formId: form.id,
           campaignId: form.campaignId,
           firstName,

@@ -10,6 +10,7 @@ import { Organization } from '../../organizations/entities/organization.entity.j
 import { Branch } from '../../branches/entities/branch.entity.js';
 import { User } from '../../users/entities/user.entity.js';
 import { Course } from '../../courses/entities/course.entity.js';
+import { Form } from '../../forms/entities/form.entity.js';
 
 export enum LeadStatus {
   UNVERIFIED = 'unverified',
@@ -154,4 +155,10 @@ export class Lead {
   @ManyToOne(() => Course, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'course_id' })
   course: Course;
+
+  // No physical FK constraint: historical leads may reference forms that
+  // have since been deleted, and form_id should remain a soft reference.
+  @ManyToOne(() => Form, { nullable: true, createForeignKeyConstraints: false })
+  @JoinColumn({ name: 'form_id' })
+  form: Form;
 }

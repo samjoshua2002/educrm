@@ -27,6 +27,10 @@ export class CreateLeadDto {
 
   @IsString()
   @IsOptional()
+  country?: string;
+
+  @IsString()
+  @IsOptional()
   source?: string;
 
   @IsString()

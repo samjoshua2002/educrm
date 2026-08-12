@@ -100,7 +100,7 @@ function EditLeadForm() {
         source: lead.source || "",
         medium: lead.utmMedium || "",
         campaign: lead.utmCampaign || "",
-        stage: lead.rawPayload?.stage || "New", 
+        stage: lead.rawPayload?.stage || "New",
         status: lead.scoreBand ? lead.scoreBand.charAt(0).toUpperCase() + lead.scoreBand.slice(1) : "Warm",
         assignedTo: lead.assignedTo || "",
         notes: lead.rawPayload?.notes || "",
@@ -161,7 +161,7 @@ function EditLeadForm() {
       }
     }, {
       onSuccess: () => {
-        router.push("/organization/lead-manager");
+        router.push("/organization/leads");
       }
     });
   }
@@ -177,7 +177,7 @@ function EditLeadForm() {
   return (
     <>
       <div className="sticky top-0 z-10 bg-background/40 backdrop-blur-md flex items-center px-4 md:px-6 py-3 gap-3  border-border/80">
-        <Link href="/organization/lead-manager">
+        <Link href="/organization/leads">
           <Button variant="ghost" size="icon">
             <ChevronLeft className="size-5" />
           </Button>
@@ -571,7 +571,7 @@ function EditLeadForm() {
                   <Check className="size-5" />
                   {updateLead.isPending ? "Saving..." : "Save Lead"}
                 </Button>
-                <Link href="/organization/lead-manager" className="w-full">
+                <Link href="/organization/leads" className="w-full">
                   <Button
                     variant="outline"
                     className="w-full border border-border h-11 text-base font-medium text-foreground rounded-[8px] hover:bg-accent hover:text-accent-foreground"

@@ -251,7 +251,11 @@ export default function LeadsPage() {
       campaign: item.utmCampaign || "N/A",
       stage: item.isDuplicate ? "Duplicate" : "New",
       status: item.status || "verified",
-      assignedTo: item.assignedTo || "Unassigned",
+      assignedToUser: item.assignedToUser ? {
+        name: item.assignedToUser.name,
+        role: item.assignedToUser.role?.replace('_', ' ')?.toLowerCase()
+      } : null,
+      assignedTo: item.assignedToUser ? `${item.assignedToUser.name} (${item.assignedToUser.role.replace('_', ' ')})` : (item.assignedTo || "Unassigned"),
       rawLead: item,
     }));
   }, [branchNameById, leadsResponse]);
@@ -651,7 +655,7 @@ export default function LeadsPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-32">
                             <DropdownMenuItem className="gap-2" asChild>
-                              <Link href={`/lead-manager/edit?id=${item.id}`}>
+                              <Link href={`/organization/leads/edit?id=${item.id}`}>
                                 <Pencil className="size-4" />
                                 Edit
                               </Link>
@@ -829,7 +833,7 @@ export default function LeadsPage() {
 
                         <DropdownMenuContent align="end" className="w-32">
                           <DropdownMenuItem className="gap-2" asChild>
-                            <Link href={`/lead-manager/edit?id=${item.id}`}>
+                            <Link href={`/organization/leads/edit?id=${item.id}`}>
                               <Pencil className="size-4" />
                               Edit
                             </Link>

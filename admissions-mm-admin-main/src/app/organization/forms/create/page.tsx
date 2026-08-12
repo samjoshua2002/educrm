@@ -36,10 +36,6 @@ import {
   useDeleteTemplate,
 } from "@/hooks/use-forms";
 import { FormField, Template } from "@/types/form";
-import {
-  DEFAULT_FORM_FIELDS,
-  ensureDefaultFormFields,
-} from "@/lib/default-form-fields";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePageHeader } from "@/hooks/use-page-header";
@@ -149,10 +145,11 @@ export default function OrganizationCreateFormPage() {
           Math.floor(Math.random() * 1000),
       });
 
-      // 2. Initialize with locked system fields + template fields (no duplicates)
-      let fields: FormField[] = [...DEFAULT_FORM_FIELDS];
+      // 2. Initialize with the template's fields as-is; system fields are opt-in
+      // via the builder's "System Fields" panel, not auto-injected.
+      let fields: FormField[] = [];
       if (template && template.fields.length > 0) {
-        fields = ensureDefaultFormFields(template.fields);
+        fields = template.fields;
       }
 
       await updateForm({

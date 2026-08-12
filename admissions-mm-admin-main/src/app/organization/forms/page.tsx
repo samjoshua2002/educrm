@@ -119,7 +119,7 @@ export default function OrganizationFormsPage() {
   const allForms = formsResponse?.data || [];
   
   const activeForms = allForms.filter((f: Form) => f.status === "active").length;
-  const totalResponses = 0; // Mocked for now
+  const totalResponses = allForms.reduce((sum: number, f: Form) => sum + (f.responseCount ?? 0), 0);
 
   function handleDeleteConfirm() {
     if (deleteFormId) {
@@ -400,7 +400,7 @@ export default function OrganizationFormsPage() {
                     </TableCell>
                     <TableCell className="py-[24px] px-[24px] align-middle">
                       <div className="inline-flex size-7 items-center justify-center rounded-full bg-[#dcfce7] text-[#166534] font-semibold text-[13px]">
-                        5
+                        {item.responseCount ?? 0}
                       </div>
                     </TableCell>
                     <TableCell className="py-[24px] px-[24px] align-middle">
@@ -674,7 +674,7 @@ export default function OrganizationFormsPage() {
                          Response:
                       </span>
                       <div className="inline-flex size-6 items-center justify-center rounded-full bg-[#dcfce7] text-[#166534] font-semibold text-[11px]">
-                        5
+                        {item.responseCount ?? 0}
                       </div>
                     </div>
                     
