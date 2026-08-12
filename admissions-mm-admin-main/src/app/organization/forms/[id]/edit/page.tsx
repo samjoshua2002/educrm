@@ -82,6 +82,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { useForm, useUpdateForm } from "@/hooks/use-forms";
 import { useBranches } from "@/hooks/use-branches";
+import { useCourses } from "@/hooks/use-courses";
 import { FormField, Form, UpdateFormInput } from "@/types/form";
 import {
   DEFAULT_FORM_FIELDS,
@@ -218,6 +219,8 @@ function SortableField({
   onUpdateField,
   branchOptions,
   branchesLoading,
+  courseOptions,
+  coursesLoading,
 }: {
   field: FormField;
   isSelected: boolean;
@@ -227,6 +230,8 @@ function SortableField({
   onUpdateField: (id: string, updates: Partial<FormField>) => void;
   branchOptions: { id: string; label: string }[];
   branchesLoading: boolean;
+  courseOptions: { id: string; label: string }[];
+  coursesLoading: boolean;
 }) {
   const {
     attributes,
@@ -717,6 +722,11 @@ export default function OrganizationFormBuilderPage({
     () => (branchesResponse?.data || []).map((b) => ({ id: b.id, label: b.name })),
     [branchesResponse],
   );
+  const { data: coursesResponse, isLoading: isCoursesLoading } = useCourses(1, 100);
+  const courseOptions = React.useMemo(
+    () => (coursesResponse?.data || []).map((c) => ({ id: c.id, label: c.name })),
+    [coursesResponse],
+  );
 
   // Local state for batch editing
   const [activeTab, setActiveTab] = React.useState<"build" | "settings">("build");
@@ -798,6 +808,17 @@ export default function OrganizationFormBuilderPage({
     });
   }, [branchesResponse, branchOptions]);
 
+  // Keep the Course field's options synced with the org's actual courses
+  React.useEffect(() => {
+    if (!coursesResponse) return;
+    setLocalFields((prev) => {
+      if (!prev.some((f) => f.id === "course")) return prev;
+      return prev.map((f) =>
+        f.id === "course" ? { ...f, options: courseOptions } : f,
+      );
+    });
+  }, [coursesResponse, courseOptions]);
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, {
@@ -830,6 +851,8 @@ export default function OrganizationFormBuilderPage({
     const newField =
       fieldId === "location"
         ? { ...defaultField, options: branchOptions }
+        : fieldId === "course"
+        ? { ...defaultField, options: courseOptions }
         : { ...defaultField };
     setLocalFields((prev) => [...prev, newField]);
     setSelectedFieldId(newField.id);
@@ -1484,6 +1507,8 @@ export default function OrganizationFormBuilderPage({
                               onUpdateField={updateField}
                               branchOptions={branchOptions}
                               branchesLoading={isBranchesLoading}
+                              courseOptions={courseOptions}
+                              coursesLoading={isCoursesLoading}
                             />
                           ))}
                       </div>
@@ -1775,7 +1800,31 @@ export default function OrganizationFormBuilderPage({
                       </p>
                     </div>
                   )}
-                  {["select", "radio", "checkbox"].includes(selectedField.type) && selectedField.id !== "location" && (
+                  {["select", "radio", "checkbox"].includes(selectedField.type) && selectedField.id === "course" && (
+                    <div className="space-y-3">
+                      <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Options (from Courses)</Label>
+                      <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                        {isCoursesLoading ? (
+                          <p className="text-xs text-slate-400">Loading courses...</p>
+                        ) : courseOptions.length === 0 ? (
+                          <p className="text-xs text-slate-400">No courses found for this organization</p>
+                        ) : (
+                          courseOptions.map((opt) => (
+                            <div
+                              key={opt.id}
+                              className="h-8 flex items-center px-2 text-xs text-slate-700 bg-slate-50 border border-slate-200 rounded"
+                            >
+                              {opt.label}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                      <p className="text-[10px] text-slate-400">
+                        Synced automatically from your organization's courses. Manage courses in Settings.
+                      </p>
+                    </div>
+                  )}
+                  {["select", "radio", "checkbox"].includes(selectedField.type) && selectedField.id !== "location" && selectedField.id !== "course" && (
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Options</Label>

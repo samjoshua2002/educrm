@@ -110,9 +110,17 @@ export class LeadIngestionService {
 
       // 9. System field values → dedicated Lead columns
       // location → leads.branch_id, course → leads.course_id (both optional UUIDs picked from
-      // real Branch/Course records by the form builder when configuring select options)
-      const branchId = dto.data?.location || null;
-      const courseId = dto.data?.course || null;
+      // real Branch/Course records by the form builder when configuring select options).
+      // Guard: only store if the submitted value is a valid UUID; otherwise treat as null
+      // (prevents errors when forms still have old non-UUID option IDs like course codes).
+      const UUID_REGEX =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const rawBranch = dto.data?.location;
+      const rawCourse = dto.data?.course;
+      const branchId =
+        rawBranch && UUID_REGEX.test(String(rawBranch)) ? rawBranch : null;
+      const courseId =
+        rawCourse && UUID_REGEX.test(String(rawCourse)) ? rawCourse : null;
       const city = dto.data?.city || null;
       const state = dto.data?.state || null;
       const country = dto.data?.country || null;
