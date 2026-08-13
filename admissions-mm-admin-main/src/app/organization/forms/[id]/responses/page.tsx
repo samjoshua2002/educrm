@@ -2,21 +2,11 @@
 
 import * as React from "react";
 import {
-  ChevronLeft,
   Download,
-  Filter,
   Search,
-  Eye,
-  MoreVertical,
-  Mail,
-  Phone,
   Calendar,
-  User,
-  FileType,
-  Database,
-  CheckCircle2,
-  XCircle,
-  Clock,
+  SearchX,
+  ChevronLeft,
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -29,44 +19,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
-import { Separator } from "@/components/ui/separator";
 import {
   useForm,
   useFormResponses,
-  useUpdateResponseStatus,
 } from "@/hooks/use-forms";
 import { FormResponse } from "@/types/form";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { toast } from "sonner";
-
-const statusStyles = {
-  verified: "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300",
-  pending:
-    "bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300",
-  rejected: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300",
-};
-
-const statusIcons = {
-  verified: <CheckCircle2 className="h-3 w-3" />,
-  pending: <Clock className="h-3 w-3" />,
-  rejected: <XCircle className="h-3 w-3" />,
-};
+import { usePageHeaderStore } from "@/stores/page-header-store";
 
 export default function OrganizationResponsesPage({
   params,
@@ -79,28 +40,120 @@ export default function OrganizationResponsesPage({
   // State
   const [page, setPage] = React.useState(1);
   const [searchQuery, setSearchQuery] = React.useState("");
-  const [selectedResponse, setSelectedResponse] =
-    React.useState<FormResponse | null>(null);
-  const [isDetailsOpen, setIsDetailsOpen] = React.useState(false);
 
   // API Hooks
   const { data: form, isLoading: isLoadingForm } = useForm(id);
   const { data: paginatedResponses, isLoading: isLoadingResponses } =
-    useFormResponses(id, page, 10);
-  const { mutate: updateStatus } = useUpdateResponseStatus();
+    useFormResponses(
+      id,
+      page,
+      10,
+      undefined,
+      searchQuery.trim() !== "" ? searchQuery : undefined
+    );
 
   const responses = paginatedResponses?.data || [];
   const pagination = paginatedResponses?.pagination;
 
-  const handleStatusUpdate = (
-    resId: string,
-    status: FormResponse["status"],
-  ) => {
-    updateStatus({ id: resId, status });
-    if (selectedResponse?.id === resId) {
-      setSelectedResponse((prev) => (prev ? { ...prev, status } : null));
+  const setHeader = usePageHeaderStore((s) => s.setHeader);
+  const clearHeader = usePageHeaderStore((s) => s.clearHeader);
+
+  // Logic to find "Applicant Name", "Email", and "Phone" from data for display
+  const getDisplayValue = React.useCallback((res: FormResponse, type: "name" | "email" | "phone") => {
+    if (!form) return "";
+    const field = form.fields.find(
+      (f) => f.type === (type === "name" ? "text" : type === "email" ? "email" : "phone") || 
+             f.id.toLowerCase() === type || 
+             f.label.toLowerCase().includes(type)
+    );
+    if (field && res.data[field.id]) return res.data[field.id];
+
+    // Fallback key search in raw data
+    const keys = Object.keys(res.data);
+    if (type === "name") {
+      const nameKey = keys.find(
+        (k) =>
+          k.toLowerCase().includes("name") || k.toLowerCase().includes("full"),
+      );
+      return nameKey ? res.data[nameKey] : "Applicant";
+    } else if (type === "email") {
+      const emailKey = keys.find((k) => k.toLowerCase().includes("email"));
+      return emailKey ? res.data[emailKey] : "—";
+    } else {
+      const phoneKey = keys.find(
+        (k) =>
+          k.toLowerCase().includes("phone") || k.toLowerCase().includes("mobile"),
+      );
+      return phoneKey ? res.data[phoneKey] : "—";
     }
-  };
+  }, [form]);
+
+  // CSV Export Handler
+  const handleExportCSV = React.useCallback((data: FormResponse[]) => {
+    if (!form || data.length === 0) return;
+
+    const headers = [
+      "Applicant Name",
+      "Email",
+      "Phone Number",
+      "Submitted On",
+    ];
+
+    const escape = (val: any) => {
+      const str = val === undefined || val === null ? "" : String(val);
+      if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    const rows = data.map((res) => {
+      const name = getDisplayValue(res, "name");
+      const email = getDisplayValue(res, "email");
+      const phone = getDisplayValue(res, "phone");
+      const date = res.submittedAt
+        ? new Date(res.submittedAt).toLocaleDateString("en-GB", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          })
+        : "";
+
+      return [name, email, phone, date].map(escape);
+    });
+
+    const csvContent = [headers.join(","), ...rows.map((r) => r.join(","))].join(
+      "\n",
+    );
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${form.name.toLowerCase().replace(/\s+/g, "_")}_responses.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success("CSV exported successfully");
+  }, [form, getDisplayValue]);
+
+  // Page Header Setup
+  React.useEffect(() => {
+    if (form) {
+      setHeader({
+        title: "Form Responses",
+        description: form.name,
+        customLeftNode: null,
+        customRightNode: null,
+      });
+    }
+    return () => {
+      clearHeader();
+    };
+  }, [form, setHeader, clearHeader]);
+
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   if (isLoadingForm) {
     return (
@@ -128,404 +181,326 @@ export default function OrganizationResponsesPage({
     );
   }
 
-  // Logic to find "Applicant Name" and "Email" from dynamic data for display
-  const getDisplayValue = (res: FormResponse, type: "name" | "email") => {
-    const field = form.fields.find(
-      (f) => f.type === (type === "name" ? "text" : "email"),
-    );
-    if (field && res.data[field.id]) return res.data[field.id];
-
-    // Fallback search
-    const entries = Object.entries(res.data);
-    if (type === "name") {
-      const nameKey = Object.keys(res.data).find(
-        (k) =>
-          k.toLowerCase().includes("name") || k.toLowerCase().includes("full"),
-      );
-      return nameKey ? res.data[nameKey] : "Applicant";
-    } else {
-      const emailKey = Object.keys(res.data).find((k) =>
-        k.toLowerCase().includes("email"),
-      );
-      return emailKey ? res.data[emailKey] : "—";
-    }
-  };
-
   return (
     <>
-      {/* Header */}
-      <div className="sticky top-12 z-10 bg-background/40 backdrop-blur-md flex items-center justify-between px-4 md:px-6 py-3 border-b">
-        <div className="flex items-center gap-3">
-          <Link href="/organization/forms">
-            <Button variant="ghost" size="icon" className="rounded-full">
-              <ChevronLeft className="h-5 w-5" />
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-xl font-semibold">Form Submissions</h1>
-            <p className="text-xs text-muted-foreground">{form.name}</p>
+      <div className="flex flex-col gap-4 p-4 md:p-6 w-full max-w-full min-w-0">
+        {/* Local Page Header Section with Back Button */}
+        <div className="space-y-3 pt-4">
+          <div className="flex items-center gap-3">
+            <Link href="/organization/forms">
+              <Button
+                variant="outline"
+                size="icon"
+                className="size-8 rounded-xl border-border/80 text-muted-foreground hover:text-foreground bg-card flex items-center justify-center shrink-0"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+            </Link>
+            <h2 className="text-[32px] font-medium tracking-tight text-[#120352] leading-[normal]">
+              Form Responses
+            </h2>
           </div>
+          <p className="text-[#171717] text-[12px] leading-relaxed max-w-[566px]">
+            Track and manage responses submitted to this form. View applicant contact details, submissions, and export data for campaigns.
+          </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm">
-            <Filter className="mr-2 h-4 w-4" /> Filters
-          </Button>
+
+        {/* Search Panel with Export CSV */}
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full min-w-0 mt-2">
+          <div className="relative flex-1 w-full">
+            <Input
+              placeholder="Search submissions..."
+              className="w-full pr-10 h-10"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setPage(1);
+              }}
+            />
+            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-muted-foreground">
+              <Search className="size-4" />
+            </div>
+          </div>
           <Button
             variant="outline"
-            size="sm"
-            onClick={() => toast.info("Exporting CSV...")}
+            className="w-full sm:w-auto shrink-0 border border-[#D4D4D4] h-10 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground rounded-[8px]"
+            onClick={() => handleExportCSV(responses)}
+            disabled={responses.length === 0}
           >
             <Download className="mr-2 h-4 w-4" /> Export CSV
           </Button>
         </div>
-      </div>
 
-      <div className="flex flex-col gap-4 p-4 md:p-6">
-        {/* Search + quick filters */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-          <div className="flex flex-1 items-center gap-2">
-            <div className="relative flex-1 max-w-sm flex gap-2">
-              <div className="relative flex-1">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search submissions..."
-                  className="pl-8"
-                  value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    setPage(1);
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span className="text-xs italic">
-              {pagination ? `Total ${pagination.total} submissions` : ""}
-            </span>
-          </div>
-        </div>
-
-        {/* Table */}
-        <div className="overflow-hidden rounded-xl border border-primary/10 shadow-sm bg-card">
+        {/* Desktop View - Table */}
+        <div className="hidden lg:block border border-[#e5e5e5] rounded-[12px] bg-white overflow-hidden shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)]">
           <Table>
-            <TableHeader className="bg-muted/50">
-              <TableRow>
-                <TableHead className="ps-4">Applicant</TableHead>
-                <TableHead>Submitted On</TableHead>
-                <TableHead>Status</TableHead>
-                {form.fields.slice(0, 2).map((field) => (
-                  <TableHead key={field.id}>{field.label}</TableHead>
-                ))}
-                <TableHead className="text-right pe-4">Actions</TableHead>
+            <TableHeader className="bg-[#fafafa] border-b border-[#e2e8f0]">
+              <TableRow className="hover:bg-transparent border-b border-[#e2e8f0]">
+                <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
+                  APPLICANT
+                </TableHead>
+                <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
+                  EMAIL
+                </TableHead>
+                <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
+                  PHONE NUMBER
+                </TableHead>
+                <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
+                  SUBMITTED ON
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoadingResponses ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell
-                      colSpan={form.fields.slice(0, 2).length + 4}
-                      className="py-4 ps-4"
-                    >
-                      <div className="flex items-center gap-3">
-                        <Skeleton className="h-8 w-8 rounded-full" />
-                        <div className="space-y-2">
-                          <Skeleton className="h-4 w-[150px]" />
-                          <Skeleton className="h-3 w-[100px]" />
-                        </div>
+              {(!mounted || isLoadingResponses) && responses.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="h-48 text-center">
+                    <div className="flex flex-col items-center justify-center text-muted-foreground">
+                      <div className="size-8 animate-spin rounded-full border-4 border-primary border-t-transparent mb-4" />
+                      <p>Loading responses...</p>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : responses.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="h-64 text-center">
+                    <div className="flex flex-col items-center justify-center gap-3">
+                      <div className="flex size-12 items-center justify-center rounded-full bg-muted/40">
+                        <SearchX className="size-6 text-muted-foreground/80" />
                       </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : responses.length > 0 ? (
+                      <div className="flex flex-col gap-0.5 text-center">
+                        <p className="text-sm font-semibold text-foreground">
+                          No results found
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Try adjusting your filters or search query.
+                        </p>
+                      </div>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : (
                 responses.map((res) => {
                   const applicantName = getDisplayValue(res, "name");
                   const applicantEmail = getDisplayValue(res, "email");
+                  const applicantPhone = getDisplayValue(res, "phone");
                   return (
-                    <TableRow key={res.id} className="hover:bg-primary/[0.01]">
-                      <TableCell className="ps-4">
+                    <TableRow
+                      key={res.id}
+                      className="border-b border-[#e2e8f0] hover:bg-muted/15 transition-colors"
+                    >
+                      <TableCell className="py-[20px] px-[24px] align-middle">
                         <div className="flex items-center gap-3">
-                          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-[10px] uppercase">
+                          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-[10px] uppercase shrink-0">
                             {String(applicantName)
                               .split(" ")
                               .map((n: string) => n[0])
                               .join("")
                               .slice(0, 2)}
                           </div>
-                          <div className="flex flex-col">
-                            <span className="font-semibold text-sm">
-                              {applicantName}
-                            </span>
-                            <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-tighter">
-                              {applicantEmail}
-                            </span>
-                          </div>
+                          <span className="font-semibold text-[#1e293b] text-[14px] truncate block">
+                            {applicantName}
+                          </span>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1.5 text-muted-foreground text-[11px] font-medium uppercase">
-                          <Calendar className="h-3 w-3" />
+                      <TableCell className="py-[20px] px-[24px] align-middle text-sm text-[#475569]">
+                        {applicantEmail}
+                      </TableCell>
+                      <TableCell className="py-[20px] px-[24px] align-middle text-sm text-[#475569]">
+                        {applicantPhone}
+                      </TableCell>
+                      <TableCell className="py-[20px] px-[24px] align-middle">
+                        <div className="flex items-center gap-1.5 text-muted-foreground text-[12px] font-medium">
+                          <Calendar className="h-3.5 w-3.5" />
                           {res.submittedAt
                             ? format(
                                 new Date(res.submittedAt),
-                                "MMM dd, hh:mm a",
+                                "dd MMM yyyy, hh:mm a",
                               )
                             : "—"}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant="secondary"
-                          className={`border-0 capitalize flex items-center w-fit gap-1.5 px-2 py-0 h-5 text-[10px] font-bold ${statusStyles[res.status] ?? ""}`}
-                        >
-                          {statusIcons[res.status]}
-                          {res.status}
-                        </Badge>
-                        {res.isDuplicate && (
-                          <Badge
-                            variant="destructive"
-                            className="ml-2 text-[9px] h-3.5 px-1 font-black"
-                          >
-                            DUP
-                          </Badge>
-                        )}
-                      </TableCell>
-                      {form.fields.slice(0, 2).map((field) => (
-                        <TableCell
-                          key={field.id}
-                          className="text-xs font-medium"
-                        >
-                          {res.data[field.id] || "—"}
-                        </TableCell>
-                      ))}
-                      <TableCell className="text-right pe-4">
-                        <div className="flex justify-end items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors"
-                            onClick={() => {
-                              setSelectedResponse(res);
-                              setIsDetailsOpen(true);
-                            }}
-                          >
-                            <Eye className="h-4 w-4" />
-                            <span className="sr-only">View Details</span>
-                          </Button>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-muted-foreground hover:bg-primary/10 transition-colors"
-                              >
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent
-                              align="end"
-                              className="w-52 p-1"
-                            >
-                              <DropdownMenuLabel className="px-2 py-1.5 text-[10px] font-bold uppercase text-muted-foreground">
-                                Set Status
-                              </DropdownMenuLabel>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                className="gap-2 focus:bg-emerald-600 focus:text-white rounded-md cursor-pointer"
-                                onClick={() =>
-                                  handleStatusUpdate(res.id, "verified")
-                                }
-                              >
-                                <CheckCircle2 className="h-4 w-4" /> Mark as
-                                Verified
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                className="gap-2 focus:bg-orange-600 focus:text-white rounded-md cursor-pointer"
-                                onClick={() =>
-                                  handleStatusUpdate(res.id, "pending")
-                                }
-                              >
-                                <Clock className="h-4 w-4" /> Set to Pending
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                className="gap-2 focus:bg-destructive focus:text-white rounded-md cursor-pointer text-destructive"
-                                onClick={() =>
-                                  handleStatusUpdate(res.id, "rejected")
-                                }
-                              >
-                                <XCircle className="h-4 w-4" /> Reject
-                                Application
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
                         </div>
                       </TableCell>
                     </TableRow>
                   );
                 })
-              ) : (
-                <TableRow>
-                  <TableCell
-                    colSpan={form.fields.slice(0, 2).length + 4}
-                    className="h-32 text-center"
-                  >
-                    <div className="flex flex-col items-center justify-center space-y-2 opacity-40">
-                      <Database className="h-8 w-8 text-muted-foreground" />
-                      <p className="text-sm font-medium italic">
-                        No submissions found for this form.
-                      </p>
-                    </div>
-                  </TableCell>
-                </TableRow>
               )}
             </TableBody>
           </Table>
+
+          {/* Desktop Pagination Footer */}
+          <div className="flex flex-col sm:flex-row items-center justify-between border-t border-border/80 bg-zinc-100 dark:bg-muted/5 py-4 px-6 gap-4">
+            <p className="text-sm text-muted-foreground font-normal">
+              Showing{" "}
+              <span className="font-medium text-foreground">
+                {responses.length === 0 ? 0 : (page - 1) * 10 + 1}
+              </span>{" "}
+              to{" "}
+              <span className="font-medium text-foreground">
+                {Math.min(page * 10, pagination?.total || 0)}
+              </span>{" "}
+              of{" "}
+              <span className="font-medium text-foreground">
+                {pagination?.total || 0}
+              </span>{" "}
+              entries
+            </p>
+            {pagination && pagination.totalPages > 1 && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button
+                  variant="outline"
+                  className="h-9 px-4 border border-border/80 bg-background text-foreground text-sm font-normal rounded-[6px] hover:bg-muted/30 dark:hover:bg-muted/10 transition-colors shadow-2xs"
+                  onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+                  disabled={page === 1}
+                >
+                  Previous
+                </Button>
+                <div className="flex items-center gap-1.5 px-1">
+                  {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map((p) => {
+                    const isActive = p === page;
+                    return (
+                      <Button
+                        key={p}
+                        variant={isActive ? "default" : "outline"}
+                        className={`h-9 w-9 p-0 text-sm border shadow-2xs rounded-[6px] transition-colors ${
+                          isActive
+                            ? "bg-[#EA2525] border-[#EA2525] text-white font-semibold hover:bg-[#D61F1F]"
+                            : "border-border/80 bg-background text-muted-foreground hover:bg-muted/30 hover:text-foreground font-normal"
+                        }`}
+                        onClick={() => setPage(p)}
+                      >
+                        {p}
+                      </Button>
+                    );
+                  })}
+                </div>
+                <Button
+                  variant="outline"
+                  className="h-9 px-4 border border-border/80 bg-background text-foreground text-sm font-normal rounded-[6px] hover:bg-muted/30 dark:hover:bg-muted/10 transition-colors shadow-2xs"
+                  onClick={() =>
+                    setPage((prev) => Math.min(pagination.totalPages, prev + 1))
+                  }
+                  disabled={page === pagination.totalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Pagination Footer */}
-        {pagination && pagination.totalPages > 1 && (
-          <div className="flex items-center justify-between pt-2">
-            <p className="text-xs text-muted-foreground font-medium uppercase tracking-tight">
-              Showing {responses.length} of {pagination.total} submissions
-            </p>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 text-xs font-bold uppercase"
-                onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-                disabled={page === 1}
-              >
-                Prev
-              </Button>
-              <div className="text-xs font-bold w-12 text-center">
-                {page} / {pagination.totalPages}
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 text-xs font-bold uppercase"
-                onClick={() =>
-                  setPage((prev) => Math.min(pagination.totalPages, prev + 1))
-                }
-                disabled={page === pagination.totalPages}
-              >
-                Next
-              </Button>
+        {/* Mobile View - Cards List Layout */}
+        {(!mounted || isLoadingResponses) && responses.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-3 py-16 border border-border/80 bg-card rounded-xl lg:hidden text-center px-4 w-full">
+            <div className="size-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            <p className="text-sm text-muted-foreground">Loading responses...</p>
+          </div>
+        ) : responses.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-3 py-16 border border-border/80 bg-card rounded-xl lg:hidden text-center px-4 w-full">
+            <div className="flex size-12 items-center justify-center rounded-full bg-muted/40">
+              <SearchX className="size-6 text-muted-foreground/80" />
             </div>
+            <div className="flex flex-col gap-0.5">
+              <p className="text-sm font-semibold text-foreground">
+                No results found
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Try adjusting your filters or search query.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3.5 lg:hidden w-full">
+            {responses.map((res) => {
+              const applicantName = getDisplayValue(res, "name");
+              const applicantEmail = getDisplayValue(res, "email");
+              const applicantPhone = getDisplayValue(res, "phone");
+              const initials = String(applicantName)
+                .split(" ")
+                .map((n: string) => n[0])
+                .join("")
+                .toUpperCase()
+                .slice(0, 2);
+
+              return (
+                <div
+                  key={res.id}
+                  className="bg-card border border-border/80 rounded-xl p-4 md:p-5 flex flex-col gap-4 hover:shadow-xs transition-all duration-200"
+                >
+                  {/* Row 1: Initials/Avatar, Name, Email */}
+                  <div className="flex items-center justify-between gap-4 min-w-0">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex size-10 items-center justify-center rounded-full bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/10 text-primary font-semibold text-sm shrink-0">
+                        {initials}
+                      </div>
+
+                      <div className="min-w-0">
+                        <span className="font-semibold text-foreground text-sm tracking-tight truncate block">
+                          {applicantName}
+                        </span>
+                        <span className="text-xs text-muted-foreground truncate block mt-0.5">
+                          {applicantEmail}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Row 2: Details Grid */}
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-3.5 text-xs border-t border-border/40 pt-3 text-muted-foreground">
+                    <div className="flex flex-col gap-1">
+                      <span className="font-medium text-muted-foreground/80 block">
+                        Phone:
+                      </span>
+                      <span className="text-foreground/95 font-medium truncate">
+                        {applicantPhone}
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="font-medium text-muted-foreground/80 block">
+                        Submitted:
+                      </span>
+                      <span className="text-foreground/95 font-medium truncate">
+                        {res.submittedAt
+                          ? format(new Date(res.submittedAt), "dd MMM, hh:mm a")
+                          : "—"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Mobile Pagination Footer */}
+            {pagination && pagination.totalPages > 1 && (
+              <div className="flex flex-col items-center gap-3 py-4 mt-2 lg:hidden">
+                <p className="text-xs text-muted-foreground font-medium uppercase tracking-tight">
+                  Page {page} of {pagination.totalPages}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs font-bold uppercase"
+                    onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+                    disabled={page === 1}
+                  >
+                    Prev
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs font-bold uppercase"
+                    onClick={() =>
+                      setPage((prev) => Math.min(pagination.totalPages, prev + 1))
+                    }
+                    disabled={page === pagination.totalPages}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
-
-      {/* Details Sheet */}
-      <Sheet open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
-        <SheetContent className="sm:max-w-xl overflow-y-auto">
-          {selectedResponse && (
-            <>
-              <SheetHeader className="pb-6 border-b">
-                <div className="flex items-center gap-2 text-primary mb-2">
-                  <FileType className="h-4 w-4" />
-                  <span className="text-xs font-semibold uppercase tracking-widest">
-                    Application Summary
-                  </span>
-                </div>
-                <SheetTitle className="text-xl font-bold">
-                  {getDisplayValue(selectedResponse, "name")}
-                </SheetTitle>
-                <div className="flex items-center gap-2 mt-1">
-                  <Badge
-                    variant="secondary"
-                    className={`border-0 capitalize ${statusStyles[selectedResponse.status] ?? ""}`}
-                  >
-                    {selectedResponse.status}
-                  </Badge>
-                  <span className="text-xs text-muted-foreground">
-                    ID: {selectedResponse.id}
-                  </span>
-                </div>
-              </SheetHeader>
-
-              <div className="py-6 space-y-6">
-                <section className="space-y-3">
-                  <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                    <Database className="h-3 w-3" /> Form Data
-                  </h3>
-                  <div className="grid grid-cols-1 gap-2 bg-muted/20 p-4 rounded-lg border border-dashed">
-                    {form.fields.map((field) => (
-                      <div
-                        key={field.id}
-                        className="grid grid-cols-3 py-1 border-b border-muted last:border-0 items-center"
-                      >
-                        <p className="text-[10px] uppercase font-bold text-muted-foreground col-span-1">
-                          {field.label}
-                        </p>
-                        <p className="text-sm font-medium col-span-2">
-                          {selectedResponse.data[field.id] || "—"}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-
-                <section className="space-y-3">
-                  <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                    <User className="h-3 w-3" /> System Metadata
-                  </h3>
-                  <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg">
-                    <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground">
-                        Submitted At
-                      </p>
-                      <p className="text-sm font-medium">
-                        {format(new Date(selectedResponse.submittedAt), "PPpp")}
-                      </p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground font-bold">
-                        Is Potential Duplicate?
-                      </p>
-                      <Badge
-                        variant={
-                          selectedResponse.isDuplicate
-                            ? "destructive"
-                            : "outline"
-                        }
-                        className="text-[10px]"
-                      >
-                        {selectedResponse.isDuplicate ? "YES" : "NO"}
-                      </Badge>
-                    </div>
-                  </div>
-                </section>
-
-                <Separator />
-
-                <div className="flex items-center gap-3">
-                  <Button
-                    variant="outline"
-                    className="flex-1 text-destructive hover:bg-destructive/5 border-destructive/20 hover:text-destructive"
-                    onClick={() =>
-                      handleStatusUpdate(selectedResponse.id, "rejected")
-                    }
-                  >
-                    <XCircle className="h-4 w-4 mr-2" /> Reject
-                  </Button>
-                  <Button
-                    className="flex-1 bg-emerald-600 hover:bg-emerald-700"
-                    onClick={() =>
-                      handleStatusUpdate(selectedResponse.id, "verified")
-                    }
-                  >
-                    <CheckCircle2 className="h-4 w-4 mr-2" /> Verify & Approve
-                  </Button>
-                </div>
-              </div>
-            </>
-          )}
-        </SheetContent>
-      </Sheet>
     </>
   );
 }
