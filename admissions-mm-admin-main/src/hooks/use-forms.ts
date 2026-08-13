@@ -226,16 +226,17 @@ export function useFormResponses(
   page: number = 1,
   limit: number = 10,
   status?: string,
+  search?: string,
 ) {
   const user = useAuthStore((state) => state.user);
   const orgId = user?.organizationId;
 
   return useQuery({
-    queryKey: ["form-responses", { orgId, formId, page, limit, status }],
+    queryKey: ["form-responses", { orgId, formId, page, limit, status, search }],
     queryFn: () =>
       apiGet<PaginatedResponse<FormResponse>>(
         `/organizations/${orgId}/forms/${formId}/responses`,
-        { page, limit, status },
+        { page, limit, status, search },
       ),
     enabled: !!orgId && !!formId,
   });

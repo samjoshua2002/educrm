@@ -8,6 +8,7 @@ import { Repository, DataSource } from 'typeorm';
 import { Lead } from './entities/lead.entity.js';
 import { Form, FormStatus } from '../forms/entities/form.entity.js';
 import { FormSubmission } from '../forms/entities/form-submission.entity.js';
+import { FormResponse, ResponseStatus } from '../forms/entities/form-response.entity.js';
 import { FormStats } from '../forms/entities/form-stats.entity.js';
 import { FormDailyStats } from '../forms/entities/form-daily-stats.entity.js';
 import { SubmitPublicFormDto } from './dto/submit-public-form.dto.js';
@@ -107,6 +108,16 @@ export class LeadIngestionService {
         userAgent: meta.userAgent,
       });
       await manager.save(submission);
+
+      // Store Processed Form Response (for administrative review)
+      const response = manager.create(FormResponse, {
+        formId: form.id,
+        organizationId: form.organizationId,
+        data: dto.data,
+        status: ResponseStatus.PENDING,
+        isDuplicate,
+      });
+      await manager.save(response);
 
       // 9. System field values → dedicated Lead columns
       // location → leads.branch_id, course → leads.course_id (both optional UUIDs picked from

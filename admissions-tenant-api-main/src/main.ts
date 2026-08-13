@@ -3,6 +3,10 @@ import { NestFactory, Reflector } from '@nestjs/core';
 import { AppModule } from './app.module.js';
 import { GlobalExceptionFilter } from './common/filters/http-exception.filter.js';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor.js';
+import pg from 'pg';
+
+// Parse TIMESTAMP (without timezone) as UTC
+pg.types.setTypeParser(1114, (str) => new Date(str + 'Z'));
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);

@@ -632,7 +632,7 @@ export default function ApplicationDetailsPage() {
                         Percentage
                       </TableHead>
                       <TableHead className="pr-5 font-sans text-[10px] font-bold leading-normal tracking-[0.5px] uppercase text-[#64748B] text-right">
-                        Attachment (R2)
+                        Attachment 
                       </TableHead>
                     </TableRow>
                   </TableHeader>
@@ -770,7 +770,7 @@ export default function ApplicationDetailsPage() {
                   </div>
                   <div className="space-y-1 col-span-1 md:col-span-2">
                     <span className="font-sans text-[10px] font-bold leading-normal tracking-[0.5px] uppercase text-[#64748B] block">
-                      Graduation Document Attachment (R2)
+                      Graduation Document Attachment
                     </span>
                     {applicationData.education.graduation.documentUrl ? (
                       <a
@@ -1224,7 +1224,7 @@ export default function ApplicationDetailsPage() {
                         className="inline-flex items-center gap-1.5 text-[#2563EB] hover:underline text-xs font-semibold bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-[6px]"
                       >
                         <FileText className="h-3.5 w-3.5" />
-                        View Medical Document (R2)
+                        View Medical Document 
                       </a>
                     </div>
                   )}
@@ -1420,7 +1420,7 @@ function EditPersonalForm({ appData, onSave, onClose }: FormProps) {
       {/* APPLICANT PROFILE PHOTO UPLOAD */}
       <div className="flex flex-col gap-2 col-span-2 p-3.5 bg-slate-50 border border-slate-200 rounded-[10px]">
         <Label className="text-[#64748B] font-semibold text-[12px] uppercase font-sans">
-          Applicant Profile Photo (Cloudflare R2)
+          Applicant Profile Photo 
         </Label>
         <div className="flex items-center gap-4">
           <Avatar className="h-16 w-16 border-2 border-slate-200 shadow-xs shrink-0 bg-white">
@@ -1436,7 +1436,7 @@ function EditPersonalForm({ appData, onSave, onClose }: FormProps) {
                 className="cursor-pointer bg-white border border-slate-300 hover:border-blue-500 hover:bg-blue-50/50 text-slate-700 text-xs font-semibold px-3 py-2 rounded-[6px] flex items-center gap-2 shadow-xs transition-colors"
               >
                 {uploadingPhoto ? (
-                  <><Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" /> Uploading to R2...</>
+                  <><Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" /> Uploading...</>
                 ) : (
                   <><Upload className="h-3.5 w-3.5 text-blue-600" /> Choose & Upload Photo</>
                 )}
@@ -1461,7 +1461,7 @@ function EditPersonalForm({ appData, onSave, onClose }: FormProps) {
                       const data = await res.json();
                       if (data.url) {
                         setFormData((prev) => ({ ...prev, photo: data.url }));
-                        toast.success("Profile photo uploaded to R2!");
+                        toast.success("Profile photo uploaded");
                       } else {
                         toast.error(data.error || "Failed to upload photo");
                       }
@@ -2149,7 +2149,7 @@ function EditEducationForm({ appData, onSave, onClose }: FormProps) {
           ...prev,
           [key]: { ...prev[key], documentUrl: data.url },
         }));
-        toast.success(`${key.toUpperCase()} document uploaded to R2!`);
+        toast.success(`${key.toUpperCase()} document uploaded`);
       } else {
         toast.error(data.error || "Failed to upload document");
       }
