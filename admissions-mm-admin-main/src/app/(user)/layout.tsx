@@ -3,6 +3,8 @@ import { ReactNode } from "react";
 import { cookies } from "next/headers";
 
 import { AppSidebar } from "@/app/(main)/_components/sidebar/app-sidebar";
+import { OrganizationSidebar } from "@/app/organization/_components/sidebar/organization-sidebar";
+import { SuperadminSidebar } from "@/app/superadmin/_components/sidebar/superadmin-sidebar";
 import {
   SidebarInset,
   SidebarProvider,
@@ -29,6 +31,7 @@ export default async function Layout({
   const cookieStore = await cookies();
   const sidebarState = cookieStore.get("sidebar_state");
   const defaultOpen = sidebarState ? sidebarState.value === "true" : true;
+  const userRole = cookieStore.get("user_role")?.value;
 
   const [sidebarVariant, sidebarCollapsible, contentLayout] = await Promise.all(
     [
@@ -52,11 +55,24 @@ export default async function Layout({
 
   return (
     <SidebarProvider defaultOpen={defaultOpen}>
-      <AppSidebar
-        variant={sidebarVariant}
-        collapsible={sidebarCollapsible}
-        users={users} // Add this line
-      />
+      {userRole === "superadmin" ? (
+        <SuperadminSidebar
+          variant={sidebarVariant}
+          collapsible={sidebarCollapsible}
+          users={users}
+        />
+      ) : userRole && userRole !== "student" ? (
+        <OrganizationSidebar
+          variant={sidebarVariant}
+          collapsible={sidebarCollapsible}
+        />
+      ) : (
+        <AppSidebar
+          variant={sidebarVariant}
+          collapsible={sidebarCollapsible}
+          users={users}
+        />
+      )}
       <SidebarInset
         data-content-layout={contentLayout}
         className={cn(

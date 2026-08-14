@@ -217,6 +217,12 @@ export function NavMain({ items }: NavMainProps) {
     if (subItems?.length) {
       return subItems.some((sub) => path.startsWith(sub.url));
     }
+    if (url === "/organization/applications" && path === "/my-application") {
+      return true;
+    }
+    if (url !== "/" && url !== "/organization" && url !== "/superadmin") {
+      return path === url || path.startsWith(url + "/");
+    }
     return path === url;
   };
 
