@@ -39,7 +39,7 @@ export class BranchesController {
   }
 
   @Get()
-  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN)
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.LEAD_MANAGER, Role.COUNSELOR, Role.APPLICATION_MANAGER, Role.EXAM_MANAGER, Role.STUDENT)
   @ResponseMessage('Branches fetched successfully')
   findAll(
     @Param('orgId', ParseUUIDPipe) orgId: string,
@@ -49,7 +49,7 @@ export class BranchesController {
   }
 
   @Get(':id')
-  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN)
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.LEAD_MANAGER, Role.COUNSELOR, Role.APPLICATION_MANAGER, Role.EXAM_MANAGER, Role.STUDENT)
   @ResponseMessage('Branch details fetched successfully')
   findOne(
     @Param('orgId', ParseUUIDPipe) orgId: string,

@@ -1,7 +1,9 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useAuthStore } from "@/stores/auth-store";
 
 import { PlusCircleIcon, MailIcon, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -201,8 +203,15 @@ const NavItemCollapsed = ({
 };
 
 export function NavMain({ items }: NavMainProps) {
+  const [mounted, setMounted] = React.useState(false);
   const path = usePathname();
   const { state, isMobile, setOpenMobile } = useSidebar();
+  const { user } = useAuthStore();
+  const userRole = user?.role;
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const isItemActive = (url: string, subItems?: NavMainItem["subItems"]) => {
     if (subItems?.length) {
@@ -222,9 +231,17 @@ export function NavMain({ items }: NavMainProps) {
     }
   };
 
+  const filteredGroups = items.filter((group) => {
+    const activeRole = mounted ? userRole : undefined;
+    if (activeRole === "student") {
+      return group.id === 3;
+    }
+    return group.id !== 3;
+  });
+
   return (
     <>
-      {items.map((group) => (
+      {filteredGroups.map((group) => (
         <SidebarGroup key={group.id}>
           {group.label && <SidebarGroupLabel>{group.label}</SidebarGroupLabel>}
           <SidebarGroupContent className="flex flex-col gap-2">

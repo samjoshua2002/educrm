@@ -5,6 +5,7 @@ export enum Role {
   COUNSELOR = "counselor",
   APPLICATION_MANAGER = "application_manager",
   EXAM_MANAGER = "exam_manager",
+  STUDENT = "student",
 }
 
 export interface User {
@@ -16,10 +17,12 @@ export interface User {
   isActive?: boolean;
   branchId?: string;
   organizationId: string | null;
+  avatar?: string;
 }
 
 export interface AuthState {
   user: User | null;
   login: (token: string, user: User) => void;
   logout: () => void;
+  updateUser: (fields: Partial<User>) => void;
 }

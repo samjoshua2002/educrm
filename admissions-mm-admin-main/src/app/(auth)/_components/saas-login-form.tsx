@@ -64,6 +64,8 @@ export function SaasLoginForm() {
 
       if (response.user.role === Role.SUPERADMIN) {
         router.push("/superadmin/dashboard");
+      } else if (response.user.role === 'student' as any) {
+        router.push("/my-application");
       } else {
         router.push("/organization/dashboard");
       }

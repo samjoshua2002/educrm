@@ -63,6 +63,7 @@ import {
 } from "@/components/ui/form";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Table,
   TableBody,
@@ -73,7 +74,9 @@ import {
 } from "@/components/ui/table";
 import { useRouter } from "next/navigation";
 import { usePageHeader } from "@/hooks/use-page-header";
-import { useCreateApplication } from "@/hooks/use-applications";
+import { useCreateApplication, useActiveApplication } from "@/hooks/use-applications";
+import { useAuthStore } from "@/stores/auth-store";
+import ApplicationDetailsPage from "@/app/organization/applications/[...application_number]/page";
 import { useCourses } from "@/hooks/use-courses";
 import { useAcademicSessions } from "@/hooks/use-academic-sessions";
 import { useBranches } from "@/hooks/use-branches";
@@ -337,6 +340,44 @@ const Stepper = ({ currentStep }: { currentStep: number }) => {
 };
 
 export default function MyApplicationPage() {
+  const [mounted, setMounted] = React.useState(false);
+  const { user, updateUser } = useAuthStore();
+  const isStudent = user?.role === "student";
+
+  const { data: activeApp, isLoading: isActiveAppLoading } = useActiveApplication({
+    enabled: isStudent && mounted,
+  });
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  React.useEffect(() => {
+    if (isStudent && activeApp?.applicant) {
+      const { name, photo } = activeApp.applicant;
+      if (user && (user.name !== name || user.avatar !== photo)) {
+        updateUser({ name, avatar: photo });
+      }
+    }
+  }, [isStudent, activeApp, user, updateUser]);
+
+  if (!mounted || (isStudent && isActiveAppLoading)) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="animate-spin size-8 text-primary" />
+        <span className="ml-2 text-muted-foreground font-medium text-sm">Loading application portal...</span>
+      </div>
+    );
+  }
+
+  if (isStudent && activeApp) {
+    return <ApplicationDetailsPage isStudentPortal={true} />;
+  }
+
+  return <MyApplicationForm isStudent={isStudent} />;
+}
+
+function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
   const router = useRouter();
   const [step, setStep] = React.useState(1);
   const [isPreview, setIsPreview] = React.useState(false);
@@ -379,6 +420,12 @@ export default function MyApplicationPage() {
   const coursesList = coursesData?.data || [];
   const branchesList = branchesData?.data || [];
 
+  const getBranchName = React.useCallback((val?: string) => {
+    if (!val) return "Not selected";
+    const found = branchesList.find((b) => b.id === val || b.name.toLowerCase() === val.toLowerCase());
+    return found ? found.name : val;
+  }, [branchesList]);
+
 
   usePageHeader({
     title: "New Application",
@@ -389,13 +436,14 @@ export default function MyApplicationPage() {
     },
   });
 
+  const { user } = useAuthStore();
   const form = useForm<ApplicationFormValues>({
     resolver: zodResolver(applicationSchema) as any,
     defaultValues: {
       personal: {
-        fullName: "",
-        email: "",
-        phone: "",
+        fullName: user?.role === "student" ? user?.name : "",
+        email: user?.email || "",
+        phone: user?.role === "student" ? user?.phone || "" : "",
         alternateMobile: "",
         gender: "",
         dob: "",
@@ -649,7 +697,11 @@ export default function MyApplicationPage() {
 
       try {
         await createMutation.mutateAsync(payload);
-        router.push("/organization/applications");
+        if (isStudent) {
+          window.location.href = "/my-application";
+        } else {
+          router.push("/organization/applications");
+        }
       } catch (error: any) {
         console.error("Failed to submit application:", error);
         const errData = error?.response?.data;
@@ -1403,8 +1455,9 @@ export default function MyApplicationPage() {
                           <Input 
                             type="email" 
                             placeholder="sarah.j@university.edu" 
-                            className="border border-input h-[40px] rounded-[8px] text-[14px] placeholder:text-[#A3A3A3] tracking-wider"
+                            className="border border-input h-[40px] rounded-[8px] text-[14px] placeholder:text-[#A3A3A3] tracking-wider disabled:bg-[#FAFAFA] disabled:text-[#64748B]"
                             style={{ fontFamily: "Inter, sans-serif", fontStyle: "normal", fontWeight: 400 }}
+                            disabled={isStudent}
                             {...field} 
                           />
                         </FormControl>

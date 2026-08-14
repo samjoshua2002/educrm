@@ -10,6 +10,7 @@ import { Application } from './entities/application.entity.js';
 import { Student } from './entities/student.entity.js';
 import { Lead } from '../leads/entities/lead.entity.js';
 import { Branch } from '../branches/entities/branch.entity.js';
+import { User } from '../users/entities/user.entity.js';
 import { LeadsService } from '../leads/leads.service.js';
 import { CoursesService } from '../courses/courses.service.js';
 import { CreateApplicationDto } from './dto/create-application.dto.js';
@@ -202,9 +203,9 @@ export class ApplicationsService {
     const mappedData = data.map((app) => ({
       id: app.id,
       applicationNo: app.applicationNo,
-      name: app.student.name,
-      email: app.student.email,
-      phone: app.student.phone,
+      name: app.name || app.student?.name || '',
+      email: app.email || app.student?.email || '',
+      phone: app.primaryMobile || app.student?.phone || '',
       program: app.program,
       campus: app.preference1Branch?.name || null,
       formStatus: this.mapStatusToFrontend(app.formStatus),
@@ -251,12 +252,52 @@ export class ApplicationsService {
     return app;
   }
 
+  async remove(idOrAppNo: string, orgId: string) {
+    const app = await this.findOne(idOrAppNo, orgId);
+    await this.applicationRepository.remove(app);
+    return { success: true };
+  }
+
+  async findActiveByEmail(email: string, orgId: string) {
+    const app = await this.applicationRepository.findOne({
+      where: { email, organizationId: orgId },
+      relations: [
+        'student',
+        'educationRecords',
+        'entranceTests',
+        'workExperienceRecords',
+        'parentRecords',
+        'addressRecords',
+        'extraCurricularRecords',
+        'otherQualificationRecords',
+      ],
+    });
+
+    if (!app) {
+      throw new NotFoundException(`No active application found for email ${email}`);
+    }
+
+    return app;
+  }
+
   async create(
     orgId: string,
     dto: CreateApplicationDto,
     creatorId: string,
     creatorRole: string,
+    creatorEmail?: string,
   ) {
+    const applicantEmail = dto.applicant?.email || `applicant_${Date.now()}@example.com`;
+
+    // Rule 1b: Student restriction
+    if (creatorRole === Role.STUDENT) {
+      if (!dto.applicant?.email || dto.applicant.email.toLowerCase().trim() !== creatorEmail?.toLowerCase().trim()) {
+        throw new ForbiddenException(
+          'Students can only create applications for themselves',
+        );
+      }
+    }
+
     // Rule 1: Counselor restriction
     if (creatorRole === Role.COUNSELOR) {
       if (!dto.leadId) {
@@ -294,7 +335,7 @@ export class ApplicationsService {
     const academicSession = dto.academicSession || '2025-2026';
 
     const applicantName = dto.applicant?.name || 'Applicant';
-    const applicantEmail = dto.applicant?.email || `applicant_${Date.now()}@example.com`;
+    // applicantEmail is extracted at the top
     const applicantPhone = dto.applicant?.phone || '0000000000';
     const applicantAltPhone = dto.applicant?.altPhone || undefined;
     const applicantGender = dto.applicant?.gender || undefined;
@@ -331,6 +372,25 @@ export class ApplicationsService {
           phone: applicantPhone,
         });
         student = await queryRunner.manager.save(student);
+      }
+
+      // Check/create user row with role student
+      let user = await queryRunner.manager.findOne(User, {
+        where: { email: applicantEmail },
+      });
+
+      if (!user) {
+        user = queryRunner.manager.create(User, {
+          name: applicantName,
+          email: applicantEmail,
+          phone: applicantPhone,
+          role: Role.STUDENT,
+          password: null,
+          organizationId: orgId,
+          createdBy: creatorId,
+          updatedBy: creatorId,
+        });
+        user = await queryRunner.manager.save(user);
       }
 
       // Generate application number
@@ -498,6 +558,7 @@ export class ApplicationsService {
 
   async updatePersonal(id: string, orgId: string, dto: UpdatePersonalDto, actorId: string) {
     const app = await this.getAppAndAssertEditable(id, orgId);
+    const originalEmail = app.email;
     Object.assign(app, dto);
     if (dto.name) app.name = dto.name;
     if (dto.primaryMobile) app.primaryMobile = dto.primaryMobile;
@@ -516,6 +577,19 @@ export class ApplicationsService {
         if (dto.name) student.name = dto.name;
         if (dto.primaryMobile) student.phone = dto.primaryMobile;
         await this.studentRepository.save(student);
+      }
+    }
+
+    // Synchronize to users table
+    if (originalEmail) {
+      const user = await this.dataSource.manager.findOne(User, {
+        where: { email: originalEmail },
+      });
+      if (user) {
+        if (dto.name) user.name = dto.name;
+        if (dto.email) user.email = dto.email;
+        if (dto.primaryMobile) user.phone = dto.primaryMobile;
+        await this.dataSource.manager.save(User, user);
       }
     }
 

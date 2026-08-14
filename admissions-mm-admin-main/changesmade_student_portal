@@ -1,0 +1,82 @@
+# Walkthrough - Student Portal & Auto User Creation
+
+We have successfully resolved the editing permission issues, populated the Program dropdown, resolved the persistent toaster forbidden error, synchronized the profile details (name and avatar photo) to the sidebar footer, added full support for application deletion, excluded students from team lists, synchronized the application list name display, disabled student email editing, authorized student application creation, and resolved all TypeScript store type errors!
+
+Here is a summary of the accomplishments:
+
+## Database Setup (Done)
+1. Altered the PostgreSQL enum `users_role_enum` to support the `'student'` value.
+2. Altered the `users.password` column to drop the `NOT NULL` constraint, allowing students to be created without a password initially.
+3. Created/updated the user `samjoshuacs2002@gmail.com` with the role `'student'` and a dummy password `'student123'`.
+
+## Backend (NestJS API)
+- **Authorized Student Application Creation**:
+  - Added `Role.STUDENT` to the `@Roles` decorator for the `create` (`POST /applications`) route in [applications.controller.ts](file:///Users/samjoshua/Developer/educrm/admissions-tenant-api-main/src/modules/applications/applications.controller.ts). This resolves the `Forbidden resource` error when a student submits a new application form.
+  - Passed `creatorEmail = req.user.email` from [applications.controller.ts](file:///Users/samjoshua/Developer/educrm/admissions-tenant-api-main/src/modules/applications/applications.controller.ts) to the service layer.
+  - Implemented a student validation check inside the `create` method in [applications.service.ts](file:///Users/samjoshua/Developer/educrm/admissions-tenant-api-main/src/modules/applications/applications.service.ts). If the caller is a student, the system validates that the `applicant.email` in the payload matches the student's authenticated email, ensuring they can only create applications for themselves.
+- **Application Index List Mapping Fix**:
+  - Updated the `findAll` method in [applications.service.ts](file:///Users/samjoshua/Developer/educrm/admissions-tenant-api-main/src/modules/applications/applications.service.ts) to map the `name`, `email`, and `phone` fields directly from the `applications` table columns (`app.name`, `app.email`, `app.primaryMobile`) instead of using the raw `Student` record values.
+  - This ensures that the applications index list view (`/organization/applications`) reflects the exact student details filled inside the application form, aligning it with the details page view.
+- **Exclude Students from Team & Staff Lists**:
+  - Imported the `Not` operator from TypeORM inside [users.service.ts](file:///Users/samjoshua/Developer/educrm/admissions-tenant-api-main/src/modules/users/users.service.ts).
+  - Modified the `findAllByOrg` method inside [users.service.ts](file:///Users/samjoshua/Developer/educrm/admissions-tenant-api-main/src/modules/users/users.service.ts) to filter out users whose role is `'student'` (`role: Not(Role.STUDENT)`).
+  - This ensures that students are not displayed on the team page (`/organization/team`) and are not shown in any assignment dropdowns meant for staff (like assigning lead managers, counselors, or branch heads).
+- **Role Enum**: Added `Role.STUDENT` to [roles.enum.ts](file:///Users/samjoshua/Developer/educrm/admissions-tenant-api-main/src/common/enums/roles.enum.ts).
+- **User Entity**: Updated the `password` field in [user.entity.ts](file:///Users/samjoshua/Developer/educrm/admissions-tenant-api-main/src/modules/users/entities/user.entity.ts) to be `nullable: true` and explicitly declared as `type: 'varchar'` to avoid reflection metadata TypeORM mismatches.
+- **Auth Service**: Added a check in [auth.service.ts](file:///Users/samjoshua/Developer/educrm/admissions-tenant-api-main/src/modules/auth/auth.service.ts) to prevent `bcrypt.compare` from crashing if `user.password` is null.
+- **Application Controller & Service**:
+  - Defined a new route `GET /applications/my/active` to return the logged-in student's active application.
+  - Secured `GET /applications/:id` and `PATCH /applications/:id/submit` so that students can only view or submit their own applications (matching their email).
+  - Automatically create a corresponding `users` row with `Role.STUDENT` and `password = NULL` when a student application is submitted.
+  - **Edit Permissions & Logging**:
+    - Added `Role.STUDENT` to the `@Roles` decorator for all section update endpoints in [applications.controller.ts](file:///Users/samjoshua/Developer/educrm/admissions-tenant-api-main/src/modules/applications/applications.controller.ts).
+    - Implemented a `validateStudentEditPermission` helper method in [applications.controller.ts](file:///Users/samjoshua/Developer/educrm/admissions-tenant-api-main/src/modules/applications/applications.controller.ts). It enforces that students can only edit applications matching their email address (performing a defensive, case-insensitive, trimmed comparison and logging details to the backend console).
+    - Restricts edits on submitted applications to a **24-hour window** from `submittedAt`.
+  - **User State Synchronization**:
+    - Updated `updatePersonal` inside [applications.service.ts](file:///Users/samjoshua/Developer/educrm/admissions-tenant-api-main/src/modules/applications/applications.service.ts) to automatically update the corresponding record in the `users` table whenever a student updates their name, email, or phone. This maintains full synchronization between auth credentials and the application details.
+  - **Application Deletion Support**:
+    - Added a `Delete` decorator and registered the `@Delete(':id')` endpoint in [applications.controller.ts](file:///Users/samjoshua/Developer/educrm/admissions-tenant-api-main/src/modules/applications/applications.controller.ts), restricted to `Role.SUPERADMIN` and `Role.ORG_ADMIN`.
+    - Implemented a `remove(idOrAppNo, orgId)` method in [applications.service.ts](file:///Users/samjoshua/Developer/educrm/admissions-tenant-api-main/src/modules/applications/applications.service.ts) that fetches the target application, validates it belongs to the organization, and cascade-deletes the row and all of its associated records (such as education history, addresses, and test records) from the database.
+- **Courses Controller**: Granted read permission to all roles (including `student`) for courses endpoints (`GET /courses` and `GET /courses/:id`) in [courses.controller.ts](file:///Users/samjoshua/Developer/educrm/admissions-tenant-api-main/src/modules/courses/courses.controller.ts). This enables the student portal to fetch the courses list.
+- **Branches Controller**: Granted read permission to all roles (including `student`) for branches query endpoints in [branches.controller.ts](file:///Users/samjoshua/Developer/educrm/admissions-tenant-api-main/src/modules/branches/branches.controller.ts). This resolves the branch UUIDs not translating to human-readable names.
+
+## Frontend (Next.js Application)
+- **Resolved Store Types Mismatch**:
+  - Removed duplicate local `AuthState` interface definition inside [auth-store.ts](file:///Users/samjoshua/Developer/educrm/admissions-mm-admin-main/src/stores/auth-store.ts) and imported it from the central types file [auth.ts](file:///Users/samjoshua/Developer/educrm/admissions-mm-admin-main/src/types/auth.ts).
+  - This ensures that `updateUser` type signature is globally visible on the auth store context, resolving the compiler error.
+- **Unconditional Email Disabling (All Roles)**:
+  - Updated the Personal Details editing dialog in [page.tsx](file:///Users/samjoshua/Developer/educrm/admissions-mm-admin-main/src/app/organization/applications/[...application_number]/page.tsx) to make the email input field `disabled={true}` unconditionally.
+  - This prevents all roles (including Admins, Superadmins, Counselors, and Students) from altering an existing application's email address once the application is created.
+  - Disabled the email address input field inside the creation form [page.tsx](file:///Users/samjoshua/Developer/educrm/admissions-mm-admin-main/src/app/(user)/my-application/page.tsx) when `isStudent` is true (students must use their login email).
+- **Application Deletion support**: Updated the `useDeleteApplication` hook in [use-applications.ts](file:///Users/samjoshua/Developer/educrm/admissions-mm-admin-main/src/hooks/use-applications.ts) to perform the `apiDelete` request to the backend. This enables Org Admins and Superadmins to successfully delete applications from the applications list view and triggers page refresh/toast feedback.
+- **Sidebar Hydration Fix**: Added a `mounted` state check to the filtering logic in `NavMain` in [nav-main.tsx](file:///Users/samjoshua/Developer/educrm/admissions-mm-admin-main/src/app/(main)/_components/sidebar/nav-main.tsx). Deferring the sidebar category filtering based on student roles until after the component mounts on the client ensures that Server-Side Rendering (SSR) output aligns exactly with the initial client paint, resolving the "User Menu" / "Admin Menu" hydration mismatch error.
+- **Hydration Refresh Fix**: Added a `mounted` state check inside `MyApplicationPage` in [page.tsx](file:///Users/samjoshua/Developer/educrm/admissions-mm-admin-main/src/app/(user)/my-application/page.tsx). This ensures that Next.js Server-Side Rendering (SSR) output aligns exactly with the initial client paint, eliminating hydration mismatch crashes on page reload/refresh.
+- **Forbidden Toaster Fix**: Disabled the `useApplications()` query in [use-applications.ts](file:///Users/samjoshua/Developer/educrm/admissions-mm-admin-main/src/hooks/use-applications.ts) when the logged-in user is a student. This prevents `DynamicHeader` from making unauthorized administration index requests and eliminates the persistent "You don't have permission" toast message when loading the student portal.
+- **Course Dropdown Fix**: By opening read access to the courses endpoints for students in the backend, the Program Applied For dropdown list under "Course and Campus Preferences" edit modal now successfully resolves and populates all available courses.
+- **Hide Admin Buttons**: Wrapped the "GD AND INTERVIEWS" and "COMMUNICATION" hero action buttons in a `!isStudent` check in [page.tsx](file:///Users/samjoshua/Developer/educrm/admissions-mm-admin-main/src/app/organization/applications/[...application_number]/page.tsx) to hide them when viewed inside the student portal.
+- **Profile Name and Photo Live-Sync**:
+  - Added `avatar` and `updateUser` properties to `User` and `AuthState` types in [auth.ts](file:///Users/samjoshua/Developer/educrm/admissions-mm-admin-main/src/types/auth.ts).
+  - Implemented the `updateUser` action in [auth-store.ts](file:///Users/samjoshua/Developer/educrm/admissions-mm-admin-main/src/stores/auth-store.ts) to allow reactive client-side auth state overrides.
+  - Added a reactive `useEffect` inside `MyApplicationPage` in [page.tsx](file:///Users/samjoshua/Developer/educrm/admissions-mm-admin-main/src/app/(user)/my-application/page.tsx) to synchronize the active application's name and photoUrl directly to the Zustand store state. Changing details or uploading a new profile picture now updates the profile name and avatar image in the sidebar footer instantly!
+- **Automatic Cache Invalidation**: Added `active-application` query cache invalidation on update mutation success in [use-applications.ts](file:///Users/samjoshua/Developer/educrm/admissions-mm-admin-main/src/hooks/use-applications.ts). Saving an edit section will now automatically trigger a refresh of the page with the updated data.
+- **React Hook Order Fix**: Refactored [page.tsx](file:///Users/samjoshua/Developer/educrm/admissions-mm-admin-main/src/app/(user)/my-application/page.tsx) to split the page into a wrapper `MyApplicationPage` component and a sub-component `MyApplicationForm` to prevent React Hook order violations on logout.
+- **Profile Name Fix**: Updated `AccountSwitcher` in [account-switcher.tsx](file:///Users/samjoshua/Developer/educrm/admissions-mm-admin-main/src/app/(main)/_components/sidebar/account-switcher.tsx) to synchronize with the `useAuthStore` user profile.
+- **My Application Page**: Renders the standard `<ApplicationDetailsPage isStudentPortal={true} />` directly when a student is logged in.
+
+---
+
+## How to Verify
+
+1. Open your browser and navigate to the application login screen.
+2. Log in using the student credentials:
+   - **Email**: `samjoshuacs2002@gmail.com`
+   - **Password**: `student123`
+3. You will be redirected to the Student Portal `/my-application`.
+4. Observe that **no forbidden error toaster** appears on page load!
+5. Edit your **Personal Details** card, change your **Full Name**, upload/change your **profile photo**, and click **Save Changes**.
+6. Observe that:
+   - The card updates instantly with the new name and photo.
+   - The profile footer in the sidebar instantly updates to show your new name and uploaded avatar photo!
+   - Under the hood, the backend automatically synced these changes to the `users` and `students` tables in the database.
+7. Refresh/reload the page.
+8. Observe that the page loads cleanly (showing the loading spinner briefly) and then resolves to either your application details page or the blank new form (if you don't have an application yet), without rendering a blank screen or crashing!

@@ -71,7 +71,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import { useApplication, useUpdateApplication, ApplicationDetail } from "@/hooks/use-applications";
+import { useApplication, useUpdateApplication, ApplicationDetail, useActiveApplication } from "@/hooks/use-applications";
+import { useAuthStore } from "@/stores/auth-store";
 import { useBranches } from "@/hooks/use-branches";
 import { useCourses } from "@/hooks/use-courses";
 import { gdInterviews } from "@/data/mock-gd-interviews";
@@ -105,21 +106,35 @@ function formatAadhaar(val?: string): string {
   return cleaned;
 }
 
-export default function ApplicationDetailsPage() {
+export default function ApplicationDetailsPage({ isStudentPortal = false }: { isStudentPortal?: boolean }) {
   const router = useRouter();
   const params = useParams();
   const rawParam = params.application_number;
+  const { user } = useAuthStore();
+  const isStudent = isStudentPortal || user?.role === "student";
+
   const applicationNumber = React.useMemo(() => {
     if (Array.isArray(rawParam)) return rawParam.map(decodeURIComponent).join("/");
     return rawParam ? decodeURIComponent(rawParam as string) : "";
   }, [rawParam]);
-  const { data: appData, isLoading } = useApplication(applicationNumber);
+
+  const { data: adminAppData, isLoading: isAdminLoading } = useApplication(applicationNumber, {
+    enabled: !isStudent && !!applicationNumber,
+  });
+
+  const { data: studentAppData, isLoading: isStudentLoading } = useActiveApplication({
+    enabled: isStudent,
+  });
+
+  const appData = isStudent ? studentAppData : adminAppData;
+  const isLoading = isStudent ? isStudentLoading : isAdminLoading;
   const updateMutation = useUpdateApplication();
 
   usePageHeader({
-    title: "Applications",
-    description: "View and manage all applications submitted to your organization.",
-  
+    title: isStudent ? "My Application" : "Applications",
+    description: isStudent 
+      ? "View and edit your admission application details." 
+      : "View and manage all applications submitted to your organization.",
   });
 
   const { data: branchesData } = useBranches(1, 100);
@@ -162,7 +177,7 @@ export default function ApplicationDetailsPage() {
   const handleSave = (updatedData: ApplicationDetail) => {
     if (!activeEditSection) return;
     updateMutation.mutate({
-      applicationNo: applicationNumber,
+      applicationNo: appData?.applicationNo || applicationNumber,
       section: activeEditSection as any,
       data: updatedData,
     });
@@ -200,26 +215,28 @@ export default function ApplicationDetailsPage() {
       {/* Hero Banner Card */}
       {/* Hero Banner Card */}
       <div className="relative grid grid-cols-[auto_1fr] w-full p-[24px] gap-y-[6px] gap-x-[16px] md:gap-x-[32px] rounded-[8px] border border-[#D4D4D4] bg-white shadow-[0_1px_2px_0_rgba(0,0,0,0.05)]">
-        <button
-          onClick={() => router.back()}
-          className="absolute top-3 left-3 hover:opacity-80 transition-opacity p-1"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="15"
-            height="11.667"
-            viewBox="0 0 17 14"
-            fill="none"
+        {!isStudent && (
+          <button
+            onClick={() => router.back()}
+            className="absolute top-3 left-3 hover:opacity-80 transition-opacity p-1"
           >
-            <path
-              d="M6.66671 12.4999L0.833374 6.66658M0.833374 6.66658L6.66671 0.833252M0.833374 6.66658H15.8334"
-              stroke="#64748B"
-              strokeWidth="1.667"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="15"
+              height="11.667"
+              viewBox="0 0 17 14"
+              fill="none"
+            >
+              <path
+                d="M6.66671 12.4999L0.833374 6.66658M0.833374 6.66658L6.66671 0.833252M0.833374 6.66658H15.8334"
+                stroke="#64748B"
+                strokeWidth="1.667"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+        )}
         <Avatar className="h-16 w-16 md:h-20 md:w-20 border-4 border-slate-100 shadow-xs shrink-0 col-start-1 row-start-1 md:row-span-2 mt-2 md:mt-0">
           <AvatarImage
             src={applicationData.applicant.photo || (applicationData as any).photoUrl}
@@ -292,40 +309,42 @@ export default function ApplicationDetailsPage() {
               {formatMobile(applicationData.applicant.primaryMobile)}
             </span>
           </div>
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-[15px] shrink-0 w-full sm:w-auto lg:ml-auto mt-2 lg:mt-0">
-            {hasGDInterview ? (
+          {!isStudent && (
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-[15px] shrink-0 w-full sm:w-auto lg:ml-auto mt-2 lg:mt-0">
+              {hasGDInterview ? (
+                <Button
+                  asChild
+                  className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs px-4 py-2.5 rounded-md flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer shrink-0 w-full sm:w-auto"
+                >
+                  <Link href={`/organization/gd-interview/${applicationData.applicationNo}`}>
+                    GD AND INTERVIEWS
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </Link>
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => {
+                    toast.error(
+                      `GD & Interview is not assigned to ${applicationData.applicant.name}.`,
+                    );
+                  }}
+                  className="bg-slate-100 hover:bg-slate-100 text-slate-400 border border-slate-200 font-semibold text-xs px-4 py-2.5 rounded-md flex items-center justify-center gap-2 shadow-xs cursor-not-allowed shrink-0 w-full sm:w-auto"
+                >
+                  GD NOT ASSIGNED
+                  <ExternalLink className="h-3.5 w-3.5 opacity-50" />
+                </Button>
+              )}
               <Button
                 asChild
                 className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs px-4 py-2.5 rounded-md flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer shrink-0 w-full sm:w-auto"
               >
-                <Link href={`/organization/gd-interview/${applicationData.applicationNo}`}>
-                  GD AND INTERVIEWS
+                <Link href={`/organization/communications/${applicationData.applicationNo}`}>
+                  COMMUNICATION
                   <ExternalLink className="h-3.5 w-3.5" />
                 </Link>
               </Button>
-            ) : (
-              <Button
-                onClick={() => {
-                  toast.error(
-                    `GD & Interview is not assigned to ${applicationData.applicant.name}.`,
-                  );
-                }}
-                className="bg-slate-100 hover:bg-slate-100 text-slate-400 border border-slate-200 font-semibold text-xs px-4 py-2.5 rounded-md flex items-center justify-center gap-2 shadow-xs cursor-not-allowed shrink-0 w-full sm:w-auto"
-              >
-                GD NOT ASSIGNED
-                <ExternalLink className="h-3.5 w-3.5 opacity-50" />
-              </Button>
-            )}
-            <Button
-              asChild
-              className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs px-4 py-2.5 rounded-md flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer shrink-0 w-full sm:w-auto"
-            >
-              <Link href={`/organization/communications/${applicationData.applicationNo}`}>
-                COMMUNICATION
-                <ExternalLink className="h-3.5 w-3.5" />
-              </Link>
-            </Button>
-          </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1361,6 +1380,8 @@ interface FormProps {
 }
 
 function EditPersonalForm({ appData, onSave, onClose }: FormProps) {
+  const { user } = useAuthStore();
+  const isStudent = user?.role === "student";
   const [formData, setFormData] = React.useState({
     name: appData.applicant.name,
     photo: appData.applicant.photo || appData.photoUrl || "",
@@ -1541,8 +1562,9 @@ function EditPersonalForm({ appData, onSave, onClose }: FormProps) {
             onChange={(e) =>
               setFormData((prev) => ({ ...prev, email: e.target.value }))
             }
-            className="pl-10 border-[#D4D4D4] rounded-[8px] h-10 text-[14px]"
+            className="pl-10 border-[#D4D4D4] rounded-[8px] h-10 text-[14px] disabled:bg-[#FAFAFA] disabled:text-[#64748B]"
             required
+            disabled={true}
           />
         </div>
       </div>

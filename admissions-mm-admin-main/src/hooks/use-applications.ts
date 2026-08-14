@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { apiGet, apiPatch, apiPost } from "@/lib/api";
+import { apiGet, apiPatch, apiPost, apiDelete } from "@/lib/api";
+import { useAuthStore } from "@/stores/auth-store";
 
 // ============================================================================
 // TYPES
@@ -478,6 +479,9 @@ function parseDobToISO(dob: string): string | undefined {
 
 // 1. Fetch all applications (paginated)
 export function useApplications(page = 1, limit = 20, search?: string, status?: string) {
+  const user = useAuthStore((state) => state.user);
+  const isStudent = user?.role === "student";
+
   return useQuery({
     queryKey: ["applications", page, limit, search, status],
     queryFn: async () => {
@@ -486,6 +490,7 @@ export function useApplications(page = 1, limit = 20, search?: string, status?: 
       if (status && status !== "all") params.status = status;
       return apiGet<{ data: Application[]; pagination: any }>("/applications", params);
     },
+    enabled: !isStudent,
   });
 }
 
@@ -556,6 +561,7 @@ export function useUpdateApplication() {
       queryClient.invalidateQueries({
         queryKey: ["application", variables.applicationNo],
       });
+      queryClient.invalidateQueries({ queryKey: ["active-application"] });
       toast.success("Application details updated successfully");
     },
     onError: (err: any) => {
@@ -635,15 +641,17 @@ export function useSubmitApplication() {
 export function useDeleteApplication() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (_id: string) => {
-      // Delete is not supported in the application module per the business rules.
-      throw new Error("Deleting applications is not supported.");
+    mutationFn: async (id: string) => {
+      const encodedId = encodeURIComponent(id);
+      return apiDelete<any>(`/applications/${encodedId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["applications"] });
+      toast.success("Application deleted successfully");
     },
-    onError: () => {
-      toast.error("Deleting applications is not permitted by policy.");
+    onError: (err: any) => {
+      const msg = err.response?.data?.message || err.message || "Failed to delete application";
+      toast.error(msg);
     },
   });
 }
@@ -712,6 +720,25 @@ export function useUpdateGdEvaluation() {
     onError: (err: any) => {
       toast.error(err.response?.data?.message || "Failed to save evaluation");
     },
+  });
+}
+
+// 7. Fetch active application for currently logged-in student
+export function useActiveApplication(options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: ["active-application"],
+    queryFn: async () => {
+      try {
+        const raw = await apiGet<any>("/applications/my/active");
+        return mapApiToApplicationDetail(raw);
+      } catch (err: any) {
+        if (err.response?.status === 404) {
+          return null;
+        }
+        throw err;
+      }
+    },
+    enabled: options?.enabled,
   });
 }
 

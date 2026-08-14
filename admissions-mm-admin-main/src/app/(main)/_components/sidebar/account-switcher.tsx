@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 import { useRouter } from "next/navigation";
 
@@ -31,10 +31,25 @@ export function AccountSwitcher({
     readonly role: string;
   }>;
 }) {
-  const [activeUser, setActiveUser] = useState(users?.[0]);
+  const { user: loggedInUser } = useAuthStore();
+  const [activeUser, setActiveUser] = useState<any>(null);
   const logout = useAuthStore((state) => state.logout);
   const queryClient = useQueryClient();
   const router = useRouter();
+
+  useEffect(() => {
+    if (loggedInUser) {
+      setActiveUser({
+        id: loggedInUser.id,
+        name: loggedInUser.name,
+        email: loggedInUser.email,
+        role: loggedInUser.role,
+        avatar: (loggedInUser as any).avatar || "",
+      });
+    } else {
+      setActiveUser(users?.[0]);
+    }
+  }, [loggedInUser, users]);
 
   if (!activeUser) {
     return null;
@@ -70,31 +85,35 @@ export function AccountSwitcher({
         align="end"
         sideOffset={4}
       >
-        {users.map((user) => (
-          <DropdownMenuItem
-            key={user.email}
-            className={cn(
-              "p-0",
-              user.id === activeUser.id &&
-                "bg-accent/50 border-l-primary border-l-2",
-            )}
-            onClick={() => setActiveUser(user)}
-          >
-            <div className="flex w-full items-center justify-between gap-2 px-1 py-1.5">
-              <Avatar className="size-9 rounded-full">
-                <AvatarImage src={user.avatar || undefined} alt={user.name} />
-                <AvatarFallback className="rounded-">
-                  {getInitials(user.name)}
-                </AvatarFallback>
-              </Avatar>
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold">{user.name}</span>
-                <span className="truncate text-xs capitalize">{user.role}</span>
-              </div>
-            </div>
-          </DropdownMenuItem>
-        ))}
-        <DropdownMenuSeparator />
+        {loggedInUser?.role !== "student" && (
+          <>
+            {users.map((user) => (
+              <DropdownMenuItem
+                key={user.email}
+                className={cn(
+                  "p-0",
+                  user.id === activeUser.id &&
+                    "bg-accent/50 border-l-primary border-l-2",
+                )}
+                onClick={() => setActiveUser(user)}
+              >
+                <div className="flex w-full items-center justify-between gap-2 px-1 py-1.5">
+                  <Avatar className="size-9 rounded-full">
+                    <AvatarImage src={user.avatar || undefined} alt={user.name} />
+                    <AvatarFallback className="rounded-">
+                      {getInitials(user.name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="grid flex-1 text-left text-sm leading-tight">
+                    <span className="truncate font-semibold">{user.name}</span>
+                    <span className="truncate text-xs capitalize">{user.role}</span>
+                  </div>
+                </div>
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
+          </>
+        )}
         <DropdownMenuGroup>
           <DropdownMenuItem>
             <BadgeCheck />
