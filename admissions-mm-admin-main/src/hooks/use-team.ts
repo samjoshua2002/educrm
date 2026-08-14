@@ -75,6 +75,7 @@ export function useUpdateUser(explicitOrgId?: string) {
     }) => apiPatch<User>(`/organizations/${orgId}/users/${userId}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["team"] });
+      queryClient.invalidateQueries({ queryKey: ["current-user-profile"] });
       toast.success("User updated successfully");
     },
     onError: (error: any) => {

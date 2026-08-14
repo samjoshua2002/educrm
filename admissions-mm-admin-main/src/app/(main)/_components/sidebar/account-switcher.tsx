@@ -47,9 +47,9 @@ export function AccountSwitcher({
         avatar: (loggedInUser as any).avatar || "",
       });
     } else {
-      setActiveUser(users?.[0]);
+      setActiveUser(null);
     }
-  }, [loggedInUser, users]);
+  }, [loggedInUser]);
 
   if (!activeUser) {
     return null;
@@ -85,35 +85,19 @@ export function AccountSwitcher({
         align="end"
         sideOffset={4}
       >
-        {loggedInUser?.role !== "student" && (
-          <>
-            {users.map((user) => (
-              <DropdownMenuItem
-                key={user.email}
-                className={cn(
-                  "p-0",
-                  user.id === activeUser.id &&
-                    "bg-accent/50 border-l-primary border-l-2",
-                )}
-                onClick={() => setActiveUser(user)}
-              >
-                <div className="flex w-full items-center justify-between gap-2 px-1 py-1.5">
-                  <Avatar className="size-9 rounded-full">
-                    <AvatarImage src={user.avatar || undefined} alt={user.name} />
-                    <AvatarFallback className="rounded-">
-                      {getInitials(user.name)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-semibold">{user.name}</span>
-                    <span className="truncate text-xs capitalize">{user.role}</span>
-                  </div>
-                </div>
-              </DropdownMenuItem>
-            ))}
-            <DropdownMenuSeparator />
-          </>
-        )}
+        <div className="flex items-center gap-2 px-2 py-1.5 text-left text-sm">
+          <Avatar className="h-9 w-9 rounded-full">
+            <AvatarImage src={activeUser.avatar || undefined} alt={activeUser.name} />
+            <AvatarFallback className="rounded-full">
+              {getInitials(activeUser.name)}
+            </AvatarFallback>
+          </Avatar>
+          <div className="grid flex-1 text-left text-sm leading-tight">
+            <span className="truncate font-semibold">{activeUser.name}</span>
+            <span className="truncate text-xs text-muted-foreground">{activeUser.email}</span>
+          </div>
+        </div>
+        <DropdownMenuSeparator />
         <DropdownMenuGroup>
           <DropdownMenuItem>
             <BadgeCheck />
