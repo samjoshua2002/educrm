@@ -33,7 +33,7 @@ export class AcademicSessionsController {
   }
 
   @Get()
-  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.APPLICATION_MANAGER, Role.COUNSELOR)
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.APPLICATION_MANAGER, Role.COUNSELOR, Role.LEAD_MANAGER, Role.EXAM_MANAGER, Role.STUDENT)
   findAll(@Param('orgId') orgId: string) {
     return this.academicSessionsService.findAllByOrg(orgId);
   }

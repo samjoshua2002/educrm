@@ -67,16 +67,16 @@ const NavItemExpanded = ({
     }
   };
 
-  return (
-    <Collapsible
-      key={item.title}
-      asChild
-      defaultOpen={isSubmenuOpen(item.subItems)}
-      className="group/collapsible"
-    >
-      <SidebarMenuItem>
-        <CollapsibleTrigger asChild>
-          {item.subItems ? (
+  if (item.subItems) {
+    return (
+      <Collapsible
+        key={item.title}
+        asChild
+        defaultOpen={isSubmenuOpen(item.subItems)}
+        className="group/collapsible"
+      >
+        <SidebarMenuItem>
+          <CollapsibleTrigger asChild>
             <SidebarMenuButton
               disabled={item.comingSoon}
               isActive={isActive(item.url, item.subItems)}
@@ -87,26 +87,7 @@ const NavItemExpanded = ({
               {item.comingSoon && <IsComingSoon />}
               <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
             </SidebarMenuButton>
-          ) : (
-            <SidebarMenuButton
-              asChild
-              aria-disabled={item.comingSoon}
-              isActive={isActive(item.url)}
-              tooltip={item.title}
-            >
-              <Link
-                href={item.url}
-                target={item.newTab ? "_blank" : undefined}
-                onClick={handleLinkClick}
-              >
-                {item.icon && <item.icon />}
-                <span>{item.title}</span>
-                {item.comingSoon && <IsComingSoon />}
-              </Link>
-            </SidebarMenuButton>
-          )}
-        </CollapsibleTrigger>
-        {item.subItems && (
+          </CollapsibleTrigger>
           <CollapsibleContent>
             <SidebarMenuSub>
               {item.subItems.map((subItem) => (
@@ -130,9 +111,30 @@ const NavItemExpanded = ({
               ))}
             </SidebarMenuSub>
           </CollapsibleContent>
-        )}
-      </SidebarMenuItem>
-    </Collapsible>
+        </SidebarMenuItem>
+      </Collapsible>
+    );
+  }
+
+  return (
+    <SidebarMenuItem key={item.title}>
+      <SidebarMenuButton
+        asChild
+        aria-disabled={item.comingSoon}
+        isActive={isActive(item.url)}
+        tooltip={item.title}
+      >
+        <Link
+          href={item.url}
+          target={item.newTab ? "_blank" : undefined}
+          onClick={handleLinkClick}
+        >
+          {item.icon && <item.icon />}
+          <span>{item.title}</span>
+          {item.comingSoon && <IsComingSoon />}
+        </Link>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
   );
 };
 

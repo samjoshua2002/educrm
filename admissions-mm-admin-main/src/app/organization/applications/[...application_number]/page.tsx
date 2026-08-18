@@ -71,7 +71,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import { useApplication, useUpdateApplication, ApplicationDetail } from "@/hooks/use-applications";
+import { useApplication, useUpdateApplication, ApplicationDetail, useActiveApplication } from "@/hooks/use-applications";
+import { useAuthStore } from "@/stores/auth-store";
 import { useBranches } from "@/hooks/use-branches";
 import { useCourses } from "@/hooks/use-courses";
 import { gdInterviews } from "@/data/mock-gd-interviews";
@@ -109,17 +110,31 @@ export default function ApplicationDetailsPage() {
   const router = useRouter();
   const params = useParams();
   const rawParam = params.application_number;
+  const { user } = useAuthStore();
+  const isStudent = user?.role === "student";
+
   const applicationNumber = React.useMemo(() => {
     if (Array.isArray(rawParam)) return rawParam.map(decodeURIComponent).join("/");
     return rawParam ? decodeURIComponent(rawParam as string) : "";
   }, [rawParam]);
-  const { data: appData, isLoading } = useApplication(applicationNumber);
+
+  const { data: adminAppData, isLoading: isAdminLoading } = useApplication(applicationNumber, {
+    enabled: !isStudent && !!applicationNumber,
+  });
+
+  const { data: studentAppData, isLoading: isStudentLoading } = useActiveApplication({
+    enabled: isStudent,
+  });
+
+  const appData = isStudent ? studentAppData : adminAppData;
+  const isLoading = isStudent ? isStudentLoading : isAdminLoading;
   const updateMutation = useUpdateApplication();
 
   usePageHeader({
-    title: "Applications",
-    description: "View and manage all applications submitted to your organization.",
-  
+    title: isStudent ? "My Application" : "Applications",
+    description: isStudent 
+      ? "View and edit your admission application details." 
+      : "View and manage all applications submitted to your organization.",
   });
 
   const { data: branchesData } = useBranches(1, 100);
@@ -162,7 +177,7 @@ export default function ApplicationDetailsPage() {
   const handleSave = (updatedData: ApplicationDetail) => {
     if (!activeEditSection) return;
     updateMutation.mutate({
-      applicationNo: applicationNumber,
+      applicationNo: appData?.applicationNo || applicationNumber,
       section: activeEditSection as any,
       data: updatedData,
     });
@@ -200,26 +215,28 @@ export default function ApplicationDetailsPage() {
       {/* Hero Banner Card */}
       {/* Hero Banner Card */}
       <div className="relative grid grid-cols-[auto_1fr] w-full p-[24px] gap-y-[6px] gap-x-[16px] md:gap-x-[32px] rounded-[8px] border border-[#D4D4D4] bg-white shadow-[0_1px_2px_0_rgba(0,0,0,0.05)]">
-        <button
-          onClick={() => router.back()}
-          className="absolute top-3 left-3 hover:opacity-80 transition-opacity p-1"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="15"
-            height="11.667"
-            viewBox="0 0 17 14"
-            fill="none"
+        {!isStudent && (
+          <button
+            onClick={() => router.back()}
+            className="absolute top-3 left-3 hover:opacity-80 transition-opacity p-1"
           >
-            <path
-              d="M6.66671 12.4999L0.833374 6.66658M0.833374 6.66658L6.66671 0.833252M0.833374 6.66658H15.8334"
-              stroke="#64748B"
-              strokeWidth="1.667"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="15"
+              height="11.667"
+              viewBox="0 0 17 14"
+              fill="none"
+            >
+              <path
+                d="M6.66671 12.4999L0.833374 6.66658M0.833374 6.66658L6.66671 0.833252M0.833374 6.66658H15.8334"
+                stroke="#64748B"
+                strokeWidth="1.667"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+        )}
         <Avatar className="h-16 w-16 md:h-20 md:w-20 border-4 border-slate-100 shadow-xs shrink-0 col-start-1 row-start-1 md:row-span-2 mt-2 md:mt-0">
           <AvatarImage
             src={applicationData.applicant.photo || (applicationData as any).photoUrl}
@@ -292,40 +309,42 @@ export default function ApplicationDetailsPage() {
               {formatMobile(applicationData.applicant.primaryMobile)}
             </span>
           </div>
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-[15px] shrink-0 w-full sm:w-auto lg:ml-auto mt-2 lg:mt-0">
-            {hasGDInterview ? (
+          {!isStudent && (
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-[15px] shrink-0 w-full sm:w-auto lg:ml-auto mt-2 lg:mt-0">
+              {hasGDInterview ? (
+                <Button
+                  asChild
+                  className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs px-4 py-2.5 rounded-md flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer shrink-0 w-full sm:w-auto"
+                >
+                  <Link href={`/organization/gd-interview/${applicationData.applicationNo}`}>
+                    GD AND INTERVIEWS
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </Link>
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => {
+                    toast.error(
+                      `GD & Interview is not assigned to ${applicationData.applicant.name}.`,
+                    );
+                  }}
+                  className="bg-slate-100 hover:bg-slate-100 text-slate-400 border border-slate-200 font-semibold text-xs px-4 py-2.5 rounded-md flex items-center justify-center gap-2 shadow-xs cursor-not-allowed shrink-0 w-full sm:w-auto"
+                >
+                  GD NOT ASSIGNED
+                  <ExternalLink className="h-3.5 w-3.5 opacity-50" />
+                </Button>
+              )}
               <Button
                 asChild
                 className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs px-4 py-2.5 rounded-md flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer shrink-0 w-full sm:w-auto"
               >
-                <Link href={`/organization/gd-interview/${applicationData.applicationNo}`}>
-                  GD AND INTERVIEWS
+                <Link href={`/organization/communications/${applicationData.applicationNo}`}>
+                  COMMUNICATION
                   <ExternalLink className="h-3.5 w-3.5" />
                 </Link>
               </Button>
-            ) : (
-              <Button
-                onClick={() => {
-                  toast.error(
-                    `GD & Interview is not assigned to ${applicationData.applicant.name}.`,
-                  );
-                }}
-                className="bg-slate-100 hover:bg-slate-100 text-slate-400 border border-slate-200 font-semibold text-xs px-4 py-2.5 rounded-md flex items-center justify-center gap-2 shadow-xs cursor-not-allowed shrink-0 w-full sm:w-auto"
-              >
-                GD NOT ASSIGNED
-                <ExternalLink className="h-3.5 w-3.5 opacity-50" />
-              </Button>
-            )}
-            <Button
-              asChild
-              className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs px-4 py-2.5 rounded-md flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer shrink-0 w-full sm:w-auto"
-            >
-              <Link href={`/organization/communications/${applicationData.applicationNo}`}>
-                COMMUNICATION
-                <ExternalLink className="h-3.5 w-3.5" />
-              </Link>
-            </Button>
-          </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -492,6 +511,7 @@ export default function ApplicationDetailsPage() {
                   className={`${manrope.className} text-[14px] font-normal leading-[22.75px] text-[#475569]`}
                 >
                   {applicationData.address.present}
+                  {applicationData.address.presentPincode && ` - ${applicationData.address.presentPincode}`}
                 </p>
               </div>
 
@@ -502,17 +522,21 @@ export default function ApplicationDetailsPage() {
                   >
                     PERMANENT ADDRESS
                   </h4>
-                  <Badge
-                    variant="secondary"
-                    className="text-[9px] font-bold bg-[#1A237E]/[0.05] text-[#1A237E] hover:bg-[#1A237E]/[0.05] rounded-[4px] px-2 py-[2px] border-0 flex flex-col items-start"
-                  >
-                    SAME AS PRESENT
-                  </Badge>
+                  {applicationData.address.present === applicationData.address.permanent &&
+                   applicationData.address.presentPincode === applicationData.address.permanentPincode && (
+                    <Badge
+                      variant="secondary"
+                      className="text-[9px] font-bold bg-[#1A237E]/[0.05] text-[#1A237E] hover:bg-[#1A237E]/[0.05] rounded-[4px] px-2 py-[2px] border-0 flex flex-col items-start"
+                    >
+                      SAME AS PRESENT
+                    </Badge>
+                  )}
                 </div>
                 <p
                   className={`${manrope.className} text-[14px] font-normal leading-[22.75px] text-[#475569]`}
                 >
                   {applicationData.address.permanent}
+                  {applicationData.address.permanentPincode && ` - ${applicationData.address.permanentPincode}`}
                 </p>
               </div>
             </CardContent>
@@ -576,6 +600,28 @@ export default function ApplicationDetailsPage() {
                   </span>
                   <span className="font-bold text-slate-800 text-base font-sans">
                     {getBranchName(applicationData.preferences.preference2)}
+                  </span>
+                </div>
+                <div className="flex flex-col space-y-1.5 p-4 bg-[#F8FAFC] rounded-lg border border-slate-100">
+                  <span className="font-sans text-[10px] font-bold leading-[15px] tracking-[-0.5px] uppercase text-[#64748B]">
+                    Interview Preference 1
+                  </span>
+                  <span className="font-bold text-slate-800 text-base font-sans">
+                    {(() => {
+                      const [p1] = (applicationData.interviewLocation || "").split(",").map(s => s.trim());
+                      return p1 || "-";
+                    })()}
+                  </span>
+                </div>
+                <div className="flex flex-col space-y-1.5 p-4 bg-[#F8FAFC] rounded-lg border border-slate-100">
+                  <span className="font-sans text-[10px] font-bold leading-[15px] tracking-[-0.5px] uppercase text-[#64748B]">
+                    Interview Preference 2
+                  </span>
+                  <span className="font-bold text-slate-800 text-base font-sans">
+                    {(() => {
+                      const [, p2] = (applicationData.interviewLocation || "").split(",").map(s => s.trim());
+                      return p2 || "-";
+                    })()}
                   </span>
                 </div>
               </div>
@@ -1199,6 +1245,18 @@ export default function ApplicationDetailsPage() {
                 </div>
               </div>
 
+              <div className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-[3.83px] h-[20px] rounded-full bg-[#1A237E] shrink-0 mt-[2px]" />
+                  <h4 className="text-sm font-semibold text-[#1E293B] leading-tight">
+                    Hobbies & Extra-Curricular Activities
+                  </h4>
+                </div>
+                <div className="flex flex-col items-start self-stretch p-4 rounded-r-[8px] rounded-l-none border-l-[4px] border-l-[#E2E8F0] bg-[#F8FAFC] text-slate-600 text-sm leading-relaxed">
+                  &quot;{applicationData.other.hobbies || "No hobbies specified."}&quot;
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2">
                 <div className="space-y-1">
                   <span className="text-[10px] font-bold leading-[15px] tracking-[-0.25px] uppercase text-[#64748B] font-sans">
@@ -1361,6 +1419,8 @@ interface FormProps {
 }
 
 function EditPersonalForm({ appData, onSave, onClose }: FormProps) {
+  const { user } = useAuthStore();
+  const isStudent = user?.role === "student";
   const [formData, setFormData] = React.useState({
     name: appData.applicant.name,
     photo: appData.applicant.photo || appData.photoUrl || "",
@@ -1541,8 +1601,9 @@ function EditPersonalForm({ appData, onSave, onClose }: FormProps) {
             onChange={(e) =>
               setFormData((prev) => ({ ...prev, email: e.target.value }))
             }
-            className="pl-10 border-[#D4D4D4] rounded-[8px] h-10 text-[14px]"
+            className="pl-10 border-[#D4D4D4] rounded-[8px] h-10 text-[14px] disabled:bg-[#FAFAFA] disabled:text-[#64748B]"
             required
+            disabled={true}
           />
         </div>
       </div>
@@ -1799,16 +1860,44 @@ function EditPersonalForm({ appData, onSave, onClose }: FormProps) {
 }
 
 function EditPreferencesForm({ appData, onSave, onClose, branchesList = [], coursesList = [] }: FormProps & { branchesList?: any[], coursesList?: any[] }) {
+  const [initialIntPref1, initialIntPref2] = (appData.interviewLocation || "").split(",").map((s: string) => s.trim());
+
   const [formData, setFormData] = React.useState({
     preference1: appData.preferences.preference1,
     preference2: appData.preferences.preference2,
     courseId: appData.courseId,
+    interviewPreference1: initialIntPref1 || "",
+    interviewPreference2: initialIntPref2 || "",
   });
+
+  const interviewLocations = React.useMemo(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("educrm_locations");
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            return parsed.filter((loc: any) => loc.type === "Interview" || loc.type === "Center");
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    }
+    return [
+      { id: 1, name: "New Delhi Center", city: "New Delhi", type: "Center" },
+      { id: 2, name: "Chennai Marriot Hotel", city: "Chennai", type: "Interview" },
+    ];
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (formData.preference1 === formData.preference2) {
       toast.error("Campus Preference 1 and Preference 2 cannot be identical!");
+      return;
+    }
+    if (formData.interviewPreference1 && formData.interviewPreference1 === formData.interviewPreference2) {
+      toast.error("Interview Preference 1 and Preference 2 cannot be identical!");
       return;
     }
     const updatedData = {
@@ -1818,6 +1907,7 @@ function EditPreferencesForm({ appData, onSave, onClose, branchesList = [], cour
         preference1: formData.preference1,
         preference2: formData.preference2,
       },
+      interviewLocation: `${formData.interviewPreference1}, ${formData.interviewPreference2}`,
     };
     onSave(updatedData);
   };
@@ -1923,6 +2013,64 @@ function EditPreferencesForm({ appData, onSave, onClose, branchesList = [], cour
                 <SelectItem value="South Campus" disabled={formData.preference1 === "South Campus"}>South Campus</SelectItem>
               </>
             )}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <Label
+          htmlFor="interviewPreference1"
+          className="text-[#64748B] font-semibold text-[12px] uppercase font-sans"
+        >
+          Interview Preference 1
+        </Label>
+        <Select
+          value={formData.interviewPreference1}
+          onValueChange={(val) =>
+            setFormData((prev) => ({ ...prev, interviewPreference1: val }))
+          }
+        >
+          <SelectTrigger
+            id="interviewPreference1"
+            className="w-full border-[#D4D4D4] bg-white rounded-[8px] h-10 text-[14px]"
+          >
+            <SelectValue placeholder="Select Interview Preference 1" />
+          </SelectTrigger>
+          <SelectContent>
+            {interviewLocations.map((loc: any) => (
+              <SelectItem key={loc.id} value={loc.name} disabled={loc.name === formData.interviewPreference2}>
+                {loc.name} {loc.city ? `(${loc.city})` : ""} {loc.name === formData.interviewPreference2 ? "(Selected as Pref 2)" : ""}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <Label
+          htmlFor="interviewPreference2"
+          className="text-[#64748B] font-semibold text-[12px] uppercase font-sans"
+        >
+          Interview Preference 2
+        </Label>
+        <Select
+          value={formData.interviewPreference2}
+          onValueChange={(val) =>
+            setFormData((prev) => ({ ...prev, interviewPreference2: val }))
+          }
+        >
+          <SelectTrigger
+            id="interviewPreference2"
+            className="w-full border-[#D4D4D4] bg-white rounded-[8px] h-10 text-[14px]"
+          >
+            <SelectValue placeholder="Select Interview Preference 2" />
+          </SelectTrigger>
+          <SelectContent>
+            {interviewLocations.map((loc: any) => (
+              <SelectItem key={loc.id} value={loc.name} disabled={loc.name === formData.interviewPreference1}>
+                {loc.name} {loc.city ? `(${loc.city})` : ""} {loc.name === formData.interviewPreference1 ? "(Selected as Pref 1)" : ""}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
@@ -3141,6 +3289,7 @@ function EditAdditionalForm({ appData, onSave, onClose }: FormProps) {
     hasMedicalCondition: appData.other.medicalConditions !== "None" ? "yes" : "no",
     medicalConditions: appData.other.medicalConditions !== "None" ? appData.other.medicalConditions : "",
     medicalConditionDocument: appData.other.medicalConditionDocument || "",
+    hobbies: appData.other.hobbies || "",
   });
 
   const [uploadingMedical, setUploadingMedical] = React.useState(false);
@@ -3178,6 +3327,7 @@ function EditAdditionalForm({ appData, onSave, onClose }: FormProps) {
         source: formData.source,
         medicalConditions: formData.hasMedicalCondition === "yes" ? formData.medicalConditions : "None",
         medicalConditionDocument: formData.hasMedicalCondition === "yes" ? formData.medicalConditionDocument : "",
+        hobbies: formData.hobbies,
       },
     };
     onSave(updatedData);
@@ -3200,6 +3350,24 @@ function EditAdditionalForm({ appData, onSave, onClose }: FormProps) {
           }
           className="border-[#D4D4D4] rounded-[8px] min-h-[100px] text-[14px]"
           required
+        />
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <Label
+          htmlFor="hobbies"
+          className="text-[#64748B] font-semibold text-[12px] uppercase font-sans"
+        >
+          Hobbies & Extra-Curricular Activities
+        </Label>
+        <Textarea
+          id="hobbies"
+          value={formData.hobbies}
+          onChange={(e) =>
+            setFormData((prev) => ({ ...prev, hobbies: e.target.value }))
+          }
+          placeholder="Specify your hobbies..."
+          className="border-[#D4D4D4] rounded-[8px] min-h-[80px] text-[14px]"
         />
       </div>
 
@@ -3398,8 +3566,10 @@ function EditContactForm({ appData, onSave, onClose }: FormProps) {
     primaryMobile: formatMobile(appData.applicant.primaryMobile),
     alternateMobile: formatMobile(appData.applicant.alternateMobile),
     presentAddress: appData.address.present,
+    presentPincode: appData.address.presentPincode || "",
     permanentAddress: appData.address.permanent,
-    sameAsPresent: appData.address.present === appData.address.permanent,
+    permanentPincode: appData.address.permanentPincode || "",
+    sameAsPresent: appData.address.present === appData.address.permanent && appData.address.presentPincode === appData.address.permanentPincode,
   });
 
   const handlePresentAddressChange = (val: string) => {
@@ -3412,11 +3582,23 @@ function EditContactForm({ appData, onSave, onClose }: FormProps) {
     });
   };
 
+  const handlePresentPincodeChange = (val: string) => {
+    const cleaned = val.replace(/\D/g, "").slice(0, 6);
+    setFormData((prev) => {
+      const next = { ...prev, presentPincode: cleaned };
+      if (prev.sameAsPresent) {
+        next.permanentPincode = cleaned;
+      }
+      return next;
+    });
+  };
+
   const handleSameAsPresentChange = (checked: boolean) => {
     setFormData((prev) => {
       const next = { ...prev, sameAsPresent: checked };
       if (checked) {
         next.permanentAddress = prev.presentAddress;
+        next.permanentPincode = prev.presentPincode;
       }
       return next;
     });
@@ -3433,7 +3615,9 @@ function EditContactForm({ appData, onSave, onClose }: FormProps) {
       },
       address: {
         present: formData.presentAddress,
+        presentPincode: formData.presentPincode,
         permanent: formData.permanentAddress,
+        permanentPincode: formData.permanentPincode,
       },
     };
     onSave(updatedData);
@@ -3487,6 +3671,20 @@ function EditContactForm({ appData, onSave, onClose }: FormProps) {
         />
       </div>
 
+      <div className="flex flex-col gap-1.5 col-span-2">
+        <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+          Present Pincode
+        </Label>
+        <Input
+          placeholder="e.g. 110001"
+          value={formData.presentPincode}
+          onChange={(e) => handlePresentPincodeChange(e.target.value)}
+          className="border-[#D4D4D4] rounded-[8px] h-9 text-[13px]"
+          maxLength={6}
+          required
+        />
+      </div>
+
       <div className="flex items-center gap-2 col-span-2 pt-1 pb-1">
         <Checkbox
           id="sameAsPresent"
@@ -3517,6 +3715,27 @@ function EditContactForm({ appData, onSave, onClose }: FormProps) {
           }
           disabled={formData.sameAsPresent}
           className="border-[#D4D4D4] rounded-[8px] min-h-[70px] text-[13px] disabled:bg-slate-50 disabled:text-slate-500"
+          required
+        />
+      </div>
+
+      <div className="flex flex-col gap-1.5 col-span-2">
+        <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+          Permanent Pincode
+        </Label>
+        <Input
+          placeholder="e.g. 110001"
+          value={formData.permanentPincode}
+          onChange={(e) => {
+            const cleaned = e.target.value.replace(/\D/g, "").slice(0, 6);
+            setFormData((prev) => ({
+              ...prev,
+              permanentPincode: cleaned,
+            }));
+          }}
+          disabled={formData.sameAsPresent}
+          className="border-[#D4D4D4] rounded-[8px] h-9 text-[13px] disabled:bg-slate-50 disabled:text-slate-500"
+          maxLength={6}
           required
         />
       </div>

@@ -5,4 +5,5 @@ export enum Role {
   COUNSELOR = 'counselor',
   APPLICATION_MANAGER = 'application_manager',
   EXAM_MANAGER = 'exam_manager',
+  STUDENT = 'student',
 }

@@ -9,6 +9,7 @@ import { getPreference } from "@/server/server-actions";
 import { PreferencesStoreProvider } from "@/stores/preferences/preferences-provider";
 import QueryProvider from "@/components/providers/query-provider";
 import { TopProgressBar } from "@/components/ui/top-progress-bar";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   THEME_MODE_VALUES,
   THEME_PRESET_VALUES,
@@ -57,9 +58,11 @@ export default async function RootLayout({
             themeMode={themeMode}
             themePreset={themePreset}
           >
-            <TopProgressBar />
-            {children}
-            <Toaster />
+            <TooltipProvider>
+              <TopProgressBar />
+              {children}
+              <Toaster />
+            </TooltipProvider>
           </PreferencesStoreProvider>
         </QueryProvider>
       </body>

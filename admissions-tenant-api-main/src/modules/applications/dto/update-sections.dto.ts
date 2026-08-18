@@ -22,6 +22,7 @@ export class UpdatePreferencesDto {
   @IsUUID() @IsOptional() preference1?: string;
   @IsUUID() @IsOptional() preference2?: string;
   @IsUUID() @IsOptional() courseId?: string;
+  @IsString() @IsOptional() interviewLocation?: string;
 }
 
 export class EducationRecordDto {
@@ -147,6 +148,7 @@ export class UpdateAdditionalInfoDto {
   @IsOptional() hasMedicalCondition?: any;
   @IsString() @IsOptional() medicalConditionDetails?: string;
   @IsString() @IsOptional() medicalConditionDocument?: string;
+  @IsString() @IsOptional() hobbies?: string;
 }
 
 export class UpdateDeclarationDto {

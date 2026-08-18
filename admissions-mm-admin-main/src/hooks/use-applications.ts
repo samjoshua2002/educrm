@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { apiGet, apiPatch, apiPost } from "@/lib/api";
+import { apiGet, apiPatch, apiPost, apiDelete } from "@/lib/api";
+import { useAuthStore } from "@/stores/auth-store";
 
 // ============================================================================
 // TYPES
@@ -20,6 +21,7 @@ export interface ApplicationDetail {
   status: string;
   appliedFor: string;
   courseId: string;
+  interviewLocation?: string;
   applicant: {
     name: string;
     photo: string;
@@ -89,13 +91,16 @@ export interface ApplicationDetail {
   };
   address: {
     present: string;
+    presentPincode: string;
     permanent: string;
+    permanentPincode: string;
   };
   other: {
     inspiration: string;
     source: string;
     medicalConditions: string;
     medicalConditionDocument?: string;
+    hobbies?: string;
   };
   experience?: {
     claimedMonths?: string;
@@ -268,14 +273,17 @@ function mapApiToApplicationDetail(apiData: any): ApplicationDetail {
       },
     },
     address: {
-      present: formatAddress(presentAddr),
-      permanent: formatAddress(permanentAddr),
+      present: presentAddr ? presentAddr.addressLine1 || "" : "",
+      presentPincode: presentAddr ? presentAddr.pincode || "" : "",
+      permanent: permanentAddr ? permanentAddr.addressLine1 || "" : "",
+      permanentPincode: permanentAddr ? permanentAddr.pincode || "" : "",
     },
     other: {
       inspiration: apiData.inspirationEssay || "",
       source: apiData.howDidYouKnow || "",
       medicalConditions: apiData.hasMedicalCondition ? apiData.medicalConditionDetails || "Yes" : "None",
       medicalConditionDocument: apiData.medicalConditionDocument || apiData.medicalConditionDocumentUrl || "",
+      hobbies: apiData.hobbies || "",
     },
     experience: {
       claimedMonths: apiData.claimedExperienceMonths || "",
@@ -299,6 +307,7 @@ function mapApiToApplicationDetail(apiData: any): ApplicationDetail {
       confirmedCampus: apiData.confirmedCampus || "",
       remarks: apiData.evaluationRemarks || "",
     },
+    interviewLocation: apiData.interviewLocation || "",
   };
 }
 
@@ -332,10 +341,18 @@ function toContactPayload(updatedData: ApplicationDetail) {
   // Contact form edits primaryMobile, alternateMobile, and addresses
   const records = [];
   if (updatedData.address.present) {
-    records.push({ type: "present", addressLine1: updatedData.address.present });
+    records.push({
+      type: "present",
+      addressLine1: updatedData.address.present,
+      pincode: updatedData.address.presentPincode || undefined,
+    });
   }
   if (updatedData.address.permanent) {
-    records.push({ type: "permanent", addressLine1: updatedData.address.permanent });
+    records.push({
+      type: "permanent",
+      addressLine1: updatedData.address.permanent,
+      pincode: updatedData.address.permanentPincode || undefined,
+    });
   }
   return {
     addresses: records,
@@ -349,6 +366,7 @@ function toPreferencesPayload(updatedData: ApplicationDetail) {
     preference1: updatedData.preferences.preference1 || undefined,
     preference2: updatedData.preferences.preference2 || undefined,
     courseId: updatedData.courseId || undefined,
+    interviewLocation: updatedData.interviewLocation || undefined,
   };
 }
 
@@ -441,6 +459,7 @@ function toAdditionalPayload(updatedData: ApplicationDetail) {
     hasMedicalCondition: hasMedical,
     medicalConditionDetails: hasMedical ? updatedData.other.medicalConditions : undefined,
     medicalConditionDocument: hasMedical ? updatedData.other.medicalConditionDocument : undefined,
+    hobbies: updatedData.other.hobbies || undefined,
   };
 }
 
@@ -478,6 +497,9 @@ function parseDobToISO(dob: string): string | undefined {
 
 // 1. Fetch all applications (paginated)
 export function useApplications(page = 1, limit = 20, search?: string, status?: string) {
+  const user = useAuthStore((state) => state.user);
+  const isStudent = user?.role === "student";
+
   return useQuery({
     queryKey: ["applications", page, limit, search, status],
     queryFn: async () => {
@@ -486,6 +508,7 @@ export function useApplications(page = 1, limit = 20, search?: string, status?: 
       if (status && status !== "all") params.status = status;
       return apiGet<{ data: Application[]; pagination: any }>("/applications", params);
     },
+    enabled: !isStudent,
   });
 }
 
@@ -556,6 +579,7 @@ export function useUpdateApplication() {
       queryClient.invalidateQueries({
         queryKey: ["application", variables.applicationNo],
       });
+      queryClient.invalidateQueries({ queryKey: ["active-application"] });
       toast.success("Application details updated successfully");
     },
     onError: (err: any) => {
@@ -635,15 +659,17 @@ export function useSubmitApplication() {
 export function useDeleteApplication() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (_id: string) => {
-      // Delete is not supported in the application module per the business rules.
-      throw new Error("Deleting applications is not supported.");
+    mutationFn: async (id: string) => {
+      const encodedId = encodeURIComponent(id);
+      return apiDelete<any>(`/applications/${encodedId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["applications"] });
+      toast.success("Application deleted successfully");
     },
-    onError: () => {
-      toast.error("Deleting applications is not permitted by policy.");
+    onError: (err: any) => {
+      const msg = err.response?.data?.message || err.message || "Failed to delete application";
+      toast.error(msg);
     },
   });
 }
@@ -712,6 +738,25 @@ export function useUpdateGdEvaluation() {
     onError: (err: any) => {
       toast.error(err.response?.data?.message || "Failed to save evaluation");
     },
+  });
+}
+
+// 7. Fetch active application for currently logged-in student
+export function useActiveApplication(options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: ["active-application"],
+    queryFn: async () => {
+      try {
+        const raw = await apiGet<any>("/applications/my/active");
+        return mapApiToApplicationDetail(raw);
+      } catch (err: any) {
+        if (err.response?.status === 404) {
+          return null;
+        }
+        throw err;
+      }
+    },
+    enabled: options?.enabled,
   });
 }
 

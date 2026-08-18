@@ -1,14 +1,8 @@
 import { create } from "zustand";
 import Cookies from "js-cookie";
 import { jwtDecode } from "jwt-decode";
-import { User, Role } from "@/types/auth";
+import { User, Role, AuthState } from "@/types/auth";
 import { queryClient } from "@/lib/query-client";
-
-interface AuthState {
-  user: User | null;
-  login: (token: string, user: User) => void;
-  logout: () => void;
-}
 
 const COOKIE_NAME = "auth_token";
 const ROLE_COOKIE_NAME = "user_role";
@@ -56,5 +50,10 @@ export const useAuthStore = create<AuthState>((set) => ({
     if (typeof window !== "undefined") {
       // Optional: sessionStorage.clear();
     }
+  },
+  updateUser: (fields) => {
+    set((state) => ({
+      user: state.user ? { ...state.user, ...fields } : null,
+    }));
   },
 }));

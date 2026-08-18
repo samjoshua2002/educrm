@@ -431,6 +431,7 @@ export default function ApplicationDetailsPage() {
                   className={`${manrope.className} text-[14px] font-normal leading-[22.75px] text-[#475569]`}
                 >
                   {applicationData.address.present}
+                  {applicationData.address.presentPincode && ` - ${applicationData.address.presentPincode}`}
                 </p>
               </div>
 
@@ -441,17 +442,21 @@ export default function ApplicationDetailsPage() {
                   >
                     PERMANENT ADDRESS
                   </h4>
-                  <Badge
-                    variant="secondary"
-                    className="text-[9px] font-bold bg-[#1A237E]/[0.05] text-[#1A237E] hover:bg-[#1A237E]/[0.05] rounded-[4px] px-2 py-[2px] border-0 flex flex-col items-start"
-                  >
-                    SAME AS PRESENT
-                  </Badge>
+                  {applicationData.address.present === applicationData.address.permanent &&
+                   applicationData.address.presentPincode === applicationData.address.permanentPincode && (
+                    <Badge
+                      variant="secondary"
+                      className="text-[9px] font-bold bg-[#1A237E]/[0.05] text-[#1A237E] hover:bg-[#1A237E]/[0.05] rounded-[4px] px-2 py-[2px] border-0 flex flex-col items-start"
+                    >
+                      SAME AS PRESENT
+                    </Badge>
+                  )}
                 </div>
                 <p
                   className={`${manrope.className} text-[14px] font-normal leading-[22.75px] text-[#475569]`}
                 >
                   {applicationData.address.permanent}
+                  {applicationData.address.permanentPincode && ` - ${applicationData.address.permanentPincode}`}
                 </p>
               </div>
             </CardContent>
@@ -931,6 +936,18 @@ export default function ApplicationDetailsPage() {
                 </div>
                 <div className="flex flex-col items-start self-stretch p-4 rounded-r-[8px] rounded-l-none border-l-[4px] border-l-[#E2E8F0] bg-[#F8FAFC] text-slate-600 text-sm leading-relaxed">
                   &quot;{applicationData.other.inspiration}&quot;
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-[3.83px] h-[20px] rounded-full bg-[#1A237E] shrink-0 mt-[2px]" />
+                  <h4 className="text-sm font-semibold text-[#1E293B] leading-tight">
+                    Hobbies & Extra-Curricular Activities
+                  </h4>
+                </div>
+                <div className="flex flex-col items-start self-stretch p-4 rounded-r-[8px] rounded-l-none border-l-[4px] border-l-[#E2E8F0] bg-[#F8FAFC] text-slate-600 text-sm leading-relaxed">
+                  &quot;{applicationData.other.hobbies || "No hobbies specified."}&quot;
                 </div>
               </div>
 
@@ -2179,6 +2196,7 @@ function EditAdditionalForm({ appData, onSave, onClose }: FormProps) {
     inspiration: appData.other.inspiration,
     source: appData.other.source,
     medicalConditions: appData.other.medicalConditions,
+    hobbies: appData.other.hobbies || "",
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -2189,6 +2207,7 @@ function EditAdditionalForm({ appData, onSave, onClose }: FormProps) {
         inspiration: formData.inspiration,
         source: formData.source,
         medicalConditions: formData.medicalConditions,
+        hobbies: formData.hobbies,
       },
     };
     onSave(updatedData);
@@ -2211,6 +2230,24 @@ function EditAdditionalForm({ appData, onSave, onClose }: FormProps) {
           }
           className="border-[#D4D4D4] rounded-[8px] min-h-[100px] text-[14px]"
           required
+        />
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <Label
+          htmlFor="hobbies"
+          className="text-[#64748B] font-semibold text-[12px] uppercase font-sans"
+        >
+          Hobbies & Extra-Curricular Activities
+        </Label>
+        <Textarea
+          id="hobbies"
+          value={formData.hobbies}
+          onChange={(e) =>
+            setFormData((prev) => ({ ...prev, hobbies: e.target.value }))
+          }
+          placeholder="Specify your hobbies..."
+          className="border-[#D4D4D4] rounded-[8px] min-h-[80px] text-[14px]"
         />
       </div>
 
@@ -2278,8 +2315,10 @@ function EditContactForm({ appData, onSave, onClose }: FormProps) {
     primaryMobile: appData.applicant.primaryMobile,
     alternateMobile: appData.applicant.alternateMobile,
     presentAddress: appData.address.present,
+    presentPincode: appData.address.presentPincode || "",
     permanentAddress: appData.address.permanent,
-    sameAsPresent: appData.address.present === appData.address.permanent,
+    permanentPincode: appData.address.permanentPincode || "",
+    sameAsPresent: appData.address.present === appData.address.permanent && appData.address.presentPincode === appData.address.permanentPincode,
   });
 
   const handlePresentAddressChange = (val: string) => {
@@ -2292,11 +2331,23 @@ function EditContactForm({ appData, onSave, onClose }: FormProps) {
     });
   };
 
+  const handlePresentPincodeChange = (val: string) => {
+    const cleaned = val.replace(/\D/g, "").slice(0, 6);
+    setFormData((prev) => {
+      const next = { ...prev, presentPincode: cleaned };
+      if (prev.sameAsPresent) {
+        next.permanentPincode = cleaned;
+      }
+      return next;
+    });
+  };
+
   const handleSameAsPresentChange = (checked: boolean) => {
     setFormData((prev) => {
       const next = { ...prev, sameAsPresent: checked };
       if (checked) {
         next.permanentAddress = prev.presentAddress;
+        next.permanentPincode = prev.presentPincode;
       }
       return next;
     });
@@ -2313,7 +2364,9 @@ function EditContactForm({ appData, onSave, onClose }: FormProps) {
       },
       address: {
         present: formData.presentAddress,
+        presentPincode: formData.presentPincode,
         permanent: formData.permanentAddress,
+        permanentPincode: formData.permanentPincode,
       },
     };
     onSave(updatedData);
@@ -2366,6 +2419,20 @@ function EditContactForm({ appData, onSave, onClose }: FormProps) {
         />
       </div>
 
+      <div className="flex flex-col gap-1.5 col-span-2">
+        <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+          Present Pincode
+        </Label>
+        <Input
+          placeholder="e.g. 110001"
+          value={formData.presentPincode}
+          onChange={(e) => handlePresentPincodeChange(e.target.value)}
+          className="border-[#D4D4D4] rounded-[8px] h-9 text-[13px]"
+          maxLength={6}
+          required
+        />
+      </div>
+
       <div className="flex items-center gap-2 col-span-2 pt-1 pb-1">
         <Checkbox
           id="sameAsPresent"
@@ -2396,6 +2463,27 @@ function EditContactForm({ appData, onSave, onClose }: FormProps) {
           }
           disabled={formData.sameAsPresent}
           className="border-[#D4D4D4] rounded-[8px] min-h-[70px] text-[13px] disabled:bg-slate-50 disabled:text-slate-500"
+          required
+        />
+      </div>
+
+      <div className="flex flex-col gap-1.5 col-span-2">
+        <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+          Permanent Pincode
+        </Label>
+        <Input
+          placeholder="e.g. 110001"
+          value={formData.permanentPincode}
+          onChange={(e) => {
+            const cleaned = e.target.value.replace(/\D/g, "").slice(0, 6);
+            setFormData((prev) => ({
+              ...prev,
+              permanentPincode: cleaned,
+            }));
+          }}
+          disabled={formData.sameAsPresent}
+          className="border-[#D4D4D4] rounded-[8px] h-9 text-[13px] disabled:bg-slate-50 disabled:text-slate-500"
+          maxLength={6}
           required
         />
       </div>
