@@ -21,6 +21,7 @@ export interface ApplicationDetail {
   status: string;
   appliedFor: string;
   courseId: string;
+  interviewLocation?: string;
   applicant: {
     name: string;
     photo: string;
@@ -90,13 +91,16 @@ export interface ApplicationDetail {
   };
   address: {
     present: string;
+    presentPincode: string;
     permanent: string;
+    permanentPincode: string;
   };
   other: {
     inspiration: string;
     source: string;
     medicalConditions: string;
     medicalConditionDocument?: string;
+    hobbies?: string;
   };
   experience?: {
     claimedMonths?: string;
@@ -269,14 +273,17 @@ function mapApiToApplicationDetail(apiData: any): ApplicationDetail {
       },
     },
     address: {
-      present: formatAddress(presentAddr),
-      permanent: formatAddress(permanentAddr),
+      present: presentAddr ? presentAddr.addressLine1 || "" : "",
+      presentPincode: presentAddr ? presentAddr.pincode || "" : "",
+      permanent: permanentAddr ? permanentAddr.addressLine1 || "" : "",
+      permanentPincode: permanentAddr ? permanentAddr.pincode || "" : "",
     },
     other: {
       inspiration: apiData.inspirationEssay || "",
       source: apiData.howDidYouKnow || "",
       medicalConditions: apiData.hasMedicalCondition ? apiData.medicalConditionDetails || "Yes" : "None",
       medicalConditionDocument: apiData.medicalConditionDocument || apiData.medicalConditionDocumentUrl || "",
+      hobbies: apiData.hobbies || "",
     },
     experience: {
       claimedMonths: apiData.claimedExperienceMonths || "",
@@ -300,6 +307,7 @@ function mapApiToApplicationDetail(apiData: any): ApplicationDetail {
       confirmedCampus: apiData.confirmedCampus || "",
       remarks: apiData.evaluationRemarks || "",
     },
+    interviewLocation: apiData.interviewLocation || "",
   };
 }
 
@@ -333,10 +341,18 @@ function toContactPayload(updatedData: ApplicationDetail) {
   // Contact form edits primaryMobile, alternateMobile, and addresses
   const records = [];
   if (updatedData.address.present) {
-    records.push({ type: "present", addressLine1: updatedData.address.present });
+    records.push({
+      type: "present",
+      addressLine1: updatedData.address.present,
+      pincode: updatedData.address.presentPincode || undefined,
+    });
   }
   if (updatedData.address.permanent) {
-    records.push({ type: "permanent", addressLine1: updatedData.address.permanent });
+    records.push({
+      type: "permanent",
+      addressLine1: updatedData.address.permanent,
+      pincode: updatedData.address.permanentPincode || undefined,
+    });
   }
   return {
     addresses: records,
@@ -350,6 +366,7 @@ function toPreferencesPayload(updatedData: ApplicationDetail) {
     preference1: updatedData.preferences.preference1 || undefined,
     preference2: updatedData.preferences.preference2 || undefined,
     courseId: updatedData.courseId || undefined,
+    interviewLocation: updatedData.interviewLocation || undefined,
   };
 }
 
@@ -442,6 +459,7 @@ function toAdditionalPayload(updatedData: ApplicationDetail) {
     hasMedicalCondition: hasMedical,
     medicalConditionDetails: hasMedical ? updatedData.other.medicalConditions : undefined,
     medicalConditionDocument: hasMedical ? updatedData.other.medicalConditionDocument : undefined,
+    hobbies: updatedData.other.hobbies || undefined,
   };
 }
 

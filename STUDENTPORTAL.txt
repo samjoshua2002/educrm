@@ -1,0 +1,14 @@
+INSERT INTO users (id, name, email, password, role, organization_id, is_active, created_at, updated_at)
+SELECT
+  gen_random_uuid(),
+  'Test Student',
+  'teststudent@example.com',
+  '$2b$10$eqdk0AkJ5LE/B8q8RGx7f.1ZQfSDMXYShPcA0VlTG45uOxZum01Xe',
+  'student',
+  'b792e747-dd0c-4c79-8a3a-7018f92ffb4b',
+  true,
+  NOW(),
+  NOW()
+WHERE NOT EXISTS (
+  SELECT 1 FROM users WHERE email = 'teststudent@example.com'
+);

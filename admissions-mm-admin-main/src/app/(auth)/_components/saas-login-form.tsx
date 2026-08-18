@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/auth-store";
-import { apiPost } from "@/lib/api";
+import { publicPost } from "@/lib/api";
 import { User, Role } from "@/types/auth";
 
 import { Button } from "@/components/ui/button";
@@ -54,7 +54,7 @@ export function SaasLoginForm() {
 
   const onSubmit = async (data: z.infer<typeof FormSchema>) => {
     try {
-      const response = await apiPost<LoginResponse>("/auth/login", {
+      const response = await publicPost<LoginResponse>("/auth/login", {
         email: data.email,
         password: data.password,
       });
@@ -70,15 +70,22 @@ export function SaasLoginForm() {
         router.push("/organization/dashboard");
       }
     } catch (error: any) {
-      if (error.response?.status === 422 || error.response?.status === 400) {
+      const status = error.response?.status;
+      const backendMessage = error.response?.data?.message;
+
+      if (status === 401 || status === 403) {
+        toast.error(backendMessage || "Invalid email or password.");
+      } else if (status === 422 || status === 400) {
         const errors = error.response?.data?.errors;
         if (errors) {
           Object.keys(errors).forEach((key) => {
             form.setError(key as any, { message: errors[key] });
           });
         } else {
-          toast.error(error.response?.data?.message || "Invalid credentials");
+          toast.error(backendMessage || "Invalid credentials");
         }
+      } else {
+        toast.error(backendMessage || "Unable to login. Please try again.");
       }
     }
   };

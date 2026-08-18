@@ -121,4 +121,8 @@ export class CreateApplicationDto {
   @IsOptional()
   @IsObject()
   otherDetails?: any;
+
+  @IsOptional()
+  @IsString()
+  interviewLocation?: string;
 }

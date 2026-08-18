@@ -440,6 +440,8 @@ export class ApplicationsService {
         hasMedicalCondition: dto.otherDetails?.hasMedicalCondition ?? (dto.otherDetails?.medicalConditions ? true : false),
         medicalConditionDetails: dto.otherDetails?.medicalConditions || undefined,
         medicalConditionDocument: dto.otherDetails?.medicalConditionDocument || undefined,
+        interviewLocation: dto.interviewLocation || undefined,
+        hobbies: dto.otherDetails?.hobbies || undefined,
         createdBy: creatorId,
         updatedBy: creatorId,
       });
@@ -500,6 +502,7 @@ export class ApplicationsService {
             applicationId: savedApp.id,
             type: addr.type || 'present',
             addressLine1: addr.addressLine1 || addr.address || '',
+            pincode: addr.pincode || undefined,
           });
           await queryRunner.manager.save(rec);
         }
@@ -607,6 +610,7 @@ export class ApplicationsService {
     }
     if (dto.preference1 !== undefined) app.preference1 = dto.preference1;
     if (dto.preference2 !== undefined) app.preference2 = dto.preference2;
+    if (dto.interviewLocation !== undefined) app.interviewLocation = dto.interviewLocation;
     app.updatedBy = actorId;
     app.lastActivityAt = new Date();
     return this.applicationRepository.save(app);
@@ -621,6 +625,7 @@ export class ApplicationsService {
     }
     if (dto.medicalConditionDetails !== undefined) app.medicalConditionDetails = dto.medicalConditionDetails;
     if (dto.medicalConditionDocument !== undefined) app.medicalConditionDocument = dto.medicalConditionDocument;
+    if (dto.hobbies !== undefined) app.hobbies = dto.hobbies;
     app.updatedBy = actorId;
     app.lastActivityAt = new Date();
     return this.applicationRepository.save(app);

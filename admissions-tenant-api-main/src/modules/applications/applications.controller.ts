@@ -55,11 +55,15 @@ export class ApplicationsController {
   @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.APPLICATION_MANAGER, Role.COUNSELOR)
   findAll(
     @Req() req: any,
-    @Query() paginationDto: PaginationDto,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
     @Query('search') search?: string,
     @Query('status') status?: string,
   ) {
     const orgId = req.user.organizationId;
+    const paginationDto = new PaginationDto();
+    paginationDto.page = page ? Math.max(1, parseInt(page, 10) || 1) : 1;
+    paginationDto.limit = limit ? Math.min(1000, Math.max(1, parseInt(limit, 10) || 10)) : 10;
     return this.applicationsService.findAll(orgId, paginationDto, search, status);
   }
 

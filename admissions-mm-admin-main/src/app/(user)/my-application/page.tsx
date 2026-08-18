@@ -129,10 +129,16 @@ const applicationSchema = z.object({
       program: z.string().min(1, "Program is required"),
       preference1: z.string().min(1, "Campus preference 1 is required"),
       preference2: z.string().min(1, "Campus preference 2 is required"),
+      interviewPreference1: z.string().min(1, "Interview preference 1 is required"),
+      interviewPreference2: z.string().min(1, "Interview preference 2 is required"),
     })
     .refine((data) => data.preference1 !== data.preference2, {
       message: "Preference 1 and Preference 2 cannot be the same campus",
       path: ["preference2"],
+    })
+    .refine((data) => data.interviewPreference1 !== data.interviewPreference2, {
+      message: "Interview Preference 1 and Preference 2 cannot be the same city/location",
+      path: ["interviewPreference2"],
     }),
   education: z.object({
     tenth: z.object({
@@ -140,7 +146,7 @@ const applicationSchema = z.object({
       board: z.string().min(1, "Board is required"),
       year: z.string().regex(/^\d{4}$/, "Must be a 4-digit year"),
       percentage: z.string().min(1, "Percentage is required"),
-      documentUrl: z.string().optional(),
+      documentUrl: z.string().min(1, "10th Marksheet/Certificate upload is required"),
     }),
     twelfth: z.object({
       institute: z.string().min(1, "Institute is required"),
@@ -148,7 +154,7 @@ const applicationSchema = z.object({
       stream: z.string().min(1, "Stream is required"),
       year: z.string().regex(/^\d{4}$/, "Must be a 4-digit year"),
       percentage: z.string().min(1, "Percentage is required"),
-      documentUrl: z.string().optional(),
+      documentUrl: z.string().min(1, "12th Marksheet/Certificate upload is required"),
     }),
     graduation: z.object({
       degree: z.string().min(1, "Degree is required"),
@@ -199,12 +205,15 @@ const applicationSchema = z.object({
     }),
     address: z.object({
       present: z.string().min(5, "Present address is required"),
+      presentPincode: z.string().regex(/^\d{6}$/, "Pincode must be exactly 6 digits"),
       permanent: z.string().min(5, "Permanent address is required"),
+      permanentPincode: z.string().regex(/^\d{6}$/, "Pincode must be exactly 6 digits"),
     }),
   }),
   declaration: z.object({
     inspiration: z.string().min(10, "Motivation statement must be at least 10 words"),
     source: z.string().min(1, "Source is required"),
+    hobbies: z.string().optional(),
     hasMedicalCondition: z.string().optional(),
     medicalConditions: z.string().optional(),
     medicalConditionDocument: z.string().optional(),
@@ -371,7 +380,7 @@ export default function MyApplicationPage() {
   }
 
   if (isStudent && activeApp) {
-    return <ApplicationDetailsPage isStudentPortal={true} />;
+    return <ApplicationDetailsPage />;
   }
 
   return <MyApplicationForm isStudent={isStudent} />;
@@ -420,6 +429,27 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
   const coursesList = coursesData?.data || [];
   const branchesList = branchesData?.data || [];
 
+  const interviewLocations = React.useMemo(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("educrm_locations");
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            // Pick both types of locations, but prioritize type === "Interview"
+            return parsed.filter((loc: any) => loc.type === "Interview" || loc.type === "Center");
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    }
+    return [
+      { id: 1, name: "New Delhi Center", city: "New Delhi", type: "Center" },
+      { id: 2, name: "Chennai Marriot Hotel", city: "Chennai", type: "Interview" },
+    ];
+  }, []);
+
   const getBranchName = React.useCallback((val?: string) => {
     if (!val) return "Not selected";
     const found = branchesList.find((b) => b.id === val || b.name.toLowerCase() === val.toLowerCase());
@@ -458,6 +488,8 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
         program: "",
         preference1: "",
         preference2: "",
+        interviewPreference1: "",
+        interviewPreference2: "",
       },
       education: {
         tenth: {
@@ -510,12 +542,15 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
         },
         address: {
           present: "",
+          presentPincode: "",
           permanent: "",
+          permanentPincode: "",
         },
       },
       declaration: {
         inspiration: "",
         source: "",
+        hobbies: "",
         hasMedicalCondition: "no",
         medicalConditions: "",
         medicalConditionDocument: "",
@@ -611,6 +646,7 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
           preference1: data.preferences.preference1 || undefined,
           preference2: data.preferences.preference2 || undefined,
         },
+        interviewLocation: `${data.preferences.interviewPreference1}, ${data.preferences.interviewPreference2}`,
         parentDetails: [
           {
             relationship: "father",
@@ -680,8 +716,8 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
           : [],
         contactDetails: {
           addresses: [
-            { type: "present", addressLine1: data.family.address.present },
-            { type: "permanent", addressLine1: data.family.address.permanent },
+            { type: "present", addressLine1: data.family.address.present, pincode: data.family.address.presentPincode || undefined },
+            { type: "permanent", addressLine1: data.family.address.permanent, pincode: data.family.address.permanentPincode || undefined },
           ].filter((a) => a.addressLine1),
         },
         otherDetails: {
@@ -690,6 +726,7 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
           hasMedicalCondition: data.declaration.hasMedicalCondition === "yes",
           medicalConditions: data.declaration.hasMedicalCondition === "yes" ? data.declaration.medicalConditions : undefined,
           medicalConditionDocument: data.declaration.hasMedicalCondition === "yes" ? data.declaration.medicalConditionDocument : undefined,
+          hobbies: data.declaration.hobbies || undefined,
         },
       };
 
@@ -872,7 +909,10 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
 
                 <div className="border-t border-input pt-3 space-y-1">
                   <h4 className="text-[10px] font-bold tracking-[0.6px] uppercase text-muted-foreground">PRESENT ADDRESS</h4>
-                  <p className="text-xs text-foreground leading-normal">{form.getValues("family.address.present")}</p>
+                  <p className="text-xs text-foreground leading-normal">
+                    {form.getValues("family.address.present")}
+                    {form.getValues("family.address.presentPincode") && ` - ${form.getValues("family.address.presentPincode")}`}
+                  </p>
                 </div>
 
                 <div className="border-t border-input pt-3 space-y-1">
@@ -884,7 +924,10 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
                       </Badge>
                     )}
                   </div>
-                  <p className="text-xs text-foreground leading-normal">{form.getValues("family.address.permanent")}</p>
+                  <p className="text-xs text-foreground leading-normal">
+                    {form.getValues("family.address.permanent")}
+                    {form.getValues("family.address.permanentPincode") && ` - ${form.getValues("family.address.permanentPincode")}`}
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -901,21 +944,33 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
                 </CardTitle>
               </CardHeader>
               <CardContent className="px-6 py-5">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="flex flex-col space-y-1 p-3 bg-muted/20 rounded border border-border">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="flex flex-col space-y-1 p-3 bg-muted/20 rounded border border-border sm:col-span-2">
                     <span className="text-[10px] font-bold uppercase tracking-[0.6px] text-ring">Applied Program</span>
                     <span className="font-bold text-foreground text-xs truncate">{form.getValues("preferences.program")}</span>
                   </div>
                   <div className="flex flex-col space-y-1 p-3 bg-muted/20 rounded border border-border">
-                    <span className="text-[10px] font-bold uppercase tracking-[0.6px] text-muted-foreground">Preference 1</span>
+                    <span className="text-[10px] font-bold uppercase tracking-[0.6px] text-muted-foreground">Campus Preference 1</span>
                     <span className="font-bold text-foreground text-xs font-sans">
                       {branchesList.find(b => b.id === form.getValues("preferences.preference1"))?.name || form.getValues("preferences.preference1") || "Not selected"}
                     </span>
                   </div>
                   <div className="flex flex-col space-y-1 p-3 bg-muted/20 rounded border border-border">
-                    <span className="text-[10px] font-bold uppercase tracking-[0.6px] text-muted-foreground">Preference 2</span>
+                    <span className="text-[10px] font-bold uppercase tracking-[0.6px] text-muted-foreground">Campus Preference 2</span>
                     <span className="font-bold text-foreground text-xs font-sans">
                       {branchesList.find(b => b.id === form.getValues("preferences.preference2"))?.name || form.getValues("preferences.preference2") || "Not selected"}
+                    </span>
+                  </div>
+                  <div className="flex flex-col space-y-1 p-3 bg-muted/20 rounded border border-border">
+                    <span className="text-[10px] font-bold uppercase tracking-[0.6px] text-muted-foreground">Interview Preference 1</span>
+                    <span className="font-bold text-foreground text-xs">
+                      {form.getValues("preferences.interviewPreference1") || "Not selected"}
+                    </span>
+                  </div>
+                  <div className="flex flex-col space-y-1 p-3 bg-muted/20 rounded border border-border">
+                    <span className="text-[10px] font-bold uppercase tracking-[0.6px] text-muted-foreground">Interview Preference 2</span>
+                    <span className="font-bold text-foreground text-xs">
+                      {form.getValues("preferences.interviewPreference2") || "Not selected"}
                     </span>
                   </div>
                 </div>
@@ -1221,6 +1276,18 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
                   </div>
                   <p className="p-4 rounded-r-[8px] rounded-l-none border-l-[4px] border-l-border bg-muted/20 text-muted-foreground text-sm leading-relaxed italic">
                     &quot;{form.getValues("declaration.inspiration")}&quot;
+                  </p>
+                </div>
+
+                <div className="space-y-2 border-t border-input pt-4 mt-2">
+                  <div className="flex items-start gap-2">
+                    <div className="w-[3px] h-[20px] rounded-full bg-ring shrink-0 mt-[2px]" />
+                    <h4 className="text-sm font-semibold text-foreground leading-tight">
+                      Hobbies & Extra-Curricular Activities
+                    </h4>
+                  </div>
+                  <p className="p-4 rounded-r-[8px] rounded-l-none border-l-[4px] border-l-border bg-muted/20 text-muted-foreground text-sm leading-relaxed italic">
+                    &quot;{form.getValues("declaration.hobbies") || "No hobbies specified."}&quot;
                   </p>
                 </div>
 
@@ -1784,6 +1851,60 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
                                 <SelectItem value="South Campus" disabled={pref1Val === "South Campus"}>South Campus {pref1Val === "South Campus" ? "(Selected as Pref 1)" : ""}</SelectItem>
                               </>
                             )}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
+                />
+                <FormField
+                  control={form.control}
+                  name="preferences.interviewPreference1"
+                  render={({ field }) => {
+                    const pref2Val = form.watch("preferences.interviewPreference2");
+                    return (
+                      <FormItem className="space-y-0">
+                        <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px]">Interview City Preference 1</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full data-[placeholder]:text-foreground bg-white tracking-wider">
+                              <SelectValue placeholder="Select Interview Preference 1" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {interviewLocations.map((loc: any) => (
+                              <SelectItem key={loc.id} value={loc.name} disabled={loc.name === pref2Val}>
+                                {loc.name} {loc.city ? `(${loc.city})` : ""} {loc.name === pref2Val ? "(Selected as Pref 2)" : ""}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
+                />
+                <FormField
+                  control={form.control}
+                  name="preferences.interviewPreference2"
+                  render={({ field }) => {
+                    const pref1Val = form.watch("preferences.interviewPreference1");
+                    return (
+                      <FormItem className="space-y-0">
+                        <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px]">Interview City Preference 2</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full data-[placeholder]:text-foreground bg-white tracking-wider">
+                              <SelectValue placeholder="Select Interview Preference 2" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {interviewLocations.map((loc: any) => (
+                              <SelectItem key={loc.id} value={loc.name} disabled={loc.name === pref1Val}>
+                                {loc.name} {loc.city ? `(${loc.city})` : ""} {loc.name === pref1Val ? "(Selected as Pref 1)" : ""}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -2751,13 +2872,39 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
                           <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px]">Present Address</FormLabel>
                           <FormControl>
                             <Textarea
-                              placeholder="Street name, Building, City, State, ZIP..."
+                              placeholder="Street name, Building, City, State..."
                               className="border border-input rounded-[8px] text-[12px] placeholder:text-muted-foreground tracking-wider p-3 bg-white min-h-[90px] resize-none"
                               {...field}
                               onChange={(e) => {
                                 field.onChange(e);
                                 if (sameAddress) {
                                   form.setValue("family.address.permanent", e.target.value);
+                                }
+                              }}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="family.address.presentPincode"
+                      render={({ field }) => (
+                        <FormItem className="space-y-0">
+                          <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px]">Present Pincode</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="e.g. 110001"
+                              className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground tracking-wider bg-white"
+                              maxLength={6}
+                              {...field}
+                              onChange={(e) => {
+                                const cleaned = e.target.value.replace(/\D/g, "").slice(0, 6);
+                                field.onChange(cleaned);
+                                if (sameAddress) {
+                                  form.setValue("family.address.permanentPincode", cleaned);
                                 }
                               }}
                             />
@@ -2775,6 +2922,7 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
                           setSameAddress(!!checked);
                           if (checked) {
                             form.setValue("family.address.permanent", form.getValues("family.address.present"));
+                            form.setValue("family.address.permanentPincode", form.getValues("family.address.presentPincode"));
                           }
                         }}
                         className="rounded-[4px] border border-input data-[state=checked]:bg-ring data-[state=checked]:border-ring"
@@ -2792,10 +2940,34 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
                           <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px]">Permanent Address</FormLabel>
                           <FormControl>
                             <Textarea
-                              placeholder="Street name, Building, City, State, ZIP..."
+                              placeholder="Street name, Building, City, State..."
                               className="border border-input rounded-[8px] text-[12px] placeholder:text-muted-foreground tracking-wider p-3 bg-white min-h-[90px] resize-none"
                               disabled={sameAddress}
                               {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="family.address.permanentPincode"
+                      render={({ field }) => (
+                        <FormItem className="space-y-0">
+                          <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px]">Permanent Pincode</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="e.g. 110001"
+                              className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground tracking-wider bg-white"
+                              disabled={sameAddress}
+                              maxLength={6}
+                              {...field}
+                              onChange={(e) => {
+                                const cleaned = e.target.value.replace(/\D/g, "").slice(0, 6);
+                                field.onChange(cleaned);
+                              }}
                             />
                           </FormControl>
                           <FormMessage />
@@ -2834,6 +3006,26 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
                       <FormDescription className="text-[12px] text-muted-foreground font-medium italic">
                         Minimum 10 words. Be authentic and state your true goals.
                       </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="declaration.hobbies"
+                  render={({ field }) => (
+                    <FormItem className="space-y-0">
+                      <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px] block">
+                        Tell us about your Hobbies & Extra-Curricular Activities
+                      </FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Reading, writing, sports, music, coding, etc..."
+                          className="border border-input rounded-[8px] text-[12px] placeholder:text-muted-foreground tracking-wider p-3 bg-white min-h-[100px] resize-none"
+                          {...field}
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}

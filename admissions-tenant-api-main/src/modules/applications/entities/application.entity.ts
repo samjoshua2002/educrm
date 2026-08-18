@@ -201,6 +201,9 @@ export class Application {
   @Column({ name: 'medical_condition_document', type: 'text', nullable: true })
   medicalConditionDocument: string;
 
+  @Column({ name: 'hobbies', type: 'text', nullable: true })
+  hobbies: string;
+
   @Column({ name: 'declaration_accepted', default: false })
   declarationAccepted: boolean;
 

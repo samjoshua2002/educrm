@@ -74,7 +74,8 @@ api.interceptors.response.use(
         // Instead of toast, we let the component catch the error.
         break;
       case 404:
-        toast.error("Resource not found.");
+        // 404 is silently ignored at the interceptor level.
+        // Each hook/component handles "not found" in its own catch block.
         break;
       case 400:
         toast.error(message);

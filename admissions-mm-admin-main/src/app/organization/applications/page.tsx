@@ -138,7 +138,17 @@ export default function ApplicationsPage() {
   const [appliedFormStatus, setAppliedFormStatus] = React.useState("all");
   const [appliedProgram, setAppliedProgram] = React.useState("all");
   const [currentPage, setCurrentPage] = React.useState(1);
+  const [searchQuery, setSearchQuery] = React.useState("");
   const itemsPerPage = 8;
+
+  // Debounce the search so API only fires 400ms after the user stops typing
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setAppliedSearch(searchQuery);
+      setCurrentPage(1);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   usePageHeader({
     title: "Applications",
@@ -163,7 +173,6 @@ export default function ApplicationsPage() {
     deleteMutation.mutate(id);
   }
 
-  const [searchQuery, setSearchQuery] = React.useState("");
   const [formStatusDraft, setFormStatusDraft] = React.useState("all");
   const [programDraft, setProgramDraft] = React.useState("all");
 
@@ -370,18 +379,6 @@ export default function ApplicationsPage() {
     appliedAdvanced.dateTo !== "" ||
     appliedAdvanced.applicationNo !== "";
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px] w-full">
-        <div className="flex flex-col items-center gap-2">
-          <div className="size-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-          <p className="text-sm text-muted-foreground font-medium animate-pulse">
-            Loading applications...
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <>
@@ -394,11 +391,7 @@ export default function ApplicationsPage() {
                 placeholder="Search by name, email, phone or application no..."
                 className="w-full pr-10 h-10"
                 value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setAppliedSearch(e.target.value);
-                  setCurrentPage(1);
-                }}
+                onChange={(e) => setSearchQuery(e.target.value)}
               />
               <Button
                 variant="ghost"
@@ -716,7 +709,16 @@ export default function ApplicationsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredApplications.length === 0 ? (
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="h-64 text-center">
+                    <div className="flex flex-col items-center justify-center gap-3">
+                      <div className="size-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+                      <p className="text-sm text-muted-foreground font-medium">Searching...</p>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : filteredApplications.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="h-64 text-center">
                     <div className="flex flex-col items-center justify-center gap-3">

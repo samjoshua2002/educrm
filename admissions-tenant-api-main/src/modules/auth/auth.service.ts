@@ -13,18 +13,25 @@ export class AuthService {
   ) {}
 
   async login(email: string, password: string) {
+    console.log(`[AuthDebug] Login attempt for email: "${email}"`);
     const user = await this.usersService.findByEmail(email);
     if (!user) {
+      console.log(`[AuthDebug] User not found for email: "${email}"`);
       throw new UnauthorizedException('Invalid email or password');
     }
 
+    console.log(`[AuthDebug] User found: id=${user.id}, role=${user.role}, isActive=${user.isActive}, orgId=${user.organizationId}`);
+
     if (!user.isActive) {
+      console.log(`[AuthDebug] User is not active`);
       throw new UnauthorizedException('Account is deactivated');
     }
 
     // Check Organization Status (Skip for platform Superadmins)
     if (user.role !== Role.SUPERADMIN && user.organization) {
+      console.log(`[AuthDebug] Checking organization status: "${user.organization.status}"`);
       if (user.organization.status !== OrgStatus.ACTIVE) {
+        console.log(`[AuthDebug] Organization status is not active: "${user.organization.status}"`);
         throw new UnauthorizedException(
           `Access denied: Your organization is ${user.organization.status}. Please contact support.`,
         );
@@ -32,10 +39,12 @@ export class AuthService {
     }
 
     if (!user.password) {
+      console.log(`[AuthDebug] User has no password set`);
       throw new UnauthorizedException('Invalid email or password');
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
+    console.log(`[AuthDebug] Password match result: ${isMatch}`);
     if (!isMatch) {
       throw new UnauthorizedException('Invalid email or password');
     }

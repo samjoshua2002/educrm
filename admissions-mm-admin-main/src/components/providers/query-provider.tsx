@@ -17,12 +17,12 @@ function UserProfileSyncer() {
   });
 
   React.useEffect(() => {
-    if (data && user) {
-      if (
-        user.name !== data.name ||
-        user.email !== data.email ||
-        user.phone !== data.phone
-      ) {
+    if (data && user && user.role !== "student") {
+      const nameChanged = user.name !== data.name;
+      const emailChanged = user.email !== data.email;
+      const phoneChanged = (user.phone || "") !== (data.phone || "");
+
+      if (nameChanged || emailChanged || phoneChanged) {
         updateUser({
           name: data.name,
           email: data.email,

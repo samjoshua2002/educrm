@@ -136,8 +136,26 @@ const INDIAN_STATES = [
 ] as const;
 
 export default function LocationsPage() {
-  const [locations, setLocations] =
-    React.useState<Location[]>(initialLocations);
+  const [locations, setLocations] = React.useState<Location[]>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("educrm_locations");
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    }
+    return initialLocations;
+  });
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("educrm_locations", JSON.stringify(locations));
+    }
+  }, [locations]);
+
   const [searchQuery, setSearchQuery] = React.useState("");
   const [createDialogOpen, setCreateDialogOpen] = React.useState(false);
 
