@@ -5,6 +5,17 @@ import * as React from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { useApplications } from "@/hooks/use-applications";
+import { useTeam } from "@/hooks/use-team";
+import {
+  useInterviews,
+  useInterviewSlots,
+  useBookInterview,
+  useRescheduleInterview,
+  useCancelInterview,
+  useMarkNoShow,
+  useMarkCompleted,
+  type Interview,
+} from "@/hooks/use-interviews";
 
 import {
   EllipsisVertical,
@@ -21,6 +32,11 @@ import {
   BookOpen,
   CalendarRange,
   Hash,
+  CalendarPlus,
+  CalendarClock,
+  Ban,
+  UserX,
+  CheckCheck,
 } from "lucide-react";
 
 import {
@@ -57,6 +73,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  MultiSelect,
+  MultiSelectContent,
+  MultiSelectItem,
+  MultiSelectTrigger,
+  MultiSelectValue,
+} from "@/components/ui/multi-select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -66,6 +89,195 @@ import {
 } from "@/components/ui/table";
 
 import { type GDInterview, gdInterviews } from "@/data/mock-gd-interviews";
+
+// ============================================================================
+// ROW ACTIONS (B4 schedule, B5 reschedule/cancel/no-show/complete)
+// Shared between the desktop table and mobile card dropdown menus.
+// ============================================================================
+
+function InterviewActionItems({
+  applicationId,
+  applicationName,
+  interview,
+  onSchedule,
+  onCancelInterview,
+  onMarkNoShow,
+  onMarkCompleted,
+}: {
+  applicationId: string;
+  applicationName: string;
+  interview: Interview | null;
+  onSchedule: (mode: "schedule" | "reschedule") => void;
+  onCancelInterview: (interviewId: string) => void;
+  onMarkNoShow: (interviewId: string) => void;
+  onMarkCompleted: (interviewId: string) => void;
+}) {
+  const activeStatuses = ["Scheduled", "Rescheduled"];
+  const hasActiveInterview = interview && activeStatuses.includes(interview.status);
+
+  return (
+    <>
+      <DropdownMenuSeparator />
+      {!hasActiveInterview ? (
+        <DropdownMenuItem className="gap-2" onClick={() => onSchedule("schedule")}>
+          <CalendarPlus className="size-4" />
+          Schedule Interview
+        </DropdownMenuItem>
+      ) : (
+        <>
+          <DropdownMenuItem className="gap-2" onClick={() => onSchedule("reschedule")}>
+            <CalendarClock className="size-4" />
+            Reschedule
+          </DropdownMenuItem>
+          <DropdownMenuItem className="gap-2" onClick={() => onMarkCompleted(interview!.id)}>
+            <CheckCheck className="size-4" />
+            Mark Completed
+          </DropdownMenuItem>
+          <DropdownMenuItem className="gap-2" onClick={() => onMarkNoShow(interview!.id)}>
+            <UserX className="size-4" />
+            Mark No-Show
+          </DropdownMenuItem>
+          <DropdownMenuItem variant="destructive" className="gap-2" onClick={() => onCancelInterview(interview!.id)}>
+            <Ban className="size-4" />
+            Cancel Interview
+          </DropdownMenuItem>
+        </>
+      )}
+    </>
+  );
+}
+
+// ============================================================================
+// SCHEDULE / RESCHEDULE INTERVIEW DIALOG (B4, B5)
+// ============================================================================
+
+function ScheduleInterviewDialog({
+  open,
+  onOpenChange,
+  applicationId,
+  applicationName,
+  mode,
+  existingInterview,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  applicationId: string;
+  applicationName: string;
+  mode: "schedule" | "reschedule";
+  existingInterview: Interview | null;
+}) {
+  const [interviewType, setInterviewType] = React.useState<"GD" | "PI">(existingInterview?.interviewType || "GD");
+  const [slotId, setSlotId] = React.useState("");
+  const [panelUserIds, setPanelUserIds] = React.useState<string[]>([]);
+
+  React.useEffect(() => {
+    if (open) {
+      setInterviewType(existingInterview?.interviewType || "GD");
+      setSlotId("");
+      setPanelUserIds([]);
+    }
+  }, [open, existingInterview]);
+
+  const { data: slots, isLoading: slotsLoading } = useInterviewSlots({
+    interviewType,
+    status: "Available",
+  });
+  const { data: teamResponse } = useTeam();
+  const teamMembers = (teamResponse as any)?.data || [];
+
+  const bookInterview = useBookInterview();
+  const rescheduleInterview = useRescheduleInterview();
+
+  const isPending = bookInterview.isPending || rescheduleInterview.isPending;
+
+  const handleSubmit = async () => {
+    if (!slotId) return;
+    if (mode === "schedule") {
+      if (panelUserIds.length === 0) return;
+      await bookInterview.mutateAsync({ applicationId, interviewType, slotId, panelUserIds });
+    } else if (existingInterview) {
+      await rescheduleInterview.mutateAsync({ id: existingInterview.id, newSlotId: slotId });
+    }
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[520px] p-6 bg-white rounded-2xl gap-4">
+        <h3 className="text-lg font-bold text-[#0F172A]">
+          {mode === "schedule" ? "Schedule Interview" : "Reschedule Interview"} — {applicationName}
+        </h3>
+
+        {mode === "schedule" && (
+          <div className="flex flex-col gap-2">
+            <Label>Interview Type</Label>
+            <Select value={interviewType} onValueChange={(v) => { setInterviewType(v as "GD" | "PI"); setSlotId(""); }}>
+              <SelectTrigger className="w-full h-11">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="GD">Group Discussion (GD)</SelectItem>
+                <SelectItem value="PI">Personal Interview (PI)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        <div className="flex flex-col gap-2">
+          <Label>Available Slot</Label>
+          <Select value={slotId} onValueChange={setSlotId}>
+            <SelectTrigger className="w-full h-11">
+              <SelectValue placeholder={slotsLoading ? "Loading slots..." : "Select an available slot"} />
+            </SelectTrigger>
+            <SelectContent>
+              {(slots || []).length === 0 && (
+                <div className="px-3 py-2 text-sm text-muted-foreground">No available {interviewType} slots</div>
+              )}
+              {(slots || []).map((s) => (
+                <SelectItem key={s.id} value={s.id}>
+                  {s.slotDate} · {new Date(s.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  {" – "}
+                  {new Date(s.endTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  {s.location ? ` · ${s.location}` : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {mode === "schedule" && (
+          <div className="flex flex-col gap-2">
+            <Label>Assign Panel (Evaluators)</Label>
+            <MultiSelect values={panelUserIds} onValuesChange={setPanelUserIds}>
+              <MultiSelectTrigger className="w-full h-11">
+                <MultiSelectValue placeholder="Select one or more evaluators" />
+              </MultiSelectTrigger>
+              <MultiSelectContent>
+                {teamMembers.map((m: any) => (
+                  <MultiSelectItem key={m.id} value={m.id}>
+                    {m.name} ({m.email})
+                  </MultiSelectItem>
+                ))}
+              </MultiSelectContent>
+            </MultiSelect>
+          </div>
+        )}
+
+        <div className="flex justify-end gap-3 mt-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={!slotId || (mode === "schedule" && panelUserIds.length === 0) || isPending}
+          >
+            {mode === "schedule" ? "Schedule" : "Reschedule"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 
 
@@ -142,6 +354,33 @@ export default function GDInterviewPage() {
     return (appsResponse as any)?.data || appsResponse || null;
   }, [appsResponse]);
 
+  // Sprint B: real interview/slot data, keyed by applicationId (== item.id below).
+  // A candidate can have separate GD and PI interview records; row actions act
+  // on whichever is most recently created, which is the common case (one
+  // active interview at a time per candidate).
+  const { data: allInterviews } = useInterviews();
+  const interviewsByApplicationId = React.useMemo(() => {
+    const map = new Map<string, Interview>();
+    for (const iv of allInterviews || []) {
+      const existing = map.get(iv.applicationId);
+      if (!existing || new Date(iv.createdAt) > new Date(existing.createdAt)) {
+        map.set(iv.applicationId, iv);
+      }
+    }
+    return map;
+  }, [allInterviews]);
+
+  const [scheduleTarget, setScheduleTarget] = React.useState<{
+    applicationId: string;
+    applicationName: string;
+    mode: "schedule" | "reschedule";
+    existingInterview: Interview | null;
+  } | null>(null);
+
+  const cancelInterview = useCancelInterview();
+  const markNoShow = useMarkNoShow();
+  const markCompleted = useMarkCompleted();
+
   React.useEffect(() => {
     if (!appsList || !Array.isArray(appsList)) return;
 
@@ -159,6 +398,7 @@ export default function GDInterviewPage() {
 
       return {
         id: app.id || index + 1,
+        applicationId: app.id || undefined,
         applicationNo: app.applicationNo,
         name: app.name,
         email: app.email,
@@ -767,13 +1007,31 @@ export default function GDInterviewPage() {
                               <span className="sr-only">Open menu</span>
                             </Button>
                   </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-40">
+                          <DropdownMenuContent align="end" className="w-48">
                             <DropdownMenuItem className="gap-2" asChild>
                               <Link href={`/organization/gd-interview/${item.applicationNo}`}>
                                 <Eye className="size-4" />
                                 View
                               </Link>
                             </DropdownMenuItem>
+                            {item.applicationId && (
+                              <InterviewActionItems
+                                applicationId={item.applicationId}
+                                applicationName={item.name}
+                                interview={interviewsByApplicationId.get(item.applicationId) || null}
+                                onSchedule={(mode) =>
+                                  setScheduleTarget({
+                                    applicationId: item.applicationId!,
+                                    applicationName: item.name,
+                                    mode,
+                                    existingInterview: interviewsByApplicationId.get(item.applicationId!) || null,
+                                  })
+                                }
+                                onCancelInterview={(id) => cancelInterview.mutate(id)}
+                                onMarkNoShow={(id) => markNoShow.mutate(id)}
+                                onMarkCompleted={(id) => markCompleted.mutate({ id })}
+                              />
+                            )}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               variant="destructive"
@@ -921,13 +1179,31 @@ export default function GDInterviewPage() {
                           </Button>
                         </DropdownMenuTrigger>
 
-                        <DropdownMenuContent align="end" className="w-40">
+                        <DropdownMenuContent align="end" className="w-48">
                           <DropdownMenuItem className="gap-2" asChild>
                             <Link href={`/organization/gd-interview/${item.applicationNo}`}>
                               <Eye className="size-4" />
                               View
                             </Link>
                           </DropdownMenuItem>
+                          {item.applicationId && (
+                            <InterviewActionItems
+                              applicationId={item.applicationId}
+                              applicationName={item.name}
+                              interview={interviewsByApplicationId.get(item.applicationId) || null}
+                              onSchedule={(mode) =>
+                                setScheduleTarget({
+                                  applicationId: item.applicationId!,
+                                  applicationName: item.name,
+                                  mode,
+                                  existingInterview: interviewsByApplicationId.get(item.applicationId!) || null,
+                                })
+                              }
+                              onCancelInterview={(id) => cancelInterview.mutate(id)}
+                              onMarkNoShow={(id) => markNoShow.mutate(id)}
+                              onMarkCompleted={(id) => markCompleted.mutate({ id })}
+                            />
+                          )}
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
                             variant="destructive"
@@ -1060,6 +1336,20 @@ export default function GDInterviewPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Schedule / Reschedule Interview Dialog (B4, B5) */}
+      {scheduleTarget && (
+        <ScheduleInterviewDialog
+          open={scheduleTarget !== null}
+          onOpenChange={(open) => {
+            if (!open) setScheduleTarget(null);
+          }}
+          applicationId={scheduleTarget.applicationId}
+          applicationName={scheduleTarget.applicationName}
+          mode={scheduleTarget.mode}
+          existingInterview={scheduleTarget.existingInterview}
+        />
+      )}
     </>
   );
 }

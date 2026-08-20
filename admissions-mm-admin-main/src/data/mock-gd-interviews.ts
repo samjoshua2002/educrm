@@ -1,5 +1,8 @@
 export type GDInterview = {
   id: number;
+  // Real Application UUID, when this row comes from the live API (Sprint B) —
+  // absent for the static mock fallback rows below.
+  applicationId?: string;
   applicationNo: string;
   name: string;
   email: string;

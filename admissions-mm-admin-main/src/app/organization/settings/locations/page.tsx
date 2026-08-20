@@ -70,46 +70,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { usePageHeaderStore } from "@/stores/page-header-store";
-
-type LocationType = "Center" | "Interview";
-
-type Location = {
-  id: number;
-  type: LocationType;
-  name: string;
-  address: string;
-  city: string;
-  state: string;
-  pin: string;
-  country: string;
-  currencySymbol?: string;
-  currency?: string;
-};
-
-const initialLocations: Location[] = [
-  {
-    id: 1,
-    type: "Center",
-    name: "New Delhi Center",
-    address: "Block A, Connaught Place",
-    city: "New Delhi",
-    state: "Delhi",
-    pin: "110001",
-    country: "India",
-    currencySymbol: "₹",
-    currency: "INR",
-  },
-  {
-    id: 2,
-    type: "Interview",
-    name: "Chennai Marriot Hotel",
-    address: "221B Baker Street",
-    city: "Chennai",
-    state: "Tamil Nadu",
-    pin: "600001",
-    country: "India",
-  },
-];
+import { useAuthStore } from "@/stores/auth-store";
+import {
+  useLocations,
+  useCreateLocation,
+  useUpdateLocation,
+  useDeleteLocation,
+  type Location,
+  type LocationType,
+} from "@/hooks/use-locations";
 
 const INDIAN_STATES = [
   "Andhra Pradesh",
@@ -167,6 +136,19 @@ const CURRENCIES = [
 ] as const;
 
 export default function LocationsPage() {
+  // Mutations (create/edit/delete) are org_admin only — read access stays
+  // open so exam_manager etc. can still see the list, but the header action
+  // and row menu items are hidden for anyone else. The backend enforces the
+  // same restriction independently (org_admin + superadmin), so this is a
+  // UI convenience, not the actual security boundary.
+  const currentRole = useAuthStore((s) => s.user?.role);
+  const canManage = currentRole === "org_admin" || currentRole === "superadmin";
+
+  const { data: serverLocations = [], isLoading } = useLocations();
+  const createLocation = useCreateLocation();
+  const updateLocation = useUpdateLocation();
+  const deleteLocation = useDeleteLocation();
+
   const [locations, setLocations] = React.useState<Location[]>(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("educrm_locations");
@@ -182,6 +164,13 @@ export default function LocationsPage() {
   });
 
   React.useEffect(() => {
+    // when server data arrives, prefer it over local cache
+    if (serverLocations && serverLocations.length) {
+      setLocations(serverLocations);
+    }
+  }, [serverLocations]);
+
+  React.useEffect(() => {
     if (typeof window !== "undefined") {
       localStorage.setItem("educrm_locations", JSON.stringify(locations));
     }
@@ -190,7 +179,7 @@ export default function LocationsPage() {
   const [searchQuery, setSearchQuery] = React.useState("");
 
   const availableStates = React.useMemo(() => {
-    const states = new Set(locations.map((loc) => loc.state).filter(Boolean));
+    const states = new Set(locations.map((loc) => loc.state).filter((s): s is string => Boolean(s)));
     return Array.from(states).sort();
   }, [locations]);
 
@@ -208,7 +197,7 @@ export default function LocationsPage() {
 
   // Dialogs
   const [createDialogOpen, setCreateDialogOpen] = React.useState(false);
-  const [deleteLocationId, setDeleteLocationId] = React.useState<number | null>(null);
+  const [deleteLocationId, setDeleteLocationId] = React.useState<string | null>(null);
   const [editingLocation, setEditingLocation] = React.useState<Location | null>(null);
 
   // Form
@@ -224,18 +213,20 @@ export default function LocationsPage() {
     setHeader({
       title: "Location Management",
       description: "Manage physical branch locations and temporary external venues.",
-      action: {
-        label: "Add Location",
-        onClick: () => {
-          setEditingLocation(null);
-          setFormData({ type: "Center", country: "India" });
-          setCreateDialogOpen(true);
-        },
-      },
+      action: canManage
+        ? {
+            label: "Add Location",
+            onClick: () => {
+              setEditingLocation(null);
+              setFormData({ type: "Center", country: "India" });
+              setCreateDialogOpen(true);
+            },
+          }
+        : undefined,
     });
     return () => clearHeader();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [canManage]);
 
   const handleOpenEdit = (loc: Location) => {
     setEditingLocation(loc);
@@ -243,34 +234,30 @@ export default function LocationsPage() {
     setCreateDialogOpen(true);
   };
 
-  const handleSaveLocation = () => {
+  const handleSaveLocation = async () => {
+    const payload = {
+      type: formData.type as LocationType,
+      name: formData.name || "",
+      address: formData.address || undefined,
+      city: formData.city || undefined,
+      state: formData.state || undefined,
+      pin: formData.pin || undefined,
+      country: formData.country || "India",
+      currencySymbol: formData.type === "Center" ? formData.currencySymbol || undefined : undefined,
+      currency: formData.type === "Center" ? formData.currency || undefined : undefined,
+    };
+
     if (editingLocation) {
-      setLocations(
-        locations.map((loc) =>
-          loc.id === editingLocation.id ? ({ ...loc, ...formData } as Location) : loc
-        )
-      );
+      await updateLocation.mutateAsync({ id: editingLocation.id, data: payload });
     } else {
-      const newLoc: Location = {
-        id: Math.max(0, ...locations.map((l) => l.id)) + 1,
-        type: formData.type as LocationType,
-        name: formData.name || "",
-        address: formData.address || "",
-        city: formData.city || "",
-        state: formData.state || "",
-        pin: formData.pin || "",
-        country: formData.country || "",
-        currencySymbol: formData.type === "Center" ? formData.currencySymbol : undefined,
-        currency: formData.type === "Center" ? formData.currency : undefined,
-      };
-      setLocations([...locations, newLoc]);
+      await createLocation.mutateAsync(payload);
     }
     setCreateDialogOpen(false);
   };
 
-  const handleDeleteLocation = () => {
+  const handleDeleteLocation = async () => {
     if (deleteLocationId) {
-      setLocations(locations.filter((l) => l.id !== deleteLocationId));
+      await deleteLocation.mutateAsync(deleteLocationId);
       setDeleteLocationId(null);
     }
   };
@@ -281,7 +268,7 @@ export default function LocationsPage() {
         const q = searchQuery.toLowerCase();
         if (
           !loc.name.toLowerCase().includes(q) &&
-          !loc.city.toLowerCase().includes(q) &&
+          !(loc.city || "").toLowerCase().includes(q) &&
           !loc.country.toLowerCase().includes(q)
         ) {
           return false;
@@ -325,11 +312,6 @@ export default function LocationsPage() {
     }
     return Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i);
   }, [currentPage, totalPages]);
-
-  const [mounted, setMounted] = React.useState(false);
-  React.useEffect(() => {
-    setMounted(true);
-  }, []);
 
   return (
     <>
@@ -434,7 +416,7 @@ export default function LocationsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {!mounted ? (
+              {isLoading ? (
                 <TableRow>
                   <TableCell colSpan={6} className="h-48 text-center">
                     <div className="flex flex-col items-center justify-center text-muted-foreground">
@@ -491,33 +473,37 @@ export default function LocationsPage() {
                     </TableCell>
                     <TableCell className="py-[20px] px-[24px] align-middle text-right">
                       <div className="flex justify-end">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              className="data-[state=open]:bg-muted text-muted-foreground flex size-8 rounded-md hover:bg-muted"
-                              size="icon"
-                            >
-                              <EllipsisVertical className="size-4" />
-                              <span className="sr-only">Open menu</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-44 z-50">
-                            <DropdownMenuItem className="gap-2" onClick={() => handleOpenEdit(loc)}>
-                              <Pencil className="size-4" />
-                              Edit Location
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              variant="destructive"
-                              className="gap-2"
-                              onClick={() => setDeleteLocationId(loc.id)}
-                            >
-                              <Trash2 className="size-4" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        {canManage ? (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                className="data-[state=open]:bg-muted text-muted-foreground flex size-8 rounded-md hover:bg-muted"
+                                size="icon"
+                              >
+                                <EllipsisVertical className="size-4" />
+                                <span className="sr-only">Open menu</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-44 z-50">
+                              <DropdownMenuItem className="gap-2" onClick={() => handleOpenEdit(loc)}>
+                                <Pencil className="size-4" />
+                                Edit Location
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                variant="destructive"
+                                className="gap-2"
+                                onClick={() => setDeleteLocationId(loc.id)}
+                              >
+                                <Trash2 className="size-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        ) : (
+                          <span className="text-xs text-muted-foreground opacity-50">—</span>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -618,35 +604,37 @@ export default function LocationsPage() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1.5 shrink-0 self-center">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            className="text-muted-foreground flex size-8 rounded-md hover:bg-muted p-0 shrink-0"
-                            size="icon"
-                          >
-                            <EllipsisVertical className="size-4" />
-                            <span className="sr-only">Open menu</span>
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-36">
-                          <DropdownMenuItem className="gap-2" onClick={() => handleOpenEdit(loc)}>
-                            <Pencil className="size-4" />
-                            Edit Location
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            variant="destructive"
-                            className="gap-2"
-                            onClick={() => setDeleteLocationId(loc.id)}
-                          >
-                            <Trash2 className="size-4" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
+                    {canManage && (
+                      <div className="flex items-center gap-1.5 shrink-0 self-center">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              className="text-muted-foreground flex size-8 rounded-md hover:bg-muted p-0 shrink-0"
+                              size="icon"
+                            >
+                              <EllipsisVertical className="size-4" />
+                              <span className="sr-only">Open menu</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-36">
+                            <DropdownMenuItem className="gap-2" onClick={() => handleOpenEdit(loc)}>
+                              <Pencil className="size-4" />
+                              Edit Location
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              variant="destructive"
+                              className="gap-2"
+                              onClick={() => setDeleteLocationId(loc.id)}
+                            >
+                              <Trash2 className="size-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    )}
                   </div>
 
                   {/* Row 2: Details grid */}
