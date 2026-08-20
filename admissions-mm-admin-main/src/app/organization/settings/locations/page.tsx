@@ -160,7 +160,7 @@ export default function LocationsPage() {
         }
       }
     }
-    return initialLocations;
+    return [];
   });
 
   React.useEffect(() => {
