@@ -67,6 +67,10 @@ export const sidebarItems: NavGroup[] = [
         title: "GD & Interview",
         url: "/gd-interview",
         icon: GdInterviewIcon,
+        subItems: [
+          { title: "Candidates", url: "/gd-interview" },
+          { title: "Run Shortlisting", url: "/shortlisting-run" },
+        ],
       },
       {
         title: "Communications",
@@ -111,6 +115,7 @@ export const sidebarItems: NavGroup[] = [
         subItems: [
           { title: "Organization", url: "/settings/organization" },
           { title: "Locations", url: "/settings/locations" },
+          { title: "Shortlisting & Rubrics", url: "/settings/shortlisting" },
           { title: "Videos", url: "/gallery/videos" },
           { title: "Category", url: "/gallery/category" },
         ],

@@ -109,6 +109,41 @@ export class Application {
   @Column({ name: 'evaluation_remarks', type: 'text', nullable: true })
   evaluationRemarks: string;
 
+  // Stage 1 — shortlisting (pre-interview), set by ScoringService.commitShortlisting
+  @Column({ name: 'shortlist_score', type: 'decimal', precision: 5, scale: 2, nullable: true })
+  shortlistScore: number;
+
+  @Column({ name: 'shortlist_status', length: 20, nullable: true })
+  shortlistStatus: string; // 'Eligible' | 'Not Eligible'
+
+  // Stage 2 — composite score rollup (written by the evaluation rollup service)
+  @Column({ name: 'academic_score', type: 'decimal', precision: 5, scale: 2, nullable: true })
+  academicScore: number;
+
+  @Column({ name: 'experience_score', type: 'decimal', precision: 5, scale: 2, nullable: true })
+  experienceScore: number;
+
+  @Column({ name: 'achievement_score', type: 'decimal', precision: 3, scale: 2, nullable: true })
+  achievementScore: number;
+
+  @Column({ name: 'penalty_score', type: 'decimal', precision: 3, scale: 2, nullable: true })
+  penaltyScore: number;
+
+  @Column({ name: 'other_components_total', type: 'decimal', precision: 5, scale: 2, nullable: true })
+  otherComponentsTotal: number;
+
+  @Column({ name: 'gdpi_total', type: 'decimal', precision: 5, scale: 2, nullable: true })
+  gdpiTotal: number;
+
+  @Column({ name: 'composite_score', type: 'decimal', precision: 6, scale: 2, nullable: true })
+  compositeScore: number;
+
+  @Column({ name: 'discrepancy_flag', default: false })
+  discrepancyFlag: boolean;
+
+  @Column({ name: 'waitlist_status', length: 50, nullable: true })
+  waitlistStatus: string;
+
   @Column({ name: 'claimed_experience_months', length: 50, nullable: true })
   claimedExperienceMonths: string;
 
