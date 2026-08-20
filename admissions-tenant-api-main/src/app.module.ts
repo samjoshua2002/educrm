@@ -13,6 +13,8 @@ import { ApplicationsModule } from './modules/applications/applications.module.j
 import { CoursesModule } from './modules/courses/courses.module.js';
 import { AcademicSessionsModule } from './modules/academic-sessions/academic-sessions.module.js';
 import { CourseSessionsModule } from './modules/course-sessions/course-sessions.module.js';
+import { InterviewsModule } from './modules/interviews/interviews.module.js';
+import { LocationsModule } from './modules/locations/locations.module.js';
 
 @Module({
   imports: [
@@ -52,6 +54,8 @@ import { CourseSessionsModule } from './modules/course-sessions/course-sessions.
     CoursesModule,
     AcademicSessionsModule,
     CourseSessionsModule,
+    InterviewsModule,
+    LocationsModule,
   ],
   providers: [
     {
