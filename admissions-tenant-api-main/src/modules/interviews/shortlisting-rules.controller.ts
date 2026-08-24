@@ -46,4 +46,10 @@ export class ShortlistingRulesController {
   deactivate(@Param('id') id: string, @Param('orgId') orgId: string, @Request() req) {
     return this.rulesService.deactivate(id, orgId, req.user.sub);
   }
+
+  @Delete(':id/hard-delete')
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN)
+  hardDelete(@Param('id') id: string, @Param('orgId') orgId: string) {
+    return this.rulesService.hardDelete(id, orgId);
+  }
 }

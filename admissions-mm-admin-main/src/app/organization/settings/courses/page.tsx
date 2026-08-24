@@ -67,6 +67,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePageHeaderStore } from "@/stores/page-header-store";
 import { cn } from "@/lib/utils";
+import { useSidebar } from "@/components/ui/sidebar";
 
 import {
   useCourses,
@@ -101,6 +102,7 @@ const statusStyles: Record<string, string> = {
 };
 
 export default function CoursesSettingsPage() {
+  const { isMobile } = useSidebar();
   const setHeader = usePageHeaderStore((s) => s.setHeader);
   const clearHeader = usePageHeaderStore((s) => s.clearHeader);
 
@@ -269,6 +271,25 @@ export default function CoursesSettingsPage() {
       }
     }
     return Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i);
+  }, [courseSessionsPage, courseSessionsTotalPages]);
+
+  // Adjust page number if items are deleted or filtered, causing totalPages to shrink
+  React.useEffect(() => {
+    if (coursesPage > coursesTotalPages) {
+      setCoursesPage(coursesTotalPages);
+    }
+  }, [coursesPage, coursesTotalPages]);
+
+  React.useEffect(() => {
+    if (sessionsPage > sessionsTotalPages) {
+      setSessionsPage(sessionsTotalPages);
+    }
+  }, [sessionsPage, sessionsTotalPages]);
+
+  React.useEffect(() => {
+    if (courseSessionsPage > courseSessionsTotalPages) {
+      setCourseSessionsPage(courseSessionsTotalPages);
+    }
   }, [courseSessionsPage, courseSessionsTotalPages]);
 
 
@@ -740,8 +761,9 @@ export default function CoursesSettingsPage() {
 
           {/* 1. COURSES TAB CONTENT */}
           <TabsContent value="courses" className="m-0 border-0 outline-none">
-            <div className="hidden lg:block w-full">
-              <Table>
+            {!isMobile && (
+              <div className="hidden lg:block w-full">
+                <Table>
                 <TableHeader className="bg-[#fafafa] border-b border-[#e2e8f0]">
                   <TableRow className="hover:bg-transparent border-b border-[#e2e8f0]">
                     <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
@@ -800,7 +822,7 @@ export default function CoursesSettingsPage() {
                           </div>
                         </TableCell>
                         <TableCell className="py-[24px] px-[24px] align-middle">
-                          <Badge variant="outline" className="border-border text-xs font-semibold px-2.5 py-0.5 rounded-full">
+                          <Badge variant="secondary" className="bg-[#4F46E533] text-[#4F46E5] font-medium px-[10px] py-[2px] rounded-[9999px] text-[12px] border-0 shadow-none">
                             {course.code}
                           </Badge>
                         </TableCell>
@@ -939,10 +961,12 @@ export default function CoursesSettingsPage() {
                 )}
               </div>
             </div>
+            )}
 
             {/* Mobile View - Card List */}
-            {filteredCourses.length === 0 ? (
-              <div className="flex flex-col items-center justify-center gap-3 py-16 border border-border/80 bg-card rounded-xl lg:hidden text-center px-4 w-full">
+            {isMobile && (
+              filteredCourses.length === 0 ? (
+                <div className="flex flex-col items-center justify-center gap-3 py-16 border border-border/80 bg-card rounded-xl lg:hidden text-center px-4 w-full">
                 <div className="flex size-12 items-center justify-center rounded-full bg-muted/40">
                   <SearchX className="size-6 text-muted-foreground/80" />
                 </div>
@@ -1085,13 +1109,14 @@ export default function CoursesSettingsPage() {
                   )
                 )}
               </div>
-            )}
+            ))}
           </TabsContent>
 
           {/* 2. ACADEMIC SESSIONS TAB CONTENT */}
           <TabsContent value="sessions" className="m-0 border-0 outline-none">
-            <div className="hidden lg:block w-full">
-              <Table>
+            {!isMobile && (
+              <div className="hidden lg:block w-full">
+                <Table>
                 <TableHeader className="bg-[#fafafa] border-b border-[#e2e8f0]">
                   <TableRow className="hover:bg-transparent border-b border-[#e2e8f0]">
                     <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
@@ -1314,10 +1339,12 @@ export default function CoursesSettingsPage() {
                 )}
               </div>
             </div>
+            )}
 
             {/* Mobile View - Card List */}
-            {filteredSessions.length === 0 ? (
-              <div className="flex flex-col items-center justify-center gap-3 py-16 border border-border/80 bg-card rounded-xl lg:hidden text-center px-4 w-full">
+            {isMobile && (
+              filteredSessions.length === 0 ? (
+                <div className="flex flex-col items-center justify-center gap-3 py-16 border border-border/80 bg-card rounded-xl lg:hidden text-center px-4 w-full">
                 <div className="flex size-12 items-center justify-center rounded-full bg-muted/40">
                   <SearchX className="size-6 text-muted-foreground/80" />
                 </div>
@@ -1477,13 +1504,14 @@ export default function CoursesSettingsPage() {
                   )
                 )}
               </div>
-            )}
+            ))}
           </TabsContent>
 
           {/* 3. COURSE SESSIONS TAB CONTENT */}
           <TabsContent value="course-sessions" className="m-0 border-0 outline-none">
-            <div className="hidden lg:block w-full">
-              <Table>
+            {!isMobile && (
+              <div className="hidden lg:block w-full">
+                <Table>
                 <TableHeader className="bg-[#fafafa] border-b border-[#e2e8f0]">
                   <TableRow className="hover:bg-transparent border-b border-[#e2e8f0]">
                     <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
@@ -1679,10 +1707,12 @@ export default function CoursesSettingsPage() {
                 )}
               </div>
             </div>
+            )}
 
             {/* Mobile View - Card List */}
-            {filteredCourseSessions.length === 0 ? (
-              <div className="flex flex-col items-center justify-center gap-3 py-16 border border-border/80 bg-card rounded-xl lg:hidden text-center px-4 w-full">
+            {isMobile && (
+              filteredCourseSessions.length === 0 ? (
+                <div className="flex flex-col items-center justify-center gap-3 py-16 border border-border/80 bg-card rounded-xl lg:hidden text-center px-4 w-full">
                 <div className="flex size-12 items-center justify-center rounded-full bg-muted/40">
                   <SearchX className="size-6 text-muted-foreground/80" />
                 </div>
@@ -1817,7 +1847,7 @@ export default function CoursesSettingsPage() {
                   )
                 )}
               </div>
-            )}
+            ))}
           </TabsContent>
           </div>
         </Tabs>

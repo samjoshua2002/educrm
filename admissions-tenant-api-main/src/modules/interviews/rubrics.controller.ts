@@ -41,4 +41,10 @@ export class RubricsController {
   deactivate(@Param('id') id: string, @Param('orgId') orgId: string, @Request() req) {
     return this.rubricsService.deactivate(id, orgId, req.user.sub);
   }
+
+  @Delete(':id/hard-delete')
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN)
+  hardDelete(@Param('id') id: string, @Param('orgId') orgId: string) {
+    return this.rubricsService.hardDelete(id, orgId);
+  }
 }

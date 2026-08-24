@@ -61,4 +61,10 @@ export class ShortlistingRulesService {
     rule.updatedBy = actorId;
     return this.ruleRepository.save(rule);
   }
+
+  async hardDelete(id: string, orgId: string) {
+    const rule = await this.findOne(id, orgId);
+    await this.ruleRepository.remove(rule);
+    return { message: 'Shortlisting rule permanently deleted.' };
+  }
 }

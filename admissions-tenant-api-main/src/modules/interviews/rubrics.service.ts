@@ -53,4 +53,10 @@ export class RubricsService {
     rubric.updatedBy = actorId;
     return this.rubricRepository.save(rubric);
   }
+
+  async hardDelete(id: string, orgId: string) {
+    const rubric = await this.findOne(id, orgId);
+    await this.rubricRepository.remove(rubric);
+    return { message: 'Rubric parameter permanently deleted.' };
+  }
 }
