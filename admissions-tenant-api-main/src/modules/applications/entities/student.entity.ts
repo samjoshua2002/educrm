@@ -30,6 +30,9 @@ export class Student {
   @Column({ length: 50, nullable: true })
   phone: string;
 
+  @Column({ type: 'text', nullable: true })
+  password: string;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

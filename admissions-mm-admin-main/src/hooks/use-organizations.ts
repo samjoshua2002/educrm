@@ -97,6 +97,37 @@ export function useActivateOrganization() {
   });
 }
 
+export interface OrganizationSettings {
+  applicationFee: number;
+  seatBookingFee: number;
+}
+
+export function useOrganizationSettings(id: string) {
+  return useQuery({
+    queryKey: ["organization-settings", id],
+    queryFn: () => apiGet<OrganizationSettings>(`/organizations/${id}/settings`),
+    enabled: !!id,
+  });
+}
+
+export function useUpdateOrganizationSettings(id: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: Partial<OrganizationSettings>) =>
+      apiPatch<OrganizationSettings>(`/organizations/${id}/settings`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["organization-settings", id] });
+      toast.success("Settings updated successfully");
+    },
+    onError: (error: any) => {
+      toast.error(
+        error.response?.data?.message || "Failed to update settings",
+      );
+    },
+  });
+}
+
 export function useUpdateOrganizationGeneric() {
   const queryClient = useQueryClient();
 

@@ -7,6 +7,7 @@ import { Application } from '../applications/entities/application.entity.js';
 import { BookInterviewDto } from './dto/book-interview.dto.js';
 import { RescheduleInterviewDto } from './dto/reschedule-interview.dto.js';
 import { CompleteInterviewDto } from './dto/complete-interview.dto.js';
+import { ScoringService } from './scoring.service.js';
 
 @Injectable()
 export class InterviewsBookingService {
@@ -18,6 +19,7 @@ export class InterviewsBookingService {
     @InjectRepository(Application)
     private readonly applicationRepository: Repository<Application>,
     private readonly dataSource: DataSource,
+    private readonly scoringService: ScoringService,
   ) {}
 
   // Books a shortlisted Application into an Available slot: creates the
@@ -164,7 +166,14 @@ export class InterviewsBookingService {
     interview.status = 'Completed';
     if (dto.outcome) interview.outcome = dto.outcome;
     interview.updatedBy = actorId;
-    return this.interviewRepository.save(interview);
+    const saved = await this.interviewRepository.save(interview);
+
+    // Stage-2 rollup: re-run in case evaluations for this interview were
+    // already submitted before it was marked Completed (submitScores only
+    // triggers the rollup at submit time, which may have happened earlier).
+    await this.scoringService.computeCompositeScore(orgId, interview.applicationId);
+
+    return saved;
   }
 
   findAllByOrg(orgId: string, filters?: { applicationId?: string; interviewType?: string; status?: string }) {

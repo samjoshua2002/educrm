@@ -15,6 +15,7 @@ import {
 import { OrganizationsService } from './organizations.service.js';
 import { CreateOrganizationDto } from './dto/create-organization.dto.js';
 import { UpdateOrganizationDto } from './dto/update-organization.dto.js';
+import { UpdateOrgSettingsDto } from './dto/update-org-settings.dto.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
@@ -85,5 +86,39 @@ export class OrganizationsController {
   @ResponseMessage('Organization deleted successfully')
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.organizationsService.remove(id);
+  }
+
+  @Get(':id/settings')
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN)
+  @ResponseMessage('Organization settings fetched successfully')
+  getSettings(@Param('id', ParseUUIDPipe) id: string, @Request() req: any) {
+    const user = req.user;
+
+    if (user.role === Role.ORG_ADMIN && user.organizationId !== id) {
+      throw new ForbiddenException(
+        'Access denied: You can only view your own organization settings',
+      );
+    }
+
+    return this.organizationsService.getSettings(id);
+  }
+
+  @Patch(':id/settings')
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN)
+  @ResponseMessage('Organization settings updated successfully')
+  updateSettings(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateOrgSettingsDto,
+    @Request() req: any,
+  ) {
+    const user = req.user;
+
+    if (user.role === Role.ORG_ADMIN && user.organizationId !== id) {
+      throw new ForbiddenException(
+        'Access denied: You can only edit your own organization settings',
+      );
+    }
+
+    return this.organizationsService.updateSettings(id, dto, user.sub);
   }
 }

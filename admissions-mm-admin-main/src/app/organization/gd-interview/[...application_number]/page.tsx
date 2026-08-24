@@ -49,6 +49,8 @@ import {
 } from "@/components/ui/dialog";
 
 import { useApplication, useUpdateApplicationStatus, useUpdateGdEvaluation, useUpdateApplication } from "@/hooks/use-applications";
+import { useCompositeScore, useScoreAdjustment } from "@/hooks/use-scoring";
+import { useAuthStore } from "@/stores/auth-store";
 import { gdInterviews } from "@/data/mock-gd-interviews";
 import { toast } from "sonner";
 
@@ -71,6 +73,38 @@ export default function GDInterviewDetailsPage() {
   const updateStatusMutation = useUpdateApplicationStatus();
   const updateGdEvalMutation = useUpdateGdEvaluation();
   const updateSectionMutation = useUpdateApplication();
+
+  // Stage-2 composite score rollup — real, backend-persisted figures
+  // (replaces the fabricated client-side "Composite Score Banner" calc
+  // that used to live in interviewData.interviewScores.compositeScore).
+  const { data: compositeScoreData } = useCompositeScore(applicationNumber);
+  const scoreAdjustmentMutation = useScoreAdjustment(applicationNumber);
+  const currentRole = useAuthStore((s) => s.user?.role);
+  const canAdjustScore =
+    currentRole === "org_admin" || currentRole === "application_manager" || currentRole === "superadmin";
+  const [scoreAdjustmentOpen, setScoreAdjustmentOpen] = React.useState(false);
+  const [scoreAdjustmentForm, setScoreAdjustmentForm] = React.useState({
+    achievementScore: 0,
+    penaltyScore: 0,
+    remarks: "",
+  });
+
+  React.useEffect(() => {
+    if (compositeScoreData) {
+      setScoreAdjustmentForm((prev) => ({
+        ...prev,
+        achievementScore: compositeScoreData.achievementScore ?? 0,
+        penaltyScore: compositeScoreData.penaltyScore ?? 0,
+      }));
+    }
+  }, [compositeScoreData]);
+
+  const handleScoreAdjustmentSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    scoreAdjustmentMutation.mutate(scoreAdjustmentForm, {
+      onSuccess: () => setScoreAdjustmentOpen(false),
+    });
+  };
 
   const [activeEditSection, setActiveEditSection] = React.useState<
     | "academics"
@@ -1083,10 +1117,102 @@ export default function GDInterviewDetailsPage() {
                 {/* Right Side: Score */}
                 <div className="relative z-10 flex items-baseline gap-1 text-white pr-2 sm:pr-4">
                   <span className="text-4xl font-black">
-                    {interviewData.interviewScores.compositeScore}
+                    {typeof compositeScoreData?.compositeScore === "number"
+                      ? compositeScoreData.compositeScore
+                      : interviewData.interviewScores.compositeScore}
                   </span>
                   <span className="text-sm font-bold opacity-80">/ 100</span>
                 </div>
+              </div>
+
+              {compositeScoreData?.discrepancyFlag && (
+                <div className="mt-4 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-800">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  Experience discrepancy flagged — claimed {compositeScoreData.claimedExperienceMonths ?? "-"} mo vs
+                  validated {compositeScoreData.validatedExperienceMonths ?? "-"} mo (exceeds org threshold).
+                </div>
+              )}
+
+              {/* Composite Score Breakdown — real per-round scores + components
+                  behind the banner above, from ScoringService.computeCompositeScore */}
+              <div className="mt-6 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC]/60 p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3
+                    style={{
+                      color: "#64748B",
+                      fontFamily: "Inter",
+                      fontSize: "10px",
+                      fontWeight: 700,
+                      lineHeight: "15px",
+                      letterSpacing: "1px",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    Composite Score Breakdown
+                  </h3>
+                  {canAdjustScore && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-3 text-[11px] font-semibold border-[#D4D4D4] text-[#1E293B] cursor-pointer"
+                      onClick={() => setScoreAdjustmentOpen(true)}
+                    >
+                      Adjust Achievement / Penalty
+                    </Button>
+                  )}
+                </div>
+
+                {!compositeScoreData ? (
+                  <p className="text-xs text-slate-500">Loading composite score…</p>
+                ) : (
+                  <>
+                    {compositeScoreData.interviews.length > 0 && (
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                        {compositeScoreData.interviews.map((iv) => (
+                          <div key={iv.interviewId} className="rounded-md bg-white border border-[#E2E8F0] p-2.5">
+                            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">
+                              {iv.interviewType} Round {iv.round}
+                            </p>
+                            <p className="text-base font-bold text-slate-900">
+                              {iv.score !== null ? iv.score : "—"}
+                            </p>
+                            <p className="text-[10px] text-slate-500">
+                              {iv.status}
+                              {iv.evaluatorCount ? ` · ${iv.evaluatorCount} evaluator(s)` : ""}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                      <div>
+                        <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-500">
+                          GD/PI Total
+                        </span>
+                        <span className="font-bold text-slate-900">{compositeScoreData.gdpiTotal}</span>
+                      </div>
+                      <div>
+                        <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-500">
+                          Experience
+                        </span>
+                        <span className="font-bold text-slate-900">{compositeScoreData.experienceComponent}</span>
+                      </div>
+                      <div>
+                        <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-500">
+                          Achievement
+                        </span>
+                        <span className="font-bold text-emerald-600">+{compositeScoreData.achievementScore}</span>
+                      </div>
+                      <div>
+                        <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-500">
+                          Penalty
+                        </span>
+                        <span className="font-bold text-red-600">-{compositeScoreData.penaltyScore}</span>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -1306,6 +1432,86 @@ export default function GDInterviewDetailsPage() {
               onClose={() => setActiveEditSection(null)}
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Achievement/Penalty manual score adjustment — org_admin /
+          application_manager / superadmin only. Calls PATCH
+          .../score-adjustment, which re-runs the composite rollup
+          server-side so compositeScore above reflects it immediately. */}
+      <Dialog open={scoreAdjustmentOpen} onOpenChange={setScoreAdjustmentOpen}>
+        <DialogContent className="max-w-[480px] w-[95%] rounded-[12px] p-[24px] gap-0 bg-white">
+          <DialogHeader className="flex flex-row items-center gap-2 pb-4 border-b border-[#E5E5E5] space-y-0">
+            <div className="flex items-center justify-center h-[36px] w-[36px] rounded-full bg-[#FAFAFA] shrink-0">
+              <Award className="h-4 w-4 text-[#415876]" />
+            </div>
+            <DialogTitle className="text-[#0A0A0A] font-semibold text-[18px] leading-7 font-sans">
+              Adjust Achievement / Penalty
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleScoreAdjustmentSubmit} className="grid grid-cols-2 gap-x-6 gap-y-4 pt-5 pb-1">
+            <div className="flex flex-col gap-2">
+              <Label className="text-[#64748B] font-semibold text-[12px] leading-4 tracking-[0.6px] uppercase font-sans">
+                Achievement (0-9.99)
+              </Label>
+              <Input
+                type="number"
+                step="0.01"
+                min={0}
+                max={9.99}
+                value={scoreAdjustmentForm.achievementScore}
+                onChange={(e) =>
+                  setScoreAdjustmentForm((prev) => ({ ...prev, achievementScore: Number(e.target.value) }))
+                }
+                className="border-[#D4D4D4] rounded-[8px] h-10 text-[14px]"
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label className="text-[#64748B] font-semibold text-[12px] leading-4 tracking-[0.6px] uppercase font-sans">
+                Penalty (0-9.99)
+              </Label>
+              <Input
+                type="number"
+                step="0.01"
+                min={0}
+                max={9.99}
+                value={scoreAdjustmentForm.penaltyScore}
+                onChange={(e) =>
+                  setScoreAdjustmentForm((prev) => ({ ...prev, penaltyScore: Number(e.target.value) }))
+                }
+                className="border-[#D4D4D4] rounded-[8px] h-10 text-[14px]"
+              />
+            </div>
+            <div className="flex flex-col gap-2 col-span-2">
+              <Label className="text-[#64748B] font-semibold text-[12px] leading-4 tracking-[0.6px] uppercase font-sans">
+                Remarks
+              </Label>
+              <Textarea
+                value={scoreAdjustmentForm.remarks}
+                onChange={(e) => setScoreAdjustmentForm((prev) => ({ ...prev, remarks: e.target.value }))}
+                placeholder="Reason for this adjustment..."
+                className="min-h-[80px] bg-white border border-[#E2E8F0] rounded-[8px]"
+              />
+            </div>
+
+            <div className="flex items-center gap-3 pt-4 border-t border-[#E5E5E5] col-span-2 mt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setScoreAdjustmentOpen(false)}
+                className="h-10 px-6 rounded-[8px] text-[14px] font-semibold border-[#D4D4D4] text-[#1E293B] cursor-pointer"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={scoreAdjustmentMutation.isPending}
+                className="h-10 px-6 rounded-[8px] text-[14px] font-semibold bg-[#2563EB] hover:bg-[#1D4ED8] text-white cursor-pointer"
+              >
+                {scoreAdjustmentMutation.isPending ? "Saving..." : "Save Adjustment"}
+              </Button>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
     </div>
