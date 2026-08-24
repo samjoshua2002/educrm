@@ -136,6 +136,9 @@ export interface Application {
   lastActivity: string;
   program: string;
   campus: string;
+  verificationStatus?: string;
+  verificationRemarks?: string | null;
+  verifiedAt?: string | null;
 }
 
 // ============================================================================
@@ -496,16 +499,23 @@ function parseDobToISO(dob: string): string | undefined {
 // ============================================================================
 
 // 1. Fetch all applications (paginated)
-export function useApplications(page = 1, limit = 20, search?: string, status?: string) {
+export function useApplications(
+  page = 1,
+  limit = 20,
+  search?: string,
+  status?: string,
+  verificationStatus?: string,
+) {
   const user = useAuthStore((state) => state.user);
   const isStudent = user?.role === "student";
 
   return useQuery({
-    queryKey: ["applications", page, limit, search, status],
+    queryKey: ["applications", page, limit, search, status, verificationStatus],
     queryFn: async () => {
       const params: Record<string, any> = { page, limit };
       if (search) params.search = search;
       if (status && status !== "all") params.status = status;
+      if (verificationStatus && verificationStatus !== "all") params.verificationStatus = verificationStatus;
       return apiGet<{ data: Application[]; pagination: any }>("/applications", params);
     },
     enabled: !isStudent,
@@ -633,22 +643,59 @@ export function useUpdateApplicationStatus() {
   });
 }
 
+// 4b. Verify / reject an application (org_admin & application_manager only)
+export function useVerifyApplication() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      applicationNo,
+      status,
+      remarks,
+    }: {
+      applicationNo: string;
+      status: "verified" | "rejected";
+      remarks?: string;
+    }) => {
+      const encodedNo = encodeURIComponent(applicationNo);
+      return apiPatch(`/applications/${encodedNo}/verify`, { status, remarks });
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["applications"] });
+      queryClient.invalidateQueries({
+        queryKey: ["application", variables.applicationNo],
+      });
+      toast.success(
+        variables.status === "verified"
+          ? "Application verified successfully"
+          : "Application rejected",
+      );
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || "Failed to update verification status");
+    },
+  });
+}
+
 // 5. Submit application (locks editing)
 export function useSubmitApplication() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (applicationNo: string) => {
+    mutationFn: async (payload: string | { applicationNo: string; password?: string }) => {
+      const applicationNo = typeof payload === "string" ? payload : payload.applicationNo;
+      const password = typeof payload === "string" ? undefined : payload.password;
       const encodedNo = encodeURIComponent(applicationNo);
-      return apiPatch(`/applications/${encodedNo}/submit`);
+      return apiPatch(`/applications/${encodedNo}/submit`, password ? { password } : undefined);
     },
-    onSuccess: (_, applicationNo) => {
+    onSuccess: (_, payload) => {
+      const applicationNo = typeof payload === "string" ? payload : payload.applicationNo;
       queryClient.invalidateQueries({ queryKey: ["applications"] });
       queryClient.invalidateQueries({ queryKey: ["application", applicationNo] });
       toast.success("Application submitted successfully");
     },
-    onError: () => {
-      toast.error("Failed to submit application");
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || "Failed to submit application");
     },
   });
 }

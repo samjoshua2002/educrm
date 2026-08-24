@@ -9,7 +9,12 @@ import { Repository } from 'typeorm';
 import { Organization } from './entities/organization.entity.js';
 import { CreateOrganizationDto } from './dto/create-organization.dto.js';
 import { UpdateOrganizationDto } from './dto/update-organization.dto.js';
+import { UpdateOrgSettingsDto } from './dto/update-org-settings.dto.js';
 import { Role } from '../../common/enums/roles.enum.js';
+
+const DEFAULT_APPLICATION_FEE = 2000;
+// Phase 6b — default seat-booking fee, same pattern as DEFAULT_APPLICATION_FEE.
+const DEFAULT_SEAT_BOOKING_FEE = 5000;
 
 import { PaginationDto } from '../../common/dto/pagination.dto.js';
 
@@ -105,5 +110,28 @@ export class OrganizationsService {
   async remove(id: string): Promise<void> {
     const org = await this.findOne(id);
     await this.orgRepo.remove(org);
+  }
+
+  async getSettings(id: string): Promise<{ applicationFee: number; seatBookingFee: number }> {
+    const org = await this.findOne(id);
+    return {
+      applicationFee: org.settings?.applicationFee ?? DEFAULT_APPLICATION_FEE,
+      seatBookingFee: org.settings?.seatBookingFee ?? DEFAULT_SEAT_BOOKING_FEE,
+    };
+  }
+
+  async updateSettings(
+    id: string,
+    dto: UpdateOrgSettingsDto,
+    actorId: string,
+  ): Promise<{ applicationFee: number; seatBookingFee: number }> {
+    const org = await this.findOne(id);
+    org.settings = { ...(org.settings || {}), ...dto };
+    org.updatedBy = actorId;
+    await this.orgRepo.save(org);
+    return {
+      applicationFee: org.settings.applicationFee ?? DEFAULT_APPLICATION_FEE,
+      seatBookingFee: org.settings.seatBookingFee ?? DEFAULT_SEAT_BOOKING_FEE,
+    };
   }
 }

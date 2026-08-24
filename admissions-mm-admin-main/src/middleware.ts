@@ -60,6 +60,15 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/organization/leads", request.url));
   }
 
+  // 5. Application verification is restricted to org_admin and application_manager
+  if (
+    userRole &&
+    pathname.startsWith("/organization/applications/verification") &&
+    !["org_admin", "application_manager"].includes(userRole)
+  ) {
+    return NextResponse.redirect(new URL("/unauthorized", request.url));
+  }
+
   return NextResponse.next();
 }
 

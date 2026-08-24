@@ -51,6 +51,9 @@ export class Organization {
   @Column({ name: 'subscription_end', type: 'timestamp' })
   subscriptionEnd: Date;
 
+  @Column({ type: 'jsonb', nullable: true })
+  settings: { applicationFee?: number; seatBookingFee?: number } | null;
+
   @Column({ name: 'created_by', nullable: true, type: 'uuid' })
   createdBy: string;
 

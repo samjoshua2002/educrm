@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Plus, Pencil, Trash2, ListChecks, SlidersHorizontal } from "lucide-react";
+import { Plus, Pencil, Trash2, ListChecks, SlidersHorizontal, Info } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   Table,
   TableBody,
@@ -472,13 +477,30 @@ function ShortlistingRulesTab() {
                 value={form.testWeightage}
                 onChange={(e) => setForm({ ...form, testWeightage: e.target.value })}
               />
-              <Input
-                type="number"
-                placeholder="Experience %"
-                value={form.experienceWeightage}
-                onChange={(e) => setForm({ ...form, experienceWeightage: e.target.value })}
-              />
+              <div className="relative">
+                <Input
+                  type="number"
+                  placeholder="Experience %"
+                  className="pr-8"
+                  value={form.experienceWeightage}
+                  onChange={(e) => setForm({ ...form, experienceWeightage: e.target.value })}
+                />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="absolute right-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-[260px]">
+                    Experience weightage does not currently affect Stage-1 shortlisting
+                    eligibility, since experience isn&apos;t known until after the interview. It
+                    will only apply to a later post-interview composite/final score.
+                  </TooltipContent>
+                </Tooltip>
+              </div>
             </div>
+            <p className="text-xs text-muted-foreground">
+              Note: experience weightage is not applied to Stage-1 shortlisting — see the info
+              icon above.
+            </p>
           </div>
 
           <div className="flex flex-col gap-2">

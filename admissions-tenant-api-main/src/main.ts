@@ -9,7 +9,9 @@ import pg from 'pg';
 pg.types.setTypeParser(1114, (str) => new Date(str + 'Z'));
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // rawBody: true preserves the raw request body buffer (req.rawBody) alongside
+  // normal JSON parsing, needed for the Razorpay webhook HMAC signature check.
+  const app = await NestFactory.create(AppModule, { rawBody: true });
 
   // Global Exception Filter for standard error structure
   app.useGlobalFilters(new GlobalExceptionFilter());

@@ -18,6 +18,11 @@ import { SlotsService } from './slots.service.js';
 import { SlotsController } from './slots.controller.js';
 import { InterviewsBookingService } from './interviews-booking.service.js';
 import { InterviewsBookingController } from './interviews-booking.controller.js';
+import { InterviewEvaluation } from './entities/interview-evaluation.entity.js';
+import { EvaluationScore } from './entities/evaluation-score.entity.js';
+import { EvaluationsService } from './evaluations.service.js';
+import { EvaluationsController } from './evaluations.controller.js';
+import { CompositeScoreController } from './composite-score.controller.js';
 
 @Module({
   imports: [
@@ -28,15 +33,23 @@ import { InterviewsBookingController } from './interviews-booking.controller.js'
       InterviewSlot,
       Interview,
       Application,
+      InterviewEvaluation,
+      EvaluationScore,
     ]),
   ],
   controllers: [
+    // EvaluationsController must be registered before InterviewsBookingController:
+    // both share the 'organizations/:orgId/interviews' prefix and Nest/Express
+    // resolves routes in registration order, so the literal 'my-assignments'
+    // route needs to win over InterviewsBookingController's ':id' pattern.
+    EvaluationsController,
     RubricsController,
     ShortlistingRulesController,
     ScoreConversionConfigController,
     ShortlistingController,
     SlotsController,
     InterviewsBookingController,
+    CompositeScoreController,
   ],
   providers: [
     RubricsService,
@@ -45,7 +58,8 @@ import { InterviewsBookingController } from './interviews-booking.controller.js'
     ScoringService,
     SlotsService,
     InterviewsBookingService,
+    EvaluationsService,
   ],
-  exports: [ScoringService, ScoreConversionConfigService, InterviewsBookingService],
+  exports: [ScoringService, ScoreConversionConfigService, InterviewsBookingService, EvaluationsService],
 })
 export class InterviewsModule {}

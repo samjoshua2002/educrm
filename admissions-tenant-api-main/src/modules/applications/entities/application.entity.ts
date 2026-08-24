@@ -88,6 +88,14 @@ export class Application {
   @Column({ name: 'form_status', default: 'incomplete' })
   formStatus: string;
 
+  // DEPRECATED (Phase 5): legacy flat GD/PI score fields from earlier
+  // scaffolding. The authoritative GD/PI + composite numbers are now
+  // computed by ScoringService.computeCompositeScore (see gdpiTotal /
+  // compositeScore below), which does NOT read or write these columns.
+  // The pre-existing PATCH applications/:applicationNo/gd-evaluation
+  // endpoint still writes gdScore/piScore for backward compatibility with
+  // older UI, but nothing in the Stage-2 rollup relies on them anymore.
+  // Kept for now, do not delete.
   @Column({ name: 'gd_score', type: 'decimal', precision: 5, scale: 2, nullable: true })
   gdScore: number;
 
@@ -116,6 +124,24 @@ export class Application {
   @Column({ name: 'shortlist_status', length: 20, nullable: true })
   shortlistStatus: string; // 'Eligible' | 'Not Eligible'
 
+  // Verification — org admin / application manager sign-off before an
+  // application is eligible for Stage-1 shortlisting.
+  @Column({ name: 'verification_status', length: 20, default: 'pending' })
+  verificationStatus: string; // 'pending' | 'verified' | 'rejected'
+
+  @Column({ name: 'verified_by', type: 'uuid', nullable: true })
+  verifiedBy: string;
+
+  @ManyToOne(() => User, { onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'verified_by' })
+  verifiedByUser: User;
+
+  @Column({ name: 'verified_at', nullable: true })
+  verifiedAt: Date;
+
+  @Column({ name: 'verification_remarks', type: 'text', nullable: true })
+  verificationRemarks: string;
+
   // Stage 2 — composite score rollup (written by the evaluation rollup service)
   @Column({ name: 'academic_score', type: 'decimal', precision: 5, scale: 2, nullable: true })
   academicScore: number;
@@ -140,6 +166,11 @@ export class Application {
 
   @Column({ name: 'discrepancy_flag', default: false })
   discrepancyFlag: boolean;
+
+  // Admin remarks entered alongside a manual achievement/penalty score
+  // adjustment (see ScoringService.applyScoreAdjustment).
+  @Column({ name: 'score_adjustment_remarks', type: 'text', nullable: true })
+  scoreAdjustmentRemarks: string;
 
   @Column({ name: 'waitlist_status', length: 50, nullable: true })
   waitlistStatus: string;
@@ -256,6 +287,9 @@ export class Application {
 
   @Column({ name: 'submitted_at', nullable: true })
   submittedAt: Date;
+
+  @Column({ name: 'confirmation_email_sent_at', nullable: true })
+  confirmationEmailSentAt: Date;
 
   @Column({ name: 'last_activity_at', default: () => 'CURRENT_TIMESTAMP' })
   lastActivityAt: Date;

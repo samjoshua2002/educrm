@@ -1,0 +1,7 @@
+"id","application_id","type","address_line_1","address_line_2","city","district","state","pincode","phone","created_at"
+"2edbc06a-30b7-440e-aad8-4a85c75871ed","90be4819-f4fa-4105-9514-08cdafc73f3a","permanent","sdl;fuushdf",NULL,NULL,NULL,NULL,"532323",NULL,"2026-08-22 23:13:04.665972"
+"6b83d8ec-582b-4fca-a780-579464dc0367","ea55aa5b-2b39-48dc-8df7-c0109f4801f0","present","Madarihat",NULL,NULL,NULL,NULL,"735220",NULL,"2026-08-23 12:18:03.976859"
+"90d1269b-d1c8-49d5-b6b4-6c8952f5dfd1","f7cafa16-1692-40b7-99df-f4161ab37511","permanent","sklfiuwedjoiqwj",NULL,NULL,NULL,NULL,"688646",NULL,"2026-08-22 23:00:26.186342"
+"9aa5ce09-27f1-49e9-806b-697d6f70f723","f7cafa16-1692-40b7-99df-f4161ab37511","present","sklfiuwedjoiqwj",NULL,NULL,NULL,NULL,"688646",NULL,"2026-08-22 23:00:26.186342"
+"b5d452c0-6272-43ad-8023-6909a61e55e3","ea55aa5b-2b39-48dc-8df7-c0109f4801f0","permanent","Madarihat",NULL,NULL,NULL,NULL,"735220",NULL,"2026-08-23 12:18:03.976859"
+"cba7edef-3f05-4f8f-950c-5f1f126966a1","90be4819-f4fa-4105-9514-08cdafc73f3a","present","sdl;fuushdf",NULL,NULL,NULL,NULL,"532323",NULL,"2026-08-22 23:13:04.665972"

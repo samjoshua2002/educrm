@@ -31,6 +31,10 @@ import {
   Trash2,
   ExternalLink,
   FileCheck,
+  EyeOff,
+  CreditCard,
+  ShieldCheck,
+  XCircle,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -74,7 +78,8 @@ import {
 } from "@/components/ui/table";
 import { useRouter } from "next/navigation";
 import { usePageHeader } from "@/hooks/use-page-header";
-import { useCreateApplication, useActiveApplication } from "@/hooks/use-applications";
+import { useCreateApplication, useActiveApplication, useSubmitApplication } from "@/hooks/use-applications";
+import { apiPost } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth-store";
 import ApplicationDetailsPage from "@/app/organization/applications/[...application_number]/page";
 import { useCourses } from "@/hooks/use-courses";
@@ -113,6 +118,7 @@ const applicationSchema = z.object({
   personal: z.object({
     fullName: z.string().min(2, "Full name is required"),
     email: z.string().email("Invalid email address"),
+    password: z.string().min(8, "Password must be at least 8 characters"),
     phone: z.string().min(10, "Valid phone number required"),
     alternateMobile: z.string().optional(),
     gender: z.string().min(1, "Please select gender"),
@@ -231,7 +237,8 @@ const Stepper = ({ currentStep }: { currentStep: number }) => {
     { title: "Preferences", description: "Campus" },
     { title: "Educational", description: "Education" },
     { title: "Family", description: "Background" },
-    { title: "Submit", description: "Declaration" },
+    { title: "Statement", description: "Declaration" },
+    { title: "Payment", description: "Fee" },
   ];
 
   return (
@@ -309,6 +316,14 @@ const Stepper = ({ currentStep }: { currentStep: number }) => {
                     return (
                       <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 13 13" fill="none">
                         <path fillRule="evenodd" clipRule="evenodd" d="M0 0.541667C0 0.398008 0.0570684 0.260233 0.158651 0.158651C0.260233 0.0570684 0.398008 0 0.541667 0H12.4583C12.602 0 12.7398 0.0570684 12.8414 0.158651C12.9429 0.260233 13 0.398008 13 0.541667V5.41667H11.9167V1.08333H1.08333V11.9167H3.25542V13H0.541667C0.398008 13 0.260233 12.9429 0.158651 12.8414C0.0570684 12.7398 0 12.602 0 12.4583V0.541667ZM12.9935 7.943L8.09683 12.8386C7.9953 12.9398 7.85778 12.9966 7.71442 12.9966C7.57105 12.9966 7.43353 12.9398 7.332 12.8386L4.61283 10.1194L5.37767 9.35242L7.71442 11.6892L12.2276 7.176L12.9935 7.943Z" fill={fillColor}/>
+                      </svg>
+                    );
+                  }
+                  if (idx === 5) {
+                    return (
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="13" viewBox="0 0 16 13" fill="none">
+                        <rect x="0.5" y="0.5" width="15" height="12" rx="1.5" stroke={strokeColor} strokeWidth="1"/>
+                        <path d="M0.5 4.5H15.5" stroke={strokeColor} strokeWidth="1"/>
                       </svg>
                     );
                   }
@@ -393,6 +408,13 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
   const [imagePreview, setImagePreview] = React.useState<string | null>(null);
   const [sameAddress, setSameAddress] = React.useState(false);
   const [uploadingState, setUploadingState] = React.useState<{ [key: string]: boolean }>({});
+  const [showPersonalPassword, setShowPersonalPassword] = React.useState(false);
+  const [showPayment, setShowPayment] = React.useState(false);
+  const [createdApplication, setCreatedApplication] = React.useState<{ applicationNo: string; id?: string } | null>(null);
+  const [paymentState, setPaymentState] = React.useState<"idle" | "creating-order" | "awaiting-payment" | "verifying" | "success" | "failed">("idle");
+  const [paymentError, setPaymentError] = React.useState<string | null>(null);
+  const [isCreatingApplication, setIsCreatingApplication] = React.useState(false);
+  const [isFinalizing, setIsFinalizing] = React.useState(false);
 
   const handleFileUpload = async (file: File, fieldName: string) => {
     try {
@@ -422,6 +444,7 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
   };
 
   const createMutation = useCreateApplication();
+  const submitMutation = useSubmitApplication();
   const { data: coursesData } = useCourses(1, 100);
   const { data: sessionsData } = useAcademicSessions(1, 100);
   const { data: branchesData } = useBranches(1, 100);
@@ -473,6 +496,7 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
       personal: {
         fullName: user?.role === "student" ? user?.name : "",
         email: user?.email || "",
+        password: "",
         phone: user?.role === "student" ? user?.phone || "" : "",
         alternateMobile: "",
         gender: "",
@@ -733,11 +757,17 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
       console.log("Submitting payload:", JSON.stringify(payload, null, 2));
 
       try {
-        await createMutation.mutateAsync(payload);
-        if (isStudent) {
-          window.location.href = "/my-application";
-        } else {
-          router.push("/organization/applications");
+        setIsCreatingApplication(true);
+        const created: any = await createMutation.mutateAsync(payload);
+        const applicationNo = created?.applicationNo || created?.data?.applicationNo;
+        const id = created?.id || created?.data?.id;
+        if (applicationNo) {
+          setCreatedApplication({ applicationNo, id });
+          setPaymentState("idle");
+          setPaymentError(null);
+          setIsPreview(false);
+          setShowPayment(true);
+          window.scrollTo({ top: 0, behavior: "smooth" });
         }
       } catch (error: any) {
         console.error("Failed to submit application:", error);
@@ -746,9 +776,114 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
         console.error("Error message:", errData?.message || error?.message);
         console.error("Error status:", error?.response?.status);
         console.error("Full payload sent:", JSON.stringify(payload, null, 2));
+      } finally {
+        setIsCreatingApplication(false);
       }
     } catch (error: any) {
       console.error("Outer error:", error?.message || error);
+    }
+  };
+
+  // --- Razorpay Payment Flow ---
+
+  const loadRazorpayScript = (): Promise<boolean> => {
+    return new Promise((resolve) => {
+      if (typeof window === "undefined") return resolve(false);
+      if ((window as any).Razorpay) return resolve(true);
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
+  const handlePayNow = async () => {
+    if (!createdApplication) return;
+    setPaymentError(null);
+    setPaymentState("creating-order");
+    try {
+      const order: any = await apiPost<any>("/payments/razorpay/order", {
+        applicationId: createdApplication.id || createdApplication.applicationNo,
+      });
+
+      const scriptLoaded = await loadRazorpayScript();
+      if (!scriptLoaded) {
+        setPaymentState("failed");
+        setPaymentError("Unable to load payment gateway. Please check your connection and try again.");
+        return;
+      }
+
+      setPaymentState("awaiting-payment");
+
+      const options = {
+        key: order.keyId,
+        amount: order.amount,
+        currency: order.currency || "INR",
+        name: "Application Fee",
+        description: `Application fee for ${createdApplication.applicationNo}`,
+        order_id: order.orderId,
+        handler: async (response: any) => {
+          setPaymentState("verifying");
+          try {
+            const verifyRes: any = await apiPost<any>("/payments/razorpay/verify", {
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            });
+
+            if (verifyRes?.success) {
+              setPaymentState("success");
+              await finalizeSubmission();
+            } else {
+              setPaymentState("failed");
+              setPaymentError("Payment verification failed. Please try again.");
+            }
+          } catch (err: any) {
+            setPaymentState("failed");
+            setPaymentError(err?.response?.data?.message || "Payment verification failed. Please try again.");
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            setPaymentState((prev) => (prev === "verifying" || prev === "success" ? prev : "failed"));
+            setPaymentError((prev) => prev || "Payment was cancelled.");
+          },
+        },
+        theme: { color: "#2563EA" },
+      };
+
+      const rzp = new (window as any).Razorpay(options);
+      rzp.on("payment.failed", (resp: any) => {
+        setPaymentState("failed");
+        setPaymentError(resp?.error?.description || "Payment failed. Please try again.");
+      });
+      rzp.open();
+    } catch (err: any) {
+      setPaymentState("failed");
+      setPaymentError(err?.response?.data?.message || "Unable to initiate payment. Please try again.");
+    }
+  };
+
+  const finalizeSubmission = async () => {
+    if (!createdApplication) return;
+    setIsFinalizing(true);
+    try {
+      await submitMutation.mutateAsync({
+        applicationNo: createdApplication.applicationNo,
+        password: form.getValues("personal.password"),
+      });
+      if (isStudent) {
+        window.location.href = "/my-application";
+      } else {
+        router.push("/organization/applications");
+      }
+    } catch (error: any) {
+      console.error("Failed to finalize application submission:", error);
+      setPaymentState("failed");
+      setPaymentError(error?.response?.data?.message || "Application submission failed after payment. Please contact support.");
+    } finally {
+      setIsFinalizing(false);
     }
   };
 
@@ -1335,8 +1470,84 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
           <Button
             className="bg-ring hover:bg-ring/90 text-primary-foreground flex items-center justify-center gap-2 h-11 px-8 text-base font-medium rounded-[8px] cursor-pointer border-0 shadow-sm"
             onClick={form.handleSubmit(onSubmit)}
+            disabled={isCreatingApplication}
           >
-            SUBMIT APPLICATION
+            {isCreatingApplication ? (
+              <>
+                <Loader2 className="size-4 animate-spin" /> PROCESSING...
+              </>
+            ) : (
+              "PROCEED TO PAYMENT"
+            )}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (showPayment) {
+    return (
+      <div className={`max-w-3xl mx-auto py-6 md:py-10 px-4 md:px-6 bg-white flex flex-col gap-6 ${manrope.className}`}>
+        <Stepper currentStep={6} />
+        <Card className="border border-border rounded-[8px]">
+          <CardHeader>
+            <CardTitle className="text-xl font-bold text-foreground">Application Fee Payment</CardTitle>
+            <CardDescription>
+              Your application has been saved as <strong>{createdApplication?.applicationNo}</strong>. Complete the
+              payment below to submit your application for review.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col items-center gap-6 py-8">
+            {paymentState === "success" ? (
+              <div className="flex flex-col items-center gap-3 text-center">
+                <ShieldCheck className="size-12 text-green-600" />
+                <p className="font-semibold text-foreground">Payment successful!</p>
+                <p className="text-sm text-muted-foreground">Finalizing and submitting your application...</p>
+                {isFinalizing && <Loader2 className="size-5 animate-spin text-primary" />}
+              </div>
+            ) : paymentState === "failed" ? (
+              <div className="flex flex-col items-center gap-3 text-center">
+                <XCircle className="size-12 text-destructive" />
+                <p className="font-semibold text-foreground">Payment failed or cancelled</p>
+                {paymentError && <p className="text-sm text-muted-foreground">{paymentError}</p>}
+                <Button onClick={handlePayNow} className="mt-2">
+                  Try Again
+                </Button>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-4 text-center">
+                <CreditCard className="size-12 text-primary" />
+                <p className="text-sm text-muted-foreground max-w-sm">
+                  Click below to securely pay your application fee via Razorpay and complete your submission.
+                </p>
+                <Button
+                  className="bg-ring hover:bg-ring/90 text-primary-foreground h-11 px-8 text-base font-medium rounded-[8px] cursor-pointer border-0 shadow-sm"
+                  onClick={handlePayNow}
+                  disabled={paymentState === "creating-order" || paymentState === "awaiting-payment" || paymentState === "verifying"}
+                >
+                  {paymentState === "creating-order" || paymentState === "awaiting-payment" || paymentState === "verifying" ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin mr-2 inline" /> Processing...
+                    </>
+                  ) : (
+                    "Pay Now"
+                  )}
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+        <div className="flex justify-center">
+          <Button
+            variant="outline"
+            className="border border-border h-10 px-5 text-[14px] font-medium text-foreground rounded-[8px] hover:bg-accent hover:text-accent-foreground cursor-pointer bg-white"
+            onClick={() => {
+              setShowPayment(false);
+              setIsPreview(true);
+            }}
+            disabled={paymentState === "verifying" || paymentState === "success"}
+          >
+            Back to review
           </Button>
         </div>
       </div>
@@ -1516,17 +1727,52 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
                     render={({ field }) => (
                       <FormItem className="space-y-0">
                         <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px]">
-                          EMAIL ADDRESS
+                          Email/Username
                         </FormLabel>
                         <FormControl>
-                          <Input 
-                            type="email" 
-                            placeholder="sarah.j@university.edu" 
+                          <Input
+                            type="email"
+                            placeholder="sarah.j@university.edu"
                             className="border border-input h-[40px] rounded-[8px] text-[14px] placeholder:text-[#A3A3A3] tracking-wider disabled:bg-[#FAFAFA] disabled:text-[#64748B]"
                             style={{ fontFamily: "Inter, sans-serif", fontStyle: "normal", fontWeight: 400 }}
                             disabled={isStudent}
-                            {...field} 
+                            {...field}
                           />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="personal.password"
+                    render={({ field }) => (
+                      <FormItem className="space-y-0">
+                        <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px]">
+                          Password
+                        </FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Input
+                              type={showPersonalPassword ? "text" : "password"}
+                              placeholder="Create a password (min. 8 characters)"
+                              autoComplete="new-password"
+                              className="border border-input h-[40px] rounded-[8px] text-[14px] placeholder:text-[#A3A3A3] tracking-wider pr-10"
+                              style={{ fontFamily: "Inter, sans-serif", fontStyle: "normal", fontWeight: 400 }}
+                              {...field}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowPersonalPassword((prev) => !prev)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#64748B] hover:text-[#2563EB] transition-colors"
+                            >
+                              {showPersonalPassword ? (
+                                <EyeOff size={16} strokeWidth={2} />
+                              ) : (
+                                <Eye size={16} strokeWidth={2} />
+                              )}
+                            </button>
+                          </div>
                         </FormControl>
                         <FormMessage />
                       </FormItem>

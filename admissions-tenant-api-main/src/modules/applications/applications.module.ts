@@ -16,6 +16,7 @@ import { ApplicationsService } from './applications.service.js';
 import { ApplicationsController } from './applications.controller.js';
 import { LeadsModule } from '../leads/leads.module.js';
 import { CoursesModule } from '../courses/courses.module.js';
+import { NotificationsModule } from '../notifications/notifications.module.js';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { CoursesModule } from '../courses/courses.module.js';
     ]),
     LeadsModule,
     CoursesModule,
+    NotificationsModule,
   ],
   controllers: [ApplicationsController],
   providers: [ApplicationsService],

@@ -14,6 +14,8 @@ import {
 import { ApplicationsService } from './applications.service.js';
 import { CreateApplicationDto } from './dto/create-application.dto.js';
 import { UpdateApplicationStatusDto } from './dto/update-application-status.dto.js';
+import { VerifyApplicationDto } from './dto/verify-application.dto.js';
+import { SubmitApplicationDto } from './dto/submit-application.dto.js';
 import {
   UpdatePersonalDto,
   UpdatePreferencesDto,
@@ -59,12 +61,13 @@ export class ApplicationsController {
     @Query('limit') limit?: string,
     @Query('search') search?: string,
     @Query('status') status?: string,
+    @Query('verificationStatus') verificationStatus?: string,
   ) {
     const orgId = req.user.organizationId;
     const paginationDto = new PaginationDto();
     paginationDto.page = page ? Math.max(1, parseInt(page, 10) || 1) : 1;
     paginationDto.limit = limit ? Math.min(1000, Math.max(1, parseInt(limit, 10) || 10)) : 10;
-    return this.applicationsService.findAll(orgId, paginationDto, search, status);
+    return this.applicationsService.findAll(orgId, paginationDto, search, status, verificationStatus);
   }
 
   @Get('my/active')
@@ -194,14 +197,18 @@ export class ApplicationsController {
 
   @Patch(':applicationNo/submit')
   @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.APPLICATION_MANAGER, Role.COUNSELOR, Role.STUDENT)
-  async submitApplication(@Req() req: any, @Param('applicationNo') appNo: string) {
+  async submitApplication(
+    @Req() req: any,
+    @Param('applicationNo') appNo: string,
+    @Body() dto: SubmitApplicationDto,
+  ) {
     if (req.user.role === Role.STUDENT) {
       const app = await this.applicationsService.findOne(appNo, req.user.organizationId);
       if (app.email !== req.user.email) {
         throw new ForbiddenException('You are not authorized to submit this application');
       }
     }
-    return this.applicationsService.submitApplication(appNo, req.user.organizationId, req.user.sub);
+    return this.applicationsService.submitApplication(appNo, req.user.organizationId, req.user.sub, dto);
   }
 
   @Patch(':applicationNo/status')
@@ -214,6 +221,18 @@ export class ApplicationsController {
     const orgId = req.user.organizationId;
     const actorId = req.user.sub;
     return this.applicationsService.updateStatus(appNo, orgId, updateDto.status, actorId);
+  }
+
+  @Patch(':applicationNo/verify')
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.APPLICATION_MANAGER)
+  verifyApplication(
+    @Req() req: any,
+    @Param('applicationNo') appNo: string,
+    @Body() dto: VerifyApplicationDto,
+  ) {
+    const orgId = req.user.organizationId;
+    const actorId = req.user.sub;
+    return this.applicationsService.verifyApplication(appNo, orgId, dto, actorId);
   }
 
   private async validateStudentEditPermission(appNo: string, orgId: string, reqUser: any) {
