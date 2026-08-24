@@ -55,6 +55,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePageHeaderStore } from "@/stores/page-header-store";
 import { cn } from "@/lib/utils";
+import { useSidebar } from "@/components/ui/sidebar";
 
 import { useCourses } from "@/hooks/use-courses";
 import { useAcademicSessions } from "@/hooks/use-academic-sessions";
@@ -83,6 +84,7 @@ const statusStyles: Record<string, string> = {
 export default function ShortlistingConfigPage() {
   const setHeader = usePageHeaderStore((s) => s.setHeader);
   const clearHeader = usePageHeaderStore((s) => s.clearHeader);
+  const { isMobile } = useSidebar();
 
   const [activeTab, setActiveTab] = React.useState("rules");
 
@@ -114,6 +116,9 @@ export default function ShortlistingConfigPage() {
   const [rubricsTypeFilter, setRubricsTypeFilter] = React.useState("all");
   const [rubricsStatusFilter, setRubricsStatusFilter] = React.useState("all");
   const [rubricsPage, setRubricsPage] = React.useState(1);
+
+  const [mobileRulesVisibleCount, setMobileRulesVisibleCount] = React.useState(5);
+  const [mobileRubricsVisibleCount, setMobileRubricsVisibleCount] = React.useState(5);
 
   // Modal Dialogs State
   const [rubricDialogOpen, setRubricDialogOpen] = React.useState(false);
@@ -232,6 +237,11 @@ export default function ShortlistingConfigPage() {
   const rulesEndIndex = rulesStartIndex + itemsPerPage;
   const paginatedRules = filteredRules.slice(rulesStartIndex, rulesEndIndex);
 
+  const mobileRules = React.useMemo(
+    () => filteredRules.slice(0, mobileRulesVisibleCount),
+    [filteredRules, mobileRulesVisibleCount]
+  );
+
   const rulesVisiblePages = React.useMemo(() => {
     let startPage = 1;
     let endPage = rulesTotalPages;
@@ -278,6 +288,11 @@ export default function ShortlistingConfigPage() {
   const rubricsStartIndex = (rubricsPage - 1) * itemsPerPage;
   const rubricsEndIndex = rubricsStartIndex + itemsPerPage;
   const paginatedRubrics = filteredRubrics.slice(rubricsStartIndex, rubricsEndIndex);
+
+  const mobileRubrics = React.useMemo(
+    () => filteredRubrics.slice(0, mobileRubricsVisibleCount),
+    [filteredRubrics, mobileRubricsVisibleCount]
+  );
 
   const rubricsVisiblePages = React.useMemo(() => {
     let startPage = 1;
@@ -453,6 +468,7 @@ export default function ShortlistingConfigPage() {
                         onChange={(e) => {
                           setRulesSearch(e.target.value);
                           setRulesPage(1);
+                          setMobileRulesVisibleCount(5);
                         }}
                       />
                       <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-muted-foreground">
@@ -464,6 +480,7 @@ export default function ShortlistingConfigPage() {
                       onValueChange={(val) => {
                         setRulesStatus(val);
                         setRulesPage(1);
+                        setMobileRulesVisibleCount(5);
                       }}
                     >
                       <SelectTrigger className="w-full sm:w-[150px] h-10 text-sm bg-slate-50 border-[#e2e8f0] rounded-[8px]">
@@ -487,6 +504,7 @@ export default function ShortlistingConfigPage() {
                         onChange={(e) => {
                           setRubricsSearch(e.target.value);
                           setRubricsPage(1);
+                          setMobileRubricsVisibleCount(5);
                         }}
                       />
                       <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-muted-foreground">
@@ -498,6 +516,7 @@ export default function ShortlistingConfigPage() {
                       onValueChange={(val) => {
                         setRubricsTypeFilter(val);
                         setRubricsPage(1);
+                        setMobileRubricsVisibleCount(5);
                       }}
                     >
                       <SelectTrigger className="w-full sm:w-[150px] h-10 text-sm bg-slate-50 border-[#e2e8f0] rounded-[8px]">
@@ -514,6 +533,7 @@ export default function ShortlistingConfigPage() {
                       onValueChange={(val) => {
                         setRubricsStatusFilter(val);
                         setRubricsPage(1);
+                        setMobileRubricsVisibleCount(5);
                       }}
                     >
                       <SelectTrigger className="w-full sm:w-[150px] h-10 text-sm bg-slate-50 border-[#e2e8f0] rounded-[8px]">
@@ -532,88 +552,236 @@ export default function ShortlistingConfigPage() {
 
             {/* 1. SHORTLISTING RULES TAB CONTENT */}
             <TabsContent value="rules" className="m-0 border-0 outline-none">
-              <div className="w-full">
-                <Table>
-                  <TableHeader className="bg-[#fafafa] border-b border-[#e2e8f0]">
-                    <TableRow className="hover:bg-transparent border-b border-[#e2e8f0]">
-                      <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
-                        PROGRAM
-                      </TableHead>
-                      <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
-                        ACADEMIC YEAR
-                      </TableHead>
-                      <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
-                        WEIGHTAGES (A / T / E)
-                      </TableHead>
-                      <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
-                        CUTOFF SCORE
-                      </TableHead>
-                      <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
-                        STATUS
-                      </TableHead>
-                      <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto text-right w-[85px]">
-                        ACTION
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {!mounted || isLoadingRules ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="h-48 text-center">
-                          <div className="flex flex-col items-center justify-center text-muted-foreground">
-                            <Loader2 className="size-8 animate-spin text-primary mb-4" />
-                            <p>Loading rules...</p>
-                          </div>
-                        </TableCell>
+              {!isMobile && (
+                <div className="hidden lg:block w-full">
+                  <Table>
+                    <TableHeader className="bg-[#fafafa] border-b border-[#e2e8f0]">
+                      <TableRow className="hover:bg-transparent border-b border-[#e2e8f0]">
+                        <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
+                          PROGRAM
+                        </TableHead>
+                        <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
+                          ACADEMIC YEAR
+                        </TableHead>
+                        <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
+                          WEIGHTAGES (A / T / E)
+                        </TableHead>
+                        <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
+                          CUTOFF SCORE
+                        </TableHead>
+                        <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
+                          STATUS
+                        </TableHead>
+                        <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto text-right w-[85px]">
+                          ACTION
+                        </TableHead>
                       </TableRow>
-                    ) : filteredRules.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="h-48 text-center">
-                          <div className="flex flex-col items-center justify-center gap-3">
-                            <div className="flex size-12 items-center justify-center rounded-full bg-muted/40">
-                              <SearchX className="size-6 text-muted-foreground/80" />
+                    </TableHeader>
+                    <TableBody>
+                      {!mounted || isLoadingRules ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="h-48 text-center">
+                            <div className="flex flex-col items-center justify-center text-muted-foreground">
+                              <Loader2 className="size-8 animate-spin text-primary mb-4" />
+                              <p>Loading rules...</p>
                             </div>
-                            <p className="text-sm font-semibold text-foreground">No shortlisting rules found</p>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      paginatedRules.map((rule) => (
-                        <TableRow
-                          key={rule.id}
-                          className="border-b border-[#e2e8f0] hover:bg-muted/15 transition-colors h-[72px]"
+                          </TableCell>
+                        </TableRow>
+                      ) : filteredRules.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="h-48 text-center">
+                            <div className="flex flex-col items-center justify-center gap-3">
+                              <div className="flex size-12 items-center justify-center rounded-full bg-muted/40">
+                                <SearchX className="size-6 text-muted-foreground/80" />
+                              </div>
+                              <p className="text-sm font-semibold text-foreground">No shortlisting rules found</p>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        paginatedRules.map((rule) => (
+                          <TableRow
+                            key={rule.id}
+                            className="border-b border-[#e2e8f0] hover:bg-muted/15 transition-colors h-[72px]"
+                          >
+                            <TableCell className="py-[16px] px-[24px] align-middle font-semibold text-[#1e293b] text-[14px]">
+                              {rule.program}
+                            </TableCell>
+                            <TableCell className="py-[16px] px-[24px] align-middle text-[#475569] text-[14px]">
+                              {rule.academicYear}
+                            </TableCell>
+                            <TableCell className="py-[16px] px-[24px] align-middle text-[#475569] text-[14px]">
+                              {rule.academicWeightage}% / {rule.testWeightage}% / {rule.experienceWeightage}%
+                            </TableCell>
+                            <TableCell className="py-[16px] px-[24px] align-middle font-medium text-[#1e293b] text-[14px]">
+                              {rule.cutoffScore}
+                            </TableCell>
+                            <TableCell className="py-[16px] px-[24px] align-middle">
+                              <Badge
+                                variant="secondary"
+                                className={
+                                  rule.status === "active"
+                                    ? statusStyles.Active
+                                    : statusStyles.Inactive
+                                }
+                              >
+                                {rule.status === "active" ? "Active" : "Inactive"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="py-[16px] px-[24px] align-middle text-right">
+                              <div className="flex justify-end">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      className="data-[state=open]:bg-muted text-muted-foreground flex size-8 rounded-md hover:bg-muted"
+                                      size="icon"
+                                    >
+                                      <EllipsisVertical className="size-4" />
+                                      <span className="sr-only">Open menu</span>
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="w-44 z-50">
+                                    <DropdownMenuItem
+                                      className="gap-2"
+                                      onClick={() => triggerEditRule(rule)}
+                                    >
+                                      <Pencil className="size-4" />
+                                      Edit Rule
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    {rule.status === "active" ? (
+                                      <DropdownMenuItem
+                                        variant="destructive"
+                                        className="gap-2"
+                                        onClick={() => setDeactivateTarget({ type: "rule", id: rule.id })}
+                                      >
+                                        <Trash2 className="size-4" />
+                                        Deactivate
+                                      </DropdownMenuItem>
+                                    ) : (
+                                      <DropdownMenuItem
+                                        className="gap-2 text-emerald-600 focus:text-emerald-700"
+                                        onClick={() => handleActivateRule(rule.id)}
+                                      >
+                                        <Check className="size-4" />
+                                        Activate
+                                      </DropdownMenuItem>
+                                    )}
+                                    <DropdownMenuItem
+                                      variant="destructive"
+                                      className="gap-2 text-red-700 focus:text-red-700"
+                                      onClick={() => setHardDeleteTarget({ type: "rule", id: rule.id })}
+                                    >
+                                      <Trash2 className="size-4" />
+                                      Delete Permanently
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+
+                  {/* Rules Pagination Footer */}
+                  <div className="flex flex-col sm:flex-row items-center justify-between border-t border-border/80 bg-zinc-100 dark:bg-muted/5 py-4 px-6 gap-4">
+                    <p className="text-sm text-muted-foreground font-normal">
+                      Showing{" "}
+                      <span className="font-medium text-foreground">
+                        {filteredRules.length === 0 ? 0 : rulesStartIndex + 1}
+                      </span>{" "}
+                      to{" "}
+                      <span className="font-medium text-foreground">
+                        {Math.min(rulesEndIndex, filteredRules.length)}
+                      </span>{" "}
+                      of{" "}
+                      <span className="font-medium text-foreground">{filteredRules.length}</span>{" "}
+                      entries
+                    </p>
+                    {rulesTotalPages > 1 && (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Button
+                          variant="outline"
+                          className="h-9 px-4 border border-border/80 bg-background text-foreground text-sm font-normal rounded-[6px] hover:bg-muted/30 dark:hover:bg-muted/10 transition-colors shadow-2xs"
+                          onClick={() => {
+                            if (rulesPage > 1) setRulesPage(rulesPage - 1);
+                          }}
+                          disabled={rulesPage === 1}
                         >
-                          <TableCell className="py-[16px] px-[24px] align-middle font-semibold text-[#1e293b] text-[14px]">
-                            {rule.program}
-                          </TableCell>
-                          <TableCell className="py-[16px] px-[24px] align-middle text-[#475569] text-[14px]">
-                            {rule.academicYear}
-                          </TableCell>
-                          <TableCell className="py-[16px] px-[24px] align-middle text-[#475569] text-[14px]">
-                            {rule.academicWeightage}% / {rule.testWeightage}% / {rule.experienceWeightage}%
-                          </TableCell>
-                          <TableCell className="py-[16px] px-[24px] align-middle font-medium text-[#1e293b] text-[14px]">
-                            {rule.cutoffScore}
-                          </TableCell>
-                          <TableCell className="py-[16px] px-[24px] align-middle">
-                            <Badge
-                              variant="secondary"
-                              className={
-                                rule.status === "active"
-                                  ? statusStyles.Active
-                                  : statusStyles.Inactive
-                              }
-                            >
-                              {rule.status === "active" ? "Active" : "Inactive"}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="py-[16px] px-[24px] align-middle text-right">
-                            <div className="flex justify-end">
+                          <ChevronLeft className="mr-1 size-4" />
+                          Prev
+                        </Button>
+                        <div className="flex items-center gap-1.5 px-1">
+                          {rulesVisiblePages.map((page) => {
+                            const isActive = page === rulesPage;
+                            return (
+                              <Button
+                                key={page}
+                                variant={isActive ? "default" : "outline"}
+                                className={`h-9 w-9 p-0 text-sm border shadow-2xs rounded-[6px] transition-colors ${
+                                  isActive
+                                    ? "bg-[#EA2525] border-[#EA2525] text-white font-semibold hover:bg-[#D61F1F] shadow-xs"
+                                    : "border-border/80 bg-background text-muted-foreground hover:bg-muted/30 dark:hover:bg-muted/10 hover:text-foreground font-normal"
+                                }`}
+                                onClick={() => setRulesPage(page)}
+                              >
+                                {page}
+                              </Button>
+                            );
+                          })}
+                        </div>
+                        <Button
+                          variant="outline"
+                          className="h-9 px-4 border border-border/80 bg-background text-foreground text-sm font-normal rounded-[6px] hover:bg-muted/30 dark:hover:bg-muted/10 transition-colors shadow-2xs"
+                          onClick={() => {
+                            if (rulesPage < rulesTotalPages) setRulesPage(rulesPage + 1);
+                          }}
+                          disabled={rulesPage === rulesTotalPages}
+                        >
+                          Next
+                          <ChevronRight className="ml-1 size-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {isMobile && (
+                <div className="flex flex-col gap-3.5 lg:hidden w-full p-4">
+                  {mobileRules.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center gap-3 py-16 border border-border/80 bg-card rounded-xl text-center px-4 w-full">
+                      <div className="flex size-12 items-center justify-center rounded-full bg-muted/40">
+                        <SearchX className="size-6 text-muted-foreground/80" />
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                        <p className="text-sm font-semibold text-foreground">No results found</p>
+                        <p className="text-xs text-muted-foreground">Try adjusting your filters or search query.</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-3.5 w-full">
+                      {mobileRules.map((rule) => (
+                        <div
+                          key={rule.id}
+                          className="bg-card border border-border/80 rounded-xl p-4 md:p-5 flex flex-col gap-4 hover:shadow-xs transition-all duration-200"
+                        >
+                          {/* Row 1: Program, Action */}
+                          <div className="flex items-center justify-between gap-4 min-w-0">
+                            <div className="min-w-0">
+                              <span className="font-semibold text-foreground text-sm tracking-tight truncate block">
+                                {rule.program}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <Button
                                     variant="ghost"
-                                    className="data-[state=open]:bg-muted text-muted-foreground flex size-8 rounded-md hover:bg-muted"
+                                    className="text-muted-foreground flex size-8 rounded-md hover:bg-muted p-0 shrink-0"
                                     size="icon"
                                   >
                                     <EllipsisVertical className="size-4" />
@@ -658,168 +826,317 @@ export default function ShortlistingConfigPage() {
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             </div>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
+                          </div>
 
-                {/* Rules Pagination Footer */}
-                <div className="flex flex-col sm:flex-row items-center justify-between border-t border-border/80 bg-zinc-100 dark:bg-muted/5 py-4 px-6 gap-4">
-                  <p className="text-sm text-muted-foreground font-normal">
-                    Showing{" "}
-                    <span className="font-medium text-foreground">
-                      {filteredRules.length === 0 ? 0 : rulesStartIndex + 1}
-                    </span>{" "}
-                    to{" "}
-                    <span className="font-medium text-foreground">
-                      {Math.min(rulesEndIndex, filteredRules.length)}
-                    </span>{" "}
-                    of{" "}
-                    <span className="font-medium text-foreground">{filteredRules.length}</span>{" "}
-                    entries
-                  </p>
-                  {rulesTotalPages > 1 && (
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Button
-                        variant="outline"
-                        className="h-9 px-4 border border-border/80 bg-background text-foreground text-sm font-normal rounded-[6px] hover:bg-muted/30 dark:hover:bg-muted/10 transition-colors shadow-2xs"
-                        onClick={() => {
-                          if (rulesPage > 1) setRulesPage(rulesPage - 1);
-                        }}
-                        disabled={rulesPage === 1}
-                      >
-                        <ChevronLeft className="mr-1 size-4" />
-                        Prev
-                      </Button>
-                      <div className="flex items-center gap-1.5 px-1">
-                        {rulesVisiblePages.map((page) => {
-                          const isActive = page === rulesPage;
-                          return (
-                            <Button
-                              key={page}
-                              variant={isActive ? "default" : "outline"}
-                              className={`h-9 w-9 p-0 text-sm border shadow-2xs rounded-[6px] transition-colors ${
-                                isActive
-                                  ? "bg-[#EA2525] border-[#EA2525] text-white font-semibold hover:bg-[#D61F1F] shadow-xs"
-                                  : "border-border/80 bg-background text-muted-foreground hover:bg-muted/30 dark:hover:bg-muted/10 hover:text-foreground font-normal"
-                              }`}
-                              onClick={() => setRulesPage(page)}
-                            >
-                              {page}
-                            </Button>
-                          );
-                        })}
-                      </div>
-                      <Button
-                        variant="outline"
-                        className="h-9 px-4 border border-border/80 bg-background text-foreground text-sm font-normal rounded-[6px] hover:bg-muted/30 dark:hover:bg-muted/10 transition-colors shadow-2xs"
-                        onClick={() => {
-                          if (rulesPage < rulesTotalPages) setRulesPage(rulesPage + 1);
-                        }}
-                        disabled={rulesPage === rulesTotalPages}
-                      >
-                        Next
-                        <ChevronRight className="ml-1 size-4" />
-                      </Button>
+                          {/* Row 2: Details grid */}
+                          <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-xs border-t border-border/40 pt-3 text-muted-foreground">
+                            <div className="flex flex-col gap-1 min-w-0">
+                              <span className="font-medium text-muted-foreground/80">Academic Year:</span>
+                              <span className="text-foreground/95 font-medium">{rule.academicYear}</span>
+                            </div>
+                              <div className="flex flex-col gap-1 min-w-0">
+                              <span className="font-medium text-muted-foreground/80">Status:</span>
+                              <div className="flex mt-0.5">
+                                <Badge
+                                  variant="secondary"
+                                  className={
+                                    rule.status === "active"
+                                      ? statusStyles.Active
+                                      : statusStyles.Inactive
+                                  }
+                                >
+                                  {rule.status === "active" ? "Active" : "Inactive"}
+                                </Badge>
+                              </div>
+                            </div>
+                            <div className="flex flex-col gap-1 min-w-0">
+                              <span className="font-medium text-muted-foreground/80">Weightages (A / T / E):</span>
+                              <span className="text-foreground/95 font-medium">
+                                {rule.academicWeightage}% / {rule.testWeightage}% / {rule.experienceWeightage}%
+                              </span>
+                            </div>
+                              <div className="flex flex-col gap-1 min-w-0">
+                              <span className="font-medium text-muted-foreground/80">Cutoff Score:</span>
+                              <span className="text-foreground/95 font-medium">{rule.cutoffScore}</span>
+                            </div>
+                        
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
+
+                  {/* Mobile Load More Footer */}
+                  {mobileRulesVisibleCount < filteredRules.length ? (
+                    <div className="flex flex-col items-center justify-center gap-3 mt-4 w-full">
+                      <Button
+                        variant="outline"
+                        className="w-full bg-background hover:bg-muted/50 border-border/80 text-foreground font-medium h-10 shadow-xs"
+                        onClick={() => setMobileRulesVisibleCount((prev) => prev + 5)}
+                      >
+                        Load More Rules
+                      </Button>
+                      <p className="text-xs text-muted-foreground font-normal">
+                        Showing {Math.min(mobileRulesVisibleCount, filteredRules.length)} of {filteredRules.length} entries
+                      </p>
+                    </div>
+                  ) : (
+                    filteredRules.length > 0 && (
+                      <div className="flex flex-col items-center justify-center gap-3 mt-4 w-full">
+                        <p className="text-xs text-muted-foreground font-normal">
+                          Showing all {filteredRules.length} of {filteredRules.length} entries
+                        </p>
+                      </div>
+                    )
+                  )}
                 </div>
-              </div>
+              )}
             </TabsContent>
 
             {/* 2. EVALUATION RUBRICS TAB CONTENT */}
             <TabsContent value="rubrics" className="m-0 border-0 outline-none">
-              <div className="w-full">
-                <Table>
-                  <TableHeader className="bg-[#fafafa] border-b border-[#e2e8f0]">
-                    <TableRow className="hover:bg-transparent border-b border-[#e2e8f0]">
-                      <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
-                        PARAMETER NAME
-                      </TableHead>
-                      <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
-                        TYPE
-                      </TableHead>
-                      <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
-                        MAX SCORE
-                      </TableHead>
-                      <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
-                        WEIGHTAGE
-                      </TableHead>
-                      <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
-                        STATUS
-                      </TableHead>
-                      <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto text-right w-[85px]">
-                        ACTION
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {!mounted || isLoadingRubrics ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="h-48 text-center">
-                          <div className="flex flex-col items-center justify-center text-muted-foreground">
-                            <Loader2 className="size-8 animate-spin text-primary mb-4" />
-                            <p>Loading rubrics...</p>
-                          </div>
-                        </TableCell>
+              {!isMobile && (
+                <div className="hidden lg:block w-full">
+                  <Table>
+                    <TableHeader className="bg-[#fafafa] border-b border-[#e2e8f0]">
+                      <TableRow className="hover:bg-transparent border-b border-[#e2e8f0]">
+                        <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
+                          PARAMETER NAME
+                        </TableHead>
+                        <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
+                          TYPE
+                        </TableHead>
+                        <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
+                          MAX SCORE
+                        </TableHead>
+                        <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
+                          WEIGHTAGE
+                        </TableHead>
+                        <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
+                          STATUS
+                        </TableHead>
+                        <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto text-right w-[85px]">
+                          ACTION
+                        </TableHead>
                       </TableRow>
-                    ) : filteredRubrics.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="h-48 text-center">
-                          <div className="flex flex-col items-center justify-center gap-3">
-                            <div className="flex size-12 items-center justify-center rounded-full bg-muted/40">
-                              <SearchX className="size-6 text-muted-foreground/80" />
+                    </TableHeader>
+                    <TableBody>
+                      {!mounted || isLoadingRubrics ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="h-48 text-center">
+                            <div className="flex flex-col items-center justify-center text-muted-foreground">
+                              <Loader2 className="size-8 animate-spin text-primary mb-4" />
+                              <p>Loading rubrics...</p>
                             </div>
-                            <p className="text-sm font-semibold text-foreground">No rubric parameters found</p>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      paginatedRubrics.map((rubric) => (
-                        <TableRow
-                          key={rubric.id}
-                          className="border-b border-[#e2e8f0] hover:bg-muted/15 transition-colors h-[72px]"
+                          </TableCell>
+                        </TableRow>
+                      ) : filteredRubrics.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="h-48 text-center">
+                            <div className="flex flex-col items-center justify-center gap-3">
+                              <div className="flex size-12 items-center justify-center rounded-full bg-muted/40">
+                                <SearchX className="size-6 text-muted-foreground/80" />
+                              </div>
+                              <p className="text-sm font-semibold text-foreground">No rubric parameters found</p>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        paginatedRubrics.map((rubric) => (
+                          <TableRow
+                            key={rubric.id}
+                            className="border-b border-[#e2e8f0] hover:bg-muted/15 transition-colors h-[72px]"
+                          >
+                            <TableCell className="py-[16px] px-[24px] align-middle font-semibold text-[#1e293b] text-[14px]">
+                              <div className="flex flex-col gap-0.5">
+                                <span>{rubric.parameterName}</span>
+                                {rubric.description && (
+                                  <span className="text-xs text-muted-foreground font-normal line-clamp-1">{rubric.description}</span>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell className="py-[16px] px-[24px] align-middle text-[#475569] text-[14px]">
+                              <Badge variant="outline" className="border-slate-200 bg-slate-50 font-medium">
+                                {rubric.interviewType}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="py-[16px] px-[24px] align-middle text-[#475569] text-[14px]">
+                              {rubric.maxScore}
+                            </TableCell>
+                            <TableCell className="py-[16px] px-[24px] align-middle text-[#475569] text-[14px]">
+                              {rubric.weightagePercent != null ? `${rubric.weightagePercent}%` : "—"}
+                            </TableCell>
+                            <TableCell className="py-[16px] px-[24px] align-middle">
+                              <Badge
+                                variant="secondary"
+                                className={
+                                  rubric.isActive
+                                    ? statusStyles.Active
+                                    : statusStyles.Inactive
+                                }
+                              >
+                                {rubric.isActive ? "Active" : "Inactive"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="py-[16px] px-[24px] align-middle text-right">
+                              <div className="flex justify-end">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      className="data-[state=open]:bg-muted text-muted-foreground flex size-8 rounded-md hover:bg-muted"
+                                      size="icon"
+                                    >
+                                      <EllipsisVertical className="size-4" />
+                                      <span className="sr-only">Open menu</span>
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="w-44 z-50">
+                                    <DropdownMenuItem
+                                      className="gap-2"
+                                      onClick={() => triggerEditRubric(rubric)}
+                                    >
+                                      <Pencil className="size-4" />
+                                      Edit Rubric
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    {rubric.isActive ? (
+                                      <DropdownMenuItem
+                                        variant="destructive"
+                                        className="gap-2"
+                                        onClick={() => setDeactivateTarget({ type: "rubric", id: rubric.id })}
+                                      >
+                                        <Trash2 className="size-4" />
+                                        Deactivate
+                                      </DropdownMenuItem>
+                                    ) : (
+                                      <DropdownMenuItem
+                                        className="gap-2 text-emerald-600 focus:text-emerald-700"
+                                        onClick={() => handleActivateRubric(rubric.id)}
+                                      >
+                                        <Check className="size-4" />
+                                        Activate
+                                      </DropdownMenuItem>
+                                    )}
+                                    <DropdownMenuItem
+                                      variant="destructive"
+                                      className="gap-2 text-red-700 focus:text-red-700"
+                                      onClick={() => setHardDeleteTarget({ type: "rubric", id: rubric.id })}
+                                    >
+                                      <Trash2 className="size-4" />
+                                      Delete Permanently
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+
+                  {/* Rubrics Pagination Footer */}
+                  <div className="flex flex-col sm:flex-row items-center justify-between border-t border-border/80 bg-zinc-100 dark:bg-muted/5 py-4 px-6 gap-4">
+                    <p className="text-sm text-muted-foreground font-normal">
+                      Showing{" "}
+                      <span className="font-medium text-foreground">
+                        {filteredRubrics.length === 0 ? 0 : rubricsStartIndex + 1}
+                      </span>{" "}
+                      to{" "}
+                      <span className="font-medium text-foreground">
+                        {Math.min(rubricsEndIndex, filteredRubrics.length)}
+                      </span>{" "}
+                      of{" "}
+                      <span className="font-medium text-foreground">{filteredRubrics.length}</span>{" "}
+                      entries
+                    </p>
+                    {rubricsTotalPages > 1 && (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Button
+                          variant="outline"
+                          className="h-9 px-4 border border-border/80 bg-background text-foreground text-sm font-normal rounded-[6px] hover:bg-muted/30 dark:hover:bg-muted/10 transition-colors shadow-2xs"
+                          onClick={() => {
+                            if (rubricsPage > 1) setRubricsPage(rubricsPage - 1);
+                          }}
+                          disabled={rubricsPage === 1}
                         >
-                          <TableCell className="py-[16px] px-[24px] align-middle font-semibold text-[#1e293b] text-[14px]">
-                            <div className="flex flex-col gap-0.5">
-                              <span>{rubric.parameterName}</span>
+                          <ChevronLeft className="mr-1 size-4" />
+                          Prev
+                        </Button>
+                        <div className="flex items-center gap-1.5 px-1">
+                          {rubricsVisiblePages.map((page) => {
+                            const isActive = page === rubricsPage;
+                            return (
+                              <Button
+                                key={page}
+                                variant={isActive ? "default" : "outline"}
+                                className={`h-9 w-9 p-0 text-sm border shadow-2xs rounded-[6px] transition-colors ${
+                                  isActive
+                                    ? "bg-[#EA2525] border-[#EA2525] text-white font-semibold hover:bg-[#D61F1F] shadow-xs"
+                                    : "border-border/80 bg-background text-muted-foreground hover:bg-muted/30 dark:hover:bg-muted/10 hover:text-foreground font-normal"
+                                }`}
+                                onClick={() => setRubricsPage(page)}
+                              >
+                                {page}
+                              </Button>
+                            );
+                          })}
+                        </div>
+                        <Button
+                          variant="outline"
+                          className="h-9 px-4 border border-border/80 bg-background text-foreground text-sm font-normal rounded-[6px] hover:bg-muted/30 dark:hover:bg-muted/10 transition-colors shadow-2xs"
+                          onClick={() => {
+                            if (rubricsPage < rubricsTotalPages) setRubricsPage(rubricsPage + 1);
+                          }}
+                          disabled={rubricsPage === rubricsTotalPages}
+                        >
+                          Next
+                          <ChevronRight className="ml-1 size-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {isMobile && (
+                <div className="flex flex-col gap-3.5 lg:hidden w-full p-4">
+                  {mobileRubrics.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center gap-3 py-16 border border-border/80 bg-card rounded-xl text-center px-4 w-full">
+                      <div className="flex size-12 items-center justify-center rounded-full bg-muted/40">
+                        <SearchX className="size-6 text-muted-foreground/80" />
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                        <p className="text-sm font-semibold text-foreground">No results found</p>
+                        <p className="text-xs text-muted-foreground">Try adjusting your filters or search query.</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-3.5 w-full">
+                      {mobileRubrics.map((rubric) => (
+                        <div
+                          key={rubric.id}
+                          className="bg-card border border-border/80 rounded-xl p-4 md:p-5 flex flex-col gap-4 hover:shadow-xs transition-all duration-200"
+                        >
+                          {/* Row 1: Parameter Name, Action */}
+                          <div className="flex items-center justify-between gap-4 min-w-0">
+                            <div className="min-w-0">
+                              <span className="font-semibold text-foreground text-sm tracking-tight truncate block">
+                                {rubric.parameterName}
+                              </span>
                               {rubric.description && (
-                                <span className="text-xs text-muted-foreground font-normal line-clamp-1">{rubric.description}</span>
+                                <span className="text-xs text-muted-foreground font-normal line-clamp-2 mt-0.5">
+                                  {rubric.description}
+                                </span>
                               )}
                             </div>
-                          </TableCell>
-                          <TableCell className="py-[16px] px-[24px] align-middle text-[#475569] text-[14px]">
-                            <Badge variant="outline" className="border-slate-200 bg-slate-50 font-medium">
-                              {rubric.interviewType}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="py-[16px] px-[24px] align-middle text-[#475569] text-[14px]">
-                            {rubric.maxScore}
-                          </TableCell>
-                          <TableCell className="py-[16px] px-[24px] align-middle text-[#475569] text-[14px]">
-                            {rubric.weightagePercent != null ? `${rubric.weightagePercent}%` : "—"}
-                          </TableCell>
-                          <TableCell className="py-[16px] px-[24px] align-middle">
-                            <Badge
-                              variant="secondary"
-                              className={
-                                rubric.isActive
-                                  ? statusStyles.Active
-                                  : statusStyles.Inactive
-                              }
-                            >
-                              {rubric.isActive ? "Active" : "Inactive"}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="py-[16px] px-[24px] align-middle text-right">
-                            <div className="flex justify-end">
+                            <div className="flex items-center gap-1.5 shrink-0">
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <Button
                                     variant="ghost"
-                                    className="data-[state=open]:bg-muted text-muted-foreground flex size-8 rounded-md hover:bg-muted"
+                                    className="text-muted-foreground flex size-8 rounded-md hover:bg-muted p-0 shrink-0"
                                     size="icon"
                                   >
                                     <EllipsisVertical className="size-4" />
@@ -864,75 +1181,75 @@ export default function ShortlistingConfigPage() {
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             </div>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
+                          </div>
 
-                {/* Rubrics Pagination Footer */}
-                <div className="flex flex-col sm:flex-row items-center justify-between border-t border-border/80 bg-zinc-100 dark:bg-muted/5 py-4 px-6 gap-4">
-                  <p className="text-sm text-muted-foreground font-normal">
-                    Showing{" "}
-                    <span className="font-medium text-foreground">
-                      {filteredRubrics.length === 0 ? 0 : rubricsStartIndex + 1}
-                    </span>{" "}
-                    to{" "}
-                    <span className="font-medium text-foreground">
-                      {Math.min(rubricsEndIndex, filteredRubrics.length)}
-                    </span>{" "}
-                    of{" "}
-                    <span className="font-medium text-foreground">{filteredRubrics.length}</span>{" "}
-                    entries
-                  </p>
-                  {rubricsTotalPages > 1 && (
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Button
-                        variant="outline"
-                        className="h-9 px-4 border border-border/80 bg-background text-foreground text-sm font-normal rounded-[6px] hover:bg-muted/30 dark:hover:bg-muted/10 transition-colors shadow-2xs"
-                        onClick={() => {
-                          if (rubricsPage > 1) setRubricsPage(rubricsPage - 1);
-                        }}
-                        disabled={rubricsPage === 1}
-                      >
-                        <ChevronLeft className="mr-1 size-4" />
-                        Prev
-                      </Button>
-                      <div className="flex items-center gap-1.5 px-1">
-                        {rubricsVisiblePages.map((page) => {
-                          const isActive = page === rubricsPage;
-                          return (
-                            <Button
-                              key={page}
-                              variant={isActive ? "default" : "outline"}
-                              className={`h-9 w-9 p-0 text-sm border shadow-2xs rounded-[6px] transition-colors ${
-                                isActive
-                                  ? "bg-[#EA2525] border-[#EA2525] text-white font-semibold hover:bg-[#D61F1F] shadow-xs"
-                                  : "border-border/80 bg-background text-muted-foreground hover:bg-muted/30 dark:hover:bg-muted/10 hover:text-foreground font-normal"
-                              }`}
-                              onClick={() => setRubricsPage(page)}
-                            >
-                              {page}
-                            </Button>
-                          );
-                        })}
-                      </div>
-                      <Button
-                        variant="outline"
-                        className="h-9 px-4 border border-border/80 bg-background text-foreground text-sm font-normal rounded-[6px] hover:bg-muted/30 dark:hover:bg-muted/10 transition-colors shadow-2xs"
-                        onClick={() => {
-                          if (rubricsPage < rubricsTotalPages) setRubricsPage(rubricsPage + 1);
-                        }}
-                        disabled={rubricsPage === rubricsTotalPages}
-                      >
-                        Next
-                        <ChevronRight className="ml-1 size-4" />
-                      </Button>
+                          {/* Row 2: Details grid */}
+                          <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-xs border-t border-border/40 pt-3 text-muted-foreground">
+                            <div className="flex flex-col gap-1 min-w-0">
+                              <span className="font-medium text-muted-foreground/80">Max Score:</span>
+                              <span className="text-foreground/95 font-medium">{rubric.maxScore}</span>
+                            </div>
+                           
+                            <div className="flex flex-col gap-1 min-w-0">
+                              <span className="font-medium text-muted-foreground/80">Type:</span>
+                              <div className="flex mt-0.5">
+                                <Badge variant="outline" className="border-slate-200 bg-slate-50 font-medium">
+                                  {rubric.interviewType}
+                                </Badge>
+                              </div>
+                            </div>
+                            <div className="flex flex-col gap-1 min-w-0">
+                              <span className="font-medium text-muted-foreground/80">Weightage:</span>
+                              <span className="text-foreground/95 font-medium">
+                                {rubric.weightagePercent != null ? `${rubric.weightagePercent}%` : "—"}
+                              </span>
+                            </div>
+                            <div className="flex flex-col gap-1 min-w-0">
+                              <span className="font-medium text-muted-foreground/80">Status:</span>
+                              <div className="flex mt-0.5">
+                                <Badge
+                                  variant="secondary"
+                                  className={
+                                    rubric.isActive
+                                      ? statusStyles.Active
+                                      : statusStyles.Inactive
+                                  }
+                                >
+                                  {rubric.isActive ? "Active" : "Inactive"}
+                                </Badge>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
+
+                  {/* Mobile Load More Footer */}
+                  {mobileRubricsVisibleCount < filteredRubrics.length ? (
+                    <div className="flex flex-col items-center justify-center gap-3 mt-4 w-full">
+                      <Button
+                        variant="outline"
+                        className="w-full bg-background hover:bg-muted/50 border-border/80 text-foreground font-medium h-10 shadow-xs"
+                        onClick={() => setMobileRubricsVisibleCount((prev) => prev + 5)}
+                      >
+                        Load More Rubrics
+                      </Button>
+                      <p className="text-xs text-muted-foreground font-normal">
+                        Showing {Math.min(mobileRubricsVisibleCount, filteredRubrics.length)} of {filteredRubrics.length} entries
+                      </p>
+                    </div>
+                  ) : (
+                    filteredRubrics.length > 0 && (
+                      <div className="flex flex-col items-center justify-center gap-3 mt-4 w-full">
+                        <p className="text-xs text-muted-foreground font-normal">
+                          Showing all {filteredRubrics.length} of {filteredRubrics.length} entries
+                        </p>
+                      </div>
+                    )
+                  )}
                 </div>
-              </div>
+              )}
             </TabsContent>
           </div>
         </Tabs>
@@ -977,7 +1294,7 @@ export default function ShortlistingConfigPage() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="flex flex-col gap-2">
                 <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
                   Max Score
@@ -1055,7 +1372,7 @@ export default function ShortlistingConfigPage() {
           </h3>
 
           <form onSubmit={handleSaveRule} className="flex flex-col gap-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="flex flex-col gap-2">
                 <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
                   Program
@@ -1098,7 +1415,7 @@ export default function ShortlistingConfigPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="flex flex-col gap-2">
                 <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
                   Min GPA/UG %
@@ -1125,7 +1442,7 @@ export default function ShortlistingConfigPage() {
               </div>
               <div className="flex flex-col gap-2">
                 <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
-                  Min Experience (yrs)
+                  Min Experience (Mm)
                 </Label>
                 <Input
                   type="number"
@@ -1144,7 +1461,7 @@ export default function ShortlistingConfigPage() {
                   {weightageTotal}% total
                 </span>
               </Label>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <Input
                   type="number"
                   placeholder="Academic %"

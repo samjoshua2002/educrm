@@ -21,12 +21,18 @@
 import * as React from "react";
 
 import { useApplications } from "@/hooks/use-applications";
+import { usePageHeader } from "@/hooks/use-page-header";
 
 import { DashboardCharts } from "./_components/dashboard-charts";
 import { DashboardStats } from "./_components/dashboard-stats";
 import { RecentApplicationsTable } from "./_components/recent-applications-table";
 
 export default function DashboardPage() {
+  usePageHeader({
+    title: "Organization Dashboard",
+    description: "Monitor admissions metrics, application status distribution, and recent applications.",
+  });
+
   const [mounted, setMounted] = React.useState(false);
   const { data: applicationsResponse, isLoading } = useApplications();
 

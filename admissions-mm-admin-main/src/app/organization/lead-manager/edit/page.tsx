@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useLead, useUpdateLead } from "@/hooks/use-leads";
 import { useTeam } from "@/hooks/use-team";
 import { useAuthStore } from "@/stores/auth-store";
+import { usePageHeader } from "@/hooks/use-page-header";
 import { Role } from "@/types/auth";
 import { SYSTEM_FIELD_IDS } from "@/lib/default-form-fields";
 import { ChevronLeft, Check } from "lucide-react";
@@ -61,6 +62,11 @@ const STAGES = [
 const STATUSES = ["Hot", "Warm", "Cold"] as const;
 
 function EditLeadForm() {
+  usePageHeader({
+    title: "Lead Details",
+    description: "Update the lead's personal, location, and campaign details.",
+  });
+
   const router = useRouter();
   const searchParams = useSearchParams();
   const leadId = searchParams.get("id");

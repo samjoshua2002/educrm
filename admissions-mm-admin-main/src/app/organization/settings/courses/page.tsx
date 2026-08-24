@@ -24,6 +24,7 @@ import {
   MapPin,
   Mail,
   Phone,
+  IndianRupee,
 } from "lucide-react";
 
 import {
@@ -1586,7 +1587,7 @@ export default function CoursesSettingsPage() {
                         <TableCell className="py-[24px] px-[24px] align-middle font-medium text-emerald-700">
                           {cs.feeAmount ? (
                             <div className="flex items-center gap-0.5">
-                              <DollarSign className="size-3.5" />
+                              <IndianRupee className="size-3.5" />
                               <span>{Number(cs.feeAmount).toLocaleString()}</span>
                             </div>
                           ) : (
