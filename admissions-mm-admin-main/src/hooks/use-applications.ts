@@ -249,7 +249,7 @@ function mapApiToApplicationDetail(apiData: any): ApplicationDetail {
         state: graduationState(graduation),
         university: graduation?.boardUniversity || "",
         college: graduation?.institution || "",
-        degree: graduation?.level || "",
+        degree: graduation?.degreeName || graduation?.level || "",
         mode: "Regular",
         status: graduation?.isCompleted ? "Completed" : "Ongoing",
         enrollmentYear: "",
@@ -402,7 +402,8 @@ function toEducationPayload(updatedData: ApplicationDetail) {
   }
   if (e.graduation) {
     records.push({
-      level: e.graduation.degree || "UG",
+      level: "UG",
+      degreeName: e.graduation.degree || undefined,
       institution: e.graduation.college || "College",
       boardUniversity: e.graduation.university || "University",
       yearOfPassing: e.graduation.passingYear || "2025",

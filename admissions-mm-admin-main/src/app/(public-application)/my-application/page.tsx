@@ -710,7 +710,8 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
             isCompleted: true,
           },
           {
-            level: data.education.graduation.degree || "UG",
+            level: "UG",
+            degreeName: data.education.graduation.degree,
             institution: data.education.graduation.college,
             boardUniversity: data.education.graduation.university,
             yearOfPassing: data.education.graduation.passingYear,

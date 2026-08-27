@@ -1,5 +1,6 @@
-import { IsString, IsOptional, IsUUID, IsArray, ValidateNested, IsBoolean, IsNumber, IsDateString } from 'class-validator';
+import { IsString, IsOptional, IsUUID, IsArray, ValidateNested, IsBoolean, IsNumber, IsDateString, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
+import { EducationLevel } from '../entities/application-education.entity.js';
 
 export class UpdatePersonalDto {
   @IsString() @IsOptional() name?: string;
@@ -26,7 +27,8 @@ export class UpdatePreferencesDto {
 }
 
 export class EducationRecordDto {
-  @IsString() level: string;
+  @IsEnum(EducationLevel) level: EducationLevel;
+  @IsString() @IsOptional() degreeName?: string;
   @IsString() @IsOptional() institution?: string;
   @IsString() @IsOptional() boardUniversity?: string;
   @IsString() @IsOptional() yearOfPassing?: string;

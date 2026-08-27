@@ -38,7 +38,7 @@ import {
 } from './dto/update-sections.dto.js';
 import { VerifyApplicationDto } from './dto/verify-application.dto.js';
 
-import { ApplicationEducation } from './entities/application-education.entity.js';
+import { ApplicationEducation, EducationLevel } from './entities/application-education.entity.js';
 import { ApplicationEntranceTest } from './entities/application-entrance-test.entity.js';
 import { ApplicationWorkExperience } from './entities/application-work-experience.entity.js';
 import { ApplicationParent } from './entities/application-parent.entity.js';
@@ -468,7 +468,8 @@ export class ApplicationsService {
         for (const edu of dto.educationDetails) {
           const rec = queryRunner.manager.create(ApplicationEducation, {
             applicationId: savedApp.id,
-            level: edu.level || 'Other',
+            level: (edu.level === '10th' || edu.level === '12th') ? edu.level : EducationLevel.UG,
+            degreeName: edu.degreeName || (edu.level !== '10th' && edu.level !== '12th' ? edu.level : undefined),
             institution: edu.institution || edu.institute || undefined,
             boardUniversity: edu.boardUniversity || edu.board || undefined,
             yearOfPassing: edu.yearOfPassing || edu.year || undefined,
