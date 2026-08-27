@@ -64,7 +64,7 @@ api.interceptors.response.use(
         // expected to hit protected endpoints and should just see "no data"
         // instead of being bounced to /login.
         const pathname = typeof window !== "undefined" ? window.location.pathname : "";
-        const isPublicRoute = pathname.startsWith("/my-application");
+        const isPublicRoute = pathname.startsWith("/student-application");
         if (!isPublicRoute) {
           toast.error("Session expired. Please login again.");
           useAuthStore.getState().logout();
