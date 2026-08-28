@@ -75,6 +75,29 @@ function parsePercentage(raw: string | null | undefined): number | null {
   return Number.isFinite(num) ? num : null;
 }
 
+// Sums total claimed work-experience duration (in months) across all of an
+// application's work-experience records, from each record's from/to dates.
+// A missing toDate is treated as "ongoing" (counted up to today). Returns
+// null when there are no usable records, so pointsFromBands scores it 0
+// rather than conflating "no experience" with "no data".
+function sumExperienceMonths(
+  records: Array<{ fromDate?: Date | string | null; toDate?: Date | string | null }> | undefined,
+): number | null {
+  if (!records || records.length === 0) return null;
+  let totalMonths = 0;
+  let counted = false;
+  for (const rec of records) {
+    if (!rec.fromDate) continue;
+    const from = new Date(rec.fromDate);
+    const to = rec.toDate ? new Date(rec.toDate) : new Date();
+    if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || to <= from) continue;
+    const months = (to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24 * 30.44);
+    totalMonths += months;
+    counted = true;
+  }
+  return counted ? totalMonths : null;
+}
+
 @Injectable()
 export class ScoringService {
   constructor(
@@ -94,10 +117,12 @@ export class ScoringService {
   // Stage 1 — pre-interview shortlisting score, computed per Application
   // against the org's ShortlistingRule (weightages + cutoff) and the
   // org's ScoreConversionConfig (raw % / percentile -> points bands).
-  // Only academic + test components feed shortlistScore/shortlistStatus —
-  // experience isn't known yet pre-interview (see comment in
-  // scoreApplicationForShortlisting below); experienceComponent is still
-  // computed and returned for visibility only.
+  // academic + test + experience all feed shortlistScore/shortlistStatus.
+  // Experience here is the applicant's *claimed* (self-reported) work
+  // history, derived from application_work_experience records — validated
+  // experience is only known later, post-interview, and is what feeds the
+  // separate post-interview composite score instead (see
+  // buildCompositeScoreBreakdown below).
   async previewShortlisting(orgId: string, ruleId: string): Promise<ShortlistPreviewRow[]> {
     const rule = await this.ruleRepository.findOne({ where: { id: ruleId, organizationId: orgId } });
     if (!rule) {
@@ -113,7 +138,7 @@ export class ScoringService {
         academicSession: rule.academicYear,
         verificationStatus: 'verified',
       },
-      relations: ['educationRecords', 'entranceTests'],
+      relations: ['educationRecords', 'entranceTests', 'workExperienceRecords'],
     });
 
     return applications.map((app) => this.scoreApplicationForShortlisting(app, rule, config.bands));
@@ -136,26 +161,16 @@ export class ScoringService {
     const bestTest = app.entranceTests?.sort((a, b) => (b.percentile ?? 0) - (a.percentile ?? 0))[0];
     const testComponent = pointsFromBands(bestTest?.percentile, bands.testPercentile, 'minPercentile');
 
-    // validatedExperienceMonths is only ever populated later, during the
-    // GD/PI stage — it is genuinely always null at Stage-1 (pre-interview)
-    // shortlisting time. experienceComponent is still computed and returned
-    // below for visibility, but — per the note above — it has therefore
-    // always evaluated to 0 for every real application at this stage, which
-    // means `experienceComponent * (experienceWeightage / 100)` was already
-    // contributing exactly 0 to shortlistScore regardless of how
-    // experienceWeightage was configured. Excluding it from the formula
-    // below is a no-op for any real (non-null-experience) data, so existing
-    // rule configs' cutoffScore semantics are unchanged — no renormalization
-    // of academicWeightage/testWeightage is needed. Experience will factor
-    // into a later, post-interview composite/final score instead.
-    const experienceYears = app.validatedExperienceMonths
-      ? Number(app.validatedExperienceMonths) / 12
-      : null;
+    // Claimed (self-reported) experience, summed from the applicant's
+    // work-experience records — this is all that's known pre-interview.
+    const claimedMonths = sumExperienceMonths(app.workExperienceRecords);
+    const experienceYears = claimedMonths !== null ? claimedMonths / 12 : null;
     const experienceComponent = pointsFromBands(experienceYears, bands.experienceYears, 'minYears');
 
     const shortlistScore =
       academicComponent * (Number(rule.academicWeightage) / 100) +
-      testComponent * (Number(rule.testWeightage) / 100);
+      testComponent * (Number(rule.testWeightage) / 100) +
+      experienceComponent * (Number(rule.experienceWeightage) / 100);
 
     return {
       applicationId: app.id,
