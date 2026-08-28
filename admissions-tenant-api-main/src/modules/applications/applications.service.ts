@@ -531,6 +531,8 @@ export class ApplicationsService {
             applicationId: savedApp.id,
             organization: exp.organization || exp.companyName || exp.company || 'Company',
             designation: exp.designation || undefined,
+            fromDate: exp.fromDate || undefined,
+            toDate: exp.toDate || undefined,
             rolesResponsibilities: exp.rolesResponsibilities || (exp.months ? `${exp.months} Months` : undefined),
             grossSalary: exp.grossSalary || exp.salaryCtc || undefined,
           });
