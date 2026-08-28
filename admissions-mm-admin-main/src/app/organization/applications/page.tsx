@@ -12,6 +12,7 @@ import {
   Pencil,
   Trash2,
   Eye,
+  BadgeCheck,
   ChevronLeft,
   ChevronRight,
   Search,
@@ -63,7 +64,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-import { type Application, useApplications, useDeleteApplication } from "@/hooks/use-applications";
+import { type Application, useApplications, useDeleteApplication, useVerifyApplication } from "@/hooks/use-applications";
 import { usePageHeader } from "@/hooks/use-page-header";
 
 
@@ -155,11 +156,12 @@ export default function ApplicationsPage() {
     description: "View and manage all applications submitted to your organization.",
     action: {
       label: "Add Application",
-      href: "/student-application",
+      href: "/organization/applications/new",
     },
   });
 
   const { data: applicationsResponse, isLoading } = useApplications(1, 200, appliedSearch || undefined);
+  const verifyMutation = useVerifyApplication();
 
   const applicationsState = React.useMemo(() => {
     const raw = (applicationsResponse as any)?.data || applicationsResponse || [];
@@ -744,16 +746,18 @@ export default function ApplicationsPage() {
                   >
                     <TableCell className="py-5 px-6 align-middle">
                       <div className="flex flex-col gap-0.5">
-                        <div className="font-semibold text-foreground text-sm tracking-tight">
+                        <Link href={`/organization/applications/${encodeURIComponent(app.applicationNo)}`} className="font-semibold text-foreground hover:underline text-sm tracking-tight cursor-pointer">
                           {app.name}
-                        </div>
+                        </Link>
                         <div className="text-xs text-muted-foreground font-normal">
                           {app.email}
                         </div>
                       </div>
                     </TableCell>
                     <TableCell className="py-5 px-6 align-middle text-sm text-foreground/80 font-normal">
-                      {app.applicationNo}
+                      <Link href={`/organization/applications/${encodeURIComponent(app.applicationNo)}`} className="text-foreground hover:underline font-medium cursor-pointer">
+                        {app.applicationNo}
+                      </Link>
                     </TableCell>
                     <TableCell className="py-5 px-6 align-middle">
                       <div className="flex flex-col gap-0.5">
@@ -766,7 +770,17 @@ export default function ApplicationsPage() {
                       </div>
                     </TableCell>
                     <TableCell className="py-5 px-6 align-middle">
-                      <StatusBadge status={app.formStatus} />
+                      {app.verificationStatus === "verified" ? (
+                        <Badge className="bg-green-500/10 text-green-700 dark:bg-green-500/20 dark:text-green-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0">
+                          Verified
+                        </Badge>
+                      ) : app.verificationStatus === "rejected" ? (
+                        <Badge className="bg-red-500/10 text-red-700 dark:bg-red-500/20 dark:text-red-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0">
+                          Rejected
+                        </Badge>
+                      ) : (
+                        <StatusBadge status={app.formStatus} />
+                      )}
                     </TableCell>
                     <TableCell className="py-5 px-6 align-middle">
                       <span
@@ -792,16 +806,21 @@ export default function ApplicationsPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-40">
-                            <DropdownMenuItem className="gap-2" asChild>
-                              <Link href={`/organization/applications/${encodeURIComponent(app.applicationNo)}`}>
-                                <Eye className="size-4" />
-                                View
-                              </Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
+                            {app.verificationStatus !== "verified" && (
+                              <>
+                                <DropdownMenuItem
+                                  className="gap-2 cursor-pointer"
+                                  onClick={() => verifyMutation.mutate({ applicationNo: app.applicationNo, status: "verified" })}
+                                >
+                                  <BadgeCheck className="size-4 text-green-600" />
+                                  Verify
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                              </>
+                            )}
                             <DropdownMenuItem
                               variant="destructive"
-                              className="gap-2"
+                              className="gap-2 cursor-pointer"
                               onClick={() => setDeleteAppId(app.id)}
                             >
                               <Trash2 className="size-4" />
@@ -921,9 +940,9 @@ export default function ApplicationsPage() {
                       </div>
 
                       <div className="min-w-0">
-                        <span className="font-semibold text-foreground text-sm tracking-tight truncate block">
+                        <Link href={`/organization/applications/${encodeURIComponent(app.applicationNo)}`} className="font-semibold text-foreground hover:underline text-sm tracking-tight truncate block cursor-pointer">
                           {app.name}
-                        </span>
+                        </Link>
                         <span className="text-xs text-muted-foreground truncate block mt-0.5">
                           {app.email}
                         </span>
@@ -931,7 +950,17 @@ export default function ApplicationsPage() {
                     </div>
 
                     <div className="flex items-center gap-1.5 shrink-0 self-center">
-                      <StatusBadge status={app.formStatus} />
+                      {app.verificationStatus === "verified" ? (
+                        <Badge className="bg-green-500/10 text-green-700 dark:bg-green-500/20 dark:text-green-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0">
+                          Verified
+                        </Badge>
+                      ) : app.verificationStatus === "rejected" ? (
+                        <Badge className="bg-red-500/10 text-red-700 dark:bg-red-500/20 dark:text-red-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0">
+                          Rejected
+                        </Badge>
+                      ) : (
+                        <StatusBadge status={app.formStatus} />
+                      )}
 
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -946,16 +975,21 @@ export default function ApplicationsPage() {
                         </DropdownMenuTrigger>
 
                         <DropdownMenuContent align="end" className="w-40">
-                          <DropdownMenuItem className="gap-2" asChild>
-                            <Link href={`/organization/applications/${encodeURIComponent(app.applicationNo)}`}>
-                              <Eye className="size-4" />
-                              View
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
+                          {app.verificationStatus !== "verified" && (
+                            <>
+                              <DropdownMenuItem
+                                className="gap-2 cursor-pointer"
+                                onClick={() => verifyMutation.mutate({ applicationNo: app.applicationNo, status: "verified" })}
+                              >
+                                <BadgeCheck className="size-4 text-green-600" />
+                                Verify
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                            </>
+                          )}
                           <DropdownMenuItem
                             variant="destructive"
-                            className="gap-2"
+                            className="gap-2 cursor-pointer"
                             onClick={() => setDeleteAppId(app.id)}
                           >
                             <Trash2 className="size-4" />
@@ -972,9 +1006,9 @@ export default function ApplicationsPage() {
                       <span className="font-medium text-muted-foreground/80 block">
                         App No:
                       </span>
-                      <span className="text-foreground/95 font-medium">
+                      <Link href={`/organization/applications/${encodeURIComponent(app.applicationNo)}`} className="text-foreground/95 hover:underline font-semibold block cursor-pointer">
                         {app.applicationNo}
-                      </span>
+                      </Link>
                     </div>
 
                     <div className="flex flex-col gap-1">

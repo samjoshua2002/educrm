@@ -24,9 +24,22 @@ export interface CompositeScoreBreakdown {
   gdScore: number | null;
   piScore: number | null;
   gdpiTotal: number;
+  // Academic component scores (band-derived from org's scoring-bands config)
+  tenthScore: number;
+  twelfthScore: number;
+  ugScore: number;
+  academicComponent: number;
+  maxAcademicScore: number;
+  // Entrance test score (band-derived, best percentile wins)
+  testComponent: number;
+  maxTestScore: number;
+  // Experience score (auto-calculated from from/to dates, band-derived)
   experienceComponent: number;
+  maxExperienceScore: number;
   claimedExperienceMonths: string | null;
   validatedExperienceMonths: string | null;
+  // Auto-calculated from work experience from/to dates
+  autoCalculatedMonths: number | null;
   discrepancyFlag: boolean;
   achievementScore: number;
   penaltyScore: number;
@@ -50,9 +63,11 @@ export function useCompositeScore(applicationNo?: string) {
     queryKey: ["composite-score", orgId, applicationNo],
     queryFn: () =>
       apiGet<CompositeScoreBreakdown>(
-        `/organizations/${orgId}/applications/${applicationNo}/composite-score`,
+        `/organizations/${orgId}/composite-score?applicationNo=${encodeURIComponent(applicationNo!)}`,
       ),
     enabled: !!orgId && !!applicationNo,
+    staleTime: 0,
+    refetchOnMount: true,
   });
 }
 
@@ -62,7 +77,7 @@ export function useScoreAdjustment(applicationNo?: string) {
   return useMutation({
     mutationFn: (data: ScoreAdjustmentInput) =>
       apiPatch<CompositeScoreBreakdown>(
-        `/organizations/${orgId}/applications/${applicationNo}/score-adjustment`,
+        `/organizations/${orgId}/score-adjustment?applicationNo=${encodeURIComponent(applicationNo!)}`,
         data,
       ),
     onSuccess: () => {

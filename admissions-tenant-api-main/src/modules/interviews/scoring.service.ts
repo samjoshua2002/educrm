@@ -32,9 +32,22 @@ export interface CompositeScoreBreakdown {
   gdScore: number | null;
   piScore: number | null;
   gdpiTotal: number;
+  // Academic component scores (band-derived)
+  tenthScore: number;
+  twelfthScore: number;
+  ugScore: number;
+  academicComponent: number;
+  maxAcademicScore: number;
+  // Entrance test score (band-derived, from best percentile)
+  testComponent: number;
+  maxTestScore: number;
+  // Experience score (auto-calculated from from/to dates, band-derived)
   experienceComponent: number;
+  maxExperienceScore: number;
   claimedExperienceMonths: string | null;
   validatedExperienceMonths: string | null;
+  // Auto-calculated from work experience from/to dates (used when validatedExperienceMonths not set)
+  autoCalculatedMonths: number | null;
   discrepancyFlag: boolean;
   achievementScore: number;
   penaltyScore: number;
@@ -62,15 +75,31 @@ function pointsFromBands(
   bands: Array<{ minPercent?: number; minPercentile?: number; minYears?: number; points: number }>,
   key: 'minPercent' | 'minPercentile' | 'minYears',
 ): number {
-  if (value === null || value === undefined || !bands || bands.length === 0) return 0;
-  const sorted = [...bands].sort((a, b) => (b[key] ?? 0) - (a[key] ?? 0));
-  const match = sorted.find((band) => value >= (band[key] ?? 0));
-  return match ? match.points : 0;
+  const numValue = value !== null && value !== undefined ? Number(value) : null;
+  if (numValue === null || !Number.isFinite(numValue) || !bands || bands.length === 0) return 0;
+
+  const normalised = bands
+    .map((b: any) => {
+      const thresholdVal = b[key] ?? b.minYears ?? b.min_years ?? b.minPercent ?? b.min_percent ?? b.minPercentile ?? b.min_percentile ?? 0;
+      const pointsVal = b.points ?? b.score ?? 0;
+      return {
+        threshold: Number(thresholdVal) || 0,
+        points: Number(pointsVal) || 0,
+      };
+    })
+    .sort((a, b) => b.threshold - a.threshold);
+
+  for (const band of normalised) {
+    if (numValue >= band.threshold) {
+      return band.points;
+    }
+  }
+  return 0;
 }
 
 function parsePercentage(raw: string | null | undefined): number | null {
   if (!raw) return null;
-  const cleaned = raw.replace('%', '').trim();
+  const cleaned = String(raw).replace('%', '').trim();
   const num = Number(cleaned);
   return Number.isFinite(num) ? num : null;
 }
@@ -295,6 +324,12 @@ export class ScoringService {
   }
 
   private async buildCompositeScoreBreakdown(orgId: string, application: Application): Promise<CompositeScoreBreakdown> {
+    // Reload with relations needed for band-based academic/test/experience scoring
+    const fullApplication = await this.applicationRepository.findOne({
+      where: { id: application.id, organizationId: orgId },
+      relations: ['educationRecords', 'entranceTests', 'workExperienceRecords'],
+    }) ?? application;
+
     const interviews = await this.interviewRepository.find({
       where: { applicationId: application.id, organizationId: orgId },
       order: { round: 'ASC' },
@@ -386,11 +421,50 @@ export class ScoringService {
     const gdpiTotal = Number(((gdScore ?? 0) + (piScore ?? 0)).toFixed(2));
 
     const config = await this.conversionConfigService.getOrCreate(orgId);
+
+    // Academic component scores from band config
+    const tenth = fullApplication.educationRecords?.find((e) => e.level === '10th');
+    const twelfth = fullApplication.educationRecords?.find((e) => e.level === '12th');
+    const ug = fullApplication.educationRecords?.find((e) => e.level === 'UG');
+    const tenthScore = pointsFromBands(parsePercentage(tenth?.percentageCgpa), config.bands.tenth ?? [], 'minPercent');
+    const twelfthScore = pointsFromBands(parsePercentage(twelfth?.percentageCgpa), config.bands.twelfth ?? [], 'minPercent');
+    const ugScore = pointsFromBands(parsePercentage(ug?.percentageCgpa), config.bands.ug ?? [], 'minPercent');
+    const academicComponent = tenthScore + twelfthScore + ugScore;
+
+    // Entrance test score from band config (best percentile wins)
+    const bestTest = fullApplication.entranceTests?.sort((a, b) => (b.percentile ?? 0) - (a.percentile ?? 0))[0];
+    const testComponent = pointsFromBands(bestTest?.percentile, config.bands.testPercentile ?? [], 'minPercentile');
+    const maxTestScore = Math.max(0, ...(config.bands.testPercentile ?? []).map((b) => Number(b.points ?? 0)));
+
+    // Max possible scores per category (for UI display)
+    const maxAcadPerCategory = (bandKey: 'tenth' | 'twelfth' | 'ug') =>
+      Math.max(0, ...(config.bands[bandKey] ?? []).map((b) => Number(b.points ?? 0)));
+    const maxAcademicScore = maxAcadPerCategory('tenth') + maxAcadPerCategory('twelfth') + maxAcadPerCategory('ug');
+
+    // Experience score: automatically calculated from candidate's work experience from/to dates.
+    const autoCalcMonths = sumExperienceMonths(fullApplication.workExperienceRecords ?? []);
     const validatedMonths = application.validatedExperienceMonths ? Number(application.validatedExperienceMonths) : null;
     const claimedMonths = application.claimedExperienceMonths ? Number(application.claimedExperienceMonths) : null;
-    const experienceYears =
-      validatedMonths !== null && Number.isFinite(validatedMonths) ? validatedMonths / 12 : null;
-    const experienceComponent = pointsFromBands(experienceYears, config.bands.experienceYears, 'minYears');
+    
+    // Always prefer auto-calculated months from job records if present; fall back to validatedMonths
+    const effectiveMonths = (autoCalcMonths !== null && autoCalcMonths > 0)
+      ? autoCalcMonths
+      : (validatedMonths !== null && Number.isFinite(validatedMonths) && validatedMonths > 0 ? validatedMonths : null);
+
+    const experienceYears = effectiveMonths !== null && effectiveMonths > 0 ? effectiveMonths / 12 : null;
+    const experienceComponent = pointsFromBands(experienceYears, config.bands.experienceYears ?? [], 'minYears');
+    const maxExperienceScore = Math.max(0, ...(config.bands.experienceYears ?? []).map((b: any) => Number(b.points ?? b.score ?? 0)));
+    // DEBUG — remove after confirming scores are correct
+    console.log('[scoring] exp debug', {
+      validatedMonths,
+      autoCalcMonths,
+      effectiveMonths,
+      experienceYears,
+      experienceComponent,
+      maxExperienceScore,
+      bandCount: (config.bands.experienceYears ?? []).length,
+      bands: config.bands.experienceYears,
+    });
 
     // discrepancyThreshold is treated as a PERCENTAGE difference threshold
     // relative to the claimed value. No discrepancy check is possible (and
@@ -420,9 +494,18 @@ export class ScoringService {
       gdScore: gdScore !== null ? Number(gdScore.toFixed(2)) : null,
       piScore: piScore !== null ? Number(piScore.toFixed(2)) : null,
       gdpiTotal,
+      tenthScore,
+      twelfthScore,
+      ugScore,
+      academicComponent,
+      maxAcademicScore,
+      testComponent,
+      maxTestScore,
       experienceComponent,
+      maxExperienceScore,
       claimedExperienceMonths: application.claimedExperienceMonths ?? null,
       validatedExperienceMonths: application.validatedExperienceMonths ?? null,
+      autoCalculatedMonths: autoCalcMonths !== null ? Math.round(autoCalcMonths) : null,
       discrepancyFlag,
       achievementScore,
       penaltyScore,

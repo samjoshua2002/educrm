@@ -84,6 +84,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import ApplicationDetailsPage from "@/app/organization/applications/[...application_number]/page";
 import { useCourses } from "@/hooks/use-courses";
 import { useAcademicSessions } from "@/hooks/use-academic-sessions";
+import { useCourseSessions } from "@/hooks/use-course-sessions";
 import { useBranches } from "@/hooks/use-branches";
 
 
@@ -449,9 +450,11 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
   const { data: coursesData } = useCourses(1, 100);
   const { data: sessionsData } = useAcademicSessions(1, 100);
   const { data: branchesData } = useBranches(1, 100);
+  const { data: courseSessionsResponse } = useCourseSessions(1, 100);
 
   const coursesList = coursesData?.data || [];
   const branchesList = branchesData?.data || [];
+  const courseSessionsList = courseSessionsResponse?.data || [];
 
   const interviewLocations = React.useMemo(() => {
     if (typeof window !== "undefined") {
@@ -647,7 +650,15 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
       const currentSession = sessionsList.find((s) => s.isCurrent) || sessionsList[0];
 
       const courseId = selectedCourse?.id || undefined;
-      const academicSession = currentSession?.name || "2025-2026";
+      
+      // Look up Course Session linked to the current academic session first, fallback to any active course session
+      const activeCourseSession = courseSessionsList.find(
+        (cs) => cs.courseId === courseId && cs.isActive && cs.academicSession?.isCurrent
+      ) || courseSessionsList.find(
+        (cs) => cs.courseId === courseId && cs.isActive
+      );
+      
+      const academicSession = activeCourseSession?.academicSession?.name || currentSession?.name || "2025-2026";
 
       const payload: any = {
         courseId,

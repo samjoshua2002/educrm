@@ -19,6 +19,7 @@ export interface EntranceTest {
 export interface ApplicationDetail {
   applicationNo: string;
   status: string;
+  verificationStatus?: string;
   appliedFor: string;
   courseId: string;
   interviewLocation?: string;
@@ -204,6 +205,7 @@ function mapApiToApplicationDetail(apiData: any): ApplicationDetail {
   return {
     applicationNo: apiData.applicationNo,
     status: apiData.formStatus,
+    verificationStatus: apiData.verificationStatus || "pending",
     appliedFor: apiData.program || "",
     courseId: apiData.courseId || "",
     applicant: {

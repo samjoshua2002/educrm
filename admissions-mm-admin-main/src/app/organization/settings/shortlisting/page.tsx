@@ -59,6 +59,7 @@ import { useSidebar } from "@/components/ui/sidebar";
 
 import { useCourses } from "@/hooks/use-courses";
 import { useAcademicSessions } from "@/hooks/use-academic-sessions";
+import { useCourseSessions } from "@/hooks/use-course-sessions";
 import {
   useRubrics,
   useCreateRubric,
@@ -96,6 +97,8 @@ export default function ShortlistingConfigPage() {
   const courses = coursesResponse?.data || [];
   const { data: sessionsResponse } = useAcademicSessions(1, 100);
   const academicSessions = sessionsResponse?.data || [];
+  const { data: courseSessionsResponse } = useCourseSessions(1, 100);
+  const courseSessions = courseSessionsResponse?.data || [];
 
   const createRubric = useCreateRubric();
   const updateRubric = useUpdateRubric();
@@ -210,6 +213,26 @@ export default function ShortlistingConfigPage() {
 
     return () => clearHeader();
   }, [activeTab, setHeader, clearHeader]);
+
+  // Get available sessions dynamically based on CourseSessions
+  const availableSessions = React.useMemo(() => {
+    if (!ruleForm.program) return academicSessions;
+    const selectedCourseId = courses.find((c) => c.name === ruleForm.program)?.id;
+    if (!selectedCourseId) return academicSessions;
+    const linkedSessions = courseSessions.filter((cs) => cs.courseId === selectedCourseId);
+    if (linkedSessions.length === 0) return academicSessions;
+    return linkedSessions.map((cs) => cs.academicSession).filter(Boolean);
+  }, [ruleForm.program, courses, courseSessions, academicSessions]);
+
+  // Reset academic year selection if the program changes and the previous session is not available
+  React.useEffect(() => {
+    if (ruleForm.program) {
+      const isAvailable = availableSessions.some((s) => s.name === ruleForm.academicYear);
+      if (!isAvailable && availableSessions.length > 0) {
+        setRuleForm((prev) => ({ ...prev, academicYear: "" }));
+      }
+    }
+  }, [ruleForm.program, availableSessions, ruleForm.academicYear]);
 
   // Client Side Filtering & Pagination - Rules
   const filteredRules = React.useMemo(() => {
@@ -1402,10 +1425,10 @@ export default function ShortlistingConfigPage() {
                   onValueChange={(v) => setRuleForm({ ...ruleForm, academicYear: v })}
                 >
                   <SelectTrigger className="w-full h-11 border-[#D4D4D4] rounded-lg">
-                    <SelectValue placeholder={academicSessions.length === 0 ? "No sessions configured" : "Select year"} />
+                    <SelectValue placeholder={availableSessions.length === 0 ? "No sessions configured" : "Select year"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {academicSessions.map((s) => (
+                    {availableSessions.map((s) => (
                       <SelectItem key={s.id} value={s.name}>
                         {s.displayName || s.name}
                       </SelectItem>

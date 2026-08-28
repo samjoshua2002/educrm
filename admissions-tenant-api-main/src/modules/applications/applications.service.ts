@@ -9,6 +9,7 @@ import { DataSource, Repository, In, Not, ILike } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { Application } from './entities/application.entity.js';
 import { Student } from './entities/student.entity.js';
+import { CourseSession } from '../course-sessions/entities/course-session.entity.js';
 import { Lead } from '../leads/entities/lead.entity.js';
 import { Branch } from '../branches/entities/branch.entity.js';
 import { User } from '../users/entities/user.entity.js';
@@ -625,6 +626,19 @@ export class ApplicationsService {
       const course = await this.coursesService.validateCourseExists(dto.courseId, orgId);
       app.courseId = course.id;
       app.program = course.name;
+
+      // Automatically update the application's academicSession based on the CourseSession (prioritizing current session)
+      const courseSessions = await this.dataSource.getRepository(CourseSession).find({
+        where: { courseId: course.id, organizationId: orgId, isActive: true },
+        relations: ['academicSession'],
+      });
+      
+      const currentCourseSession = courseSessions.find(cs => cs.academicSession?.isCurrent);
+      const activeSession = currentCourseSession || courseSessions[0];
+      
+      if (activeSession && activeSession.academicSession) {
+        app.academicSession = activeSession.academicSession.name;
+      }
     }
     if (dto.preference1 !== undefined) app.preference1 = dto.preference1;
     if (dto.preference2 !== undefined) app.preference2 = dto.preference2;
@@ -755,9 +769,23 @@ export class ApplicationsService {
     // linked Student row (no separate login flow yet — see project notes).
     if (dto?.password) {
       const student = await this.studentRepository.findOne({ where: { id: saved.studentId } });
-      if (student && !student.password) {
-        student.password = await bcrypt.hash(dto.password, 10);
-        await this.studentRepository.save(student);
+      if (student) {
+        const hashedPassword = await bcrypt.hash(dto.password, 10);
+        
+        // Save to Student entity (backward compatibility)
+        if (!student.password) {
+          student.password = hashedPassword;
+          await this.studentRepository.save(student);
+        }
+
+        // Save to User entity so the student can log in
+        const user = await this.dataSource.getRepository(User).findOne({
+          where: { email: student.email, organizationId: orgId },
+        });
+        if (user) {
+          user.password = hashedPassword;
+          await this.dataSource.getRepository(User).save(user);
+        }
       }
     }
 

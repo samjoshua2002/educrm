@@ -49,12 +49,6 @@ export const organizationNavItems: NavGroup[] = [
         icon: ApplicationsIcon,
       },
       {
-        title: "Application Verification",
-        url: "/organization/applications/verification",
-        icon: ApplicationsIcon,
-        roles: ["org_admin", "application_manager"],
-      },
-      {
         title: "GD & Interview",
         url: "/organization/gd-interview",
         icon: GdInterviewIcon,
