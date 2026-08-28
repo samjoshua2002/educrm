@@ -822,7 +822,7 @@ export default function GDInterviewDetailsPage() {
                       </div>
                       <div className="flex justify-between items-center text-xs text-slate-500">
                         <span>{exp.designation || "-"}</span>
-                        <span>{exp.months ? (String(exp.months).includes("Month") ? exp.months : `${exp.months} Months`) : exp.rolesResponsibilities || "-"}</span>
+                        <span>{exp.fromDate || exp.from_date || exp.toDate || exp.to_date ? `${exp.fromDate || exp.from_date || "-"} to ${exp.toDate || exp.to_date || "Present"}` : exp.rolesResponsibilities || "-"}</span>
                       </div>
                     </div>
                   ))}
@@ -1649,6 +1649,14 @@ function EditAcademicsForm({ data, onSave, onClose }: GDFormProps) {
 }
 
 function EditExperienceForm({ data, appData, onSave, onClose }: GDFormProps & { appData?: any }) {
+  const formatDateForInput = (dateVal: any) => {
+    if (!dateVal) return "";
+    if (typeof dateVal === "string") {
+      return dateVal.split("T")[0];
+    }
+    return "";
+  };
+
   const existingExps =
     (data as any)?.workExperiences ||
     appData?.workExperiences ||
@@ -1658,7 +1666,7 @@ function EditExperienceForm({ data, appData, onSave, onClose }: GDFormProps & { 
   const [experiences, setExperiences] = React.useState<any[]>(
     existingExps.length > 0
       ? existingExps
-      : [{ companyName: data?.companyName || "", designation: data?.designation || "", months: data?.claimedMonths || "", salaryCtc: "" }]
+      : [{ companyName: data?.companyName || "", designation: data?.designation || "", salaryCtc: "", fromDate: "", toDate: "" }]
   );
 
   const [validatedMonths, setValidatedMonths] = React.useState(data?.validatedMonths || "0");
@@ -1674,7 +1682,7 @@ function EditExperienceForm({ data, appData, onSave, onClose }: GDFormProps & { 
   const handleAddExperience = () => {
     setExperiences((prev) => [
       ...prev,
-      { companyName: "", designation: "", months: "", salaryCtc: "" },
+      { companyName: "", designation: "", salaryCtc: "", fromDate: "", toDate: "" },
     ]);
   };
 
@@ -1731,12 +1739,23 @@ function EditExperienceForm({ data, appData, onSave, onClose }: GDFormProps & { 
             </div>
             <div className="flex flex-col gap-1.5 col-span-1">
               <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider font-sans">
-                Experience (Months)
+                From Date
               </Label>
               <Input
-                value={exp.months || ""}
-                onChange={(e) => handleFieldChange(index, "months", e.target.value)}
-                placeholder="e.g. 18"
+                type="date"
+                value={formatDateForInput(exp.fromDate || exp.from_date)}
+                onChange={(e) => handleFieldChange(index, "fromDate", e.target.value)}
+                className="border-[#D4D4D4] rounded-[8px] h-9 text-[13px] bg-white"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5 col-span-1">
+              <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider font-sans">
+                To Date
+              </Label>
+              <Input
+                type="date"
+                value={formatDateForInput(exp.toDate || exp.to_date)}
+                onChange={(e) => handleFieldChange(index, "toDate", e.target.value)}
                 className="border-[#D4D4D4] rounded-[8px] h-9 text-[13px] bg-white"
               />
             </div>

@@ -299,6 +299,9 @@ function mapApiToApplicationDetail(apiData: any): ApplicationDetail {
         designation: e.designation || "",
         months: rawMonths,
         salaryCtc: e.grossSalary || e.salaryCtc || "",
+        fromDate: e.fromDate || e.from_date || "",
+        toDate: e.toDate || e.to_date || "",
+        rolesDescription: e.rolesResponsibilities || "",
       };
     }),
     gdEvaluation: {
@@ -470,13 +473,14 @@ function toAdditionalPayload(updatedData: ApplicationDetail) {
 function toWorkExperiencePayload(updatedData: ApplicationDetail) {
   const exps = updatedData.workExperiences || (updatedData as any).experiences || [];
   const records = exps
-    .filter((e: any) => e && (e.companyName || e.organization || e.company))
+    .filter((e: any) => e && (e.companyName || e.organization || e.company || e.fromDate || e.toDate))
     .map((e: any) => {
-      const monthStr = e.months ? (String(e.months).toLowerCase().includes("month") ? String(e.months) : `${e.months} Months`) : e.rolesResponsibilities;
       return {
         organization: String(e.companyName || e.organization || e.company || "Company").trim(),
         designation: String(e.designation || "").trim() || undefined,
-        rolesResponsibilities: monthStr || undefined,
+        fromDate: e.fromDate || e.from_date || undefined,
+        toDate: e.toDate || e.to_date || undefined,
+        rolesResponsibilities: String(e.rolesDescription || e.rolesResponsibilities || "").trim() || undefined,
         grossSalary: String(e.salaryCtc || e.salary || e.grossSalary || "").trim() || undefined,
       };
     });

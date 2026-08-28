@@ -868,7 +868,10 @@ export default function ApplicationDetailsPage() {
                           Designation
                         </TableHead>
                         <TableHead className="font-sans text-[10px] font-bold leading-normal tracking-[0.5px] uppercase text-[#64748B] px-4 py-3">
-                          Duration (Months)
+                          From Date
+                        </TableHead>
+                        <TableHead className="font-sans text-[10px] font-bold leading-normal tracking-[0.5px] uppercase text-[#64748B] px-4 py-3">
+                          To Date
                         </TableHead>
                         <TableHead className="font-sans text-[10px] font-bold leading-normal tracking-[0.5px] uppercase text-[#64748B] text-right pr-6 py-3">
                           Annual CTC
@@ -880,7 +883,8 @@ export default function ApplicationDetailsPage() {
                         <TableRow key={index} className="hover:bg-slate-50">
                           <TableCell className="font-bold text-slate-800 text-xs pl-6 py-3">{exp.companyName || exp.organization || "-"}</TableCell>
                           <TableCell className="text-slate-600 text-xs px-4 py-3">{exp.designation || "-"}</TableCell>
-                          <TableCell className="text-slate-600 text-xs px-4 py-3">{exp.months ? `${exp.months} Months` : "-"}</TableCell>
+                          <TableCell className="text-slate-600 text-xs px-4 py-3">{exp.fromDate || exp.from_date || "-"}</TableCell>
+                          <TableCell className="text-slate-600 text-xs px-4 py-3">{exp.toDate || exp.to_date || "-"}</TableCell>
                           <TableCell className="text-right font-bold text-emerald-600 pr-6 py-3 text-xs">{exp.salaryCtc || exp.grossSalary || "-"}</TableCell>
                         </TableRow>
                       ))}
@@ -2096,6 +2100,14 @@ function EditPreferencesForm({ appData, onSave, onClose, branchesList = [], cour
 }
 
 function EditExperienceForm({ appData, onSave, onClose }: FormProps) {
+  const formatDateForInput = (dateVal: any) => {
+    if (!dateVal) return "";
+    if (typeof dateVal === "string") {
+      return dateVal.split("T")[0];
+    }
+    return "";
+  };
+
   const existingExps =
     appData.workExperiences ||
     ((appData as any).experiences) ||
@@ -2104,8 +2116,9 @@ function EditExperienceForm({ appData, onSave, onClose }: FormProps) {
           {
             companyName: (appData as any).experience.companyName,
             designation: (appData as any).experience.designation,
-            months: (appData as any).experience.claimedMonths || "",
             salaryCtc: (appData as any).experience.salaryCtc || "",
+            fromDate: (appData as any).experience.fromDate || "",
+            toDate: (appData as any).experience.toDate || "",
           },
         ]
       : []);
@@ -2113,7 +2126,7 @@ function EditExperienceForm({ appData, onSave, onClose }: FormProps) {
   const [experiences, setExperiences] = React.useState<any[]>(
     existingExps.length > 0
       ? existingExps
-      : [{ companyName: "", designation: "", months: "", salaryCtc: "" }]
+      : [{ companyName: "", designation: "", salaryCtc: "", fromDate: "", toDate: "" }]
   );
 
   const handleFieldChange = (index: number, field: string, value: string) => {
@@ -2127,7 +2140,7 @@ function EditExperienceForm({ appData, onSave, onClose }: FormProps) {
   const handleAddExperience = () => {
     setExperiences((prev) => [
       ...prev,
-      { companyName: "", designation: "", months: "", salaryCtc: "" },
+      { companyName: "", designation: "", salaryCtc: "", fromDate: "", toDate: "" },
     ]);
   };
 
@@ -2192,17 +2205,31 @@ function EditExperienceForm({ appData, onSave, onClose }: FormProps) {
             </div>
             <div className="flex flex-col gap-1.5 col-span-1">
               <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
-                Experience (Months)
+                From Date
               </Label>
               <Input
-                value={exp.months || ""}
+                type="date"
+                value={formatDateForInput(exp.fromDate || exp.from_date)}
                 onChange={(e) =>
-                  handleFieldChange(index, "months", e.target.value)
+                  handleFieldChange(index, "fromDate", e.target.value)
                 }
-                placeholder="e.g. 18"
                 className="border-[#D4D4D4] rounded-[8px] h-9 text-[13px] bg-white"
               />
             </div>
+            <div className="flex flex-col gap-1.5 col-span-1">
+              <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                To Date
+              </Label>
+              <Input
+                type="date"
+                value={formatDateForInput(exp.toDate || exp.to_date)}
+                onChange={(e) =>
+                  handleFieldChange(index, "toDate", e.target.value)
+                }
+                className="border-[#D4D4D4] rounded-[8px] h-9 text-[13px] bg-white"
+              />
+            </div>
+
             <div className="flex flex-col gap-1.5 col-span-1">
               <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
                 Annual CTC / Salary
