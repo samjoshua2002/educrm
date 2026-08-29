@@ -27,11 +27,15 @@ const DEFAULT_BANDS = {
     { minPercentile: 70, points: 4 },
     { minPercentile: 60, points: 2 },
   ],
-  experienceYears: [
-    { minYears: 5, points: 10 },
-    { minYears: 3, points: 7 },
-    { minYears: 1, points: 4 },
-    { minYears: 0, points: 0 },
+  // Experience is stored/edited in months everywhere else in the app
+  // (application_work_experience.from_date/to_date, claimedExperienceMonths,
+  // validatedExperienceMonths), so bands key off minMonths too — no year<->
+  // month conversion needed anywhere else in the scoring code.
+  experienceMonths: [
+    { minMonths: 60, points: 10 }, // 5 years
+    { minMonths: 36, points: 7 },  // 3 years
+    { minMonths: 12, points: 4 },  // 1 year
+    { minMonths: 0, points: 0 },
   ],
 };
 
@@ -56,6 +60,17 @@ export class ScoreConversionConfigService {
         bands: JSON.parse(JSON.stringify(DEFAULT_BANDS)),
         discrepancyThreshold: 10,
       });
+      config = await this.configRepository.save(config);
+    } else if (!config.bands?.experienceMonths && (config.bands as any)?.experienceYears) {
+      // One-time migration for rows saved before the years->months switch:
+      // convert the old minYears bands to minMonths in place so existing
+      // orgs don't silently lose their configured experience bands.
+      const oldBands = (config.bands as any).experienceYears as Array<{ minYears?: number; points: number }>;
+      config.bands = {
+        ...config.bands,
+        experienceMonths: oldBands.map((b) => ({ minMonths: (b.minYears ?? 0) * 12, points: b.points })),
+      };
+      delete (config.bands as any).experienceYears;
       config = await this.configRepository.save(config);
     }
     return config;

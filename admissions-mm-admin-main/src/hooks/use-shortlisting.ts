@@ -197,7 +197,7 @@ export function useDeactivateShortlistingRule() {
 export interface ScoreBand {
   minPercent?: number;
   minPercentile?: number;
-  minYears?: number;
+  minMonths?: number;
   points: number;
 }
 
@@ -209,7 +209,7 @@ export interface ScoreConversionConfig {
     twelfth: ScoreBand[];
     ug: ScoreBand[];
     testPercentile: ScoreBand[];
-    experienceYears: ScoreBand[];
+    experienceMonths: ScoreBand[];
   };
   discrepancyThreshold: number;
 }

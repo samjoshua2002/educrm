@@ -72,8 +72,8 @@ export interface ShortlistPreviewRow {
 // a hardcoded cutoff.
 function pointsFromBands(
   value: number | null | undefined,
-  bands: Array<{ minPercent?: number; minPercentile?: number; minYears?: number; points: number }>,
-  key: 'minPercent' | 'minPercentile' | 'minYears',
+  bands: Array<{ minPercent?: number; minPercentile?: number; minYears?: number; minMonths?: number; points: number }>,
+  key: 'minPercent' | 'minPercentile' | 'minYears' | 'minMonths',
 ): number {
   const numValue = value !== null && value !== undefined ? Number(value) : null;
   if (numValue === null || !Number.isFinite(numValue) || !bands || bands.length === 0) return 0;
@@ -176,7 +176,7 @@ export class ScoringService {
   private scoreApplicationForShortlisting(
     app: Application,
     rule: ShortlistingRule,
-    bands: Record<string, Array<{ minPercent?: number; minPercentile?: number; minYears?: number; points: number }>>,
+    bands: Record<string, Array<{ minPercent?: number; minPercentile?: number; minYears?: number; minMonths?: number; points: number }>>,
   ): ShortlistPreviewRow {
     const tenth = app.educationRecords?.find((e) => e.level === '10th');
     const twelfth = app.educationRecords?.find((e) => e.level === '12th');
@@ -190,11 +190,12 @@ export class ScoringService {
     const bestTest = app.entranceTests?.sort((a, b) => (b.percentile ?? 0) - (a.percentile ?? 0))[0];
     const testComponent = pointsFromBands(bestTest?.percentile, bands.testPercentile, 'minPercentile');
 
-    // Claimed (self-reported) experience, summed from the applicant's
-    // work-experience records — this is all that's known pre-interview.
+    // Claimed (self-reported) experience, summed (in months) from the
+    // applicant's work-experience records — this is all that's known
+    // pre-interview. Bands are keyed in months, matching how experience is
+    // stored/displayed everywhere else in the app.
     const claimedMonths = sumExperienceMonths(app.workExperienceRecords);
-    const experienceYears = claimedMonths !== null ? claimedMonths / 12 : null;
-    const experienceComponent = pointsFromBands(experienceYears, bands.experienceYears, 'minYears');
+    const experienceComponent = pointsFromBands(claimedMonths, bands.experienceMonths, 'minMonths');
 
     const shortlistScore =
       academicComponent * (Number(rule.academicWeightage) / 100) +
@@ -248,7 +249,7 @@ export class ScoringService {
   //                        the SAME type are averaged, not summed, so extra
   //                        re-interview rounds don't inflate the total)
   //   experienceComponent = pointsFromBands(validatedExperienceMonths/12,
-  //                            config.bands.experienceYears) — same band
+  //                            config.bands.experienceMonths) — same band
   //                            lookup Stage-1 shortlisting uses, now finally
   //                            populated because validatedExperienceMonths is
   //                            set post-interview (see
@@ -445,25 +446,23 @@ export class ScoringService {
     const autoCalcMonths = sumExperienceMonths(fullApplication.workExperienceRecords ?? []);
     const validatedMonths = application.validatedExperienceMonths ? Number(application.validatedExperienceMonths) : null;
     const claimedMonths = application.claimedExperienceMonths ? Number(application.claimedExperienceMonths) : null;
-    
     // Always prefer auto-calculated months from job records if present; fall back to validatedMonths
     const effectiveMonths = (autoCalcMonths !== null && autoCalcMonths > 0)
       ? autoCalcMonths
       : (validatedMonths !== null && Number.isFinite(validatedMonths) && validatedMonths > 0 ? validatedMonths : null);
 
-    const experienceYears = effectiveMonths !== null && effectiveMonths > 0 ? effectiveMonths / 12 : null;
-    const experienceComponent = pointsFromBands(experienceYears, config.bands.experienceYears ?? [], 'minYears');
-    const maxExperienceScore = Math.max(0, ...(config.bands.experienceYears ?? []).map((b: any) => Number(b.points ?? b.score ?? 0)));
+    const expBands = config.bands.experienceMonths ?? (config.bands as any).experienceYears ?? [];
+    const experienceComponent = pointsFromBands(effectiveMonths, expBands, 'minMonths');
+    const maxExperienceScore = Math.max(0, ...expBands.map((b: any) => Number(b.points ?? b.score ?? 0)));
     // DEBUG — remove after confirming scores are correct
     console.log('[scoring] exp debug', {
       validatedMonths,
       autoCalcMonths,
       effectiveMonths,
-      experienceYears,
       experienceComponent,
       maxExperienceScore,
-      bandCount: (config.bands.experienceYears ?? []).length,
-      bands: config.bands.experienceYears,
+      bandCount: expBands.length,
+      bands: expBands,
     });
 
     // discrepancyThreshold is treated as a PERCENTAGE difference threshold
