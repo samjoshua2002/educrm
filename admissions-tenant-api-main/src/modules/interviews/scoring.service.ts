@@ -78,19 +78,35 @@ function pointsFromBands(
   const numValue = value !== null && value !== undefined ? Number(value) : null;
   if (numValue === null || !Number.isFinite(numValue) || !bands || bands.length === 0) return 0;
 
+  const valToCompare = key === 'minMonths' ? Math.round(numValue) : numValue;
+
   const normalised = bands
     .map((b: any) => {
-      const thresholdVal = b[key] ?? b.minYears ?? b.min_years ?? b.minPercent ?? b.min_percent ?? b.minPercentile ?? b.min_percentile ?? 0;
+      let thresholdVal = 0;
+      if (key === 'minMonths') {
+        if (b.minMonths !== undefined && b.minMonths !== null) {
+          thresholdVal = Number(b.minMonths) || 0;
+        } else if (b.min_months !== undefined && b.min_months !== null) {
+          thresholdVal = Number(b.min_months) || 0;
+        } else if (b.minYears !== undefined && b.minYears !== null) {
+          thresholdVal = (Number(b.minYears) || 0) * 12;
+        } else if (b.min_years !== undefined && b.min_years !== null) {
+          thresholdVal = (Number(b.min_years) || 0) * 12;
+        }
+      } else {
+        const raw = b[key] ?? b.minYears ?? b.min_years ?? b.minPercent ?? b.min_percent ?? b.minPercentile ?? b.min_percentile ?? 0;
+        thresholdVal = Number(raw) || 0;
+      }
       const pointsVal = b.points ?? b.score ?? 0;
       return {
-        threshold: Number(thresholdVal) || 0,
+        threshold: thresholdVal,
         points: Number(pointsVal) || 0,
       };
     })
     .sort((a, b) => b.threshold - a.threshold);
 
   for (const band of normalised) {
-    if (numValue >= band.threshold) {
+    if (valToCompare >= band.threshold) {
       return band.points;
     }
   }
@@ -110,21 +126,23 @@ function parsePercentage(raw: string | null | undefined): number | null {
 // null when there are no usable records, so pointsFromBands scores it 0
 // rather than conflating "no experience" with "no data".
 function sumExperienceMonths(
-  records: Array<{ fromDate?: Date | string | null; toDate?: Date | string | null }> | undefined,
+  records: Array<{ fromDate?: Date | string | null; from_date?: Date | string | null; toDate?: Date | string | null; to_date?: Date | string | null }> | undefined,
 ): number | null {
   if (!records || records.length === 0) return null;
   let totalMonths = 0;
   let counted = false;
   for (const rec of records) {
-    if (!rec.fromDate) continue;
-    const from = new Date(rec.fromDate);
-    const to = rec.toDate ? new Date(rec.toDate) : new Date();
+    const rawFrom = rec.fromDate ?? rec.from_date;
+    const rawTo = rec.toDate ?? rec.to_date;
+    if (!rawFrom) continue;
+    const from = new Date(rawFrom);
+    const to = rawTo ? new Date(rawTo) : new Date();
     if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || to <= from) continue;
     const months = (to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24 * 30.44);
     totalMonths += months;
     counted = true;
   }
-  return counted ? totalMonths : null;
+  return counted ? Math.round(totalMonths) : null;
 }
 
 @Injectable()
