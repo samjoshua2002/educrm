@@ -30,7 +30,7 @@ export class ScoreConversionConfig {
   organization: Organization;
 
   @Column({ type: 'jsonb' })
-  bands: Record<string, Array<{ minPercent?: number; minPercentile?: number; minYears?: number; points: number }>>;
+  bands: Record<string, Array<{ minPercent?: number; minPercentile?: number; minYears?: number; minMonths?: number; points: number }>>;
 
   @Column({ name: 'discrepancy_threshold', type: 'decimal', precision: 5, scale: 2, default: 10 })
   discrepancyThreshold: number;

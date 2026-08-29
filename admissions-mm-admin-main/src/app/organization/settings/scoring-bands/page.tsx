@@ -34,7 +34,7 @@ import {
 // BAND EDITOR (repeatable min-threshold / points rows for one band category)
 // ============================================================================
 
-type ThresholdKey = "minPercent" | "minPercentile" | "minYears";
+type ThresholdKey = "minPercent" | "minPercentile" | "minMonths";
 
 interface BandEditorProps {
   title: string;
@@ -131,14 +131,14 @@ const EMPTY_BANDS: ScoreConversionConfig["bands"] = {
   twelfth: [],
   ug: [],
   testPercentile: [],
-  experienceYears: [],
+  experienceMonths: [],
 };
 
 export default function ScoringBandsSettingsPage() {
   usePageHeader({
     title: "Score Conversion Bands",
     description:
-      "Configure how raw academic percentages, test percentiles, and experience years convert into shortlisting points.",
+      "Configure how raw academic percentages, test percentiles, and experience months convert into shortlisting points.",
   });
 
   const { data: config, isLoading } = useScoreConversionConfig();
@@ -155,7 +155,7 @@ export default function ScoringBandsSettingsPage() {
         twelfth: config.bands?.twelfth ?? [],
         ug: config.bands?.ug ?? [],
         testPercentile: config.bands?.testPercentile ?? [],
-        experienceYears: config.bands?.experienceYears ?? [],
+        experienceMonths: config.bands?.experienceMonths ?? [],
       });
       setDiscrepancyThreshold(String(config.discrepancyThreshold ?? 10));
       setInitialized(true);
@@ -212,11 +212,11 @@ export default function ScoringBandsSettingsPage() {
           />
           <BandEditor
             title="Work Experience Bands"
-            description="Points awarded based on years of work experience. Note: experience points are not currently included in Stage-1 shortlisting eligibility (experience isn't known pre-interview) — they are computed for visibility and will feed into a later post-interview composite score."
-            thresholdKey="minYears"
-            thresholdLabel="Min Years"
-            rows={bands.experienceYears}
-            onChange={(rows) => setBands((b) => ({ ...b, experienceYears: rows }))}
+            description="Points awarded based on months of work experience (claimed experience, summed from from/to dates, at Stage-1 shortlisting; validated experience post-interview in the composite score)."
+            thresholdKey="minMonths"
+            thresholdLabel="Min Months"
+            rows={bands.experienceMonths}
+            onChange={(rows) => setBands((b) => ({ ...b, experienceMonths: rows }))}
           />
 
           <Card className="max-w-xl border border-[#e5e5e5] rounded-[12px] shadow-sm">
