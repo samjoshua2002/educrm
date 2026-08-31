@@ -53,7 +53,7 @@ const STAGES = [
   "New",
   "Contacted",
   "Interested",
-  "Qualified",
+  "Verified",
   "Converted",
   "Lost",
 ] as const;

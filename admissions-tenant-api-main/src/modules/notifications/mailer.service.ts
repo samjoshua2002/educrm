@@ -269,4 +269,39 @@ export class MailerService {
       );
     }
   }
+
+  async sendStudentVerificationOtpEmail(email: string, name: string, otp: string): Promise<void> {
+    const fromEmail = this.configService.get<string>('SMTP_FROM_EMAIL');
+    const fromName = this.configService.get<string>('SMTP_FROM_NAME');
+    const studentLoginUrl = 'http://localhost:3001/student-login';
+    const firstName = (name || '').trim().split(' ')[0] || 'Student';
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1f2937;">
+        <h2 style="color: #111827;">Lead Verified Successfully</h2>
+        <p>Dear ${firstName},</p>
+        <p>
+          Your details have been successfully verified. Your registered email is <strong>${email}</strong> and your One-Time Password (OTP) is <strong>${otp}</strong>.
+        </p>
+        <p style="margin: 24px 0;">
+          <a href="${studentLoginUrl}" style="display:inline-block;padding:10px 20px;background:#2563eb;color:#ffffff;text-decoration:none;border-radius:6px;">
+            Access your Student Portal
+          </a>
+        </p>
+        <p>Thank you for applying. We will keep you updated on the next steps.</p>
+      </div>
+    `;
+
+    try {
+      await this.transporter.sendMail({
+        from: `"${fromName}" <${fromEmail}>`,
+        to: email,
+        subject: `Welcome to EduCRM — Student Portal Credentials`,
+        html,
+      });
+      this.logger.log(`Student verification OTP email sent to ${email}`);
+    } catch (error: any) {
+      this.logger.error(`Failed to send student verification OTP email to ${email}: ${error?.message || error}`);
+    }
+  }
 }

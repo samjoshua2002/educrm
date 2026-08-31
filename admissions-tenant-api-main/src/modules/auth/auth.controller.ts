@@ -27,5 +27,15 @@ export class AuthController {
     );
   }
 
-  // TODO for Phase 2: Add POST /logout endpoint and clear cookies
+  @Post('student-verify-otp')
+  @ResponseMessage('OTP verified successfully')
+  studentVerifyOtp(@Body() body: { email: string; otp: string }) {
+    return this.authService.studentVerifyOtp(body.email, body.otp);
+  }
+
+  @Post('student-set-password')
+  @ResponseMessage('Password set successfully')
+  studentSetPassword(@Body() body: { email: string; otp: string; newPassword: string }) {
+    return this.authService.studentSetPassword(body.email, body.otp, body.newPassword);
+  }
 }

@@ -2981,7 +2981,7 @@ function EditEntranceForm({ appData, onSave, onClose }: FormProps) {
 
   const handleRemoveTest = (indexToRemove: number) => {
     setFormData((prev) => ({
-      entranceTests: prev.entranceTests.filter((_, idx) => idx !== indexToRemove),
+      entranceTests: prev.entranceTests.filter((_: any, idx: number) => idx !== indexToRemove),
     }));
   };
 

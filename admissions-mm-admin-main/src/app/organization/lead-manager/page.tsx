@@ -258,7 +258,7 @@ const STAGES = [
   "New",
   "Contacted",
   "Interested",
-  "Qualified",
+  "Verified",
   "Converted",
   "Lost",
 ] as const;
@@ -297,6 +297,8 @@ const stageStyles: Record<string, string> = {
     "bg-[#FEF3C7] text-[#9A3412] dark:bg-amber-500/20 dark:text-amber-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
   Interested:
     "bg-[#F3E8FF] text-[#6B21A8] dark:bg-purple-500/20 dark:text-purple-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
+  Verified:
+    "bg-[#05966933] text-[#065F46] dark:bg-emerald-500/20 dark:text-emerald-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
   Qualified:
     "bg-[#05966933] text-[#065F46] dark:bg-emerald-500/20 dark:text-emerald-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
   Lost:
@@ -319,7 +321,7 @@ export default function LeadManagerPage() {
 
   usePageHeader({
     title: "Lead Management",
-    description: "View and manage all unverified leads assigned to your organization.",
+    description: "View and manage all leads assigned to your organization.",
     action: {
       label: "Add Lead",
       href: "/organization/lead-manager/create",
@@ -350,14 +352,12 @@ export default function LeadManagerPage() {
   });
 
   // Hook API Calls
-  // Lead Manager is a working queue for leads still awaiting a verify/disqualify decision —
-  // once verified, a lead is handed off to a counselor and only shows up on the Leads page.
   const { data: leadsResponse, isLoading, error } = useLeads(
     currentPage,
     itemsPerPage,
     searchQuery || undefined,
     undefined,
-    "unverified",
+    undefined,
     {
       assignedTo: appliedAdvanced.assignedTo !== "all" ? appliedAdvanced.assignedTo : undefined,
       scoreBand: statusDraft !== "all" ? statusDraft.toLowerCase() : (appliedAdvanced.status !== "all" ? appliedAdvanced.status.toLowerCase() : undefined),
@@ -386,7 +386,7 @@ export default function LeadManagerPage() {
       source: item.source || "Direct",
       medium: item.utmMedium || "N/A",
       campaign: item.utmCampaign || "N/A",
-      stage: item.rawPayload?.stage || (item.isDuplicate ? "Duplicate" : "New"),
+      stage: item.rawPayload?.stage || (item.status === "verified" ? "Verified" : (item.isDuplicate ? "Duplicate" : "New")),
       status: item.scoreBand
         ? item.scoreBand.charAt(0).toUpperCase() + item.scoreBand.slice(1)
         : "Warm",

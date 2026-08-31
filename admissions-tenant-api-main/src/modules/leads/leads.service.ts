@@ -13,6 +13,7 @@ import { CloseLeadDto } from './dto/close-lead.dto.js';
 import { User } from '../users/entities/user.entity.js';
 import { Role } from '../../common/enums/roles.enum.js';
 import { LeadAssignmentService } from './lead-assignment.service.js';
+import { MailerService } from '../notifications/mailer.service.js';
 
 @Injectable()
 export class LeadsService {
@@ -24,6 +25,7 @@ export class LeadsService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly assignmentService: LeadAssignmentService,
+    private readonly mailerService: MailerService,
   ) {}
 
   async create(orgId: string, dto: any): Promise<Lead> {
@@ -153,10 +155,11 @@ export class LeadsService {
     lead.status = status as LeadStatus;
 
     let assignmentNote = '';
-    if (status === LeadStatus.VERIFIED && previousStatus !== LeadStatus.VERIFIED) {
-      // Mirrors the dedicated /verify endpoint: hand off to a counselor and stamp verification.
+    if (status === LeadStatus.VERIFIED) {
       lead.verifiedBy = actorId || lead.verifiedBy;
       lead.verifiedAt = new Date();
+      await this.processStudentVerification(lead);
+
       const assignment = await this.assignmentService.assignLead(lead, Role.COUNSELOR);
       if (assignment) {
         lead.assignedTo = assignment.userId;
@@ -192,7 +195,8 @@ export class LeadsService {
 
     let assignmentNote = '';
     if (nextStatus === LeadStatus.VERIFIED) {
-      // Hand off qualified leads from lead-manager queue to a counselor for follow-up.
+      await this.processStudentVerification(lead);
+
       const assignment = await this.assignmentService.assignLead(lead, Role.COUNSELOR);
       if (assignment) {
         const previousAssignedTo = lead.assignedTo;
@@ -213,6 +217,33 @@ export class LeadsService {
       newStatus: nextStatus,
     });
     return updated;
+  }
+
+  private async processStudentVerification(lead: Lead): Promise<void> {
+    lead.rawPayload = { ...(lead.rawPayload || {}), stage: 'Verified' };
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const studentEmail = lead.email;
+    const studentName = `${lead.firstName || ''} ${lead.lastName || ''}`.trim() || studentEmail || 'Student';
+
+    if (studentEmail) {
+      let user = await this.userRepository.findOne({ where: { email: studentEmail } });
+      if (!user) {
+        user = this.userRepository.create({
+          name: studentName,
+          email: studentEmail,
+          phone: lead.phone || undefined,
+          role: Role.STUDENT,
+          organizationId: lead.organizationId,
+          oneTimePassword: otp,
+          isActive: true,
+        });
+      } else {
+        user.oneTimePassword = otp;
+      }
+      await this.userRepository.save(user);
+
+      await this.mailerService.sendStudentVerificationOtpEmail(studentEmail, studentName, otp);
+    }
   }
 
   async assign(id: string, orgId: string, actorId: string, dto: AssignLeadDto): Promise<Lead> {
