@@ -12,6 +12,8 @@ import { FormStats } from '../forms/entities/form-stats.entity.js';
 import { FormDailyStats } from '../forms/entities/form-daily-stats.entity.js';
 import { User } from '../users/entities/user.entity.js';
 
+import { NotificationsModule } from '../notifications/notifications.module.js';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -23,6 +25,7 @@ import { User } from '../users/entities/user.entity.js';
       FormDailyStats,
       User,
     ]),
+    NotificationsModule,
   ],
   controllers: [LeadsController],
   providers: [LeadsService, LeadIngestionService, LeadAssignmentService],

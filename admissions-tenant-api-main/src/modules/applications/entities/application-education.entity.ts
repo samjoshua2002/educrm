@@ -8,6 +8,12 @@ import {
 } from 'typeorm';
 import { Application } from './application.entity.js';
 
+export enum EducationLevel {
+  TENTH = '10th',
+  TWELFTH = '12th',
+  UG = 'UG',
+}
+
 @Entity('application_education')
 export class ApplicationEducation {
   @PrimaryGeneratedColumn('uuid')
@@ -20,8 +26,11 @@ export class ApplicationEducation {
   @JoinColumn({ name: 'application_id' })
   application: Application;
 
-  @Column({ length: 50 })
-  level: string;
+  @Column({ type: 'enum', enum: EducationLevel })
+  level: EducationLevel;
+
+  @Column({ name: 'degree_name', nullable: true })
+  degreeName: string;
 
   @Column({ length: 255, nullable: true })
   institution: string;

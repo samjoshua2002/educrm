@@ -115,6 +115,7 @@ export const sidebarItems: NavGroup[] = [
         subItems: [
           { title: "Organization", url: "/settings/organization" },
           { title: "Locations", url: "/settings/locations" },
+          { title: "Fees", url: "/settings/fees" },
           { title: "Shortlisting & Rubrics", url: "/settings/shortlisting" },
           { title: "Videos", url: "/gallery/videos" },
           { title: "Category", url: "/gallery/category" },

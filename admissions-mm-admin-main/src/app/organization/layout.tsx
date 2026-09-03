@@ -59,7 +59,7 @@ export default async function OrganizationLayout({
         className={cn(
           "data-[content-layout=centered]:!mx-auto data-[content-layout=centered]:max-w-screen-2xl",
           "max-[113rem]:peer-data-[variant=inset]:!mr-2 min-[101rem]:peer-data-[variant=inset]:peer-data-[state=collapsed]:!mr-auto",
-          "overflow-x-hidden w-full min-w-0 flex flex-col h-svh",
+          "overflow-hidden w-full min-w-0 flex flex-col h-screen",
         )}
       >
         <DynamicHeader />

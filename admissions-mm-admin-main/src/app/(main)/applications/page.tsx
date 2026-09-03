@@ -145,7 +145,7 @@ export default function ApplicationsPage() {
     description: "View and manage all applications submitted to your organization.",
     action: {
       label: "Add Application",
-      href: "/my-application",
+      href: "/student-application",
     },
   });
 

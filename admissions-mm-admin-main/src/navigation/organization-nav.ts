@@ -10,6 +10,7 @@ import {
   MessageSquareText,
   FileText,
   Settings,
+  Gavel,
 } from "lucide-react";
 import { LeadManagerIcon } from "@/components/icons/lead-manager-icon";
 import { ApplicationsIcon } from "@/components/icons/applications-icon";
@@ -34,13 +35,7 @@ export const organizationNavItems: NavGroup[] = [
         title: "Lead Manager",
         url: "/organization/lead-manager",
         icon: LeadManagerIcon,
-        roles: ["org_admin", "lead_manager"],
-      },
-      {
-        title: "Leads",
-        url: "/organization/leads",
-        icon: Link,
-        roles: ["org_admin", "counselor"],
+        roles: ["org_admin", "lead_manager", "counselor"],
       },
       {
         title: "Applications",
@@ -55,7 +50,14 @@ export const organizationNavItems: NavGroup[] = [
           { title: "Candidates", url: "/organization/gd-interview" },
           { title: "Run Shortlisting", url: "/organization/shortlisting-run" },
           { title: "Interview Slots", url: "/organization/interview-slots" },
+          { title: "My Evaluations", url: "/organization/gd-interview/evaluate" },
         ],
+      },
+      {
+        title: "Admission Decisions",
+        url: "/organization/decisions",
+        icon: Gavel,
+        roles: ["org_admin", "application_manager", "superadmin"],
       },
       {
         title: "Communications",
@@ -106,7 +108,9 @@ export const organizationNavItems: NavGroup[] = [
           { title: "Organization", url: "/organization/settings/organization" },
           { title: "Courses", url: "/organization/settings/courses" },
           { title: "Locations", url: "/organization/settings/locations" },
+          { title: "Fees", url: "/organization/settings/fees" },
           { title: "Shortlisting & Rubrics", url: "/organization/settings/shortlisting" },
+          { title: "Scoring Bands", url: "/organization/settings/scoring-bands" },
           { title: "Videos", url: "/organization/settings/videos" },
           { title: "Category", url: "/organization/settings/category" },
         ],

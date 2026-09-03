@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCreateLead } from "@/hooks/use-leads";
 import { useTeam } from "@/hooks/use-team";
+import { usePageHeader } from "@/hooks/use-page-header";
 
 import { ChevronLeft, Check } from "lucide-react";
 
@@ -52,13 +53,18 @@ const STAGES = [
   "New",
   "Contacted",
   "Interested",
-  "Qualified",
+  "Verified",
   "Converted",
   "Lost",
 ] as const;
 const STATUSES = ["Hot", "Warm", "Cold"] as const;
 
 export default function AddLeadPage() {
+  usePageHeader({
+    title: "Lead Details",
+    description: "Create a new lead with personal, location, and source information.",
+  });
+
   const [form, setForm] = React.useState({
     name: "",
     email: "",

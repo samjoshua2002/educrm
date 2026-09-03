@@ -1,0 +1,4 @@
+"id","application_id","test_name","month_year","composite_score","percentile","created_at","roll_no","result_status"
+"2d0a6117-7c72-46f6-9d0b-3a68f1ad9e14","f7cafa16-1692-40b7-99df-f4161ab37511","CAT","june 2025",NULL,"95.00","2026-08-22 23:00:26.186342","9596565656","Declared"
+"70ca7605-95d5-4214-9e2b-066dd5d528f6","90be4819-f4fa-4105-9514-08cdafc73f3a","XAT","DEC 2025",NULL,"99.00","2026-08-22 23:13:04.665972",NULL,"Declared"
+"ce9a599c-afc7-4b21-bcc3-dd8f69c6f1a5","ea55aa5b-2b39-48dc-8df7-c0109f4801f0","MAT","2025",NULL,"95.00","2026-08-23 12:18:03.976859","589479658888","Declared"

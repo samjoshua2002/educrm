@@ -58,14 +58,22 @@ api.interceptors.response.use(
     }
 
     switch (status) {
-      case 401:
-        // Unauthorized: force logout and redirect
-        toast.error("Session expired. Please login again.");
-        useAuthStore.getState().logout();
-        if (typeof window !== "undefined") {
-          window.location.href = "/login";
+      case 401: {
+        // Unauthorized: force logout and redirect, except on public routes
+        // (e.g. the public application form) where an anonymous visitor is
+        // expected to hit protected endpoints and should just see "no data"
+        // instead of being bounced to /login.
+        const pathname = typeof window !== "undefined" ? window.location.pathname : "";
+        const isPublicRoute = pathname.startsWith("/student-application");
+        if (!isPublicRoute) {
+          toast.error("Session expired. Please login again.");
+          useAuthStore.getState().logout();
+          if (typeof window !== "undefined") {
+            window.location.href = "/login";
+          }
         }
         break;
+      }
       case 403:
         toast.error("You don't have permission to perform this action.");
         break;

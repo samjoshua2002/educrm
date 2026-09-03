@@ -93,6 +93,7 @@ export class UsersService {
     return this.userRepo
       .createQueryBuilder('user')
       .addSelect('user.password')
+      .addSelect('user.oneTimePassword')
       .leftJoinAndSelect('user.organization', 'organization')
       .where('user.email = :email', { email })
       .getOne();

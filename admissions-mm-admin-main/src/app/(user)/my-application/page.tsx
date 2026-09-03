@@ -79,6 +79,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import ApplicationDetailsPage from "@/app/organization/applications/[...application_number]/page";
 import { useCourses } from "@/hooks/use-courses";
 import { useAcademicSessions } from "@/hooks/use-academic-sessions";
+import { useCourseSessions } from "@/hooks/use-course-sessions";
 import { useBranches } from "@/hooks/use-branches";
 
 
@@ -172,9 +173,10 @@ const applicationSchema = z.object({
         z.object({
           companyName: z.string().optional(),
           designation: z.string().optional(),
-          months: z.string().optional(),
           salaryCtc: z.string().optional(),
           rolesDescription: z.string().optional(),
+          fromDate: z.string().optional(),
+          toDate: z.string().optional(),
         })
       )
       .optional(),
@@ -425,9 +427,11 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
   const { data: coursesData } = useCourses(1, 100);
   const { data: sessionsData } = useAcademicSessions(1, 100);
   const { data: branchesData } = useBranches(1, 100);
+  const { data: courseSessionsResponse } = useCourseSessions(1, 100);
 
   const coursesList = coursesData?.data || [];
   const branchesList = branchesData?.data || [];
+  const courseSessionsList = courseSessionsResponse?.data || [];
 
   const interviewLocations = React.useMemo(() => {
     if (typeof window !== "undefined") {
@@ -622,7 +626,15 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
       const currentSession = sessionsList.find((s) => s.isCurrent) || sessionsList[0];
 
       const courseId = selectedCourse?.id || undefined;
-      const academicSession = currentSession?.name || "2025-2026";
+      
+      // Look up Course Session linked to the current academic session first, fallback to any active course session
+      const activeCourseSession = courseSessionsList.find(
+        (cs) => cs.courseId === courseId && cs.isActive && cs.academicSession?.isCurrent
+      ) || courseSessionsList.find(
+        (cs) => cs.courseId === courseId && cs.isActive
+      );
+      
+      const academicSession = activeCourseSession?.academicSession?.name || currentSession?.name || "2025-2026";
 
       const payload: any = {
         courseId,
@@ -706,11 +718,13 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
           })),
         workExperiences: data.education.hasWorkExp === "Yes"
           ? (data.education.experiences || [])
-              .filter((exp) => exp && (exp.companyName || exp.designation || exp.months))
+              .filter((exp) => exp && (exp.companyName || exp.designation || exp.fromDate || exp.toDate))
               .map((exp) => ({
                 organization: exp.companyName || "Company",
                 designation: exp.designation || undefined,
-                rolesResponsibilities: exp.months ? `${exp.months} Months` : undefined,
+                fromDate: exp.fromDate || undefined,
+                toDate: exp.toDate || undefined,
+                rolesResponsibilities: exp.rolesDescription || undefined,
                 grossSalary: exp.salaryCtc || undefined,
               }))
           : [],
@@ -1113,26 +1127,28 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
                   Work Experience Details
                 </CardTitle>
               </CardHeader>
-              <CardContent className={(form.watch("education.experiences") || []).filter((exp: any) => exp && (exp.companyName || exp.designation || exp.months)).length > 0 ? "p-0" : "p-6"}>
-                {(form.watch("education.experiences") || []).filter((exp: any) => exp && (exp.companyName || exp.designation || exp.months)).length > 0 ? (
+              <CardContent className={(form.watch("education.experiences") || []).filter((exp: any) => exp && (exp.companyName || exp.designation || exp.fromDate || exp.toDate)).length > 0 ? "p-0" : "p-6"}>
+                {(form.watch("education.experiences") || []).filter((exp: any) => exp && (exp.companyName || exp.designation || exp.fromDate || exp.toDate)).length > 0 ? (
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow className="hover:bg-transparent border-b border-input">
                           <TableHead className="text-[10px] font-bold uppercase tracking-[0.6px] text-muted-foreground pl-6">Company / Employer</TableHead>
                           <TableHead className="text-[10px] font-bold uppercase tracking-[0.6px] text-muted-foreground px-4">Designation</TableHead>
-                          <TableHead className="text-[10px] font-bold uppercase tracking-[0.6px] text-muted-foreground px-4">Duration (Months)</TableHead>
+                          <TableHead className="text-[10px] font-bold uppercase tracking-[0.6px] text-muted-foreground px-4">From Date</TableHead>
+                          <TableHead className="text-[10px] font-bold uppercase tracking-[0.6px] text-muted-foreground px-4">To Date</TableHead>
                           <TableHead className="text-[10px] font-bold uppercase tracking-[0.6px] text-muted-foreground text-right pr-6">Annual CTC</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {(form.watch("education.experiences") || [])
-                          .filter((exp: any) => exp && (exp.companyName || exp.designation || exp.months))
+                          .filter((exp: any) => exp && (exp.companyName || exp.designation || exp.fromDate || exp.toDate))
                           .map((exp: any, i: number) => (
                             <TableRow key={i} className="bg-muted/5 hover:bg-muted/10">
                               <TableCell className="font-bold text-foreground text-xs pl-6 py-3">{exp.companyName || "-"}</TableCell>
                               <TableCell className="text-muted-foreground text-xs px-4 py-3">{exp.designation || "-"}</TableCell>
-                              <TableCell className="text-muted-foreground text-xs px-4 py-3">{exp.months ? `${exp.months} Months` : "-"}</TableCell>
+                              <TableCell className="text-muted-foreground text-xs px-4 py-3">{exp.fromDate || "-"}</TableCell>
+                              <TableCell className="text-muted-foreground text-xs px-4 py-3">{exp.toDate || "-"}</TableCell>
                               <TableCell className="text-right font-bold text-emerald-600 pr-6 py-3 text-xs">{exp.salaryCtc || "-"}</TableCell>
                             </TableRow>
                           ))}
@@ -2379,7 +2395,7 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
                             onValueChange={(val) => {
                               field.onChange(val);
                               if (val === "Yes" && expFields.length === 0) {
-                                appendExp({ companyName: "", designation: "", months: "", salaryCtc: "" });
+                                appendExp({ companyName: "", designation: "", salaryCtc: "", fromDate: "", toDate: "" });
                               } else if (val === "No") {
                                 form.setValue("education.experiences", []);
                               }
@@ -2449,12 +2465,25 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
                             />
                             <FormField
                               control={form.control}
-                              name={`education.experiences.${index}.months`}
+                              name={`education.experiences.${index}.fromDate`}
                               render={({ field }) => (
                                 <FormItem className="space-y-0">
-                                  <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px]">Experience (Months)</FormLabel>
+                                  <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px]">From Date</FormLabel>
                                   <FormControl>
-                                    <Input placeholder="e.g. 18" className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground tracking-wider" {...field} />
+                                    <Input type="date" className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground tracking-wider" {...field} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name={`education.experiences.${index}.toDate`}
+                              render={({ field }) => (
+                                <FormItem className="space-y-0">
+                                  <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px]">To Date</FormLabel>
+                                  <FormControl>
+                                    <Input type="date" className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground tracking-wider" {...field} />
                                   </FormControl>
                                   <FormMessage />
                                 </FormItem>
@@ -2480,7 +2509,7 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
                       <Button
                         type="button"
                         variant="outline"
-                        onClick={() => appendExp({ companyName: "", designation: "", months: "", salaryCtc: "" })}
+                        onClick={() => appendExp({ companyName: "", designation: "", salaryCtc: "", fromDate: "", toDate: "" })}
                         className="w-full border-dashed border-slate-300 text-slate-700 hover:bg-slate-50 font-semibold h-10 cursor-pointer"
                       >
                         + Add Another Work Experience

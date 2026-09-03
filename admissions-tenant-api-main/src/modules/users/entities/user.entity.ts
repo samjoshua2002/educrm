@@ -25,6 +25,9 @@ export class User {
   @Column({ type: 'varchar', length: 255, select: false, nullable: true })
   password: string | null;
 
+  @Column({ name: 'one_time_password', type: 'varchar', length: 255, nullable: true })
+  oneTimePassword: string | null;
+
   @Column({
     type: 'enum',
     enum: Role,

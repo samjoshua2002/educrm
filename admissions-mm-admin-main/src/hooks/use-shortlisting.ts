@@ -197,7 +197,7 @@ export function useDeactivateShortlistingRule() {
 export interface ScoreBand {
   minPercent?: number;
   minPercentile?: number;
-  minYears?: number;
+  minMonths?: number;
   points: number;
 }
 
@@ -209,7 +209,7 @@ export interface ScoreConversionConfig {
     twelfth: ScoreBand[];
     ug: ScoreBand[];
     testPercentile: ScoreBand[];
-    experienceYears: ScoreBand[];
+    experienceMonths: ScoreBand[];
   };
   discrepancyThreshold: number;
 }
@@ -262,5 +262,31 @@ export function useRunShortlisting() {
       }
     },
     onError: (err: any) => toast.error(err.response?.data?.message || "Failed to run shortlisting"),
+  });
+}
+
+export function useHardDeleteRubric() {
+  const queryClient = useQueryClient();
+  const orgId = useAuthStore((s) => s.user?.organizationId);
+  return useMutation({
+    mutationFn: (id: string) => apiDelete(`/organizations/${orgId}/evaluation-rubrics/${id}/hard-delete`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["evaluation-rubrics"] });
+      toast.success("Rubric parameter permanently deleted");
+    },
+    onError: (err: any) => toast.error(err.response?.data?.message || "Failed to delete rubric parameter"),
+  });
+}
+
+export function useHardDeleteShortlistingRule() {
+  const queryClient = useQueryClient();
+  const orgId = useAuthStore((s) => s.user?.organizationId);
+  return useMutation({
+    mutationFn: (id: string) => apiDelete(`/organizations/${orgId}/shortlisting-rules/${id}/hard-delete`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["shortlisting-rules"] });
+      toast.success("Shortlisting rule permanently deleted");
+    },
+    onError: (err: any) => toast.error(err.response?.data?.message || "Failed to delete shortlisting rule"),
   });
 }

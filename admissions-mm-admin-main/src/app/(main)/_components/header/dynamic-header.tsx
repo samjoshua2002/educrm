@@ -83,7 +83,7 @@ export function DynamicHeader() {
 
   // Determine action button for non-organization routes
   let actionText = "New applications";
-  let actionHref = "/my-application";
+  let actionHref = "/student-application";
 
   if (pathname.startsWith("/lead-manager")) {
     actionText = "Add Lead";
@@ -95,7 +95,7 @@ export function DynamicHeader() {
 
   const showActionButton =
     !pathname.startsWith("/gd-interview") &&
-    !pathname.startsWith("/my-application");
+    !pathname.startsWith("/student-application");
 
   const buttonWidths: Record<string, string> = {
     "New applications": "w-[166px]",

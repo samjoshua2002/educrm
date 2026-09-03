@@ -15,6 +15,9 @@ import { AcademicSessionsModule } from './modules/academic-sessions/academic-ses
 import { CourseSessionsModule } from './modules/course-sessions/course-sessions.module.js';
 import { InterviewsModule } from './modules/interviews/interviews.module.js';
 import { LocationsModule } from './modules/locations/locations.module.js';
+import { PaymentsModule } from './modules/payments/payments.module.js';
+import { NotificationsModule } from './modules/notifications/notifications.module.js';
+import { AdmissionsDecisionsModule } from './modules/admissions-decisions/admissions-decisions.module.js';
 
 @Module({
   imports: [
@@ -56,6 +59,9 @@ import { LocationsModule } from './modules/locations/locations.module.js';
     CourseSessionsModule,
     InterviewsModule,
     LocationsModule,
+    PaymentsModule,
+    NotificationsModule,
+    AdmissionsDecisionsModule,
   ],
   providers: [
     {

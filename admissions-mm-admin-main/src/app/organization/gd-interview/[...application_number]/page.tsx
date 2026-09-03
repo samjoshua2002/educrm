@@ -48,7 +48,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
+import { useQueryClient } from "@tanstack/react-query";
 import { useApplication, useUpdateApplicationStatus, useUpdateGdEvaluation, useUpdateApplication } from "@/hooks/use-applications";
+import { useCompositeScore, useScoreAdjustment } from "@/hooks/use-scoring";
+import { useScoreConversionConfig } from "@/hooks/use-shortlisting";
+import { useAuthStore } from "@/stores/auth-store";
 import { gdInterviews } from "@/data/mock-gd-interviews";
 import { toast } from "sonner";
 
@@ -68,9 +72,43 @@ export default function GDInterviewDetailsPage() {
   );
 
   const { data: fetchedAppData, isLoading } = useApplication(applicationNumber, { enabled: !listMatch });
+  const { data: scoringConfig } = useScoreConversionConfig();
+  const queryClient = useQueryClient();
   const updateStatusMutation = useUpdateApplicationStatus();
   const updateGdEvalMutation = useUpdateGdEvaluation();
   const updateSectionMutation = useUpdateApplication();
+
+  // Stage-2 composite score rollup — real, backend-persisted figures
+  // (replaces the fabricated client-side "Composite Score Banner" calc
+  // that used to live in interviewData.interviewScores.compositeScore).
+  const { data: compositeScoreData } = useCompositeScore(applicationNumber);
+  const scoreAdjustmentMutation = useScoreAdjustment(applicationNumber);
+  const currentRole = useAuthStore((s) => s.user?.role);
+  const canAdjustScore =
+    currentRole === "org_admin" || currentRole === "application_manager" || currentRole === "superadmin";
+  const [scoreAdjustmentOpen, setScoreAdjustmentOpen] = React.useState(false);
+  const [scoreAdjustmentForm, setScoreAdjustmentForm] = React.useState({
+    achievementScore: 0,
+    penaltyScore: 0,
+    remarks: "",
+  });
+
+  React.useEffect(() => {
+    if (compositeScoreData) {
+      setScoreAdjustmentForm((prev) => ({
+        ...prev,
+        achievementScore: compositeScoreData.achievementScore ?? 0,
+        penaltyScore: compositeScoreData.penaltyScore ?? 0,
+      }));
+    }
+  }, [compositeScoreData]);
+
+  const handleScoreAdjustmentSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    scoreAdjustmentMutation.mutate(scoreAdjustmentForm, {
+      onSuccess: () => setScoreAdjustmentOpen(false),
+    });
+  };
 
   const [activeEditSection, setActiveEditSection] = React.useState<
     | "academics"
@@ -112,6 +150,10 @@ export default function GDInterviewDetailsPage() {
             graduation: { state: "", university: "", college: "", degree: "", mode: "", status: "", enrollmentYear: "", passingYear: "", ...appData.education?.graduation, percentageTillLast: String(updatedFields.ugPercentage), percentage: String(updatedFields.ugPercentage) },
           }
         } as any
+      }, {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ["composite-score"] });
+        }
       });
     }
 
@@ -136,6 +178,10 @@ export default function GDInterviewDetailsPage() {
           ...(appData as any),
           entranceTests: testsArray,
         } as any
+      }, {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ["composite-score"] });
+        }
       });
     }
 
@@ -148,6 +194,10 @@ export default function GDInterviewDetailsPage() {
             ...(appData as any),
             workExperiences: updatedFields.workExperiences,
           } as any,
+        }, {
+          onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["composite-score"] });
+          }
         });
       }
 
@@ -158,6 +208,10 @@ export default function GDInterviewDetailsPage() {
             claimedMonths: String(updatedFields.claimedMonths || "0"),
             validatedMonths: String(updatedFields.validatedMonths || "0"),
           },
+        }, {
+          onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["composite-score"] });
+          }
         });
       }
     }
@@ -226,9 +280,9 @@ export default function GDInterviewDetailsPage() {
     const twelfthPct = parseFloat(localInterviewEdits.academics?.twelfthPercentage ?? appData.education?.twelfth?.percentage ?? "0") || 0;
     const ugPct = parseFloat(localInterviewEdits.academics?.ugPercentage ?? (appData.education?.graduation as any)?.percentageTillLast ?? (appData.education?.graduation as any)?.percentage ?? "0") || 0;
 
-    const tenthScore = localInterviewEdits.academics?.tenthScore ?? (tenthPct >= 80 ? 1 : 0);
-    const twelfthScore = localInterviewEdits.academics?.twelfthScore ?? (twelfthPct >= 90 ? 4 : twelfthPct >= 80 ? 3 : 2);
-    const ugScore = localInterviewEdits.academics?.ugScore ?? (ugPct >= 70 ? 2 : ugPct >= 60 ? 1 : 0);
+    const tenthScore = compositeScoreData?.tenthScore ?? localInterviewEdits.academics?.tenthScore ?? (tenthPct >= 80 ? 1 : 0);
+    const twelfthScore = compositeScoreData?.twelfthScore ?? localInterviewEdits.academics?.twelfthScore ?? (twelfthPct >= 90 ? 4 : twelfthPct >= 80 ? 3 : 2);
+    const ugScore = compositeScoreData?.ugScore ?? localInterviewEdits.academics?.ugScore ?? (ugPct >= 70 ? 2 : ugPct >= 60 ? 1 : 0);
     const totalAcademicScore = tenthScore + twelfthScore + ugScore;
 
     const rawTests = (appData.entranceTests && Array.isArray(appData.entranceTests))
@@ -241,14 +295,48 @@ export default function GDInterviewDetailsPage() {
         })
       : [];
 
-    const allTests = rawTests.map((t: any) => ({
-      name: t.exam || t.testName || "CAT",
-      rollNo: t.rollNo || "-",
-      month: t.month || "-",
-      status: t.status || "Declared",
-      score: t.score || "-",
-      percentile: t.percentile != null ? String(t.percentile) : "-",
-    }));
+    const calcIndividualTestScore = (pctVal: any) => {
+      const pct = parseFloat(pctVal) || 0;
+      const testBands = scoringConfig?.bands?.testPercentile;
+      if (testBands && Array.isArray(testBands) && testBands.length > 0) {
+        const sorted = [...testBands]
+          .map((b: any) => ({
+            threshold: Number(b.minPercentile ?? b.minPercent ?? 0),
+            points: Number(b.points ?? 0),
+          }))
+          .sort((a, b) => b.threshold - a.threshold);
+        for (const band of sorted) {
+          if (pct >= band.threshold) return band.points;
+        }
+        return 0;
+      }
+      if (pct >= 95) return 10;
+      if (pct >= 90) return 8;
+      if (pct >= 80) return 6;
+      if (pct >= 70) return 4;
+      if (pct >= 60) return 2;
+      return 0;
+    };
+
+    const maxScore = compositeScoreData?.maxTestScore ?? 10;
+
+    const allTests = rawTests.map((t: any) => {
+      const tPct = parseFloat(t.percentile) || 0;
+      const testScoreVal = (t.score && t.score !== "-")
+        ? t.score
+        : (t.percentile != null && t.percentile !== "-"
+            ? `${calcIndividualTestScore(tPct)} / ${maxScore}`
+            : "-");
+
+      return {
+        name: t.exam || t.testName || "CAT",
+        rollNo: t.rollNo || "-",
+        month: t.month || "-",
+        status: t.status || "Declared",
+        score: testScoreVal,
+        percentile: t.percentile != null ? String(t.percentile) : "-",
+      };
+    });
 
     const bestTest = rawTests.reduce((best: any, current: any) => {
       const currentPct = parseFloat(current.percentile) || 0;
@@ -257,10 +345,12 @@ export default function GDInterviewDetailsPage() {
     }, rawTests[0]);
 
     const rawPercentile = parseFloat(localInterviewEdits.entranceTest?.percentile ?? bestTest?.percentile ?? "0") || 0;
-    const entranceTestScore = Math.round((rawPercentile * 0.4) * 10) / 10;
+    // Use band-derived score from API; fall back to simple linear formula only when compositeScoreData hasn't loaded
+    const entranceTestScore = compositeScoreData?.testComponent ?? Math.round((rawPercentile * 0.4) * 10) / 10;
 
     const validatedExpMonths = parseInt(localInterviewEdits.experience?.validatedMonths ?? (appData as any).experience?.validatedMonths ?? "0") || 0;
-    const expScore = Math.min(5, Math.floor(validatedExpMonths / 6));
+    // Use band-derived experience score from API; fall back to simple formula
+    const expScore = compositeScoreData?.experienceComponent ?? Math.min(5, Math.floor(validatedExpMonths / 6));
 
     const dbGdScore = fetchedAppData?.gdEvaluation?.gdScore;
     const dbPiScore = fetchedAppData?.gdEvaluation?.piScore;
@@ -344,7 +434,7 @@ export default function GDInterviewDetailsPage() {
     };
 
     return base;
-  }, [appData, listMatch, localInterviewEdits, fetchedAppData]);
+  }, [appData, listMatch, localInterviewEdits, fetchedAppData, compositeScoreData, scoringConfig]);
 
   const hasWorkExp = React.useMemo(() => {
     if (!interviewData) return false;
@@ -788,7 +878,7 @@ export default function GDInterviewDetailsPage() {
                       </div>
                       <div className="flex justify-between items-center text-xs text-slate-500">
                         <span>{exp.designation || "-"}</span>
-                        <span>{exp.months ? (String(exp.months).includes("Month") ? exp.months : `${exp.months} Months`) : exp.rolesResponsibilities || "-"}</span>
+                        <span>{exp.fromDate || exp.from_date || exp.toDate || exp.to_date ? `${exp.fromDate || exp.from_date || "-"} to ${exp.toDate || exp.to_date || "Present"}` : exp.rolesResponsibilities || "-"}</span>
                       </div>
                     </div>
                   ))}
@@ -803,8 +893,8 @@ export default function GDInterviewDetailsPage() {
               )}
 
               <div className="px-5 pt-3 mt-2 border-t border-[#F8FAFC] flex justify-between items-center">
-                <span className="text-xs font-semibold text-slate-600">Validated Months: <span className="font-bold text-[#1A237E]">{interviewData.experience.validatedMonths}</span></span>
-                <span className="text-xs font-semibold text-slate-600">Experience Score: <span className="font-bold text-[#1A237E]">{interviewData.experience.score} / 5</span></span>
+                <span className="text-xs font-semibold text-slate-600">Total Months: <span className="font-bold text-[#1A237E]">{compositeScoreData?.autoCalculatedMonths ?? interviewData.experience.validatedMonths}</span></span>
+                <span className="text-xs font-semibold text-slate-600">Experience Score: <span className="font-bold text-[#1A237E]">{interviewData.experience.score} / {compositeScoreData?.maxExperienceScore ?? "—"}</span></span>
               </div>
             </CardContent>
           </Card>
@@ -900,6 +990,9 @@ export default function GDInterviewDetailsPage() {
                       </div>
                     </div>
                   ))}
+                  <div className="px-5 pt-3 mt-2 border-t border-[#F8FAFC] flex justify-between items-center">
+                    <span className="text-xs font-semibold text-slate-600">Test Score: <span className="font-bold text-[#1A237E]">{compositeScoreData?.testComponent ?? "—"} / {compositeScoreData?.maxTestScore ?? "10"}</span></span>
+                  </div>
                 </div>
               )}
             </CardContent>
@@ -1083,10 +1176,102 @@ export default function GDInterviewDetailsPage() {
                 {/* Right Side: Score */}
                 <div className="relative z-10 flex items-baseline gap-1 text-white pr-2 sm:pr-4">
                   <span className="text-4xl font-black">
-                    {interviewData.interviewScores.compositeScore}
+                    {typeof compositeScoreData?.compositeScore === "number"
+                      ? compositeScoreData.compositeScore
+                      : interviewData.interviewScores.compositeScore}
                   </span>
                   <span className="text-sm font-bold opacity-80">/ 100</span>
                 </div>
+              </div>
+
+              {compositeScoreData?.discrepancyFlag && (
+                <div className="mt-4 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-800">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  Experience discrepancy flagged — claimed {compositeScoreData.claimedExperienceMonths ?? "-"} mo vs
+                  validated {compositeScoreData.validatedExperienceMonths ?? "-"} mo (exceeds org threshold).
+                </div>
+              )}
+
+              {/* Composite Score Breakdown — real per-round scores + components
+                  behind the banner above, from ScoringService.computeCompositeScore */}
+              <div className="mt-6 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC]/60 p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3
+                    style={{
+                      color: "#64748B",
+                      fontFamily: "Inter",
+                      fontSize: "10px",
+                      fontWeight: 700,
+                      lineHeight: "15px",
+                      letterSpacing: "1px",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    Composite Score Breakdown
+                  </h3>
+                  {canAdjustScore && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-3 text-[11px] font-semibold border-[#D4D4D4] text-[#1E293B] cursor-pointer"
+                      onClick={() => setScoreAdjustmentOpen(true)}
+                    >
+                      Adjust Achievement / Penalty
+                    </Button>
+                  )}
+                </div>
+
+                {!compositeScoreData ? (
+                  <p className="text-xs text-slate-500">Loading composite score…</p>
+                ) : (
+                  <>
+                    {compositeScoreData.interviews.length > 0 && (
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                        {compositeScoreData.interviews.map((iv) => (
+                          <div key={iv.interviewId} className="rounded-md bg-white border border-[#E2E8F0] p-2.5">
+                            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">
+                              {iv.interviewType} Round {iv.round}
+                            </p>
+                            <p className="text-base font-bold text-slate-900">
+                              {iv.score !== null ? iv.score : "—"}
+                            </p>
+                            <p className="text-[10px] text-slate-500">
+                              {iv.status}
+                              {iv.evaluatorCount ? ` · ${iv.evaluatorCount} evaluator(s)` : ""}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                      <div>
+                        <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-500">
+                          GD/PI Total
+                        </span>
+                        <span className="font-bold text-slate-900">{compositeScoreData.gdpiTotal}</span>
+                      </div>
+                      <div>
+                        <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-500">
+                          Experience
+                        </span>
+                        <span className="font-bold text-slate-900">{compositeScoreData.experienceComponent}</span>
+                      </div>
+                      <div>
+                        <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-500">
+                          Achievement
+                        </span>
+                        <span className="font-bold text-emerald-600">+{compositeScoreData.achievementScore}</span>
+                      </div>
+                      <div>
+                        <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-500">
+                          Penalty
+                        </span>
+                        <span className="font-bold text-red-600">-{compositeScoreData.penaltyScore}</span>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -1308,6 +1493,86 @@ export default function GDInterviewDetailsPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Achievement/Penalty manual score adjustment — org_admin /
+          application_manager / superadmin only. Calls PATCH
+          .../score-adjustment, which re-runs the composite rollup
+          server-side so compositeScore above reflects it immediately. */}
+      <Dialog open={scoreAdjustmentOpen} onOpenChange={setScoreAdjustmentOpen}>
+        <DialogContent className="max-w-[480px] w-[95%] rounded-[12px] p-[24px] gap-0 bg-white">
+          <DialogHeader className="flex flex-row items-center gap-2 pb-4 border-b border-[#E5E5E5] space-y-0">
+            <div className="flex items-center justify-center h-[36px] w-[36px] rounded-full bg-[#FAFAFA] shrink-0">
+              <Award className="h-4 w-4 text-[#415876]" />
+            </div>
+            <DialogTitle className="text-[#0A0A0A] font-semibold text-[18px] leading-7 font-sans">
+              Adjust Achievement / Penalty
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleScoreAdjustmentSubmit} className="grid grid-cols-2 gap-x-6 gap-y-4 pt-5 pb-1">
+            <div className="flex flex-col gap-2">
+              <Label className="text-[#64748B] font-semibold text-[12px] leading-4 tracking-[0.6px] uppercase font-sans">
+                Achievement (0-9.99)
+              </Label>
+              <Input
+                type="number"
+                step="0.01"
+                min={0}
+                max={9.99}
+                value={scoreAdjustmentForm.achievementScore}
+                onChange={(e) =>
+                  setScoreAdjustmentForm((prev) => ({ ...prev, achievementScore: Number(e.target.value) }))
+                }
+                className="border-[#D4D4D4] rounded-[8px] h-10 text-[14px]"
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label className="text-[#64748B] font-semibold text-[12px] leading-4 tracking-[0.6px] uppercase font-sans">
+                Penalty (0-9.99)
+              </Label>
+              <Input
+                type="number"
+                step="0.01"
+                min={0}
+                max={9.99}
+                value={scoreAdjustmentForm.penaltyScore}
+                onChange={(e) =>
+                  setScoreAdjustmentForm((prev) => ({ ...prev, penaltyScore: Number(e.target.value) }))
+                }
+                className="border-[#D4D4D4] rounded-[8px] h-10 text-[14px]"
+              />
+            </div>
+            <div className="flex flex-col gap-2 col-span-2">
+              <Label className="text-[#64748B] font-semibold text-[12px] leading-4 tracking-[0.6px] uppercase font-sans">
+                Remarks
+              </Label>
+              <Textarea
+                value={scoreAdjustmentForm.remarks}
+                onChange={(e) => setScoreAdjustmentForm((prev) => ({ ...prev, remarks: e.target.value }))}
+                placeholder="Reason for this adjustment..."
+                className="min-h-[80px] bg-white border border-[#E2E8F0] rounded-[8px]"
+              />
+            </div>
+
+            <div className="flex items-center gap-3 pt-4 border-t border-[#E5E5E5] col-span-2 mt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setScoreAdjustmentOpen(false)}
+                className="h-10 px-6 rounded-[8px] text-[14px] font-semibold border-[#D4D4D4] text-[#1E293B] cursor-pointer"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={scoreAdjustmentMutation.isPending}
+                className="h-10 px-6 rounded-[8px] text-[14px] font-semibold bg-[#2563EB] hover:bg-[#1D4ED8] text-white cursor-pointer"
+              >
+                {scoreAdjustmentMutation.isPending ? "Saving..." : "Save Adjustment"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -1335,6 +1600,16 @@ function EditAcademicsForm({ data, onSave, onClose }: GDFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-x-6 gap-y-3 pt-5 pb-1">
+      {/* Scoring note */}
+      <div className="col-span-2 mb-1 flex items-start gap-2 rounded-lg bg-[#EFF6FF] border border-[#BFDBFE] px-3 py-2.5">
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 shrink-0"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+        <p className="text-[11px] text-[#1D4ED8] leading-relaxed">
+          <span className="font-bold">Score is auto-computed</span> from your org&apos;s scoring bands and cannot be edited here.
+          Update bands at{" "}
+          <a href="/organization/settings/scoring-bands" className="underline font-semibold hover:text-[#1e40af]" target="_blank">Settings → Scoring Bands</a>.
+        </p>
+      </div>
+
       <div className="col-span-2 pb-1">
         <h3 className="font-bold text-slate-800 text-sm">10th Standard</h3>
       </div>
@@ -1352,15 +1627,14 @@ function EditAcademicsForm({ data, onSave, onClose }: GDFormProps) {
       </div>
       <div className="flex flex-col gap-2">
         <Label className="text-[#64748B] font-semibold text-[12px] leading-4 tracking-[0.6px] uppercase font-sans">
-          Score
+          Score <span className="text-[10px] normal-case font-normal text-slate-400">(auto)</span>
         </Label>
         <Input
           type="number"
           value={formData.tenthScore}
-          onChange={(e) =>
-            setFormData((prev) => ({ ...prev, tenthScore: Number(e.target.value) }))
-          }
-          className="border-[#D4D4D4] rounded-[8px] h-10 text-[14px]"
+          readOnly
+          disabled
+          className="border-[#D4D4D4] rounded-[8px] h-10 text-[14px] bg-[#F8FAFC] text-slate-400 cursor-not-allowed"
         />
       </div>
 
@@ -1381,15 +1655,14 @@ function EditAcademicsForm({ data, onSave, onClose }: GDFormProps) {
       </div>
       <div className="flex flex-col gap-2">
         <Label className="text-[#64748B] font-semibold text-[12px] leading-4 tracking-[0.6px] uppercase font-sans">
-          Score
+          Score <span className="text-[10px] normal-case font-normal text-slate-400">(auto)</span>
         </Label>
         <Input
           type="number"
           value={formData.twelfthScore}
-          onChange={(e) =>
-            setFormData((prev) => ({ ...prev, twelfthScore: Number(e.target.value) }))
-          }
-          className="border-[#D4D4D4] rounded-[8px] h-10 text-[14px]"
+          readOnly
+          disabled
+          className="border-[#D4D4D4] rounded-[8px] h-10 text-[14px] bg-[#F8FAFC] text-slate-400 cursor-not-allowed"
         />
       </div>
 
@@ -1410,15 +1683,14 @@ function EditAcademicsForm({ data, onSave, onClose }: GDFormProps) {
       </div>
       <div className="flex flex-col gap-2">
         <Label className="text-[#64748B] font-semibold text-[12px] leading-4 tracking-[0.6px] uppercase font-sans">
-          Score
+          Score <span className="text-[10px] normal-case font-normal text-slate-400">(auto)</span>
         </Label>
         <Input
           type="number"
           value={formData.ugScore}
-          onChange={(e) =>
-            setFormData((prev) => ({ ...prev, ugScore: Number(e.target.value) }))
-          }
-          className="border-[#D4D4D4] rounded-[8px] h-10 text-[14px]"
+          readOnly
+          disabled
+          className="border-[#D4D4D4] rounded-[8px] h-10 text-[14px] bg-[#F8FAFC] text-slate-400 cursor-not-allowed"
         />
       </div>
 
@@ -1443,6 +1715,14 @@ function EditAcademicsForm({ data, onSave, onClose }: GDFormProps) {
 }
 
 function EditExperienceForm({ data, appData, onSave, onClose }: GDFormProps & { appData?: any }) {
+  const formatDateForInput = (dateVal: any) => {
+    if (!dateVal) return "";
+    if (typeof dateVal === "string") {
+      return dateVal.split("T")[0];
+    }
+    return "";
+  };
+
   const existingExps =
     (data as any)?.workExperiences ||
     appData?.workExperiences ||
@@ -1452,7 +1732,7 @@ function EditExperienceForm({ data, appData, onSave, onClose }: GDFormProps & { 
   const [experiences, setExperiences] = React.useState<any[]>(
     existingExps.length > 0
       ? existingExps
-      : [{ companyName: data?.companyName || "", designation: data?.designation || "", months: data?.claimedMonths || "", salaryCtc: "" }]
+      : [{ companyName: data?.companyName || "", designation: data?.designation || "", salaryCtc: "", fromDate: "", toDate: "" }]
   );
 
   const [validatedMonths, setValidatedMonths] = React.useState(data?.validatedMonths || "0");
@@ -1468,7 +1748,7 @@ function EditExperienceForm({ data, appData, onSave, onClose }: GDFormProps & { 
   const handleAddExperience = () => {
     setExperiences((prev) => [
       ...prev,
-      { companyName: "", designation: "", months: "", salaryCtc: "" },
+      { companyName: "", designation: "", salaryCtc: "", fromDate: "", toDate: "" },
     ]);
   };
 
@@ -1525,14 +1805,35 @@ function EditExperienceForm({ data, appData, onSave, onClose }: GDFormProps & { 
             </div>
             <div className="flex flex-col gap-1.5 col-span-1">
               <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider font-sans">
-                Experience (Months)
+                From Date
               </Label>
-              <Input
-                value={exp.months || ""}
-                onChange={(e) => handleFieldChange(index, "months", e.target.value)}
-                placeholder="e.g. 18"
-                className="border-[#D4D4D4] rounded-[8px] h-9 text-[13px] bg-white"
-              />
+              <div className="relative">
+                <Input
+                  type="date"
+                  value={formatDateForInput(exp.fromDate || exp.from_date)}
+                  onChange={(e) => handleFieldChange(index, "fromDate", e.target.value)}
+                  className="border-[#D4D4D4] rounded-[8px] h-9 text-[13px] bg-white pr-10 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-10 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:z-10"
+                />
+                <span className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-slate-400">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" /><path d="M16 2v4" /><path d="M8 2v4" /><path d="M3 10h18" /></svg>
+                </span>
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5 col-span-1">
+              <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider font-sans">
+                To Date
+              </Label>
+              <div className="relative">
+                <Input
+                  type="date"
+                  value={formatDateForInput(exp.toDate || exp.to_date)}
+                  onChange={(e) => handleFieldChange(index, "toDate", e.target.value)}
+                  className="border-[#D4D4D4] rounded-[8px] h-9 text-[13px] bg-white pr-10 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-10 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:z-10"
+                />
+                <span className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-slate-400">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" /><path d="M16 2v4" /><path d="M8 2v4" /><path d="M3 10h18" /></svg>
+                </span>
+              </div>
             </div>
             <div className="flex flex-col gap-1.5 col-span-1">
               <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider font-sans">
@@ -1558,16 +1859,15 @@ function EditExperienceForm({ data, appData, onSave, onClose }: GDFormProps & { 
         + Add Work Experience
       </Button>
 
+      {/* Auto-calculated months note */}
       <div className="flex flex-col gap-1.5 pt-2 border-t border-[#E5E5E5]">
-        <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider font-sans">
-          Validated Actual (Months)
-        </Label>
-        <Input
-          value={validatedMonths}
-          onChange={(e) => setValidatedMonths(e.target.value)}
-          placeholder="e.g. 18"
-          className="border-[#D4D4D4] rounded-[8px] h-9 text-[13px] bg-white"
-        />
+        <div className="flex items-start gap-2 rounded-lg bg-[#EFF6FF] border border-[#BFDBFE] px-3 py-2.5">
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 shrink-0"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+          <p className="text-[11px] text-[#1D4ED8] leading-relaxed">
+            <span className="font-bold">Experience months are auto-calculated</span> from the From / To dates of each job record above. Score is assigned based on your org&apos;s scoring bands at{" "}
+            <a href="/organization/settings/scoring-bands" className="underline font-semibold hover:text-[#1e40af]" target="_blank">Settings → Scoring Bands</a>.
+          </p>
+        </div>
       </div>
 
       <div className="flex items-center gap-3 pt-4 border-t border-[#E5E5E5] mt-2">
@@ -1634,6 +1934,14 @@ function EditEntranceTestForm({ data, onSave, onClose }: any) {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-6 pt-3 pb-1">
+      {/* Score note banner */}
+      <div className="flex items-start gap-2 rounded-lg bg-[#EFF6FF] border border-[#BFDBFE] px-3 py-2.5">
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 shrink-0"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+        <p className="text-[11px] text-[#1D4ED8] leading-relaxed">
+          <span className="font-bold">Score is auto-computed</span> from your org&apos;s scoring bands based on percentile. To change how scores are awarded, update bands at{" "}
+          <a href="/organization/settings/scoring-bands" className="underline font-semibold hover:text-[#1e40af]" target="_blank">Settings → Scoring Bands</a>.
+        </p>
+      </div>
       {formData.entranceTests.map((test: any, index: number) => (
         <div key={index} className="flex flex-col gap-3 p-4 border rounded-lg bg-white">
           <div className="border-b pb-1.5 flex justify-between items-center">

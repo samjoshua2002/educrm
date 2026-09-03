@@ -1,14 +1,40 @@
 "use client";
 
 import * as React from "react";
-import { Plus, Pencil, Trash2, ListChecks, SlidersHorizontal } from "lucide-react";
+import {
+  EllipsisVertical,
+  Pencil,
+  Trash2,
+  Search,
+  SearchX,
+  Check,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+  SlidersHorizontal,
+  ListChecks,
+} from "lucide-react";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
-  Dialog,
-  DialogContent,
-} from "@/components/ui/dialog";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -18,7 +44,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -27,35 +52,81 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { usePageHeader } from "@/hooks/use-page-header";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { usePageHeaderStore } from "@/stores/page-header-store";
+import { cn } from "@/lib/utils";
+import { useSidebar } from "@/components/ui/sidebar";
+
 import { useCourses } from "@/hooks/use-courses";
 import { useAcademicSessions } from "@/hooks/use-academic-sessions";
+import { useCourseSessions } from "@/hooks/use-course-sessions";
 import {
   useRubrics,
   useCreateRubric,
   useUpdateRubric,
   useDeactivateRubric,
+  useHardDeleteRubric,
   useShortlistingRules,
   useCreateShortlistingRule,
   useUpdateShortlistingRule,
   useDeactivateShortlistingRule,
-  type EvaluationRubric,
-  type ShortlistingRule,
+  useHardDeleteShortlistingRule,
+  EvaluationRubric,
+  ShortlistingRule,
 } from "@/hooks/use-shortlisting";
 
-// ============================================================================
-// RUBRICS TAB
-// ============================================================================
+const statusStyles: Record<string, string> = {
+  Active:
+    "bg-[#05966933] text-[#065F46] font-medium px-[10px] py-[2px] rounded-[9999px] text-[12px] border-0",
+  Inactive:
+    "bg-[#D9770633] text-[#BD0F0F] font-medium px-[10px] py-[2px] rounded-[9999px] text-[12px] border-0",
+};
 
-function RubricsTab() {
-  const { data: rubrics, isLoading } = useRubrics();
+export default function ShortlistingConfigPage() {
+  const setHeader = usePageHeaderStore((s) => s.setHeader);
+  const clearHeader = usePageHeaderStore((s) => s.clearHeader);
+  const { isMobile } = useSidebar();
+
+  const [activeTab, setActiveTab] = React.useState("rules");
+
+  // API Queries & Mutations
+  const { data: rubrics, isLoading: isLoadingRubrics } = useRubrics();
+  const { data: rules, isLoading: isLoadingRules } = useShortlistingRules();
+
+  const { data: coursesResponse } = useCourses(1, 100);
+  const courses = coursesResponse?.data || [];
+  const { data: sessionsResponse } = useAcademicSessions(1, 100);
+  const academicSessions = sessionsResponse?.data || [];
+  const { data: courseSessionsResponse } = useCourseSessions(1, 100);
+  const courseSessions = courseSessionsResponse?.data || [];
+
   const createRubric = useCreateRubric();
   const updateRubric = useUpdateRubric();
   const deactivateRubric = useDeactivateRubric();
+  const hardDeleteRubric = useHardDeleteRubric();
 
-  const [dialogOpen, setDialogOpen] = React.useState(false);
-  const [editing, setEditing] = React.useState<EvaluationRubric | null>(null);
-  const [form, setForm] = React.useState({
+  const createRule = useCreateShortlistingRule();
+  const updateRule = useUpdateShortlistingRule();
+  const deactivateRule = useDeactivateShortlistingRule();
+  const hardDeleteRule = useHardDeleteShortlistingRule();
+
+  // Search & Filter State
+  const [rulesSearch, setRulesSearch] = React.useState("");
+  const [rulesStatus, setRulesStatus] = React.useState("all");
+  const [rulesPage, setRulesPage] = React.useState(1);
+
+  const [rubricsSearch, setRubricsSearch] = React.useState("");
+  const [rubricsTypeFilter, setRubricsTypeFilter] = React.useState("all");
+  const [rubricsStatusFilter, setRubricsStatusFilter] = React.useState("all");
+  const [rubricsPage, setRubricsPage] = React.useState(1);
+
+  const [mobileRulesVisibleCount, setMobileRulesVisibleCount] = React.useState(5);
+  const [mobileRubricsVisibleCount, setMobileRubricsVisibleCount] = React.useState(5);
+
+  // Modal Dialogs State
+  const [rubricDialogOpen, setRubricDialogOpen] = React.useState(false);
+  const [editingRubric, setEditingRubric] = React.useState<EvaluationRubric | null>(null);
+  const [rubricForm, setRubricForm] = React.useState({
     interviewType: "GD" as "GD" | "PI",
     parameterName: "",
     maxScore: "",
@@ -63,205 +134,9 @@ function RubricsTab() {
     description: "",
   });
 
-  const openCreate = () => {
-    setEditing(null);
-    setForm({ interviewType: "GD", parameterName: "", maxScore: "", weightagePercent: "", description: "" });
-    setDialogOpen(true);
-  };
-
-  const openEdit = (r: EvaluationRubric) => {
-    setEditing(r);
-    setForm({
-      interviewType: r.interviewType,
-      parameterName: r.parameterName,
-      maxScore: String(r.maxScore),
-      weightagePercent: r.weightagePercent != null ? String(r.weightagePercent) : "",
-      description: r.description || "",
-    });
-    setDialogOpen(true);
-  };
-
-  const handleSave = async () => {
-    const payload = {
-      interviewType: form.interviewType,
-      parameterName: form.parameterName,
-      maxScore: Number(form.maxScore),
-      weightagePercent: form.weightagePercent ? Number(form.weightagePercent) : undefined,
-      description: form.description || undefined,
-    };
-    if (editing) {
-      await updateRubric.mutateAsync({ id: editing.id, data: payload });
-    } else {
-      await createRubric.mutateAsync(payload);
-    }
-    setDialogOpen(false);
-  };
-
-  const gdRubrics = (rubrics || []).filter((r) => r.interviewType === "GD");
-  const piRubrics = (rubrics || []).filter((r) => r.interviewType === "PI");
-
-  const renderTable = (rows: EvaluationRubric[], label: string) => (
-    <div className="border border-border/80 rounded-[12px] bg-card overflow-hidden">
-      <div className="px-6 py-4 border-b border-border/80 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-foreground">
-          {label} Parameters{" "}
-          <span className="text-muted-foreground font-normal">
-            (max total: {rows.reduce((s, r) => s + Number(r.maxScore), 0)})
-          </span>
-        </h3>
-      </div>
-      <Table>
-        <TableHeader className="bg-zinc-100 dark:bg-muted/5">
-          <TableRow>
-            <TableHead className="px-6">Parameter</TableHead>
-            <TableHead className="px-6">Max Score</TableHead>
-            <TableHead className="px-6">Weightage</TableHead>
-            <TableHead className="px-6 text-right">Action</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                No {label} rubric parameters configured yet.
-              </TableCell>
-            </TableRow>
-          ) : (
-            rows.map((r) => (
-              <TableRow key={r.id}>
-                <TableCell className="px-6 font-medium">{r.parameterName}</TableCell>
-                <TableCell className="px-6">{r.maxScore}</TableCell>
-                <TableCell className="px-6">{r.weightagePercent != null ? `${r.weightagePercent}%` : "—"}</TableCell>
-                <TableCell className="px-6 text-right">
-                  <div className="flex justify-end gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => openEdit(r)}>
-                      <Pencil className="size-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => deactivateRubric.mutate(r.id)}
-                    >
-                      <Trash2 className="size-4 text-destructive" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
-    </div>
-  );
-
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="flex justify-end">
-        <Button onClick={openCreate} className="gap-2">
-          <Plus className="size-4" /> Add Rubric Parameter
-        </Button>
-      </div>
-      {isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading rubrics...</p>
-      ) : (
-        <>
-          {renderTable(gdRubrics, "GD")}
-          {renderTable(piRubrics, "PI")}
-        </>
-      )}
-
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-[480px] p-6 bg-white rounded-2xl gap-4">
-          <h3 className="text-lg font-bold text-[#0F172A]">
-            {editing ? "Edit Rubric Parameter" : "Add Rubric Parameter"}
-          </h3>
-
-          <div className="flex flex-col gap-2">
-            <Label>Interview Type</Label>
-            <Select value={form.interviewType} onValueChange={(v) => setForm({ ...form, interviewType: v as "GD" | "PI" })}>
-              <SelectTrigger className="w-full h-11">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="GD">GD</SelectItem>
-                <SelectItem value="PI">PI</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label>Parameter Name</Label>
-            <Input
-              placeholder="e.g. Communication Skills"
-              value={form.parameterName}
-              onChange={(e) => setForm({ ...form, parameterName: e.target.value })}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-2">
-              <Label>Max Score</Label>
-              <Input
-                type="number"
-                value={form.maxScore}
-                onChange={(e) => setForm({ ...form, maxScore: e.target.value })}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label>Weightage %</Label>
-              <Input
-                type="number"
-                value={form.weightagePercent}
-                onChange={(e) => setForm({ ...form, weightagePercent: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label>Description</Label>
-            <Input
-              placeholder="Optional notes for evaluators"
-              value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
-            />
-          </div>
-
-          <div className="flex justify-end gap-3 mt-2">
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSave} disabled={!form.parameterName || !form.maxScore}>
-              Save
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
-
-// ============================================================================
-// SHORTLISTING RULES TAB
-// ============================================================================
-
-function ShortlistingRulesTab() {
-  const { data: rules, isLoading } = useShortlistingRules();
-  const createRule = useCreateShortlistingRule();
-  const updateRule = useUpdateShortlistingRule();
-  const deactivateRule = useDeactivateShortlistingRule();
-
-  // Program options come from the org's configured Courses (Application.program
-  // is populated from course.name at creation time — see applications.service.ts),
-  // and Academic Year options come from configured Academic Sessions, so the
-  // rule always targets values that can actually match real applications.
-  const { data: coursesResponse } = useCourses(1, 100);
-  const courses = coursesResponse?.data || [];
-  const { data: sessionsResponse } = useAcademicSessions(1, 100);
-  const academicSessions = sessionsResponse?.data || [];
-
-  const [dialogOpen, setDialogOpen] = React.useState(false);
-  const [editing, setEditing] = React.useState<ShortlistingRule | null>(null);
-  const [form, setForm] = React.useState({
+  const [ruleDialogOpen, setRuleDialogOpen] = React.useState(false);
+  const [editingRule, setEditingRule] = React.useState<ShortlistingRule | null>(null);
+  const [ruleForm, setRuleForm] = React.useState({
     program: "",
     academicYear: "",
     minGpa: "",
@@ -273,25 +148,221 @@ function ShortlistingRulesTab() {
     cutoffScore: "",
   });
 
-  const openCreate = () => {
-    setEditing(null);
-    setForm({
-      program: "",
-      academicYear: "",
-      minGpa: "",
-      minTestScore: "",
-      minExperienceYears: "",
-      academicWeightage: "",
-      testWeightage: "",
-      experienceWeightage: "",
-      cutoffScore: "",
+  // Action Dialog Confirmations
+  const [deactivateTarget, setDeactivateTarget] = React.useState<{
+    type: "rubric" | "rule";
+    id: string;
+  } | null>(null);
+
+  const [hardDeleteTarget, setHardDeleteTarget] = React.useState<{
+    type: "rubric" | "rule";
+    id: string;
+  } | null>(null);
+
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Sync active dialogs action onClick to Dynamic Layout Header
+  React.useEffect(() => {
+    const handleOpenAddRule = () => {
+      setEditingRule(null);
+      setRuleForm({
+        program: "",
+        academicYear: "",
+        minGpa: "",
+        minTestScore: "",
+        minExperienceYears: "",
+        academicWeightage: "",
+        testWeightage: "",
+        experienceWeightage: "",
+        cutoffScore: "",
+      });
+      setRuleDialogOpen(true);
+    };
+
+    const handleOpenAddRubric = () => {
+      setEditingRubric(null);
+      setRubricForm({
+        interviewType: "GD",
+        parameterName: "",
+        maxScore: "",
+        weightagePercent: "",
+        description: "",
+      });
+      setRubricDialogOpen(true);
+    };
+
+    let actionLabel = "Add Shortlisting Rule";
+    let actionOnClick = handleOpenAddRule;
+
+    if (activeTab === "rubrics") {
+      actionLabel = "Add Rubric Parameter";
+      actionOnClick = handleOpenAddRubric;
+    }
+
+    setHeader({
+      title: "Shortlisting & Rubric Configuration",
+      description: "Admin-only: define shortlisting weightages/cutoffs per program and GD/PI rubric parameters.",
+      action: {
+        label: actionLabel,
+        onClick: actionOnClick,
+      },
     });
-    setDialogOpen(true);
+
+    return () => clearHeader();
+  }, [activeTab, setHeader, clearHeader]);
+
+  // Get available sessions dynamically based on CourseSessions
+  const availableSessions = React.useMemo(() => {
+    if (!ruleForm.program) return academicSessions;
+    const selectedCourseId = courses.find((c) => c.name === ruleForm.program)?.id;
+    if (!selectedCourseId) return academicSessions;
+    const linkedSessions = courseSessions.filter((cs) => cs.courseId === selectedCourseId);
+    if (linkedSessions.length === 0) return academicSessions;
+    return linkedSessions.map((cs) => cs.academicSession).filter(Boolean);
+  }, [ruleForm.program, courses, courseSessions, academicSessions]);
+
+  // Reset academic year selection if the program changes and the previous session is not available
+  React.useEffect(() => {
+    if (ruleForm.program) {
+      const isAvailable = availableSessions.some((s) => s.name === ruleForm.academicYear);
+      if (!isAvailable && availableSessions.length > 0) {
+        setRuleForm((prev) => ({ ...prev, academicYear: "" }));
+      }
+    }
+  }, [ruleForm.program, availableSessions, ruleForm.academicYear]);
+
+  // Client Side Filtering & Pagination - Rules
+  const filteredRules = React.useMemo(() => {
+    const allRules = rules || [];
+    return allRules.filter((r) => {
+      if (rulesSearch.trim() !== "") {
+        const q = rulesSearch.toLowerCase();
+        if (
+          !r.program.toLowerCase().includes(q) &&
+          !r.academicYear.toLowerCase().includes(q)
+        ) {
+          return false;
+        }
+      }
+      if (rulesStatus !== "all") {
+        if (r.status !== rulesStatus) return false;
+      }
+      return true;
+    });
+  }, [rules, rulesSearch, rulesStatus]);
+
+  const itemsPerPage = 5;
+  const rulesTotalPages = Math.ceil(filteredRules.length / itemsPerPage) || 1;
+  const rulesStartIndex = (rulesPage - 1) * itemsPerPage;
+  const rulesEndIndex = rulesStartIndex + itemsPerPage;
+  const paginatedRules = filteredRules.slice(rulesStartIndex, rulesEndIndex);
+
+  const mobileRules = React.useMemo(
+    () => filteredRules.slice(0, mobileRulesVisibleCount),
+    [filteredRules, mobileRulesVisibleCount]
+  );
+
+  const rulesVisiblePages = React.useMemo(() => {
+    let startPage = 1;
+    let endPage = rulesTotalPages;
+    if (rulesTotalPages > 5) {
+      if (rulesPage <= 3) {
+        startPage = 1;
+        endPage = 5;
+      } else if (rulesPage + 2 >= rulesTotalPages) {
+        startPage = rulesTotalPages - 4;
+        endPage = rulesTotalPages;
+      } else {
+        startPage = rulesPage - 2;
+        endPage = rulesPage + 2;
+      }
+    }
+    return Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i);
+  }, [rulesPage, rulesTotalPages]);
+
+  // Client Side Filtering & Pagination - Rubrics
+  const filteredRubrics = React.useMemo(() => {
+    const allRubrics = rubrics || [];
+    return allRubrics.filter((r) => {
+      if (rubricsSearch.trim() !== "") {
+        const q = rubricsSearch.toLowerCase();
+        if (
+          !r.parameterName.toLowerCase().includes(q) &&
+          !(r.description || "").toLowerCase().includes(q)
+        ) {
+          return false;
+        }
+      }
+      if (rubricsTypeFilter !== "all" && r.interviewType !== rubricsTypeFilter) {
+        return false;
+      }
+      if (rubricsStatusFilter !== "all") {
+        const wantsActive = rubricsStatusFilter === "active";
+        if (r.isActive !== wantsActive) return false;
+      }
+      return true;
+    });
+  }, [rubrics, rubricsSearch, rubricsTypeFilter, rubricsStatusFilter]);
+
+  const rubricsTotalPages = Math.ceil(filteredRubrics.length / itemsPerPage) || 1;
+  const rubricsStartIndex = (rubricsPage - 1) * itemsPerPage;
+  const rubricsEndIndex = rubricsStartIndex + itemsPerPage;
+  const paginatedRubrics = filteredRubrics.slice(rubricsStartIndex, rubricsEndIndex);
+
+  const mobileRubrics = React.useMemo(
+    () => filteredRubrics.slice(0, mobileRubricsVisibleCount),
+    [filteredRubrics, mobileRubricsVisibleCount]
+  );
+
+  const rubricsVisiblePages = React.useMemo(() => {
+    let startPage = 1;
+    let endPage = rubricsTotalPages;
+    if (rubricsTotalPages > 5) {
+      if (rubricsPage <= 3) {
+        startPage = 1;
+        endPage = 5;
+      } else if (rubricsPage + 2 >= rubricsTotalPages) {
+        startPage = rubricsTotalPages - 4;
+        endPage = rubricsTotalPages;
+      } else {
+        startPage = rubricsPage - 2;
+        endPage = rubricsPage + 2;
+      }
+    }
+    return Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i);
+  }, [rubricsPage, rubricsTotalPages]);
+
+  // Handlers - Rules
+  const handleSaveRule = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!ruleForm.program || !ruleForm.academicYear || !ruleForm.cutoffScore) return;
+
+    const payload = {
+      program: ruleForm.program,
+      academicYear: ruleForm.academicYear,
+      minGpa: ruleForm.minGpa ? Number(ruleForm.minGpa) : undefined,
+      minTestScore: ruleForm.minTestScore ? Number(ruleForm.minTestScore) : undefined,
+      minExperienceYears: ruleForm.minExperienceYears ? Number(ruleForm.minExperienceYears) : undefined,
+      academicWeightage: Number(ruleForm.academicWeightage),
+      testWeightage: Number(ruleForm.testWeightage),
+      experienceWeightage: Number(ruleForm.experienceWeightage),
+      cutoffScore: Number(ruleForm.cutoffScore),
+    };
+
+    if (editingRule) {
+      await updateRule.mutateAsync({ id: editingRule.id, data: payload });
+    } else {
+      await createRule.mutateAsync(payload);
+    }
+    setRuleDialogOpen(false);
   };
 
-  const openEdit = (r: ShortlistingRule) => {
-    setEditing(r);
-    setForm({
+  const triggerEditRule = (r: ShortlistingRule) => {
+    setEditingRule(r);
+    setRuleForm({
       program: r.program,
       academicYear: r.academicYear,
       minGpa: r.minGpa != null ? String(r.minGpa) : "",
@@ -302,239 +373,1249 @@ function ShortlistingRulesTab() {
       experienceWeightage: String(r.experienceWeightage),
       cutoffScore: String(r.cutoffScore),
     });
-    setDialogOpen(true);
+    setRuleDialogOpen(true);
+  };
+
+  const handleActivateRule = async (id: string) => {
+    await updateRule.mutateAsync({ id, data: { status: "active" } });
+  };
+
+  // Handlers - Rubrics
+  const handleSaveRubric = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rubricForm.parameterName || !rubricForm.maxScore) return;
+
+    const payload = {
+      interviewType: rubricForm.interviewType,
+      parameterName: rubricForm.parameterName,
+      maxScore: Number(rubricForm.maxScore),
+      weightagePercent: rubricForm.weightagePercent ? Number(rubricForm.weightagePercent) : undefined,
+      description: rubricForm.description || undefined,
+    };
+
+    if (editingRubric) {
+      await updateRubric.mutateAsync({ id: editingRubric.id, data: payload });
+    } else {
+      await createRubric.mutateAsync(payload);
+    }
+    setRubricDialogOpen(false);
+  };
+
+  const triggerEditRubric = (r: EvaluationRubric) => {
+    setEditingRubric(r);
+    setRubricForm({
+      interviewType: r.interviewType,
+      parameterName: r.parameterName,
+      maxScore: String(r.maxScore),
+      weightagePercent: r.weightagePercent != null ? String(r.weightagePercent) : "",
+      description: r.description || "",
+    });
+    setRubricDialogOpen(true);
+  };
+
+  const handleActivateRubric = async (id: string) => {
+    await updateRubric.mutateAsync({ id, data: { isActive: true } });
+  };
+
+  // Execution Handlers for AlertDialog Confirmations
+  const executeDeactivate = async () => {
+    if (!deactivateTarget) return;
+
+    if (deactivateTarget.type === "rubric") {
+      await deactivateRubric.mutateAsync(deactivateTarget.id);
+    } else if (deactivateTarget.type === "rule") {
+      await deactivateRule.mutateAsync(deactivateTarget.id);
+    }
+    setDeactivateTarget(null);
+  };
+
+  const executeHardDelete = async () => {
+    if (!hardDeleteTarget) return;
+
+    if (hardDeleteTarget.type === "rubric") {
+      await hardDeleteRubric.mutateAsync(hardDeleteTarget.id);
+    } else if (hardDeleteTarget.type === "rule") {
+      await hardDeleteRule.mutateAsync(hardDeleteTarget.id);
+    }
+    setHardDeleteTarget(null);
   };
 
   const weightageTotal =
-    (Number(form.academicWeightage) || 0) + (Number(form.testWeightage) || 0) + (Number(form.experienceWeightage) || 0);
-
-  const handleSave = async () => {
-    const payload = {
-      program: form.program,
-      academicYear: form.academicYear,
-      minGpa: form.minGpa ? Number(form.minGpa) : undefined,
-      minTestScore: form.minTestScore ? Number(form.minTestScore) : undefined,
-      minExperienceYears: form.minExperienceYears ? Number(form.minExperienceYears) : undefined,
-      academicWeightage: Number(form.academicWeightage),
-      testWeightage: Number(form.testWeightage),
-      experienceWeightage: Number(form.experienceWeightage),
-      cutoffScore: Number(form.cutoffScore),
-    };
-    if (editing) {
-      await updateRule.mutateAsync({ id: editing.id, data: payload });
-    } else {
-      await createRule.mutateAsync(payload);
-    }
-    setDialogOpen(false);
-  };
+    (Number(ruleForm.academicWeightage) || 0) +
+    (Number(ruleForm.testWeightage) || 0) +
+    (Number(ruleForm.experienceWeightage) || 0);
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex justify-end">
-        <Button onClick={openCreate} className="gap-2">
-          <Plus className="size-4" /> Add Shortlisting Rule
-        </Button>
-      </div>
+    <>
+      <div className="flex flex-col gap-4 p-4 md:p-6 w-full max-w-full min-w-0">
+        <Tabs
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="w-full flex flex-col"
+        >
+          <div className="border border-[#e5e5e5] rounded-[12px] bg-white shadow-sm flex flex-col w-full max-w-full overflow-hidden">
+            {/* Unified Top Header for Tabs and Search/Filters */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between p-4 border-b border-[#e2e8f0] gap-4">
+              <TabsList className="bg-transparent border-0 p-0 h-auto flex gap-6 w-full lg:w-auto overflow-x-auto justify-start rounded-none">
+                <TabsTrigger
+                  value="rules"
+                  className={cn(
+                    "p-0 h-auto bg-transparent border-0 rounded-none text-sm transition-colors cursor-pointer shadow-none data-[state=active]:bg-transparent data-[state=active]:shadow-none",
+                    "font-medium text-slate-500 hover:text-slate-800",
+                    "data-[state=active]:text-[#1e3a8a] data-[state=active]:font-bold data-[state=active]:border-b-[3px] data-[state=active]:border-[#1e3a8a] pb-2"
+                  )}
+                >
+                  Shortlisting Rules
+                </TabsTrigger>
+                <TabsTrigger
+                  value="rubrics"
+                  className={cn(
+                    "p-0 h-auto bg-transparent border-0 rounded-none text-sm transition-colors pointer-events-auto cursor-pointer shadow-none data-[state=active]:bg-transparent data-[state=active]:shadow-none",
+                    "font-medium text-slate-500 hover:text-slate-800",
+                    "data-[state=active]:text-[#1e3a8a] data-[state=active]:font-bold data-[state=active]:border-b-[3px] data-[state=active]:border-[#1e3a8a] pb-2"
+                  )}
+                >
+                  Evaluation Rubrics
+                </TabsTrigger>
+              </TabsList>
 
-      <div className="border border-border/80 rounded-[12px] bg-card overflow-hidden">
-        <Table>
-          <TableHeader className="bg-zinc-100 dark:bg-muted/5">
-            <TableRow>
-              <TableHead className="px-6">Program</TableHead>
-              <TableHead className="px-6">Year</TableHead>
-              <TableHead className="px-6">Weightages (A / T / E)</TableHead>
-              <TableHead className="px-6">Cutoff</TableHead>
-              <TableHead className="px-6">Status</TableHead>
-              <TableHead className="px-6 text-right">Action</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                  Loading...
-                </TableCell>
-              </TableRow>
-            ) : !rules || rules.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                  No shortlisting rules configured yet.
-                </TableCell>
-              </TableRow>
-            ) : (
-              rules.map((r) => (
-                <TableRow key={r.id}>
-                  <TableCell className="px-6 font-medium">{r.program}</TableCell>
-                  <TableCell className="px-6">{r.academicYear}</TableCell>
-                  <TableCell className="px-6">
-                    {r.academicWeightage}% / {r.testWeightage}% / {r.experienceWeightage}%
-                  </TableCell>
-                  <TableCell className="px-6">{r.cutoffScore}</TableCell>
-                  <TableCell className="px-6">
-                    <Badge variant={r.status === "active" ? "default" : "secondary"}>{r.status}</Badge>
-                  </TableCell>
-                  <TableCell className="px-6 text-right">
-                    <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(r)}>
-                        <Pencil className="size-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => deactivateRule.mutate(r.id)}>
-                        <Trash2 className="size-4 text-destructive" />
-                      </Button>
+              {/* Dynamic Search & Filters Area */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                {activeTab === "rules" && (
+                  <>
+                    <div className="relative w-full sm:w-[240px]">
+                      <Input
+                        placeholder="Search program or year..."
+                        className="w-full pr-10 h-10 border-[#e2e8f0] rounded-[8px]"
+                        value={rulesSearch}
+                        onChange={(e) => {
+                          setRulesSearch(e.target.value);
+                          setRulesPage(1);
+                          setMobileRulesVisibleCount(5);
+                        }}
+                      />
+                      <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-muted-foreground">
+                        <Search className="size-4" />
+                      </div>
                     </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+                    <Select
+                      value={rulesStatus}
+                      onValueChange={(val) => {
+                        setRulesStatus(val);
+                        setRulesPage(1);
+                        setMobileRulesVisibleCount(5);
+                      }}
+                    >
+                      <SelectTrigger className="w-full sm:w-[150px] h-10 text-sm bg-slate-50 border-[#e2e8f0] rounded-[8px]">
+                        <SelectValue placeholder="Status: All" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Status: All</SelectItem>
+                        <SelectItem value="active">Status: Active</SelectItem>
+                        <SelectItem value="inactive">Status: Inactive</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </>
+                )}
+                {activeTab === "rubrics" && (
+                  <>
+                    <div className="relative w-full sm:w-[240px]">
+                      <Input
+                        placeholder="Search parameter..."
+                        className="w-full pr-10 h-10 border-[#e2e8f0] rounded-[8px]"
+                        value={rubricsSearch}
+                        onChange={(e) => {
+                          setRubricsSearch(e.target.value);
+                          setRubricsPage(1);
+                          setMobileRubricsVisibleCount(5);
+                        }}
+                      />
+                      <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-muted-foreground">
+                        <Search className="size-4" />
+                      </div>
+                    </div>
+                    <Select
+                      value={rubricsTypeFilter}
+                      onValueChange={(val) => {
+                        setRubricsTypeFilter(val);
+                        setRubricsPage(1);
+                        setMobileRubricsVisibleCount(5);
+                      }}
+                    >
+                      <SelectTrigger className="w-full sm:w-[150px] h-10 text-sm bg-slate-50 border-[#e2e8f0] rounded-[8px]">
+                        <SelectValue placeholder="Type: All" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Type: All</SelectItem>
+                        <SelectItem value="GD">Type: GD</SelectItem>
+                        <SelectItem value="PI">Type: PI</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select
+                      value={rubricsStatusFilter}
+                      onValueChange={(val) => {
+                        setRubricsStatusFilter(val);
+                        setRubricsPage(1);
+                        setMobileRubricsVisibleCount(5);
+                      }}
+                    >
+                      <SelectTrigger className="w-full sm:w-[150px] h-10 text-sm bg-slate-50 border-[#e2e8f0] rounded-[8px]">
+                        <SelectValue placeholder="Status: All" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Status: All</SelectItem>
+                        <SelectItem value="active">Status: Active</SelectItem>
+                        <SelectItem value="inactive">Status: Inactive</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* 1. SHORTLISTING RULES TAB CONTENT */}
+            <TabsContent value="rules" className="m-0 border-0 outline-none">
+              {!isMobile && (
+                <div className="hidden lg:block w-full">
+                  <Table>
+                    <TableHeader className="bg-[#fafafa] border-b border-[#e2e8f0]">
+                      <TableRow className="hover:bg-transparent border-b border-[#e2e8f0]">
+                        <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
+                          PROGRAM
+                        </TableHead>
+                        <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
+                          ACADEMIC YEAR
+                        </TableHead>
+                        <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
+                          WEIGHTAGES (A / T / E)
+                        </TableHead>
+                        <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
+                          CUTOFF SCORE
+                        </TableHead>
+                        <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
+                          STATUS
+                        </TableHead>
+                        <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto text-right w-[85px]">
+                          ACTION
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {!mounted || isLoadingRules ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="h-48 text-center">
+                            <div className="flex flex-col items-center justify-center text-muted-foreground">
+                              <Loader2 className="size-8 animate-spin text-primary mb-4" />
+                              <p>Loading rules...</p>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ) : filteredRules.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="h-48 text-center">
+                            <div className="flex flex-col items-center justify-center gap-3">
+                              <div className="flex size-12 items-center justify-center rounded-full bg-muted/40">
+                                <SearchX className="size-6 text-muted-foreground/80" />
+                              </div>
+                              <p className="text-sm font-semibold text-foreground">No shortlisting rules found</p>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        paginatedRules.map((rule) => (
+                          <TableRow
+                            key={rule.id}
+                            className="border-b border-[#e2e8f0] hover:bg-muted/15 transition-colors h-[72px]"
+                          >
+                            <TableCell className="py-[16px] px-[24px] align-middle font-semibold text-[#1e293b] text-[14px]">
+                              {rule.program}
+                            </TableCell>
+                            <TableCell className="py-[16px] px-[24px] align-middle text-[#475569] text-[14px]">
+                              {rule.academicYear}
+                            </TableCell>
+                            <TableCell className="py-[16px] px-[24px] align-middle text-[#475569] text-[14px]">
+                              {rule.academicWeightage}% / {rule.testWeightage}% / {rule.experienceWeightage}%
+                            </TableCell>
+                            <TableCell className="py-[16px] px-[24px] align-middle font-medium text-[#1e293b] text-[14px]">
+                              {rule.cutoffScore}
+                            </TableCell>
+                            <TableCell className="py-[16px] px-[24px] align-middle">
+                              <Badge
+                                variant="secondary"
+                                className={
+                                  rule.status === "active"
+                                    ? statusStyles.Active
+                                    : statusStyles.Inactive
+                                }
+                              >
+                                {rule.status === "active" ? "Active" : "Inactive"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="py-[16px] px-[24px] align-middle text-right">
+                              <div className="flex justify-end">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      className="data-[state=open]:bg-muted text-muted-foreground flex size-8 rounded-md hover:bg-muted"
+                                      size="icon"
+                                    >
+                                      <EllipsisVertical className="size-4" />
+                                      <span className="sr-only">Open menu</span>
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="w-44 z-50">
+                                    <DropdownMenuItem
+                                      className="gap-2"
+                                      onClick={() => triggerEditRule(rule)}
+                                    >
+                                      <Pencil className="size-4" />
+                                      Edit Rule
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    {rule.status === "active" ? (
+                                      <DropdownMenuItem
+                                        variant="destructive"
+                                        className="gap-2"
+                                        onClick={() => setDeactivateTarget({ type: "rule", id: rule.id })}
+                                      >
+                                        <Trash2 className="size-4" />
+                                        Deactivate
+                                      </DropdownMenuItem>
+                                    ) : (
+                                      <DropdownMenuItem
+                                        className="gap-2 text-emerald-600 focus:text-emerald-700"
+                                        onClick={() => handleActivateRule(rule.id)}
+                                      >
+                                        <Check className="size-4" />
+                                        Activate
+                                      </DropdownMenuItem>
+                                    )}
+                                    <DropdownMenuItem
+                                      variant="destructive"
+                                      className="gap-2 text-red-700 focus:text-red-700"
+                                      onClick={() => setHardDeleteTarget({ type: "rule", id: rule.id })}
+                                    >
+                                      <Trash2 className="size-4" />
+                                      Delete Permanently
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+
+                  {/* Rules Pagination Footer */}
+                  <div className="flex flex-col sm:flex-row items-center justify-between border-t border-border/80 bg-zinc-100 dark:bg-muted/5 py-4 px-6 gap-4">
+                    <p className="text-sm text-muted-foreground font-normal">
+                      Showing{" "}
+                      <span className="font-medium text-foreground">
+                        {filteredRules.length === 0 ? 0 : rulesStartIndex + 1}
+                      </span>{" "}
+                      to{" "}
+                      <span className="font-medium text-foreground">
+                        {Math.min(rulesEndIndex, filteredRules.length)}
+                      </span>{" "}
+                      of{" "}
+                      <span className="font-medium text-foreground">{filteredRules.length}</span>{" "}
+                      entries
+                    </p>
+                    {rulesTotalPages > 1 && (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Button
+                          variant="outline"
+                          className="h-9 px-4 border border-border/80 bg-background text-foreground text-sm font-normal rounded-[6px] hover:bg-muted/30 dark:hover:bg-muted/10 transition-colors shadow-2xs"
+                          onClick={() => {
+                            if (rulesPage > 1) setRulesPage(rulesPage - 1);
+                          }}
+                          disabled={rulesPage === 1}
+                        >
+                          <ChevronLeft className="mr-1 size-4" />
+                          Prev
+                        </Button>
+                        <div className="flex items-center gap-1.5 px-1">
+                          {rulesVisiblePages.map((page) => {
+                            const isActive = page === rulesPage;
+                            return (
+                              <Button
+                                key={page}
+                                variant={isActive ? "default" : "outline"}
+                                className={`h-9 w-9 p-0 text-sm border shadow-2xs rounded-[6px] transition-colors ${
+                                  isActive
+                                    ? "bg-[#EA2525] border-[#EA2525] text-white font-semibold hover:bg-[#D61F1F] shadow-xs"
+                                    : "border-border/80 bg-background text-muted-foreground hover:bg-muted/30 dark:hover:bg-muted/10 hover:text-foreground font-normal"
+                                }`}
+                                onClick={() => setRulesPage(page)}
+                              >
+                                {page}
+                              </Button>
+                            );
+                          })}
+                        </div>
+                        <Button
+                          variant="outline"
+                          className="h-9 px-4 border border-border/80 bg-background text-foreground text-sm font-normal rounded-[6px] hover:bg-muted/30 dark:hover:bg-muted/10 transition-colors shadow-2xs"
+                          onClick={() => {
+                            if (rulesPage < rulesTotalPages) setRulesPage(rulesPage + 1);
+                          }}
+                          disabled={rulesPage === rulesTotalPages}
+                        >
+                          Next
+                          <ChevronRight className="ml-1 size-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {isMobile && (
+                <div className="flex flex-col gap-3.5 lg:hidden w-full p-4">
+                  {mobileRules.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center gap-3 py-16 border border-border/80 bg-card rounded-xl text-center px-4 w-full">
+                      <div className="flex size-12 items-center justify-center rounded-full bg-muted/40">
+                        <SearchX className="size-6 text-muted-foreground/80" />
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                        <p className="text-sm font-semibold text-foreground">No results found</p>
+                        <p className="text-xs text-muted-foreground">Try adjusting your filters or search query.</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-3.5 w-full">
+                      {mobileRules.map((rule) => (
+                        <div
+                          key={rule.id}
+                          className="bg-card border border-border/80 rounded-xl p-4 md:p-5 flex flex-col gap-4 hover:shadow-xs transition-all duration-200"
+                        >
+                          {/* Row 1: Program, Action */}
+                          <div className="flex items-center justify-between gap-4 min-w-0">
+                            <div className="min-w-0">
+                              <span className="font-semibold text-foreground text-sm tracking-tight truncate block">
+                                {rule.program}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    className="text-muted-foreground flex size-8 rounded-md hover:bg-muted p-0 shrink-0"
+                                    size="icon"
+                                  >
+                                    <EllipsisVertical className="size-4" />
+                                    <span className="sr-only">Open menu</span>
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-44 z-50">
+                                  <DropdownMenuItem
+                                    className="gap-2"
+                                    onClick={() => triggerEditRule(rule)}
+                                  >
+                                    <Pencil className="size-4" />
+                                    Edit Rule
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  {rule.status === "active" ? (
+                                    <DropdownMenuItem
+                                      variant="destructive"
+                                      className="gap-2"
+                                      onClick={() => setDeactivateTarget({ type: "rule", id: rule.id })}
+                                    >
+                                      <Trash2 className="size-4" />
+                                      Deactivate
+                                    </DropdownMenuItem>
+                                  ) : (
+                                    <DropdownMenuItem
+                                      className="gap-2 text-emerald-600 focus:text-emerald-700"
+                                      onClick={() => handleActivateRule(rule.id)}
+                                    >
+                                      <Check className="size-4" />
+                                      Activate
+                                    </DropdownMenuItem>
+                                  )}
+                                  <DropdownMenuItem
+                                    variant="destructive"
+                                    className="gap-2 text-red-700 focus:text-red-700"
+                                    onClick={() => setHardDeleteTarget({ type: "rule", id: rule.id })}
+                                  >
+                                    <Trash2 className="size-4" />
+                                    Delete Permanently
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          </div>
+
+                          {/* Row 2: Details grid */}
+                          <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-xs border-t border-border/40 pt-3 text-muted-foreground">
+                            <div className="flex flex-col gap-1 min-w-0">
+                              <span className="font-medium text-muted-foreground/80">Academic Year:</span>
+                              <span className="text-foreground/95 font-medium">{rule.academicYear}</span>
+                            </div>
+                              <div className="flex flex-col gap-1 min-w-0">
+                              <span className="font-medium text-muted-foreground/80">Status:</span>
+                              <div className="flex mt-0.5">
+                                <Badge
+                                  variant="secondary"
+                                  className={
+                                    rule.status === "active"
+                                      ? statusStyles.Active
+                                      : statusStyles.Inactive
+                                  }
+                                >
+                                  {rule.status === "active" ? "Active" : "Inactive"}
+                                </Badge>
+                              </div>
+                            </div>
+                            <div className="flex flex-col gap-1 min-w-0">
+                              <span className="font-medium text-muted-foreground/80">Weightages (A / T / E):</span>
+                              <span className="text-foreground/95 font-medium">
+                                {rule.academicWeightage}% / {rule.testWeightage}% / {rule.experienceWeightage}%
+                              </span>
+                            </div>
+                              <div className="flex flex-col gap-1 min-w-0">
+                              <span className="font-medium text-muted-foreground/80">Cutoff Score:</span>
+                              <span className="text-foreground/95 font-medium">{rule.cutoffScore}</span>
+                            </div>
+                        
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Mobile Load More Footer */}
+                  {mobileRulesVisibleCount < filteredRules.length ? (
+                    <div className="flex flex-col items-center justify-center gap-3 mt-4 w-full">
+                      <Button
+                        variant="outline"
+                        className="w-full bg-background hover:bg-muted/50 border-border/80 text-foreground font-medium h-10 shadow-xs"
+                        onClick={() => setMobileRulesVisibleCount((prev) => prev + 5)}
+                      >
+                        Load More Rules
+                      </Button>
+                      <p className="text-xs text-muted-foreground font-normal">
+                        Showing {Math.min(mobileRulesVisibleCount, filteredRules.length)} of {filteredRules.length} entries
+                      </p>
+                    </div>
+                  ) : (
+                    filteredRules.length > 0 && (
+                      <div className="flex flex-col items-center justify-center gap-3 mt-4 w-full">
+                        <p className="text-xs text-muted-foreground font-normal">
+                          Showing all {filteredRules.length} of {filteredRules.length} entries
+                        </p>
+                      </div>
+                    )
+                  )}
+                </div>
+              )}
+            </TabsContent>
+
+            {/* 2. EVALUATION RUBRICS TAB CONTENT */}
+            <TabsContent value="rubrics" className="m-0 border-0 outline-none">
+              {!isMobile && (
+                <div className="hidden lg:block w-full">
+                  <Table>
+                    <TableHeader className="bg-[#fafafa] border-b border-[#e2e8f0]">
+                      <TableRow className="hover:bg-transparent border-b border-[#e2e8f0]">
+                        <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
+                          PARAMETER NAME
+                        </TableHead>
+                        <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
+                          TYPE
+                        </TableHead>
+                        <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
+                          MAX SCORE
+                        </TableHead>
+                        <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
+                          WEIGHTAGE
+                        </TableHead>
+                        <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
+                          STATUS
+                        </TableHead>
+                        <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto text-right w-[85px]">
+                          ACTION
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {!mounted || isLoadingRubrics ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="h-48 text-center">
+                            <div className="flex flex-col items-center justify-center text-muted-foreground">
+                              <Loader2 className="size-8 animate-spin text-primary mb-4" />
+                              <p>Loading rubrics...</p>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ) : filteredRubrics.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="h-48 text-center">
+                            <div className="flex flex-col items-center justify-center gap-3">
+                              <div className="flex size-12 items-center justify-center rounded-full bg-muted/40">
+                                <SearchX className="size-6 text-muted-foreground/80" />
+                              </div>
+                              <p className="text-sm font-semibold text-foreground">No rubric parameters found</p>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        paginatedRubrics.map((rubric) => (
+                          <TableRow
+                            key={rubric.id}
+                            className="border-b border-[#e2e8f0] hover:bg-muted/15 transition-colors h-[72px]"
+                          >
+                            <TableCell className="py-[16px] px-[24px] align-middle font-semibold text-[#1e293b] text-[14px]">
+                              <div className="flex flex-col gap-0.5">
+                                <span>{rubric.parameterName}</span>
+                                {rubric.description && (
+                                  <span className="text-xs text-muted-foreground font-normal line-clamp-1">{rubric.description}</span>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell className="py-[16px] px-[24px] align-middle text-[#475569] text-[14px]">
+                              <Badge variant="outline" className="border-slate-200 bg-slate-50 font-medium">
+                                {rubric.interviewType}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="py-[16px] px-[24px] align-middle text-[#475569] text-[14px]">
+                              {rubric.maxScore}
+                            </TableCell>
+                            <TableCell className="py-[16px] px-[24px] align-middle text-[#475569] text-[14px]">
+                              {rubric.weightagePercent != null ? `${rubric.weightagePercent}%` : "—"}
+                            </TableCell>
+                            <TableCell className="py-[16px] px-[24px] align-middle">
+                              <Badge
+                                variant="secondary"
+                                className={
+                                  rubric.isActive
+                                    ? statusStyles.Active
+                                    : statusStyles.Inactive
+                                }
+                              >
+                                {rubric.isActive ? "Active" : "Inactive"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="py-[16px] px-[24px] align-middle text-right">
+                              <div className="flex justify-end">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      className="data-[state=open]:bg-muted text-muted-foreground flex size-8 rounded-md hover:bg-muted"
+                                      size="icon"
+                                    >
+                                      <EllipsisVertical className="size-4" />
+                                      <span className="sr-only">Open menu</span>
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="w-44 z-50">
+                                    <DropdownMenuItem
+                                      className="gap-2"
+                                      onClick={() => triggerEditRubric(rubric)}
+                                    >
+                                      <Pencil className="size-4" />
+                                      Edit Rubric
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    {rubric.isActive ? (
+                                      <DropdownMenuItem
+                                        variant="destructive"
+                                        className="gap-2"
+                                        onClick={() => setDeactivateTarget({ type: "rubric", id: rubric.id })}
+                                      >
+                                        <Trash2 className="size-4" />
+                                        Deactivate
+                                      </DropdownMenuItem>
+                                    ) : (
+                                      <DropdownMenuItem
+                                        className="gap-2 text-emerald-600 focus:text-emerald-700"
+                                        onClick={() => handleActivateRubric(rubric.id)}
+                                      >
+                                        <Check className="size-4" />
+                                        Activate
+                                      </DropdownMenuItem>
+                                    )}
+                                    <DropdownMenuItem
+                                      variant="destructive"
+                                      className="gap-2 text-red-700 focus:text-red-700"
+                                      onClick={() => setHardDeleteTarget({ type: "rubric", id: rubric.id })}
+                                    >
+                                      <Trash2 className="size-4" />
+                                      Delete Permanently
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+
+                  {/* Rubrics Pagination Footer */}
+                  <div className="flex flex-col sm:flex-row items-center justify-between border-t border-border/80 bg-zinc-100 dark:bg-muted/5 py-4 px-6 gap-4">
+                    <p className="text-sm text-muted-foreground font-normal">
+                      Showing{" "}
+                      <span className="font-medium text-foreground">
+                        {filteredRubrics.length === 0 ? 0 : rubricsStartIndex + 1}
+                      </span>{" "}
+                      to{" "}
+                      <span className="font-medium text-foreground">
+                        {Math.min(rubricsEndIndex, filteredRubrics.length)}
+                      </span>{" "}
+                      of{" "}
+                      <span className="font-medium text-foreground">{filteredRubrics.length}</span>{" "}
+                      entries
+                    </p>
+                    {rubricsTotalPages > 1 && (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Button
+                          variant="outline"
+                          className="h-9 px-4 border border-border/80 bg-background text-foreground text-sm font-normal rounded-[6px] hover:bg-muted/30 dark:hover:bg-muted/10 transition-colors shadow-2xs"
+                          onClick={() => {
+                            if (rubricsPage > 1) setRubricsPage(rubricsPage - 1);
+                          }}
+                          disabled={rubricsPage === 1}
+                        >
+                          <ChevronLeft className="mr-1 size-4" />
+                          Prev
+                        </Button>
+                        <div className="flex items-center gap-1.5 px-1">
+                          {rubricsVisiblePages.map((page) => {
+                            const isActive = page === rubricsPage;
+                            return (
+                              <Button
+                                key={page}
+                                variant={isActive ? "default" : "outline"}
+                                className={`h-9 w-9 p-0 text-sm border shadow-2xs rounded-[6px] transition-colors ${
+                                  isActive
+                                    ? "bg-[#EA2525] border-[#EA2525] text-white font-semibold hover:bg-[#D61F1F] shadow-xs"
+                                    : "border-border/80 bg-background text-muted-foreground hover:bg-muted/30 dark:hover:bg-muted/10 hover:text-foreground font-normal"
+                                }`}
+                                onClick={() => setRubricsPage(page)}
+                              >
+                                {page}
+                              </Button>
+                            );
+                          })}
+                        </div>
+                        <Button
+                          variant="outline"
+                          className="h-9 px-4 border border-border/80 bg-background text-foreground text-sm font-normal rounded-[6px] hover:bg-muted/30 dark:hover:bg-muted/10 transition-colors shadow-2xs"
+                          onClick={() => {
+                            if (rubricsPage < rubricsTotalPages) setRubricsPage(rubricsPage + 1);
+                          }}
+                          disabled={rubricsPage === rubricsTotalPages}
+                        >
+                          Next
+                          <ChevronRight className="ml-1 size-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {isMobile && (
+                <div className="flex flex-col gap-3.5 lg:hidden w-full p-4">
+                  {mobileRubrics.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center gap-3 py-16 border border-border/80 bg-card rounded-xl text-center px-4 w-full">
+                      <div className="flex size-12 items-center justify-center rounded-full bg-muted/40">
+                        <SearchX className="size-6 text-muted-foreground/80" />
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                        <p className="text-sm font-semibold text-foreground">No results found</p>
+                        <p className="text-xs text-muted-foreground">Try adjusting your filters or search query.</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-3.5 w-full">
+                      {mobileRubrics.map((rubric) => (
+                        <div
+                          key={rubric.id}
+                          className="bg-card border border-border/80 rounded-xl p-4 md:p-5 flex flex-col gap-4 hover:shadow-xs transition-all duration-200"
+                        >
+                          {/* Row 1: Parameter Name, Action */}
+                          <div className="flex items-center justify-between gap-4 min-w-0">
+                            <div className="min-w-0">
+                              <span className="font-semibold text-foreground text-sm tracking-tight truncate block">
+                                {rubric.parameterName}
+                              </span>
+                              {rubric.description && (
+                                <span className="text-xs text-muted-foreground font-normal line-clamp-2 mt-0.5">
+                                  {rubric.description}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    className="text-muted-foreground flex size-8 rounded-md hover:bg-muted p-0 shrink-0"
+                                    size="icon"
+                                  >
+                                    <EllipsisVertical className="size-4" />
+                                    <span className="sr-only">Open menu</span>
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-44 z-50">
+                                  <DropdownMenuItem
+                                    className="gap-2"
+                                    onClick={() => triggerEditRubric(rubric)}
+                                  >
+                                    <Pencil className="size-4" />
+                                    Edit Rubric
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  {rubric.isActive ? (
+                                    <DropdownMenuItem
+                                      variant="destructive"
+                                      className="gap-2"
+                                      onClick={() => setDeactivateTarget({ type: "rubric", id: rubric.id })}
+                                    >
+                                      <Trash2 className="size-4" />
+                                      Deactivate
+                                    </DropdownMenuItem>
+                                  ) : (
+                                    <DropdownMenuItem
+                                      className="gap-2 text-emerald-600 focus:text-emerald-700"
+                                      onClick={() => handleActivateRubric(rubric.id)}
+                                    >
+                                      <Check className="size-4" />
+                                      Activate
+                                    </DropdownMenuItem>
+                                  )}
+                                  <DropdownMenuItem
+                                    variant="destructive"
+                                    className="gap-2 text-red-700 focus:text-red-700"
+                                    onClick={() => setHardDeleteTarget({ type: "rubric", id: rubric.id })}
+                                  >
+                                    <Trash2 className="size-4" />
+                                    Delete Permanently
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          </div>
+
+                          {/* Row 2: Details grid */}
+                          <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-xs border-t border-border/40 pt-3 text-muted-foreground">
+                            <div className="flex flex-col gap-1 min-w-0">
+                              <span className="font-medium text-muted-foreground/80">Max Score:</span>
+                              <span className="text-foreground/95 font-medium">{rubric.maxScore}</span>
+                            </div>
+                           
+                            <div className="flex flex-col gap-1 min-w-0">
+                              <span className="font-medium text-muted-foreground/80">Type:</span>
+                              <div className="flex mt-0.5">
+                                <Badge variant="outline" className="border-slate-200 bg-slate-50 font-medium">
+                                  {rubric.interviewType}
+                                </Badge>
+                              </div>
+                            </div>
+                            <div className="flex flex-col gap-1 min-w-0">
+                              <span className="font-medium text-muted-foreground/80">Weightage:</span>
+                              <span className="text-foreground/95 font-medium">
+                                {rubric.weightagePercent != null ? `${rubric.weightagePercent}%` : "—"}
+                              </span>
+                            </div>
+                            <div className="flex flex-col gap-1 min-w-0">
+                              <span className="font-medium text-muted-foreground/80">Status:</span>
+                              <div className="flex mt-0.5">
+                                <Badge
+                                  variant="secondary"
+                                  className={
+                                    rubric.isActive
+                                      ? statusStyles.Active
+                                      : statusStyles.Inactive
+                                  }
+                                >
+                                  {rubric.isActive ? "Active" : "Inactive"}
+                                </Badge>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Mobile Load More Footer */}
+                  {mobileRubricsVisibleCount < filteredRubrics.length ? (
+                    <div className="flex flex-col items-center justify-center gap-3 mt-4 w-full">
+                      <Button
+                        variant="outline"
+                        className="w-full bg-background hover:bg-muted/50 border-border/80 text-foreground font-medium h-10 shadow-xs"
+                        onClick={() => setMobileRubricsVisibleCount((prev) => prev + 5)}
+                      >
+                        Load More Rubrics
+                      </Button>
+                      <p className="text-xs text-muted-foreground font-normal">
+                        Showing {Math.min(mobileRubricsVisibleCount, filteredRubrics.length)} of {filteredRubrics.length} entries
+                      </p>
+                    </div>
+                  ) : (
+                    filteredRubrics.length > 0 && (
+                      <div className="flex flex-col items-center justify-center gap-3 mt-4 w-full">
+                        <p className="text-xs text-muted-foreground font-normal">
+                          Showing all {filteredRubrics.length} of {filteredRubrics.length} entries
+                        </p>
+                      </div>
+                    )
+                  )}
+                </div>
+              )}
+            </TabsContent>
+          </div>
+        </Tabs>
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-[560px] p-6 bg-white rounded-2xl gap-4 overflow-y-auto max-h-[90vh]">
+      {/* A. RUBRICS DIALOG FORM */}
+      <Dialog open={rubricDialogOpen} onOpenChange={setRubricDialogOpen}>
+        <DialogContent className="w-[92%] sm:w-full sm:max-w-[480px] p-6 bg-white rounded-2xl gap-4">
           <h3 className="text-lg font-bold text-[#0F172A]">
-            {editing ? "Edit Shortlisting Rule" : "Add Shortlisting Rule"}
+            {editingRubric ? "Edit Rubric Parameter" : "Add Rubric Parameter"}
           </h3>
 
-          <div className="grid grid-cols-2 gap-4">
+          <form onSubmit={handleSaveRubric} className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
-              <Label>Program</Label>
-              <Select value={form.program} onValueChange={(v) => setForm({ ...form, program: v })}>
-                <SelectTrigger className="w-full h-11">
-                  <SelectValue placeholder={courses.length === 0 ? "No courses configured" : "Select a course"} />
+              <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                Interview Type
+              </Label>
+              <Select
+                value={rubricForm.interviewType}
+                onValueChange={(v) => setRubricForm({ ...rubricForm, interviewType: v as "GD" | "PI" })}
+              >
+                <SelectTrigger className="w-full h-11 border-[#D4D4D4] rounded-lg">
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {courses.map((c) => (
-                    <SelectItem key={c.id} value={c.name}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="GD">GD</SelectItem>
+                  <SelectItem value="PI">PI</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex flex-col gap-2">
-              <Label>Academic Year</Label>
-              <Select value={form.academicYear} onValueChange={(v) => setForm({ ...form, academicYear: v })}>
-                <SelectTrigger className="w-full h-11">
-                  <SelectValue placeholder={academicSessions.length === 0 ? "No sessions configured" : "Select academic year"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {academicSessions.map((s) => (
-                    <SelectItem key={s.id} value={s.name}>
-                      {s.displayName || s.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
 
-          <div className="grid grid-cols-3 gap-4">
             <div className="flex flex-col gap-2">
-              <Label>Min GPA/UG %</Label>
-              <Input type="number" value={form.minGpa} onChange={(e) => setForm({ ...form, minGpa: e.target.value })} />
+              <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                Parameter Name
+              </Label>
+              <Input
+                placeholder="e.g. Communication Skills"
+                value={rubricForm.parameterName}
+                onChange={(e) => setRubricForm({ ...rubricForm, parameterName: e.target.value })}
+                className="border-[#D4D4D4] rounded-lg h-11 text-sm placeholder:text-slate-400"
+                required
+              />
             </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="flex flex-col gap-2">
+                <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                  Max Score
+                </Label>
+                <Input
+                  type="number"
+                  placeholder="e.g. 10"
+                  value={rubricForm.maxScore}
+                  onChange={(e) => setRubricForm({ ...rubricForm, maxScore: e.target.value })}
+                  className="border-[#D4D4D4] rounded-lg h-11 text-sm placeholder:text-slate-400"
+                  required
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                  Weightage %
+                </Label>
+                <Input
+                  type="number"
+                  placeholder="e.g. 20"
+                  value={rubricForm.weightagePercent}
+                  onChange={(e) => setRubricForm({ ...rubricForm, weightagePercent: e.target.value })}
+                  className="border-[#D4D4D4] rounded-lg h-11 text-sm placeholder:text-slate-400"
+                />
+              </div>
+            </div>
+
             <div className="flex flex-col gap-2">
-              <Label>Min Test Score</Label>
+              <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                Description
+              </Label>
               <Input
-                type="number"
-                value={form.minTestScore}
-                onChange={(e) => setForm({ ...form, minTestScore: e.target.value })}
+                placeholder="Optional notes for evaluators"
+                value={rubricForm.description}
+                onChange={(e) => setRubricForm({ ...rubricForm, description: e.target.value })}
+                className="border-[#D4D4D4] rounded-lg h-11 text-sm placeholder:text-slate-400"
               />
             </div>
-            <div className="flex flex-col gap-2">
-              <Label>Min Experience (yrs)</Label>
-              <Input
-                type="number"
-                value={form.minExperienceYears}
-                onChange={(e) => setForm({ ...form, minExperienceYears: e.target.value })}
-              />
+
+            <div className="flex items-center gap-3 justify-start mt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setRubricDialogOpen(false)}
+                className="h-11 px-6 rounded-[10px] text-sm font-semibold border-[#D4D4D4] text-[#1E293B] bg-white hover:bg-slate-50 cursor-pointer"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={
+                  createRubric.isPending ||
+                  updateRubric.isPending ||
+                  !rubricForm.parameterName ||
+                  !rubricForm.maxScore
+                }
+                className="h-11 px-8 rounded-[10px] text-sm font-semibold bg-[#2563EB] hover:bg-[#1D4ED8] text-white cursor-pointer"
+              >
+                {createRubric.isPending || updateRubric.isPending ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  "Save"
+                )}
+              </Button>
             </div>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label className="flex items-center justify-between">
-              <span>Weightages — Academic / Test / Experience</span>
-              <span className={weightageTotal === 100 ? "text-emerald-600" : "text-destructive"}>
-                {weightageTotal}% total
-              </span>
-            </Label>
-            <div className="grid grid-cols-3 gap-4">
-              <Input
-                type="number"
-                placeholder="Academic %"
-                value={form.academicWeightage}
-                onChange={(e) => setForm({ ...form, academicWeightage: e.target.value })}
-              />
-              <Input
-                type="number"
-                placeholder="Test %"
-                value={form.testWeightage}
-                onChange={(e) => setForm({ ...form, testWeightage: e.target.value })}
-              />
-              <Input
-                type="number"
-                placeholder="Experience %"
-                value={form.experienceWeightage}
-                onChange={(e) => setForm({ ...form, experienceWeightage: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label>Cutoff Score</Label>
-            <Input
-              type="number"
-              value={form.cutoffScore}
-              onChange={(e) => setForm({ ...form, cutoffScore: e.target.value })}
-            />
-          </div>
-
-          <div className="flex justify-end gap-3 mt-2">
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSave}
-              disabled={!form.program || !form.academicYear || !form.cutoffScore}
-            >
-              Save
-            </Button>
-          </div>
+          </form>
         </DialogContent>
       </Dialog>
-    </div>
-  );
-}
 
-// ============================================================================
-// PAGE
-// ============================================================================
+      {/* B. SHORTLISTING RULES DIALOG FORM */}
+      <Dialog open={ruleDialogOpen} onOpenChange={setRuleDialogOpen}>
+        <DialogContent className="w-[92%] sm:w-full sm:max-w-[560px] p-6 bg-white rounded-2xl gap-4 overflow-y-auto max-h-[90vh]">
+          <h3 className="text-lg font-bold text-[#0F172A]">
+            {editingRule ? "Edit Shortlisting Rule" : "Add Shortlisting Rule"}
+          </h3>
 
-export default function ShortlistingConfigPage() {
-  usePageHeader({
-    title: "Shortlisting & Rubric Configuration",
-    description: "Admin-only: define shortlisting weightages/cutoffs per program and GD/PI rubric parameters.",
-  });
+          <form onSubmit={handleSaveRule} className="flex flex-col gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="flex flex-col gap-2">
+                <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                  Program
+                </Label>
+                <Select
+                  value={ruleForm.program}
+                  onValueChange={(v) => setRuleForm({ ...ruleForm, program: v })}
+                >
+                  <SelectTrigger className="w-full h-11 border-[#D4D4D4] rounded-lg">
+                    <SelectValue placeholder={courses.length === 0 ? "No courses configured" : "Select a course"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {courses.map((c) => (
+                      <SelectItem key={c.id} value={c.name}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                  Academic Year
+                </Label>
+                <Select
+                  value={ruleForm.academicYear}
+                  onValueChange={(v) => setRuleForm({ ...ruleForm, academicYear: v })}
+                >
+                  <SelectTrigger className="w-full h-11 border-[#D4D4D4] rounded-lg">
+                    <SelectValue placeholder={availableSessions.length === 0 ? "No sessions configured" : "Select year"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableSessions.map((s) => (
+                      <SelectItem key={s.id} value={s.name}>
+                        {s.displayName || s.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
 
-  return (
-    <div className="flex flex-col gap-4 p-4 md:p-6">
-      <Tabs defaultValue="rules">
-        <TabsList>
-          <TabsTrigger value="rules" className="gap-2">
-            <SlidersHorizontal className="size-4" /> Shortlisting Rules
-          </TabsTrigger>
-          <TabsTrigger value="rubrics" className="gap-2">
-            <ListChecks className="size-4" /> Evaluation Rubrics
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="rules" className="mt-4">
-          <ShortlistingRulesTab />
-        </TabsContent>
-        <TabsContent value="rubrics" className="mt-4">
-          <RubricsTab />
-        </TabsContent>
-      </Tabs>
-    </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="flex flex-col gap-2">
+                <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                  Min GPA/UG %
+                </Label>
+                <Input
+                  type="number"
+                  placeholder="e.g. 7.5"
+                  value={ruleForm.minGpa}
+                  onChange={(e) => setRuleForm({ ...ruleForm, minGpa: e.target.value })}
+                  className="border-[#D4D4D4] rounded-lg h-11 text-sm placeholder:text-slate-400"
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                  Min Test Score
+                </Label>
+                <Input
+                  type="number"
+                  placeholder="e.g. 85"
+                  value={ruleForm.minTestScore}
+                  onChange={(e) => setRuleForm({ ...ruleForm, minTestScore: e.target.value })}
+                  className="border-[#D4D4D4] rounded-lg h-11 text-sm placeholder:text-slate-400"
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                  Min Experience (Mm)
+                </Label>
+                <Input
+                  type="number"
+                  placeholder="e.g. 2"
+                  value={ruleForm.minExperienceYears}
+                  onChange={(e) => setRuleForm({ ...ruleForm, minExperienceYears: e.target.value })}
+                  className="border-[#D4D4D4] rounded-lg h-11 text-sm placeholder:text-slate-400"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label className="flex items-center justify-between text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                <span>Weightages — Academic / Test / Experience</span>
+                <span className={weightageTotal === 100 ? "text-emerald-600 lowercase font-normal" : "text-destructive lowercase font-normal"}>
+                  {weightageTotal}% total
+                </span>
+              </Label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <Input
+                  type="number"
+                  placeholder="Academic %"
+                  value={ruleForm.academicWeightage}
+                  onChange={(e) => setRuleForm({ ...ruleForm, academicWeightage: e.target.value })}
+                  className="border-[#D4D4D4] rounded-lg h-11 text-sm"
+                  required
+                />
+                <Input
+                  type="number"
+                  placeholder="Test %"
+                  value={ruleForm.testWeightage}
+                  onChange={(e) => setRuleForm({ ...ruleForm, testWeightage: e.target.value })}
+                  className="border-[#D4D4D4] rounded-lg h-11 text-sm"
+                  required
+                />
+                <Input
+                  type="number"
+                  placeholder="Experience %"
+                  value={ruleForm.experienceWeightage}
+                  onChange={(e) => setRuleForm({ ...ruleForm, experienceWeightage: e.target.value })}
+                  className="border-[#D4D4D4] rounded-lg h-11 text-sm"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                Cutoff Score
+              </Label>
+              <Input
+                type="number"
+                placeholder="e.g. 60"
+                value={ruleForm.cutoffScore}
+                onChange={(e) => setRuleForm({ ...ruleForm, cutoffScore: e.target.value })}
+                className="border-[#D4D4D4] rounded-lg h-11 text-sm placeholder:text-slate-400"
+                required
+              />
+            </div>
+
+            <div className="flex items-center gap-3 justify-start mt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setRuleDialogOpen(false)}
+                className="h-11 px-6 rounded-[10px] text-sm font-semibold border-[#D4D4D4] text-[#1E293B] bg-white hover:bg-slate-50 cursor-pointer"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={
+                  createRule.isPending ||
+                  updateRule.isPending ||
+                  !ruleForm.program ||
+                  !ruleForm.academicYear ||
+                  !ruleForm.cutoffScore
+                }
+                className="h-11 px-8 rounded-[10px] text-sm font-semibold bg-[#2563EB] hover:bg-[#1D4ED8] text-white cursor-pointer"
+              >
+                {createRule.isPending || updateRule.isPending ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  "Save"
+                )}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* C. CONFIRM DEACTIVATE DIALOG */}
+      <AlertDialog
+        open={deactivateTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeactivateTarget(null);
+        }}
+      >
+        <AlertDialogContent className="w-[92%] sm:w-full sm:max-w-[400px] rounded-[12px] p-5 sm:p-6 gap-4 bg-white border border-slate-200">
+          <AlertDialogHeader className="text-left">
+            <AlertDialogTitle className="text-base font-semibold text-foreground">
+              Are you sure?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs text-muted-foreground leading-relaxed mt-1">
+              This action will temporarily deactivate the selected {deactivateTarget?.type}. You can reactivate it later.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-5 gap-2 sm:gap-3 flex flex-col-reverse sm:flex-row sm:justify-end">
+            <AlertDialogCancel className="mt-0 sm:mt-0 h-10 px-4 text-sm font-medium border border-border/80 hover:bg-muted/50 rounded-[8px]">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="h-10 px-4 text-sm font-medium bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-[8px]"
+              onClick={executeDeactivate}
+            >
+              Deactivate
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* D. CONFIRM HARD DELETE DIALOG */}
+      <AlertDialog
+        open={hardDeleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setHardDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent className="w-[92%] sm:w-full sm:max-w-[400px] rounded-[12px] p-5 sm:p-6 gap-4 bg-white border border-red-200">
+          <AlertDialogHeader className="text-left">
+            <AlertDialogTitle className="text-base font-semibold text-red-700">
+              Permanently delete this {hardDeleteTarget?.type}?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs text-muted-foreground leading-relaxed mt-1">
+              This will <strong>permanently remove</strong> the selected {hardDeleteTarget?.type} from the database. This action <strong>cannot be undone</strong>.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-5 gap-2 sm:gap-3 flex flex-col-reverse sm:flex-row sm:justify-end">
+            <AlertDialogCancel className="mt-0 sm:mt-0 h-10 px-4 text-sm font-medium border border-border/80 hover:bg-muted/50 rounded-[8px]">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="h-10 px-4 text-sm font-medium bg-red-600 hover:bg-red-700 text-white rounded-[8px]"
+              onClick={executeHardDelete}
+            >
+              Yes, Delete Forever
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

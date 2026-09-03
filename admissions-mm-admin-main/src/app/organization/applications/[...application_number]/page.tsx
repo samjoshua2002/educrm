@@ -32,6 +32,9 @@ import {
   Upload,
   Loader2,
   Paperclip,
+  Check,
+  XCircle,
+  Trash2,
 } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -70,8 +73,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
-import { useApplication, useUpdateApplication, ApplicationDetail, useActiveApplication } from "@/hooks/use-applications";
+import { useApplication, useUpdateApplication, ApplicationDetail, useActiveApplication, useVerifyApplication } from "@/hooks/use-applications";
 import { useAuthStore } from "@/stores/auth-store";
 import { useBranches } from "@/hooks/use-branches";
 import { useCourses } from "@/hooks/use-courses";
@@ -129,6 +138,15 @@ export default function ApplicationDetailsPage() {
   const appData = isStudent ? studentAppData : adminAppData;
   const isLoading = isStudent ? isStudentLoading : isAdminLoading;
   const updateMutation = useUpdateApplication();
+  const verifyMutation = useVerifyApplication();
+
+  const handleVerify = (status: "verified" | "rejected") => {
+    if (!appData) return;
+    verifyMutation.mutate({
+      applicationNo: appData.applicationNo,
+      status,
+    });
+  };
 
   usePageHeader({
     title: isStudent ? "My Application" : "Applications",
@@ -253,13 +271,75 @@ export default function ApplicationDetailsPage() {
             {applicationData.applicant.name}
           </h2>
           <div className="flex">
-            <Badge
-              variant="secondary"
-              className="text-[10px] md:text-xs px-2.5 py-0.5 bg-[#EFF6FF] text-[#1D4ED8] font-bold uppercase hover:bg-[#EFF6FF] rounded-[10px]"
-              style={{ letterSpacing: "1px" }}
-            >
-              {applicationData.status}
-            </Badge>
+            {!isStudent ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Badge
+                    variant="secondary"
+                    className="text-[10px] md:text-xs px-2.5 py-0.5 font-bold uppercase rounded-[10px] cursor-pointer"
+                    style={{
+                      letterSpacing: "1px",
+                      backgroundColor: applicationData.verificationStatus === "verified"
+                        ? "rgb(220 252 231)"
+                        : applicationData.verificationStatus === "rejected"
+                        ? "rgb(254 226 226)"
+                        : "#EFF6FF",
+                      color: applicationData.verificationStatus === "verified"
+                        ? "rgb(21 128 61)"
+                        : applicationData.verificationStatus === "rejected"
+                        ? "rgb(185 28 28)"
+                        : "#1D4ED8"
+                    }}
+                  >
+                    {applicationData.verificationStatus === "verified"
+                      ? "Verified"
+                      : applicationData.verificationStatus === "rejected"
+                      ? "Rejected"
+                      : applicationData.status}
+                  </Badge>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  <DropdownMenuItem
+                    className="gap-2 cursor-pointer"
+                    onClick={() => handleVerify("verified")}
+                  >
+                    <Check className="size-4 text-green-600" />
+                    Mark as Verified
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="gap-2 cursor-pointer text-red-600 hover:text-red-700"
+                    onClick={() => handleVerify("rejected")}
+                  >
+                    <XCircle className="size-4 text-red-600" />
+                    Mark as Rejected
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Badge
+                variant="secondary"
+                className="text-[10px] md:text-xs px-2.5 py-0.5 font-bold uppercase rounded-[10px]"
+                style={{
+                  letterSpacing: "1px",
+                  backgroundColor: applicationData.verificationStatus === "verified"
+                    ? "rgb(220 252 231)"
+                    : applicationData.verificationStatus === "rejected"
+                    ? "rgb(254 226 226)"
+                    : "#EFF6FF",
+                  color: applicationData.verificationStatus === "verified"
+                    ? "rgb(21 128 61)"
+                    : applicationData.verificationStatus === "rejected"
+                    ? "rgb(185 28 28)"
+                    : "#1D4ED8"
+                }}
+              >
+                {applicationData.verificationStatus === "verified"
+                  ? "Verified"
+                  : applicationData.verificationStatus === "rejected"
+                  ? "Rejected"
+                  : applicationData.status}
+              </Badge>
+            )}
           </div>
         </div>
 
@@ -868,7 +948,10 @@ export default function ApplicationDetailsPage() {
                           Designation
                         </TableHead>
                         <TableHead className="font-sans text-[10px] font-bold leading-normal tracking-[0.5px] uppercase text-[#64748B] px-4 py-3">
-                          Duration (Months)
+                          From Date
+                        </TableHead>
+                        <TableHead className="font-sans text-[10px] font-bold leading-normal tracking-[0.5px] uppercase text-[#64748B] px-4 py-3">
+                          To Date
                         </TableHead>
                         <TableHead className="font-sans text-[10px] font-bold leading-normal tracking-[0.5px] uppercase text-[#64748B] text-right pr-6 py-3">
                           Annual CTC
@@ -880,7 +963,8 @@ export default function ApplicationDetailsPage() {
                         <TableRow key={index} className="hover:bg-slate-50">
                           <TableCell className="font-bold text-slate-800 text-xs pl-6 py-3">{exp.companyName || exp.organization || "-"}</TableCell>
                           <TableCell className="text-slate-600 text-xs px-4 py-3">{exp.designation || "-"}</TableCell>
-                          <TableCell className="text-slate-600 text-xs px-4 py-3">{exp.months ? `${exp.months} Months` : "-"}</TableCell>
+                          <TableCell className="text-slate-600 text-xs px-4 py-3">{exp.fromDate || exp.from_date || "-"}</TableCell>
+                          <TableCell className="text-slate-600 text-xs px-4 py-3">{exp.toDate || exp.to_date || "-"}</TableCell>
                           <TableCell className="text-right font-bold text-emerald-600 pr-6 py-3 text-xs">{exp.salaryCtc || exp.grossSalary || "-"}</TableCell>
                         </TableRow>
                       ))}
@@ -1683,16 +1767,21 @@ function EditPersonalForm({ appData, onSave, onClose }: FormProps) {
         >
           Date of Birth
         </Label>
-        <Input
-          id="dob"
-          type="date"
-          value={formatForDateInput(formData.dob)}
-          onChange={(e) =>
-            setFormData((prev) => ({ ...prev, dob: e.target.value }))
-          }
-          className="border-[#D4D4D4] rounded-[8px] h-10 text-[14px] bg-white cursor-pointer"
-          required
-        />
+        <div className="relative">
+          <Input
+            id="dob"
+            type="date"
+            value={formatForDateInput(formData.dob)}
+            onChange={(e) =>
+              setFormData((prev) => ({ ...prev, dob: e.target.value }))
+            }
+            className="border-[#D4D4D4] rounded-[8px] h-10 text-[14px] bg-white cursor-pointer pr-10 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-10 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:z-10"
+            required
+          />
+          <span className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-slate-400">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" /><path d="M16 2v4" /><path d="M8 2v4" /><path d="M3 10h18" /></svg>
+          </span>
+        </div>
       </div>
 
       {/* CATEGORY */}
@@ -2096,6 +2185,14 @@ function EditPreferencesForm({ appData, onSave, onClose, branchesList = [], cour
 }
 
 function EditExperienceForm({ appData, onSave, onClose }: FormProps) {
+  const formatDateForInput = (dateVal: any) => {
+    if (!dateVal) return "";
+    if (typeof dateVal === "string") {
+      return dateVal.split("T")[0];
+    }
+    return "";
+  };
+
   const existingExps =
     appData.workExperiences ||
     ((appData as any).experiences) ||
@@ -2104,8 +2201,9 @@ function EditExperienceForm({ appData, onSave, onClose }: FormProps) {
           {
             companyName: (appData as any).experience.companyName,
             designation: (appData as any).experience.designation,
-            months: (appData as any).experience.claimedMonths || "",
             salaryCtc: (appData as any).experience.salaryCtc || "",
+            fromDate: (appData as any).experience.fromDate || "",
+            toDate: (appData as any).experience.toDate || "",
           },
         ]
       : []);
@@ -2113,7 +2211,7 @@ function EditExperienceForm({ appData, onSave, onClose }: FormProps) {
   const [experiences, setExperiences] = React.useState<any[]>(
     existingExps.length > 0
       ? existingExps
-      : [{ companyName: "", designation: "", months: "", salaryCtc: "" }]
+      : [{ companyName: "", designation: "", salaryCtc: "", fromDate: "", toDate: "" }]
   );
 
   const handleFieldChange = (index: number, field: string, value: string) => {
@@ -2127,7 +2225,7 @@ function EditExperienceForm({ appData, onSave, onClose }: FormProps) {
   const handleAddExperience = () => {
     setExperiences((prev) => [
       ...prev,
-      { companyName: "", designation: "", months: "", salaryCtc: "" },
+      { companyName: "", designation: "", salaryCtc: "", fromDate: "", toDate: "" },
     ]);
   };
 
@@ -2192,17 +2290,41 @@ function EditExperienceForm({ appData, onSave, onClose }: FormProps) {
             </div>
             <div className="flex flex-col gap-1.5 col-span-1">
               <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
-                Experience (Months)
+                From Date
               </Label>
-              <Input
-                value={exp.months || ""}
-                onChange={(e) =>
-                  handleFieldChange(index, "months", e.target.value)
-                }
-                placeholder="e.g. 18"
-                className="border-[#D4D4D4] rounded-[8px] h-9 text-[13px] bg-white"
-              />
+              <div className="relative">
+                <Input
+                  type="date"
+                  value={formatDateForInput(exp.fromDate || exp.from_date)}
+                  onChange={(e) =>
+                    handleFieldChange(index, "fromDate", e.target.value)
+                  }
+                  className="border-[#D4D4D4] rounded-[8px] h-9 text-[13px] bg-white pr-10 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-10 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:z-10"
+                />
+                <span className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-slate-400">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" /><path d="M16 2v4" /><path d="M8 2v4" /><path d="M3 10h18" /></svg>
+                </span>
+              </div>
             </div>
+            <div className="flex flex-col gap-1.5 col-span-1">
+              <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                To Date
+              </Label>
+              <div className="relative">
+                <Input
+                  type="date"
+                  value={formatDateForInput(exp.toDate || exp.to_date)}
+                  onChange={(e) =>
+                    handleFieldChange(index, "toDate", e.target.value)
+                  }
+                  className="border-[#D4D4D4] rounded-[8px] h-9 text-[13px] bg-white pr-10 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-10 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:z-10"
+                />
+                <span className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-slate-400">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" /><path d="M16 2v4" /><path d="M8 2v4" /><path d="M3 10h18" /></svg>
+                </span>
+              </div>
+            </div>
+
             <div className="flex flex-col gap-1.5 col-span-1">
               <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
                 Annual CTC / Salary
@@ -2857,6 +2979,12 @@ function EditEntranceForm({ appData, onSave, onClose }: FormProps) {
     }));
   };
 
+  const handleRemoveTest = (indexToRemove: number) => {
+    setFormData((prev) => ({
+      entranceTests: prev.entranceTests.filter((_: any, idx: number) => idx !== indexToRemove),
+    }));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const updatedData = {
@@ -2880,6 +3008,16 @@ function EditEntranceForm({ appData, onSave, onClose }: FormProps) {
             <h4 className="font-bold text-slate-800 text-sm">
               Test #{index + 1} Details
             </h4>
+            {formData.entranceTests.length > 1 && (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => handleRemoveTest(index)}
+                className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 px-2.5 rounded-md text-xs font-semibold flex items-center gap-1 cursor-pointer border-0"
+              >
+                <Trash2 className="size-3.5" /> Remove
+              </Button>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5 col-span-1">

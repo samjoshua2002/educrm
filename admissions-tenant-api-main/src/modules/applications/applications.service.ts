@@ -6,14 +6,18 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository, In, Not, ILike } from 'typeorm';
+import * as bcrypt from 'bcrypt';
 import { Application } from './entities/application.entity.js';
 import { Student } from './entities/student.entity.js';
+import { CourseSession } from '../course-sessions/entities/course-session.entity.js';
 import { Lead } from '../leads/entities/lead.entity.js';
 import { Branch } from '../branches/entities/branch.entity.js';
 import { User } from '../users/entities/user.entity.js';
 import { LeadsService } from '../leads/leads.service.js';
 import { CoursesService } from '../courses/courses.service.js';
+import { MailerService } from '../notifications/mailer.service.js';
 import { CreateApplicationDto } from './dto/create-application.dto.js';
+import { SubmitApplicationDto } from './dto/submit-application.dto.js';
 import { PaginationDto } from '../../common/dto/pagination.dto.js';
 import { Role } from '../../common/enums/roles.enum.js';
 import { LeadStatus } from '../leads/entities/lead.entity.js';
@@ -33,8 +37,9 @@ import {
   UpdatePaymentDto,
   UpdateGdEvaluationDto,
 } from './dto/update-sections.dto.js';
+import { VerifyApplicationDto } from './dto/verify-application.dto.js';
 
-import { ApplicationEducation } from './entities/application-education.entity.js';
+import { ApplicationEducation, EducationLevel } from './entities/application-education.entity.js';
 import { ApplicationEntranceTest } from './entities/application-entrance-test.entity.js';
 import { ApplicationWorkExperience } from './entities/application-work-experience.entity.js';
 import { ApplicationParent } from './entities/application-parent.entity.js';
@@ -55,6 +60,7 @@ export class ApplicationsService {
     private readonly branchRepository: Repository<Branch>,
     private readonly leadsService: LeadsService,
     private readonly coursesService: CoursesService,
+    private readonly mailerService: MailerService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -168,6 +174,7 @@ export class ApplicationsService {
     paginationDto: PaginationDto,
     search?: string,
     status?: string,
+    verificationStatus?: string,
   ) {
     const query = this.applicationRepository
       .createQueryBuilder('app')
@@ -183,6 +190,12 @@ export class ApplicationsService {
 
     if (status) {
       query.andWhere('app.form_status = :status', { status: status.toLowerCase() });
+    }
+
+    if (verificationStatus) {
+      query.andWhere('app.verification_status = :verificationStatus', {
+        verificationStatus: verificationStatus.toLowerCase(),
+      });
     }
 
     if (search) {
@@ -213,6 +226,9 @@ export class ApplicationsService {
       paymentMode: app.paymentMode,
       paymentAmount: app.paymentAmount,
       lastActivity: app.lastActivityAt,
+      verificationStatus: app.verificationStatus,
+      verificationRemarks: app.verificationRemarks,
+      verifiedAt: app.verifiedAt,
     }));
 
     return {
@@ -453,7 +469,8 @@ export class ApplicationsService {
         for (const edu of dto.educationDetails) {
           const rec = queryRunner.manager.create(ApplicationEducation, {
             applicationId: savedApp.id,
-            level: edu.level || 'Other',
+            level: (edu.level === '10th' || edu.level === '12th') ? edu.level : EducationLevel.UG,
+            degreeName: edu.degreeName || (edu.level !== '10th' && edu.level !== '12th' ? edu.level : undefined),
             institution: edu.institution || edu.institute || undefined,
             boardUniversity: edu.boardUniversity || edu.board || undefined,
             yearOfPassing: edu.yearOfPassing || edu.year || undefined,
@@ -515,6 +532,8 @@ export class ApplicationsService {
             applicationId: savedApp.id,
             organization: exp.organization || exp.companyName || exp.company || 'Company',
             designation: exp.designation || undefined,
+            fromDate: exp.fromDate || undefined,
+            toDate: exp.toDate || undefined,
             rolesResponsibilities: exp.rolesResponsibilities || (exp.months ? `${exp.months} Months` : undefined),
             grossSalary: exp.grossSalary || exp.salaryCtc || undefined,
           });
@@ -607,6 +626,19 @@ export class ApplicationsService {
       const course = await this.coursesService.validateCourseExists(dto.courseId, orgId);
       app.courseId = course.id;
       app.program = course.name;
+
+      // Automatically update the application's academicSession based on the CourseSession (prioritizing current session)
+      const courseSessions = await this.dataSource.getRepository(CourseSession).find({
+        where: { courseId: course.id, organizationId: orgId, isActive: true },
+        relations: ['academicSession'],
+      });
+      
+      const currentCourseSession = courseSessions.find(cs => cs.academicSession?.isCurrent);
+      const activeSession = currentCourseSession || courseSessions[0];
+      
+      if (activeSession && activeSession.academicSession) {
+        app.academicSession = activeSession.academicSession.name;
+      }
     }
     if (dto.preference1 !== undefined) app.preference1 = dto.preference1;
     if (dto.preference2 !== undefined) app.preference2 = dto.preference2;
@@ -719,15 +751,47 @@ export class ApplicationsService {
   // WORKFLOW
   // =========================================================================
 
-  async submitApplication(id: string, orgId: string, actorId: string) {
+  async submitApplication(id: string, orgId: string, actorId: string, dto?: SubmitApplicationDto) {
     const app = await this.getAppAndAssertEditable(id, orgId);
-    
+
+    if (app.paymentStatus !== 'success') {
+      throw new BadRequestException('Payment required before submission');
+    }
+
     app.formStatus = 'submitted';
     app.submittedAt = new Date();
     app.lastActivityAt = new Date();
     app.updatedBy = actorId;
-    
-    const saved = await this.applicationRepository.save(app);
+
+    let saved = await this.applicationRepository.save(app);
+
+    // "Creates" the student account by persisting a hashed credential on the
+    // linked Student row (no separate login flow yet — see project notes).
+    if (dto?.password) {
+      const student = await this.studentRepository.findOne({ where: { id: saved.studentId } });
+      if (student) {
+        const hashedPassword = await bcrypt.hash(dto.password, 10);
+        
+        // Save to Student entity (backward compatibility)
+        if (!student.password) {
+          student.password = hashedPassword;
+          await this.studentRepository.save(student);
+        }
+
+        // Save to User entity so the student can log in
+        const user = await this.dataSource.getRepository(User).findOne({
+          where: { email: student.email, organizationId: orgId },
+        });
+        if (user) {
+          user.password = hashedPassword;
+          await this.dataSource.getRepository(User).save(user);
+        }
+      }
+    }
+
+    await this.mailerService.sendApplicationSubmittedEmail(saved);
+    saved.confirmationEmailSentAt = new Date();
+    saved = await this.applicationRepository.save(saved);
 
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -794,6 +858,45 @@ export class ApplicationsService {
     app.lastActivityAt = new Date();
 
     return this.applicationRepository.save(app);
+  }
+
+  async verifyApplication(idOrAppNo: string, orgId: string, dto: VerifyApplicationDto, actorId: string) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrAppNo);
+    const app = await this.applicationRepository.findOne({
+      where: isUuid
+        ? { id: idOrAppNo, organizationId: orgId }
+        : { applicationNo: idOrAppNo, organizationId: orgId },
+    });
+
+    if (!app) {
+      throw new NotFoundException(`Application ${idOrAppNo} not found`);
+    }
+
+    const prev = app.verificationStatus;
+    app.verificationStatus = dto.status;
+    app.verifiedBy = actorId;
+    app.verifiedAt = new Date();
+    if (dto.remarks !== undefined) app.verificationRemarks = dto.remarks;
+    app.updatedBy = actorId;
+    app.lastActivityAt = new Date();
+
+    const saved = await this.applicationRepository.save(app);
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await this.logActivity(
+      queryRunner.manager,
+      saved.id,
+      orgId,
+      actorId,
+      'verification_changed',
+      `Verification status updated to ${dto.status}`,
+      prev,
+      dto.status,
+    );
+    await queryRunner.release();
+
+    return saved;
   }
 
   private mapStatusToFrontend(status: string): string {
