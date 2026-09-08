@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import {
   EllipsisVertical,
   Pencil,
@@ -17,6 +18,8 @@ import {
   LineChart,
   Eye,
   Copy,
+  Check,
+  Link2,
   Calendar,
   LayoutTemplate,
 } from "lucide-react";
@@ -130,6 +133,23 @@ export default function OrganizationFormsPage() {
 
   function handleDuplicate(id: string) {
     duplicateForm(id);
+  }
+
+  const [copiedFormId, setCopiedFormId] = React.useState<string | null>(null);
+  function handleCopyLink(form: Form) {
+    if (!form.slug) {
+      toast.error("This form has no public link yet");
+      return;
+    }
+    const url = `${window.location.origin}/f/${form.slug}`;
+    navigator.clipboard.writeText(url).then(
+      () => {
+        setCopiedFormId(form.id);
+        toast.success("Form link copied to clipboard");
+        setTimeout(() => setCopiedFormId((cur) => (cur === form.id ? null : cur)), 2000);
+      },
+      () => toast.error("Failed to copy link"),
+    );
   }
 
   function handleSaveAsTemplate(id: string) {
@@ -379,8 +399,24 @@ export default function OrganizationFormsPage() {
                     className="border-b border-[#e2e8f0] hover:bg-muted/15 transition-colors"
                   >
                     <TableCell className="py-[24px] px-[24px] align-middle">
-                      <div className="font-semibold text-[#1e293b] text-[14px]">
-                        {item.name}
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-[#1e293b] text-[14px]">
+                          {item.name}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-7 shrink-0 text-muted-foreground hover:text-[#2563EB]"
+                          title="Copy form link"
+                          onClick={() => handleCopyLink(item)}
+                        >
+                          {copiedFormId === item.id ? (
+                            <Check className="size-3.5 text-emerald-600" />
+                          ) : (
+                            <Link2 className="size-3.5" />
+                          )}
+                          <span className="sr-only">Copy form link</span>
+                        </Button>
                       </div>
                       <div className="text-[#64748b] text-[12px] mt-0.5">
                         Last modifies: {item.updatedAt ? new Date(item.updatedAt).toLocaleDateString("en-GB", {
@@ -578,8 +614,20 @@ export default function OrganizationFormsPage() {
                         <FileText className="size-5" />
                       </div>
                       <div className="min-w-0">
-                        <span className="font-semibold text-foreground text-sm tracking-tight truncate block">
-                          {item.name}
+                        <span className="font-semibold text-foreground text-sm tracking-tight flex items-center gap-1.5">
+                          <span className="truncate">{item.name}</span>
+                          <button
+                            type="button"
+                            className="shrink-0 text-muted-foreground hover:text-[#2563EB]"
+                            title="Copy form link"
+                            onClick={() => handleCopyLink(item)}
+                          >
+                            {copiedFormId === item.id ? (
+                              <Check className="size-3.5 text-emerald-600" />
+                            ) : (
+                              <Link2 className="size-3.5" />
+                            )}
+                          </button>
                         </span>
                         <span className="text-xs text-muted-foreground truncate block mt-0.5">
                           Last modifies: {item.updatedAt ? new Date(item.updatedAt).toLocaleDateString("en-GB", {

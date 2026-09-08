@@ -38,6 +38,8 @@ export interface CreateSlotInput {
   timeZone?: string;
 }
 
+export type UpdateSlotInput = Partial<CreateSlotInput>;
+
 export interface BulkCreateSlotsInput {
   interviewerId: string;
   interviewType: "GD" | "PI";
@@ -71,7 +73,8 @@ export interface BookInterviewInput {
   applicationId: string;
   interviewType: "GD" | "PI";
   slotId: string;
-  panelUserIds: string[];
+  // Optional — defaults server-side to the slot's assigned interviewer.
+  panelUserIds?: string[];
 }
 
 // ============================================================================
@@ -106,6 +109,20 @@ export function useCreateSlot() {
       toast.success("Slot created");
     },
     onError: (err: any) => toast.error(err.response?.data?.message || "Failed to create slot"),
+  });
+}
+
+export function useUpdateSlot() {
+  const queryClient = useQueryClient();
+  const orgId = useAuthStore((s) => s.user?.organizationId);
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: UpdateSlotInput }) =>
+      apiPatch<InterviewSlot>(`/organizations/${orgId}/interview-slots/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["interview-slots"] });
+      toast.success("Slot updated");
+    },
+    onError: (err: any) => toast.error(err.response?.data?.message || "Failed to update slot"),
   });
 }
 

@@ -122,7 +122,7 @@ export class Application {
   shortlistScore: number;
 
   @Column({ name: 'shortlist_status', length: 20, nullable: true })
-  shortlistStatus: string; // 'Eligible' | 'Not Eligible'
+  shortlistStatus: string; // 'Shortlisted' (committed eligible) | 'Not Eligible'
 
   // Verification — org admin / application manager sign-off before an
   // application is eligible for Stage-1 shortlisting.
@@ -209,6 +209,15 @@ export class Application {
   @ManyToOne(() => Branch, { onDelete: 'SET NULL' })
   @JoinColumn({ name: 'preference_2' })
   preference2Branch: Branch;
+
+  // Preferred interview city/location (free-text names from the Interview
+  // location master), collected in the application form's Preferences step
+  // alongside the campus preferences above.
+  @Column({ name: 'interview_preference_1', length: 255, nullable: true })
+  interviewPreference1: string;
+
+  @Column({ name: 'interview_preference_2', length: 255, nullable: true })
+  interviewPreference2: string;
 
   @Column({ length: 255 })
   name: string;

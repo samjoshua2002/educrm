@@ -24,6 +24,8 @@ export class UpdatePreferencesDto {
   @IsUUID() @IsOptional() preference2?: string;
   @IsUUID() @IsOptional() courseId?: string;
   @IsString() @IsOptional() interviewLocation?: string;
+  @IsString() @IsOptional() interviewPreference1?: string;
+  @IsString() @IsOptional() interviewPreference2?: string;
 }
 
 export class EducationRecordDto {

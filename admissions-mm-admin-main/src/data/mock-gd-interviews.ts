@@ -8,6 +8,15 @@ export type GDInterview = {
   email: string;
   phone: string;
   interviewLocation: string;
+  // Applicant's branch/campus preferences (shown as the interview location)
+  preference1?: string | null;
+  preference2?: string | null;
+  // Applicant's preferred interview cities/locations (from the application form)
+  interviewPreference1?: string | null;
+  interviewPreference2?: string | null;
+  // Resolved list of the candidate's preferred interview locations, used to
+  // limit the Schedule/Reschedule location dropdown.
+  preferredInterviewLocations?: string[];
   date: string;
   time: string;
   course: string;

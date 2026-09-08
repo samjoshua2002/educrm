@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { InterviewSlot } from './entities/interview-slot.entity.js';
 import { CreateSlotDto } from './dto/create-slot.dto.js';
 import { BulkCreateSlotsDto } from './dto/bulk-create-slots.dto.js';
+import { UpdateSlotDto } from './dto/update-slot.dto.js';
 
 @Injectable()
 export class SlotsService {
@@ -105,6 +106,36 @@ export class SlotsService {
       throw new NotFoundException(`Interview slot #${id} not found`);
     }
     return slot;
+  }
+
+  // Edit an existing slot's details (interviewer / type / date / time /
+  // location / mode). A Booked slot is locked — reschedule the interview
+  // instead. Cancelled slots are also not editable.
+  async update(id: string, orgId: string, dto: UpdateSlotDto, actorId: string) {
+    const slot = await this.findOne(id, orgId);
+    if (slot.status === 'Booked') {
+      throw new BadRequestException('Cannot edit a booked slot — reschedule the interview first.');
+    }
+    if (slot.status === 'Cancelled') {
+      throw new BadRequestException('Cannot edit a cancelled slot.');
+    }
+
+    if (dto.interviewerId !== undefined) slot.interviewerId = dto.interviewerId;
+    if (dto.interviewType !== undefined) slot.interviewType = dto.interviewType;
+    if (dto.slotDate !== undefined) slot.slotDate = dto.slotDate;
+    if (dto.startTime !== undefined) slot.startTime = new Date(dto.startTime);
+    if (dto.endTime !== undefined) slot.endTime = new Date(dto.endTime);
+    if (dto.location !== undefined) slot.location = dto.location;
+    if (dto.mode !== undefined) slot.mode = dto.mode;
+    if (dto.meetingLink !== undefined) slot.meetingLink = dto.meetingLink;
+    if (dto.timeZone !== undefined) slot.timeZone = dto.timeZone;
+
+    if (new Date(slot.endTime) <= new Date(slot.startTime)) {
+      throw new BadRequestException('endTime must be after startTime');
+    }
+
+    slot.updatedBy = actorId;
+    return this.slotRepository.save(slot);
   }
 
   async block(id: string, orgId: string, actorId: string) {

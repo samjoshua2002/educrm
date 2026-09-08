@@ -186,6 +186,13 @@ export class ApplicationsService {
         'pref1.id::text = app.preference_1::text AND pref1.organization_id = :orgId',
         { orgId },
       )
+      .leftJoinAndMapOne(
+        'app.preference2Branch',
+        Branch,
+        'pref2',
+        'pref2.id::text = app.preference_2::text AND pref2.organization_id = :orgId',
+        { orgId },
+      )
       .where('app.organization_id = :orgId', { orgId });
 
     if (status) {
@@ -221,7 +228,13 @@ export class ApplicationsService {
       phone: app.primaryMobile || app.student?.phone || '',
       program: app.program,
       campus: app.preference1Branch?.name || null,
+      preference1: app.preference1Branch?.name || null,
+      preference2: app.preference2Branch?.name || null,
+      interviewPreference1: app.interviewPreference1 ?? null,
+      interviewPreference2: app.interviewPreference2 ?? null,
+      interviewLocation: app.interviewLocation ?? null,
       formStatus: this.mapStatusToFrontend(app.formStatus),
+      shortlistStatus: app.shortlistStatus ?? null,
       paymentStatus: app.paymentStatus,
       paymentMode: app.paymentMode,
       paymentAmount: app.paymentAmount,
@@ -457,6 +470,8 @@ export class ApplicationsService {
         medicalConditionDetails: dto.otherDetails?.medicalConditions || undefined,
         medicalConditionDocument: dto.otherDetails?.medicalConditionDocument || undefined,
         interviewLocation: dto.interviewLocation || undefined,
+        interviewPreference1: dto.preferences?.interviewPreference1 || undefined,
+        interviewPreference2: dto.preferences?.interviewPreference2 || undefined,
         hobbies: dto.otherDetails?.hobbies || undefined,
         createdBy: creatorId,
         updatedBy: creatorId,
@@ -643,6 +658,8 @@ export class ApplicationsService {
     if (dto.preference1 !== undefined) app.preference1 = dto.preference1;
     if (dto.preference2 !== undefined) app.preference2 = dto.preference2;
     if (dto.interviewLocation !== undefined) app.interviewLocation = dto.interviewLocation;
+    if (dto.interviewPreference1 !== undefined) app.interviewPreference1 = dto.interviewPreference1;
+    if (dto.interviewPreference2 !== undefined) app.interviewPreference2 = dto.interviewPreference2;
     app.updatedBy = actorId;
     app.lastActivityAt = new Date();
     return this.applicationRepository.save(app);

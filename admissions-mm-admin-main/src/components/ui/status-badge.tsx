@@ -7,6 +7,13 @@ export const formStatusStyles: Record<string, string> = {
   Submitted: "bg-[#F3E8FF] text-[#6B21A8]",
   Incomplete: "bg-gray-500/10 text-gray-700",
   "Under Review": "bg-purple-500/10 text-purple-700",
+  // Interview lifecycle statuses (GD & Interview screen)
+  "Slot Available": "bg-slate-500/10 text-slate-600",
+  Scheduled: "bg-blue-500/10 text-blue-700",
+  Rescheduled: "bg-amber-500/10 text-amber-700",
+  Completed: "bg-[rgba(5,150,105,0.20)] text-[#065F46]",
+  "No Show": "bg-[rgba(217,119,6,0.20)] text-[#BD0F0F]",
+  Cancelled: "bg-red-500/10 text-red-700",
 };
 
 interface StatusBadgeProps {

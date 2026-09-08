@@ -5,7 +5,6 @@ import * as React from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { useApplications } from "@/hooks/use-applications";
-import { useTeam } from "@/hooks/use-team";
 import {
   useInterviews,
   useInterviewSlots,
@@ -72,13 +71,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  MultiSelect,
-  MultiSelectContent,
-  MultiSelectItem,
-  MultiSelectTrigger,
-  MultiSelectValue,
-} from "@/components/ui/multi-select";
 import {
   Table,
   TableBody,
@@ -158,6 +150,7 @@ function ScheduleInterviewDialog({
   applicationName,
   mode,
   existingInterview,
+  preferredLocations,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -165,16 +158,20 @@ function ScheduleInterviewDialog({
   applicationName: string;
   mode: "schedule" | "reschedule";
   existingInterview: Interview | null;
+  // The candidate's preferred interview locations (from their application).
+  preferredLocations: string[];
 }) {
   const [interviewType, setInterviewType] = React.useState<"GD" | "PI">(existingInterview?.interviewType || "GD");
+  const [modeFilter, setModeFilter] = React.useState<"all" | "In-person" | "Virtual">("all");
+  const [locationFilter, setLocationFilter] = React.useState<string>("all");
   const [slotId, setSlotId] = React.useState("");
-  const [panelUserIds, setPanelUserIds] = React.useState<string[]>([]);
 
   React.useEffect(() => {
     if (open) {
       setInterviewType(existingInterview?.interviewType || "GD");
+      setModeFilter("all");
+      setLocationFilter("all");
       setSlotId("");
-      setPanelUserIds([]);
     }
   }, [open, existingInterview]);
 
@@ -182,9 +179,31 @@ function ScheduleInterviewDialog({
     interviewType,
     status: "Available",
   });
-  const { data: teamResponse } = useTeam();
-  const teamMembers = (teamResponse as any)?.data || [];
+  // Only the candidate's own preferred interview locations are offered
+  // (from their application's Preferences step) — never the full master.
+  const locationOptions = React.useMemo(
+    () => Array.from(new Set(preferredLocations.map((s) => s.trim()).filter(Boolean))),
+    [preferredLocations],
+  );
+  const restrictToPreferred = locationOptions.length > 0;
 
+  // "Interview mode" (In-person / Virtual) and location both live on the
+  // slot, so they act as filters that narrow which available slots are
+  // offered — the picker never lists every location's slots at once.
+  const visibleSlots = React.useMemo(
+    () =>
+      (slots || []).filter((s) => {
+        if (modeFilter !== "all" && s.mode !== modeFilter) return false;
+        if (locationFilter !== "all") return (s.location || "") === locationFilter;
+        // "Any location": still confine virtual-exempt slots to the
+        // candidate's preferred locations when they have some.
+        if (restrictToPreferred && s.mode !== "Virtual") {
+          return locationOptions.includes(s.location || "");
+        }
+        return true;
+      }),
+    [slots, modeFilter, locationFilter, restrictToPreferred, locationOptions],
+  );
   const bookInterview = useBookInterview();
   const rescheduleInterview = useRescheduleInterview();
 
@@ -193,8 +212,8 @@ function ScheduleInterviewDialog({
   const handleSubmit = async () => {
     if (!slotId) return;
     if (mode === "schedule") {
-      if (panelUserIds.length === 0) return;
-      await bookInterview.mutateAsync({ applicationId, interviewType, slotId, panelUserIds });
+      // Panel/evaluator is taken from the slot's assigned interviewer.
+      await bookInterview.mutateAsync({ applicationId, interviewType, slotId });
     } else if (existingInterview) {
       await rescheduleInterview.mutateAsync({ id: existingInterview.id, newSlotId: slotId });
     }
@@ -208,10 +227,14 @@ function ScheduleInterviewDialog({
           {mode === "schedule" ? "Schedule Interview" : "Reschedule Interview"} — {applicationName}
         </h3>
 
-        {mode === "schedule" && (
+        <div className="grid grid-cols-2 gap-4">
           <div className="flex flex-col gap-2">
             <Label>Interview Type</Label>
-            <Select value={interviewType} onValueChange={(v) => { setInterviewType(v as "GD" | "PI"); setSlotId(""); }}>
+            <Select
+              value={interviewType}
+              onValueChange={(v) => { setInterviewType(v as "GD" | "PI"); setSlotId(""); }}
+              disabled={mode === "reschedule"}
+            >
               <SelectTrigger className="w-full h-11">
                 <SelectValue />
               </SelectTrigger>
@@ -220,6 +243,55 @@ function ScheduleInterviewDialog({
                 <SelectItem value="PI">Personal Interview (PI)</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label>Interview Mode</Label>
+            <Select
+              value={modeFilter}
+              onValueChange={(v) => {
+                setModeFilter(v as "all" | "In-person" | "Virtual");
+                if (v === "Virtual") setLocationFilter("all");
+                setSlotId("");
+              }}
+            >
+              <SelectTrigger className="w-full h-11">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Any Mode</SelectItem>
+                <SelectItem value="In-person">In Person</SelectItem>
+                <SelectItem value="Virtual">Online</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {modeFilter !== "Virtual" && (
+          <div className="flex flex-col gap-2">
+            <Label>Interview Location</Label>
+            <Select
+              value={locationFilter}
+              onValueChange={(v) => { setLocationFilter(v); setSlotId(""); }}
+            >
+              <SelectTrigger className="w-full h-11">
+                <SelectValue placeholder="Any location" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">
+                  {restrictToPreferred ? "Any preferred location" : "Any location"}
+                </SelectItem>
+                {locationOptions.map((name) => (
+                  <SelectItem key={name} value={name}>
+                    {name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {restrictToPreferred
+                ? `Only ${applicationName.split(" ")[0]}'s preferred interview location(s) from their application are shown.`
+                : "This candidate did not select any interview location preference in their application."}
+            </p>
           </div>
         )}
 
@@ -230,14 +302,19 @@ function ScheduleInterviewDialog({
               <SelectValue placeholder={slotsLoading ? "Loading slots..." : "Select an available slot"} />
             </SelectTrigger>
             <SelectContent>
-              {(slots || []).length === 0 && (
-                <div className="px-3 py-2 text-sm text-muted-foreground">No available {interviewType} slots</div>
+              {visibleSlots.length === 0 && (
+                <div className="px-3 py-2 text-sm text-muted-foreground">
+                  No available {interviewType}
+                  {modeFilter === "In-person" ? " (In Person)" : modeFilter === "Virtual" ? " (Online)" : ""} slots
+                </div>
               )}
-              {(slots || []).map((s) => (
+              {visibleSlots.map((s) => (
                 <SelectItem key={s.id} value={s.id}>
                   {s.slotDate} · {new Date(s.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                   {" – "}
                   {new Date(s.endTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  {" · "}
+                  {s.mode === "Virtual" ? "Online" : "In Person"}
                   {s.location ? ` · ${s.location}` : ""}
                 </SelectItem>
               ))}
@@ -245,23 +322,9 @@ function ScheduleInterviewDialog({
           </Select>
         </div>
 
-        {mode === "schedule" && (
-          <div className="flex flex-col gap-2">
-            <Label>Assign Panel (Evaluators)</Label>
-            <MultiSelect values={panelUserIds} onValuesChange={setPanelUserIds}>
-              <MultiSelectTrigger className="w-full h-11">
-                <MultiSelectValue placeholder="Select one or more evaluators" />
-              </MultiSelectTrigger>
-              <MultiSelectContent>
-                {teamMembers.map((m: any) => (
-                  <MultiSelectItem key={m.id} value={m.id}>
-                    {m.name} ({m.email})
-                  </MultiSelectItem>
-                ))}
-              </MultiSelectContent>
-            </MultiSelect>
-          </div>
-        )}
+        <p className="text-xs text-muted-foreground -mt-1">
+          The evaluator is the interviewer assigned to the selected slot.
+        </p>
 
         <div className="flex justify-end gap-3 mt-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
@@ -269,7 +332,7 @@ function ScheduleInterviewDialog({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={!slotId || (mode === "schedule" && panelUserIds.length === 0) || isPending}
+            disabled={!slotId || isPending}
           >
             {mode === "schedule" ? "Schedule" : "Reschedule"}
           </Button>
@@ -370,11 +433,60 @@ export default function GDInterviewPage() {
     return map;
   }, [allInterviews]);
 
+  // The table's status column reflects the INTERVIEW lifecycle, not the
+  // application's selection outcome. "Slot Available" == no interview booked yet.
+  const INTERVIEW_STATUS_OPTIONS = [
+    "Slot Available",
+    "Scheduled",
+    "Rescheduled",
+    "Completed",
+    "No Show",
+    "Cancelled",
+  ] as const;
+  const getInterviewStatus = React.useCallback(
+    (applicationId?: string): string => {
+      if (!applicationId) return "Slot Available";
+      return interviewsByApplicationId.get(applicationId)?.status ?? "Slot Available";
+    },
+    [interviewsByApplicationId],
+  );
+
+  // Interview location: the assigned slot's location once scheduled,
+  // otherwise the applicant's preference-1 branch from the application.
+  const getInterviewLocation = React.useCallback(
+    (item: { applicationId?: string; preference1?: string | null; interviewLocation: string }): string => {
+      const slotLocation = item.applicationId
+        ? interviewsByApplicationId.get(item.applicationId)?.slot?.location
+        : undefined;
+      return slotLocation || item.preference1 || item.interviewLocation || "—";
+    },
+    [interviewsByApplicationId],
+  );
+
+  // Date & time of the actual booked interview slot (falls back to the
+  // application's placeholder values when no interview is scheduled).
+  const getInterviewSchedule = React.useCallback(
+    (applicationId: string | undefined, fallbackDate: string, fallbackTime: string) => {
+      const slot = applicationId ? interviewsByApplicationId.get(applicationId)?.slot : undefined;
+      if (!slot) return { date: fallbackDate, time: fallbackTime, scheduled: false };
+      const start = new Date(slot.startTime);
+      const end = new Date(slot.endTime);
+      const fmtTime = (d: Date) => d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      return {
+        date: slot.slotDate,
+        time: `${fmtTime(start)} – ${fmtTime(end)}`,
+        scheduled: true,
+      };
+    },
+    [interviewsByApplicationId],
+  );
+
   const [scheduleTarget, setScheduleTarget] = React.useState<{
     applicationId: string;
     applicationName: string;
     mode: "schedule" | "reschedule";
     existingInterview: Interview | null;
+    preferredLocations: string[];
   } | null>(null);
 
   const cancelInterview = useCancelInterview();
@@ -404,6 +516,27 @@ export default function GDInterviewPage() {
         email: app.email,
         phone: app.phone,
         interviewLocation: app.campus || mockMatch?.interviewLocation || "Kochi",
+        preference1: app.preference1 || null,
+        preference2: app.preference2 || null,
+        interviewPreference1: app.interviewPreference1 || null,
+        interviewPreference2: app.interviewPreference2 || null,
+        // Preferred interview locations from the application's Preferences
+        // step: the dedicated fields, or the legacy combined
+        // "City A, City B" interviewLocation string for older applications.
+        preferredInterviewLocations: (() => {
+          const explicit = [app.interviewPreference1, app.interviewPreference2]
+            .map((v) => (v || "").trim())
+            .filter(Boolean);
+          if (explicit.length > 0) return Array.from(new Set(explicit));
+          return Array.from(
+            new Set(
+              (app.interviewLocation || "")
+                .split(",")
+                .map((s: string) => s.trim())
+                .filter(Boolean),
+            ),
+          );
+        })(),
         date: mockMatch?.date || "2026-02-07",
         time: mockMatch?.time || "14:30",
         course: app.program || mockMatch?.course || "PGDM 2026-28",
@@ -441,8 +574,8 @@ export default function GDInterviewPage() {
   }, [interviewsState]);
 
   const uniqueLocations = React.useMemo(() => {
-    return Array.from(new Set(interviewsState.map((i) => i.interviewLocation))).sort();
-  }, [interviewsState]);
+    return Array.from(new Set(interviewsState.map((i) => getInterviewLocation(i)))).sort();
+  }, [interviewsState, getInterviewLocation]);
 
   function handleDelete(id: number) {
     setInterviewsState((prev) => prev.filter((item) => item.id !== id));
@@ -538,7 +671,7 @@ export default function GDInterviewPage() {
           item.applicationNo.toLowerCase().includes(q);
         if (!matchesSearch) return false;
       }
-      if (appliedStatus !== "all" && item.selectionStatus !== appliedStatus)
+      if (appliedStatus !== "all" && getInterviewStatus(item.applicationId) !== appliedStatus)
         return false;
       if (
         appliedLocation !== "all" &&
@@ -579,6 +712,7 @@ export default function GDInterviewPage() {
     appliedLocation,
     appliedAdvanced,
     interviewsState,
+    getInterviewStatus,
   ]);
 
   const totalPages = Math.ceil(filteredInterviews.length / itemsPerPage);
@@ -671,7 +805,7 @@ export default function GDInterviewPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Statuses</SelectItem>
-                    {uniqueSelectionStatuses.map((s) => (
+                    {INTERVIEW_STATUS_OPTIONS.map((s) => (
                       <SelectItem key={s} value={s}>
                         {s}
                       </SelectItem>
@@ -936,7 +1070,7 @@ export default function GDInterviewPage() {
                   COURSE
                 </TableHead>
                 <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
-                  SELECTION
+                  INTERVIEW STATUS
                 </TableHead>
                 <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
                   DATE & TIME
@@ -985,24 +1119,31 @@ export default function GDInterviewPage() {
                       {item.applicationNo}
                     </TableCell>
                     <TableCell className="py-5 px-6 align-middle text-sm text-foreground/80 font-normal">
-                      {item.interviewLocation}
+                      {getInterviewLocation(item)}
                     </TableCell>
 
                     <TableCell className="py-5 px-6 align-middle text-sm text-foreground/80 font-normal">
                       {item.course}
                     </TableCell>
                     <TableCell className="py-5 px-6 align-middle">
-                      <StatusBadge status={item.selectionStatus} />
+                      <StatusBadge status={getInterviewStatus(item.applicationId)} />
                     </TableCell>
                     <TableCell className="py-5 px-6 align-middle">
-                      <div className="flex flex-col gap-0.5">
-                        <div className="font-medium text-foreground text-sm tracking-tight">
-                          {formatDate(item.date)}
-                        </div>
-                        <div className="text-xs text-muted-foreground font-normal">
-                          {item.time}
-                        </div>
-                      </div>
+                      {(() => {
+                        const sched = getInterviewSchedule(item.applicationId, item.date, item.time);
+                        return sched.scheduled ? (
+                          <div className="flex flex-col gap-0.5">
+                            <div className="font-medium text-foreground text-sm tracking-tight">
+                              {formatDate(sched.date)}
+                            </div>
+                            <div className="text-xs text-muted-foreground font-normal">
+                              {sched.time}
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground font-normal">Not scheduled</span>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell className="py-5 px-3 align-middle text-right">
                       <div className="flex justify-end">
@@ -1035,6 +1176,7 @@ export default function GDInterviewPage() {
                                     applicationName: item.name,
                                     mode,
                                     existingInterview: interviewsByApplicationId.get(item.applicationId!) || null,
+                                    preferredLocations: item.preferredInterviewLocations || [],
                                   })
                                 }
                                 onCancelInterview={(id) => cancelInterview.mutate(id)}
@@ -1175,7 +1317,7 @@ export default function GDInterviewPage() {
                     </div>
 
                     <div className="flex items-center gap-1.5 shrink-0 self-center">
-                      <StatusBadge status={item.selectionStatus} />
+                      <StatusBadge status={getInterviewStatus(item.applicationId)} />
 
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -1207,6 +1349,7 @@ export default function GDInterviewPage() {
                                   applicationName: item.name,
                                   mode,
                                   existingInterview: interviewsByApplicationId.get(item.applicationId!) || null,
+                                  preferredLocations: item.preferredInterviewLocations || [],
                                 })
                               }
                               onCancelInterview={(id) => cancelInterview.mutate(id)}
@@ -1244,7 +1387,7 @@ export default function GDInterviewPage() {
                         Location:
                       </span>
                       <span className="text-foreground/95 font-medium truncate">
-                        {item.interviewLocation}
+                        {getInterviewLocation(item)}
                       </span>
                     </div>
 
@@ -1261,9 +1404,14 @@ export default function GDInterviewPage() {
                       <span className="font-medium text-muted-foreground/80 block">
                         Date & Time:
                       </span>
-                      <span className="text-foreground/95 font-medium truncate">
-                        {formatDate(item.date)} ({item.time})
-                      </span>
+                      {(() => {
+                        const sched = getInterviewSchedule(item.applicationId, item.date, item.time);
+                        return (
+                          <span className="text-foreground/95 font-medium truncate">
+                            {sched.scheduled ? `${formatDate(sched.date)} (${sched.time})` : "Not scheduled"}
+                          </span>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>
@@ -1358,6 +1506,7 @@ export default function GDInterviewPage() {
           applicationName={scheduleTarget.applicationName}
           mode={scheduleTarget.mode}
           existingInterview={scheduleTarget.existingInterview}
+          preferredLocations={scheduleTarget.preferredLocations}
         />
       )}
     </>

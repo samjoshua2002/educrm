@@ -657,8 +657,12 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
         preferences: {
           preference1: data.preferences.preference1 || undefined,
           preference2: data.preferences.preference2 || undefined,
+          interviewPreference1: data.preferences.interviewPreference1 || undefined,
+          interviewPreference2: data.preferences.interviewPreference2 || undefined,
         },
-        interviewLocation: `${data.preferences.interviewPreference1}, ${data.preferences.interviewPreference2}`,
+        interviewLocation: [data.preferences.interviewPreference1, data.preferences.interviewPreference2]
+          .filter(Boolean)
+          .join(", "),
         parentDetails: [
           {
             relationship: "father",

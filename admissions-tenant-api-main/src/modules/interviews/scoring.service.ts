@@ -9,6 +9,7 @@ import { InterviewEvaluation } from './entities/interview-evaluation.entity.js';
 import { EvaluationScore } from './entities/evaluation-score.entity.js';
 import { EvaluationRubric } from './entities/evaluation-rubric.entity.js';
 import { ScoreAdjustmentDto } from './dto/score-adjustment.dto.js';
+import { MailerService } from '../notifications/mailer.service.js';
 
 export interface InterviewScoreBreakdown {
   interviewId: string;
@@ -145,6 +146,26 @@ function sumExperienceMonths(
   return counted ? Math.round(totalMonths) : null;
 }
 
+// Picks the single highest entrance-test percentile across all of an
+// application's entrance-test records. When an applicant has sat multiple
+// tests we score only their best attempt — percentiles are never summed or
+// averaged. Decimal columns come back from the driver as strings, so each
+// value is coerced before comparison. Returns null when there is no usable
+// percentile, so pointsFromBands scores it 0.
+function bestEntrancePercentile(
+  records: Array<{ percentile?: number | string | null }> | undefined,
+): number | null {
+  if (!records || records.length === 0) return null;
+  let best: number | null = null;
+  for (const rec of records) {
+    if (rec.percentile === null || rec.percentile === undefined) continue;
+    const val = Number(rec.percentile);
+    if (!Number.isFinite(val)) continue;
+    if (best === null || val > best) best = val;
+  }
+  return best;
+}
+
 @Injectable()
 export class ScoringService {
   constructor(
@@ -159,6 +180,7 @@ export class ScoringService {
     @InjectRepository(EvaluationScore)
     private readonly evaluationScoreRepository: Repository<EvaluationScore>,
     private readonly conversionConfigService: ScoreConversionConfigService,
+    private readonly mailerService: MailerService,
   ) {}
 
   // Stage 1 — pre-interview shortlisting score, computed per Application
@@ -188,7 +210,12 @@ export class ScoringService {
       relations: ['educationRecords', 'entranceTests', 'workExperienceRecords'],
     });
 
-    return applications.map((app) => this.scoreApplicationForShortlisting(app, rule, config.bands));
+    // Applications already committed as "Shortlisted" in a previous run are
+    // dropped from subsequent previews — a re-run only scores candidates
+    // still awaiting a shortlisting decision.
+    return applications
+      .filter((app) => app.shortlistStatus !== 'Shortlisted')
+      .map((app) => this.scoreApplicationForShortlisting(app, rule, config.bands));
   }
 
   private scoreApplicationForShortlisting(
@@ -205,8 +232,10 @@ export class ScoringService {
     const ugScore = pointsFromBands(parsePercentage(ug?.percentageCgpa), bands.ug, 'minPercent');
     const academicComponent = tenthScore + twelfthScore + ugScore;
 
-    const bestTest = app.entranceTests?.sort((a, b) => (b.percentile ?? 0) - (a.percentile ?? 0))[0];
-    const testComponent = pointsFromBands(bestTest?.percentile, bands.testPercentile, 'minPercentile');
+    // If an application has multiple entrance tests, only the single highest
+    // percentile counts towards the shortlisting score (never summed).
+    const bestTestPercentile = bestEntrancePercentile(app.entranceTests);
+    const testComponent = pointsFromBands(bestTestPercentile, bands.testPercentile, 'minPercentile');
 
     // Claimed (self-reported) experience, summed (in months) from the
     // applicant's work-experience records — this is all that's known
@@ -241,18 +270,40 @@ export class ScoringService {
       throw new BadRequestException('No applications matched this rule\'s program/academic year.');
     }
 
+    const newlyShortlistedIds: string[] = [];
     for (const row of preview) {
+      const isShortlisted = row.shortlistStatus === 'Eligible';
       await this.applicationRepository.update(
         { id: row.applicationId, organizationId: orgId },
         {
           shortlistScore: row.shortlistScore,
-          shortlistStatus: row.shortlistStatus,
+          // Eligible candidates are promoted to "Shortlisted" on commit so
+          // they move to the interview stage and drop out of future runs.
+          shortlistStatus: isShortlisted ? 'Shortlisted' : 'Not Eligible',
           updatedBy: actorId,
         },
       );
+      if (isShortlisted) newlyShortlistedIds.push(row.applicationId);
+    }
+
+    // Notify each shortlisted candidate. Fire-and-forget-ish: the mailer
+    // swallows its own errors, and we don't let a slow SMTP server hold up
+    // the commit response.
+    if (newlyShortlistedIds.length > 0) {
+      void this.sendShortlistedEmails(orgId, newlyShortlistedIds);
     }
 
     return { updated: preview.length };
+  }
+
+  private async sendShortlistedEmails(orgId: string, applicationIds: string[]): Promise<void> {
+    const applications = await this.applicationRepository.find({
+      where: { id: In(applicationIds), organizationId: orgId },
+    });
+    for (const application of applications) {
+      if (!application.email) continue;
+      await this.mailerService.sendShortlistedEmail(application);
+    }
   }
 
   // ==========================================================================
@@ -451,8 +502,8 @@ export class ScoringService {
     const academicComponent = tenthScore + twelfthScore + ugScore;
 
     // Entrance test score from band config (best percentile wins)
-    const bestTest = fullApplication.entranceTests?.sort((a, b) => (b.percentile ?? 0) - (a.percentile ?? 0))[0];
-    const testComponent = pointsFromBands(bestTest?.percentile, config.bands.testPercentile ?? [], 'minPercentile');
+    const bestTestPercentile = bestEntrancePercentile(fullApplication.entranceTests);
+    const testComponent = pointsFromBands(bestTestPercentile, config.bands.testPercentile ?? [], 'minPercentile');
     const maxTestScore = Math.max(0, ...(config.bands.testPercentile ?? []).map((b) => Number(b.points ?? 0)));
 
     // Max possible scores per category (for UI display)

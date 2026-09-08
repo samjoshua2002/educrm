@@ -23,9 +23,11 @@ import { EvaluationScore } from './entities/evaluation-score.entity.js';
 import { EvaluationsService } from './evaluations.service.js';
 import { EvaluationsController } from './evaluations.controller.js';
 import { CompositeScoreController } from './composite-score.controller.js';
+import { NotificationsModule } from '../notifications/notifications.module.js';
 
 @Module({
   imports: [
+    NotificationsModule,
     TypeOrmModule.forFeature([
       EvaluationRubric,
       ShortlistingRule,

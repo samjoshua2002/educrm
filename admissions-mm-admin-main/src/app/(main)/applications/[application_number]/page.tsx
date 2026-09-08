@@ -1460,6 +1460,7 @@ function EditPreferencesForm({ appData, onSave, onClose }: FormProps) {
     const updatedData = {
       ...appData,
       preferences: {
+        ...appData.preferences,
         preference1: formData.preference1,
         preference2: formData.preference2,
       },
