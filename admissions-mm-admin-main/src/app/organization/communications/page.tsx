@@ -10,8 +10,9 @@ import {
   useSendCommunication,
   useResendCommunication,
   useDeleteCommunication,
-  useCommunicationTemplates,
 } from "@/hooks/use-communications";
+import { useEmailTemplates, renderTemplate } from "@/hooks/use-email-templates";
+import { useAuthStore } from "@/stores/auth-store";
 import { CommunicationLog, mockCommunications } from "@/data/mock-communications";
 
 import {
@@ -38,6 +39,7 @@ import {
   EllipsisVertical,
   SearchX,
   UsersRound,
+  LayoutTemplate,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -75,19 +77,34 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const statusPillStyles: Record<string, string> = {
-  Opened:
-    "bg-[rgba(5,150,105,0.2)] text-[#065f46] hover:bg-[rgba(5,150,105,0.3)] font-medium px-[10px] py-[2px] rounded-[9999px] text-[12px] border-0 inline-block",
-  Delivered:
-    "bg-[#eff6ff] text-[#1d4ed8] hover:bg-[#dbeafe] font-medium px-[10px] py-[2px] rounded-[9999px] text-[12px] border-0 inline-block",
   Sent:
-    "bg-[#eff6ff] text-[#1d4ed8] hover:bg-[#dbeafe] font-medium px-[10px] py-[2px] rounded-[9999px] text-[12px] border-0 inline-block",
+    "bg-[#05966933] text-[#065F46] dark:bg-emerald-500/20 dark:text-emerald-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0 inline-flex items-center",
   Scheduled:
-    "bg-[#fef3c7] text-[#9a3412] hover:bg-[#fde68a] font-medium px-[10px] py-[2px] rounded-[9999px] text-[12px] border-0 inline-block",
-  Failed:
-    "bg-[rgba(217,119,6,0.2)] text-[#bd0f0f] hover:bg-[rgba(217,119,6,0.3)] font-medium px-[10px] py-[2px] rounded-[9999px] text-[12px] border-0 inline-block",
+    "bg-[#FEF3C7] text-[#9A3412] dark:bg-amber-500/20 dark:text-amber-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0 inline-flex items-center",
+};
+
+const categoryPillStyles: Record<string, string> = {
+  "interview schedule":
+    "bg-[#DBEAFE] text-[#1D4ED8] dark:bg-blue-500/20 dark:text-blue-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0 inline-flex items-center",
+  "admission offer":
+    "bg-[#05966933] text-[#065F46] dark:bg-emerald-500/20 dark:text-emerald-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0 inline-flex items-center",
+  "document request":
+    "bg-[#FFEDD5] text-[#9A3412] dark:bg-amber-500/20 dark:text-amber-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0 inline-flex items-center",
+  "payment reminder":
+    "bg-[#FEE2E2] text-[#991B1B] dark:bg-rose-500/20 dark:text-rose-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0 inline-flex items-center",
+  "general notice":
+    "bg-[#F3E8FF] text-[#6B21A8] dark:bg-purple-500/20 dark:text-purple-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0 inline-flex items-center",
+  "direct message":
+    "bg-[#E0E7FF] text-[#4338CA] dark:bg-indigo-500/20 dark:text-indigo-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0 inline-flex items-center",
+};
+
+const getCategoryStyle = (cat: string) => {
+  const lower = (cat || "").toLowerCase();
+  if (categoryPillStyles[lower]) return categoryPillStyles[lower];
+  return "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0 inline-flex items-center";
 };
 
 function formatDate(dateStr: string) {
@@ -111,6 +128,27 @@ function formatTime(dateStr: string) {
     });
   } catch {
     return "";
+  }
+}
+
+function formatFullDateTime(dateStr: string) {
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return { date: dateStr, time: "" };
+    return {
+      date: d.toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }),
+      time: d.toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      }),
+    };
+  } catch {
+    return { date: dateStr, time: "" };
   }
 }
 
@@ -161,6 +199,8 @@ function exportToCSV(data: CommunicationLog[], filename = "communication_logs.cs
 
 import { useApplications } from "@/hooks/use-applications";
 
+import { checkAndDispatchScheduledCommunications } from "@/lib/scheduled-communications";
+
 export default function CommunicationsPage() {
   const [composeOpen, setComposeOpen] = React.useState(false);
 
@@ -181,73 +221,124 @@ export default function CommunicationsPage() {
     return (appsResponse as any)?.data || appsResponse || null;
   }, [appsResponse]);
 
-  const commsList: CommunicationLog[] = React.useMemo(() => {
+  const [localHistory, setLocalHistory] = React.useState<CommunicationLog[]>([]);
+
+  const reloadHistory = React.useCallback(() => {
+    try {
+      const saved = localStorage.getItem("educrm_communications_history");
+      if (saved) {
+        setLocalHistory(JSON.parse(saved));
+      }
+    } catch {
+      // Ignore
+    }
+  }, []);
+
+  React.useEffect(() => {
+    reloadHistory();
+
+    // Check and auto-dispatch any overdue scheduled messages immediately
+    checkAndDispatchScheduledCommunications().then((changed) => {
+      if (changed) reloadHistory();
+    });
+
+    // Check every 5 seconds for newly due scheduled messages
+    const timer = setInterval(() => {
+      checkAndDispatchScheduledCommunications().then((changed) => {
+        if (changed) reloadHistory();
+      });
+    }, 5000);
+
+    const handleUpdate = () => reloadHistory();
+    window.addEventListener("storage", handleUpdate);
+    window.addEventListener("educrm_communications_updated", handleUpdate);
+
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("storage", handleUpdate);
+      window.removeEventListener("educrm_communications_updated", handleUpdate);
+    };
+  }, [reloadHistory]);
+
+  // All individual messages (not yet grouped)
+  const allMessages: CommunicationLog[] = React.useMemo(() => {
+    let baseList: CommunicationLog[] = [];
+    const nowIso = new Date().toISOString();
     if (Array.isArray(appsList) && appsList.length > 0) {
-      return appsList.map((app: any, idx: number) => {
+      baseList = appsList.map((app: any, idx: number) => {
         const appNo = app.applicationNo || `APP202600${idx + 1}`;
         const appName = app.name || app.applicant?.name || "Applicant";
         const appEmail = app.email || app.applicant?.email || `applicant${idx + 1}@example.com`;
         const appPhone = app.phone || app.applicant?.primaryMobile || "+91 98765 43210";
-        const channel: "Email" | "WhatsApp" | "SMS" =
-          idx % 3 === 0 ? "Email" : idx % 3 === 1 ? "WhatsApp" : "SMS";
         const category: "Interview Schedule" | "Admission Offer" | "Document Request" | "Payment Reminder" =
-          idx % 4 === 0
-            ? "Interview Schedule"
-            : idx % 4 === 1
-            ? "Admission Offer"
-            : idx % 4 === 2
-            ? "Document Request"
-            : "Payment Reminder";
-        const status: "Opened" | "Delivered" | "Sent" | "Failed" =
-          app.formStatus === "accepted"
-            ? "Opened"
-            : app.formStatus === "rejected"
-            ? "Failed"
-            : idx % 2 === 0
-            ? "Delivered"
-            : "Sent";
-
+          idx % 4 === 0 ? "Interview Schedule"
+          : idx % 4 === 1 ? "Admission Offer"
+          : idx % 4 === 2 ? "Document Request"
+          : "Payment Reminder";
+        const status: "Sent" | "Scheduled" = "Sent";
+        const sentAt = app.submittedAt || new Date(new Date(nowIso).getTime() - (idx + 1) * 86400000).toISOString();
         return {
           id: `COMM-2026-00${idx + 1}`,
           applicationNo: appNo,
           applicantName: appName,
           recipientEmail: appEmail,
           recipientPhone: appPhone,
-          channel,
+          channel: "Email" as const,
           category,
           subject: `${category} - ${app.program || "PGDM 2026-28"} (${appNo})`,
           content: `Dear ${appName},\n\nThis is an official communication regarding your application (${appNo}) for ${app.program || "PGDM 2026-28"}.\n\nBest regards,\nAdmissions Office`,
           sender: "Admissions Directorate",
-          sentAt: app.submittedAt || new Date(Date.now() - idx * 86400000).toISOString(),
+          sentAt,
           status,
-          openCount: status === "Opened" ? 3 : status === "Delivered" ? 1 : 0,
-          timeline: [
-            {
-              status: "Queued",
-              timestamp: formatDate(app.submittedAt || new Date().toISOString()),
-              description: "Message queued for delivery",
-            },
-            {
-              status: "Sent",
-              timestamp: formatDate(app.submittedAt || new Date().toISOString()),
-              description: "Dispatched to gateway",
-            },
-            {
-              status,
-              timestamp: formatDate(new Date().toISOString()),
-              description: `Status updated to ${status}`,
-            },
-          ],
+          openCount: 1,
+          timeline: [{ status: "Sent", timestamp: formatDate(app.submittedAt || nowIso), description: "Dispatched to gateway" }],
         };
       });
+    } else {
+      baseList = (commsResponse as any)?.data || commsResponse || mockCommunications;
     }
-    return (commsResponse as any)?.data || commsResponse || mockCommunications;
-  }, [appsList, commsResponse]);
+    // localHistory takes priority (dedup by unique id)
+    const combined = [...localHistory, ...baseList];
+    const seen = new Set<string>();
+    return combined.filter((c) => {
+      const key = c.id || `${c.applicationNo}-${c.sentAt}-${c.subject}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [appsList, commsResponse, localHistory]);
+
+  // Group all messages by applicationNo → one row per applicant
+  // The representative entry = active Scheduled (if any) else the most recent by sentAt
+  const commsList: (CommunicationLog & { totalMessages: number })[] = React.useMemo(() => {
+    const groups = new Map<string, CommunicationLog[]>();
+    for (const msg of allMessages) {
+      const key = msg.applicationNo;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(msg);
+    }
+
+    const rows: (CommunicationLog & { totalMessages: number })[] = [];
+    for (const [, msgs] of groups) {
+      const sorted = [...msgs].sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime());
+      // Prefer a Scheduled entry if it exists, otherwise the latest
+      const scheduled = sorted.find((m) => m.status === "Scheduled");
+      const representative = scheduled || sorted[0];
+      rows.push({ ...representative, totalMessages: msgs.length });
+    }
+
+    return rows.sort((a, b) => {
+      const timeA = new Date(a.sentAt).getTime();
+      const timeB = new Date(b.sentAt).getTime();
+      return (isNaN(timeB) ? 0 : timeB) - (isNaN(timeA) ? 0 : timeA);
+    });
+  }, [allMessages]);
 
   const isLoading = isCommsLoading || isAppsLoading;
 
-  const templatesQuery = useCommunicationTemplates();
+  const templatesQuery = useEmailTemplates();
   const templates = templatesQuery.data || [];
+  const user = useAuthStore((s) => s.user);
 
   const sendMutation = useSendCommunication();
   const resendMutation = useResendCommunication();
@@ -255,7 +346,6 @@ export default function CommunicationsPage() {
 
   // Search and Filter states
   const [searchQuery, setSearchQuery] = React.useState("");
-  const [channelDraft, setChannelDraft] = React.useState("all");
   const [statusDraft, setStatusDraft] = React.useState("all");
 
   // Advanced Filter Dialog
@@ -300,8 +390,10 @@ export default function CommunicationsPage() {
           item.id.toLowerCase().includes(q);
         if (!matches) return false;
       }
-      if (channelDraft !== "all" && item.channel !== channelDraft) return false;
-      if (statusDraft !== "all" && item.status !== statusDraft) return false;
+      if (statusDraft !== "all") {
+        const itemStatus = item.status === "Scheduled" ? "Scheduled" : "Sent";
+        if (itemStatus !== statusDraft) return false;
+      }
 
       if (advAppNo && !item.applicationNo.toLowerCase().includes(advAppNo.toLowerCase())) return false;
       if (advDateFrom && item.sentAt < advDateFrom) return false;
@@ -309,7 +401,7 @@ export default function CommunicationsPage() {
 
       return true;
     });
-  }, [commsList, searchQuery, channelDraft, statusDraft, advAppNo, advDateFrom, advDateTo]);
+  }, [commsList, searchQuery, statusDraft, advAppNo, advDateFrom, advDateTo]);
 
   const totalPages = Math.ceil(filteredComms.length / itemsPerPage) || 1;
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -336,27 +428,37 @@ export default function CommunicationsPage() {
 
   const hasAdvancedFilters = advAppNo !== "" || advDateFrom !== "" || advDateTo !== "";
 
-  // Statistics calculation
-  const totalCount = commsList.length;
-  const deliveredCount = commsList.filter((c) => c.status === "Delivered" || c.status === "Opened").length;
-  const openedCount = commsList.filter((c) => c.status === "Opened").length;
+  // Statistics calculation: Total Sent and Scheduled only
+  const sentCount = commsList.filter((c) => c.status === "Sent" || c.status === "Delivered" || c.status === "Opened").length;
   const scheduledCount = commsList.filter((c) => c.status === "Scheduled").length;
-  const failedCount = commsList.filter((c) => c.status === "Failed").length;
+  const totalCount = commsList.length;
 
   function handleSelectTemplate(tmplId: string) {
     setComposeTemplateId(tmplId);
     if (tmplId === "none") return;
     const tmpl = templates.find((t) => t.id === tmplId);
     if (tmpl) {
-      setComposeChannel(tmpl.channel);
+      const candidateContext = {
+        student: composeName || "Applicant",
+        course: "PGDM 2026-28",
+        application_no: composeAppNo || "APP2026001",
+        date: new Date().toLocaleDateString("en-IN", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        }),
+        time: "10:30 AM - 12:00 PM IST",
+        venue: "Main Campus Seminar Hall A",
+        sender: user?.name || "Admissions Desk",
+        organization: "Educational Institutions Group",
+        email: composeEmail || "applicant@example.com",
+        phone: composePhone || "+91 98765 43210",
+      };
+      setComposeChannel(tmpl.channel || "Email");
       setComposeCategory(tmpl.category);
-      setComposeSubject(tmpl.subject.replace("{{Application_No}}", composeAppNo || "APP2026001"));
-      setComposeContent(
-        tmpl.body
-          .replace("{{Applicant_Name}}", composeName || "Applicant")
-          .replace("{{Application_No}}", composeAppNo || "APP2026001")
-          .replace("{{Course_Name}}", "PGDM 2026-28")
-      );
+      setComposeSubject(renderTemplate(tmpl.subject, candidateContext));
+      setComposeContent(renderTemplate(tmpl.body, candidateContext));
+      toast.success(`Loaded "${tmpl.name}" with personalized shortcuts`);
     }
   }
 
@@ -381,10 +483,20 @@ export default function CommunicationsPage() {
         category: composeCategory,
         subject: composeSubject,
         content: composeContent,
+        sender: user?.name || "Admissions Desk",
         scheduledAt: isScheduled ? scheduledAt : undefined,
       },
       {
-        onSuccess: () => {
+        onSuccess: (data: any) => {
+          if (data) {
+            try {
+              const existing = JSON.parse(localStorage.getItem("educrm_communications_history") || "[]");
+              localStorage.setItem("educrm_communications_history", JSON.stringify([data, ...existing]));
+              reloadHistory();
+            } catch {
+              // Ignore
+            }
+          }
           setComposeOpen(false);
           setComposeAppNo("");
           setComposeName("");
@@ -398,12 +510,14 @@ export default function CommunicationsPage() {
     );
   }
 
+
   return (
     <>
       <div className="flex flex-col gap-4 p-4 md:p-6">
         {/* Quick Stats Dashboard matching Branch page cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Card 1: Total Communications */}
+        {/* Quick Stats Dashboard: Total Sent & Scheduled */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Card 1: Total Sent */}
           <div className="bg-card border border-border rounded-[12px] px-5 py-4 flex items-center gap-4 shadow-sm hover:shadow-md transition-all duration-200">
             <div className="flex flex-col items-start gap-1 shrink-0">
               <div className="w-11 h-11 rounded-[10px] bg-[#EFF6FF] flex items-center justify-center text-[#2563EB]">
@@ -415,7 +529,7 @@ export default function CommunicationsPage() {
             </div>
             <div className="flex flex-col gap-2 flex-1 min-w-0">
               <span className="text-[28px] font-bold leading-none text-[#0F172A]">
-                {totalCount}
+                {sentCount}
               </span>
               <div className="w-full h-[6px] rounded-[9999px] overflow-hidden bg-[#2563EB]/15">
                 <div
@@ -426,59 +540,7 @@ export default function CommunicationsPage() {
             </div>
           </div>
 
-          {/* Card 2: Delivered */}
-          <div className="bg-card border border-border rounded-[12px] px-5 py-4 flex items-center gap-4 shadow-sm hover:shadow-md transition-all duration-200">
-            <div className="flex flex-col items-start gap-1 shrink-0">
-              <div className="w-11 h-11 rounded-[10px] bg-[#ECFDF5] flex items-center justify-center text-[#10B981]">
-                <CheckCircle className="size-5 text-[#10B981]" />
-              </div>
-              <span className="text-[11px] font-medium text-muted-foreground whitespace-nowrap">
-                Delivered
-              </span>
-            </div>
-            <div className="flex flex-col gap-2 flex-1 min-w-0">
-              <span className="text-[28px] font-bold leading-none text-[#0F172A]">
-                {deliveredCount}
-              </span>
-              <div className="w-full h-[6px] rounded-[9999px] overflow-hidden bg-[#D1FAE5]">
-                <div
-                  className="h-full rounded-[9999px] transition-all duration-700"
-                  style={{
-                    width: totalCount > 0 ? `${(deliveredCount / totalCount) * 100}%` : "0%",
-                    backgroundColor: "#10B981",
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Card 3: Opened */}
-          <div className="bg-card border border-border rounded-[12px] px-5 py-4 flex items-center gap-4 shadow-sm hover:shadow-md transition-all duration-200">
-            <div className="flex flex-col items-start gap-1 shrink-0">
-              <div className="w-11 h-11 rounded-[10px] bg-[#F0F9FF] flex items-center justify-center text-[#0284C7]">
-                <Eye className="size-5 text-[#0284C7]" />
-              </div>
-              <span className="text-[11px] font-medium text-muted-foreground whitespace-nowrap">
-                Opened
-              </span>
-            </div>
-            <div className="flex flex-col gap-2 flex-1 min-w-0">
-              <span className="text-[28px] font-bold leading-none text-[#0F172A]">
-                {openedCount}
-              </span>
-              <div className="w-full h-[6px] rounded-[9999px] overflow-hidden bg-[#E0F2FE]">
-                <div
-                  className="h-full rounded-[9999px] transition-all duration-700"
-                  style={{
-                    width: totalCount > 0 ? `${(openedCount / totalCount) * 100}%` : "0%",
-                    backgroundColor: "#0284C7",
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Card 4: Scheduled / Pending */}
+          {/* Card 2: Scheduled */}
           <div className="bg-card border border-border rounded-[12px] px-5 py-4 flex items-center gap-4 shadow-sm hover:shadow-md transition-all duration-200">
             <div className="flex flex-col items-start gap-1 shrink-0">
               <div className="w-11 h-11 rounded-[10px] bg-[#FEF3C7] flex items-center justify-center text-[#D97706]">
@@ -526,29 +588,8 @@ export default function CommunicationsPage() {
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             <div className="flex items-center gap-2 w-full sm:w-auto">
-              {/* Channel Select */}
-              <div className="flex-1 min-w-0 sm:w-[130px]">
-                <Select
-                  value={channelDraft}
-                  onValueChange={(val) => {
-                    setChannelDraft(val);
-                    setCurrentPage(1);
-                  }}
-                >
-                  <SelectTrigger className="w-full h-10" size="lg">
-                    <SelectValue placeholder="All Channels" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Channels</SelectItem>
-                    <SelectItem value="Email">Email</SelectItem>
-                    <SelectItem value="SMS">SMS</SelectItem>
-                    <SelectItem value="WhatsApp">WhatsApp</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
               {/* Status Select */}
-              <div className="flex-1 min-w-0 sm:w-[130px]">
+              <div className="flex-1 min-w-0 sm:w-[150px]">
                 <Select
                   value={statusDraft}
                   onValueChange={(val) => {
@@ -561,11 +602,8 @@ export default function CommunicationsPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value="Opened">Opened</SelectItem>
-                    <SelectItem value="Delivered">Delivered</SelectItem>
                     <SelectItem value="Sent">Sent</SelectItem>
                     <SelectItem value="Scheduled">Scheduled</SelectItem>
-                    <SelectItem value="Failed">Failed</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -574,7 +612,7 @@ export default function CommunicationsPage() {
               <Button
                 variant="outline"
                 size="icon"
-                className="relative h-[39px] w-[39px] shrink-0"
+                className="relative h-10 w-10 shrink-0 cursor-pointer"
                 onClick={() => setAdvancedOpen(true)}
               >
                 <Filter className="size-4" />
@@ -590,11 +628,23 @@ export default function CommunicationsPage() {
               {/* Export CSV Button */}
               <Button
                 variant="outline"
-                className="h-[39px] text-xs font-medium gap-1.5 cursor-pointer"
+                className="h-10 text-xs sm:text-sm font-medium gap-1.5 cursor-pointer"
                 onClick={() => exportToCSV(filteredComms)}
               >
                 <Download className="size-4 text-muted-foreground" />
                 Export
+              </Button>
+
+              {/* Email Templates Module Button */}
+              <Button
+                asChild
+                variant="outline"
+                className="h-10 text-xs sm:text-sm font-medium border-border text-foreground hover:bg-accent hover:text-accent-foreground gap-2 cursor-pointer rounded-lg"
+              >
+                <Link href="/organization/email-templates">
+                  <LayoutTemplate className="size-4 text-[#2563EB]" />
+                  <span>Email Templates</span>
+                </Link>
               </Button>
             </div>
           </div>
@@ -609,16 +659,16 @@ export default function CommunicationsPage() {
                   RECIPIENT & APP NO
                 </TableHead>
                 <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
-                  CHANNEL
+                  EMAIL
                 </TableHead>
                 <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
-                  SUBJECT & CATEGORY
+                  CATEGORY
                 </TableHead>
                 <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
                   STATUS
                 </TableHead>
                 <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
-                  SENT AT
+                  TIMESTAMP
                 </TableHead>
                 <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto text-right w-[85px]">
                   ACTION
@@ -659,51 +709,59 @@ export default function CommunicationsPage() {
                     key={item.id}
                     className="border-b border-[#e2e8f0] hover:bg-muted/15 transition-colors"
                   >
-                    <TableCell className="py-[24px] px-[24px] align-middle">
-                      <div className="font-semibold text-[#1e293b] text-[14px]">
-                        {item.applicantName}
+                    <TableCell className="py-[20px] px-[24px] align-middle">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-[#1e293b] text-[14px]">
+                          {item.applicantName}
+                        </span>
+                        {(item as any).totalMessages > 0 && (
+                          <span className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-[#EFF6FF] text-[#2563EB] text-[10px] font-bold border border-[#BFDBFE]">
+                            {(item as any).totalMessages}
+                          </span>
+                        )}
                       </div>
                       <div className="text-[#475569] text-[12px] flex items-center gap-2 mt-0.5">
                         <Link
-                          href={`/organization/applications/${item.applicationNo}`}
+                          href={`/organization/communications/${item.applicationNo || item.id}`}
                           className="font-medium text-[#2563EB] hover:underline"
                         >
                           {item.applicationNo}
                         </Link>
-                        <span>•</span>
-                        <span className="truncate max-w-[180px]">{item.recipientEmail}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="py-[24px] px-[24px] align-middle">
-                      <div className="flex items-center gap-1.5">
-                        {item.channel === "Email" && <Mail className="size-4 text-[#2563EB]" />}
-                        {item.channel === "WhatsApp" && <MessageSquare className="size-4 text-[#10B981]" />}
-                        {item.channel === "SMS" && <Smartphone className="size-4 text-[#7C3AED]" />}
-                        <span className="text-[#1e293b] text-[14px] font-medium">{item.channel}</span>
+                    <TableCell className="py-[20px] px-[24px] align-middle">
+                      <div className="flex items-center gap-1.5 text-[#1e293b] text-[13px] font-medium">
+                        <Mail className="size-3.5 text-[#2563EB] shrink-0" />
+                        <span className="truncate max-w-[200px]" title={item.recipientEmail}>{item.recipientEmail}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="py-[24px] px-[24px] align-middle">
-                      <div className="font-semibold text-[#1e293b] text-[14px] truncate max-w-[260px]" title={item.subject}>
-                        {item.subject}
-                      </div>
-                      <div className="text-[#64748b] text-[12px] mt-0.5">
+                    <TableCell className="py-[20px] px-[24px] align-middle">
+                      <span className={getCategoryStyle(item.category)}>
                         {item.category}
-                      </div>
+                      </span>
                     </TableCell>
-                    <TableCell className="py-[24px] px-[24px] align-middle">
-                      <Badge className={statusPillStyles[item.status] || "bg-gray-100 text-gray-700 font-medium text-[12px] px-[10px] py-[2px] rounded-[9999px] border-0"}>
-                        {item.status}
-                      </Badge>
+                    <TableCell className="py-[20px] px-[24px] align-middle">
+                      {(() => {
+                        const displayStatus = item.status === "Scheduled" ? "Scheduled" : "Sent";
+                        return (
+                          <Badge className={statusPillStyles[displayStatus] || "bg-gray-100 text-gray-700 font-medium text-xs px-2.5 py-0.5 rounded-full border-0 inline-flex items-center"}>
+                            {displayStatus}
+                          </Badge>
+                        );
+                      })()}
                     </TableCell>
-                    <TableCell className="py-[24px] px-[24px] align-middle">
-                      <div className="text-[#475569] text-[14px]">
-                        {formatDate(item.sentAt)}
-                      </div>
-                      <div className="text-[#64748b] text-[12px] mt-0.5">
-                        {formatTime(item.sentAt)}
-                      </div>
+                    <TableCell className="py-[20px] px-[24px] align-middle">
+                      {(() => {
+                        const dt = formatFullDateTime(item.sentAt);
+                        return (
+                          <div>
+                            <div className="text-[#1e293b] text-[13px] font-medium">{dt.date}</div>
+                            <div className="text-[#64748b] text-[11px] mt-0.5">{dt.time}</div>
+                          </div>
+                        );
+                      })()}
                     </TableCell>
-                    <TableCell className="py-[24px] px-[24px] align-middle text-right">
+                    <TableCell className="py-[20px] px-[24px] align-middle text-right">
                       <div className="flex justify-end">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -718,7 +776,7 @@ export default function CommunicationsPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-44 z-50">
                             <DropdownMenuItem className="gap-2" asChild>
-                              <Link href={`/organization/communications/${item.id}`}>
+                              <Link href={`/organization/communications/${item.applicationNo || item.id}`}>
                                 <Eye className="size-4 text-muted-foreground" />
                                 View Details
                               </Link>
@@ -788,7 +846,7 @@ export default function CommunicationsPage() {
                         variant={isActive ? "default" : "outline"}
                         className={`h-9 w-9 p-0 text-sm border shadow-2xs rounded-[6px] transition-colors ${
                           isActive
-                            ? "bg-[#2563EB] border-[#2563EB] text-white font-semibold shadow-xs"
+                            ? "bg-[#EA2525] border-[#EA2525] hover:bg-[#D61F1F] text-white font-semibold shadow-xs"
                             : "border-border/80 bg-background text-muted-foreground hover:bg-muted/30 dark:hover:bg-muted/10 hover:text-foreground font-normal"
                         }`}
                         onClick={() => setCurrentPage(page)}
@@ -821,21 +879,40 @@ export default function CommunicationsPage() {
               <div className="flex items-start justify-between gap-2">
                 <div className="flex flex-col">
                   <span className="font-semibold text-foreground text-sm">{item.applicantName}</span>
-                  <span className="text-xs text-muted-foreground">{item.recipientEmail}</span>
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
+                    <Mail className="size-3 text-[#2563EB]" />
+                    <span>{item.recipientEmail}</span>
+                  </div>
                   <span className="text-xs text-primary font-medium mt-0.5">App: {item.applicationNo}</span>
                 </div>
-                <Badge className={statusPillStyles[item.status] || ""}>
-                  {item.status}
-                </Badge>
+                {(() => {
+                  const displayStatus = item.status === "Scheduled" ? "Scheduled" : "Sent";
+                  return (
+                    <Badge className={statusPillStyles[displayStatus] || ""}>
+                      {displayStatus}
+                    </Badge>
+                  );
+                })()}
               </div>
-              <div className="mt-3 pt-2 border-t border-border flex flex-col gap-1">
+              <div className="mt-3 pt-2 border-t border-border flex flex-col gap-1.5">
                 <span className="text-xs font-semibold text-foreground">{item.subject}</span>
-                <span className="text-[11px] text-muted-foreground">{item.category} • {item.channel}</span>
+                <div>
+                  <span className={getCategoryStyle(item.category)}>
+                    {item.category}
+                  </span>
+                </div>
               </div>
               <div className="mt-3 flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">{formatDate(item.sentAt)}</span>
+                {(() => {
+                  const dt = formatFullDateTime(item.sentAt);
+                  return (
+                    <span className="text-xs text-muted-foreground">
+                      {dt.date} • {dt.time}
+                    </span>
+                  );
+                })()}
                 <Button asChild size="sm" variant="outline" className="text-xs h-8">
-                  <Link href={`/organization/communications/${item.id}`}>View Details</Link>
+                  <Link href={`/organization/communications/${item.applicationNo || item.id}`}>View Details</Link>
                 </Button>
               </div>
             </Card>
@@ -885,7 +962,7 @@ export default function CommunicationsPage() {
                   <SelectItem value="none">Custom / Blank Message</SelectItem>
                   {templates.map((t) => (
                     <SelectItem key={t.id} value={t.id}>
-                      {t.name} ({t.channel})
+                      {t.name} ({t.category})
                     </SelectItem>
                   ))}
                 </SelectContent>

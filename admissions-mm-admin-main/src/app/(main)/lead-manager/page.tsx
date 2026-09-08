@@ -383,7 +383,9 @@ export default function LeadManagerPage() {
       source: item.source || "Direct",
       medium: item.utmMedium || "N/A",
       campaign: item.utmCampaign || "N/A",
-      stage: item.rawPayload?.stage || (item.isDuplicate ? "Duplicate" : "New"),
+      stage: (item.status === "disqualified" || item.rawPayload?.stage === "Lost" || item.rawPayload?.stage === "lost")
+        ? "Lost"
+        : (item.rawPayload?.stage || (item.status === "verified" ? "Verified" : (item.isDuplicate ? "Duplicate" : "New"))),
       status: item.scoreBand 
         ? item.scoreBand.charAt(0).toUpperCase() + item.scoreBand.slice(1) 
         : "Warm",
@@ -753,16 +755,16 @@ export default function LeadManagerPage() {
                   NAME
                 </TableHead>
                 <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
-                  MOBILE
+                  CONTACT
+                </TableHead>
+                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
+                  STATUS
                 </TableHead>
                 <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
                   CITY
                 </TableHead>
                 <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
                   STAGE
-                </TableHead>
-                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
-                  STATUS
                 </TableHead>
                 <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
                   ASSIGNED TO
@@ -801,17 +803,20 @@ export default function LeadManagerPage() {
                     className="border-b border-border/80 hover:bg-muted/15 dark:hover:bg-muted/5 transition-colors"
                   >
                     <TableCell className="py-5 px-6 align-middle">
-                      <div className="flex flex-col gap-0.5">
-                        <div className="font-semibold text-foreground text-sm tracking-tight">
-                          {item.name}
-                        </div>
-                        <div className="text-xs text-muted-foreground font-normal">
-                          {item.email}
-                        </div>
-                      </div>
+                      <span className="font-semibold text-foreground text-sm tracking-tight">
+                        {item.name}
+                      </span>
                     </TableCell>
                     <TableCell className="py-5 px-6 align-middle text-sm text-foreground/80 font-normal">
                       {item.mobile}
+                      <div className="text-xs text-muted-foreground font-normal">
+                        {item.email}
+                      </div>
+                    </TableCell>
+                    <TableCell className="py-5 px-6 align-middle">
+                      <span className={statusStyles[item.status] ?? ""}>
+                        {item.status}
+                      </span>
                     </TableCell>
                     <TableCell className="py-5 px-6 align-middle text-sm text-foreground/80 font-normal">
                       {item.city}
@@ -819,11 +824,6 @@ export default function LeadManagerPage() {
                     <TableCell className="py-5 px-6 align-middle">
                       <span className={stageStyles[item.stage] ?? ""}>
                         {item.stage}
-                      </span>
-                    </TableCell>
-                    <TableCell className="py-5 px-6 align-middle">
-                      <span className={statusStyles[item.status] ?? ""}>
-                        {item.status}
                       </span>
                     </TableCell>
                     <TableCell className="py-5 px-6 align-middle">

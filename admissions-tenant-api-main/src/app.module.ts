@@ -18,6 +18,7 @@ import { LocationsModule } from './modules/locations/locations.module.js';
 import { PaymentsModule } from './modules/payments/payments.module.js';
 import { NotificationsModule } from './modules/notifications/notifications.module.js';
 import { AdmissionsDecisionsModule } from './modules/admissions-decisions/admissions-decisions.module.js';
+import { EmailTemplatesModule } from './modules/email-templates/email-templates.module.js';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { AdmissionsDecisionsModule } from './modules/admissions-decisions/admiss
     PaymentsModule,
     NotificationsModule,
     AdmissionsDecisionsModule,
+    EmailTemplatesModule,
   ],
   providers: [
     {

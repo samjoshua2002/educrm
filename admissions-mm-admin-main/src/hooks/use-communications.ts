@@ -91,45 +91,68 @@ export function useSendCommunication() {
       category: string;
       subject: string;
       content: string;
+      sender?: string;
       scheduledAt?: string;
     }) => {
-      try {
-        return await apiPost<CommunicationLog>("/communications/send", payload);
-      } catch {
-        // Simulate successful local send
-        const newLog: CommunicationLog = {
-          id: `COMM-${payload.applicationNo || "APP2026001"}`,
-          applicationNo: payload.applicationNo || "APP2026001",
-          applicantName: payload.applicantName || "Applicant",
-          recipientEmail: payload.recipientEmail || "applicant@example.com",
-          recipientPhone: payload.recipientPhone || "+91 98765 43210",
-          channel: payload.channel,
-          category: (payload.category as any) || "General Notice",
-          subject: payload.subject,
-          content: payload.content,
-          sender: "Admissions Admin",
-          sentAt: new Date().toISOString(),
-          status: payload.scheduledAt ? "Scheduled" : "Delivered",
-          timeline: [
-            {
-              status: payload.scheduledAt ? "Scheduled" : "Sent",
-              timestamp: new Date().toLocaleString(),
-              description: payload.scheduledAt
-                ? `Message scheduled for ${payload.scheduledAt}`
-                : "Dispatched via system gateway",
-            },
-          ],
-        };
-        mockCommunications.unshift(newLog);
-        return newLog;
+      // 1. If it's an email and not scheduled, send via Brevo SMTP backend endpoint
+      if (payload.channel === "Email" && payload.recipientEmail && !payload.scheduledAt) {
+        try {
+          const res = await apiPost<{ success: boolean; messageId?: string }>("/email-templates/send", {
+            to: payload.recipientEmail,
+            subject: payload.subject,
+            body: payload.content,
+            senderName: payload.sender || "Admissions Desk",
+            category: payload.category,
+            applicationNo: payload.applicationNo,
+            applicantName: payload.applicantName,
+            channel: payload.channel,
+          });
+
+          if (res && (res as any).success === false) {
+            throw new Error("SMTP service failed to deliver email. Please check the recipient address.");
+          }
+        } catch (mailErr: any) {
+          const errorMsg =
+            mailErr?.response?.data?.message ||
+            mailErr?.message ||
+            "Failed to send email via SMTP service.";
+          console.error("Backend email sending error:", errorMsg);
+          throw new Error(errorMsg);
+        }
       }
+
+      // 2. Return communication log
+      const newLog: CommunicationLog = {
+        id: `COMM-${Date.now()}`,
+        applicationNo: payload.applicationNo || "APP2026001",
+        applicantName: payload.applicantName || "Applicant",
+        recipientEmail: payload.recipientEmail || "applicant@example.com",
+        recipientPhone: payload.recipientPhone || "+91 98765 43210",
+        channel: payload.channel,
+        category: (payload.category as any) || "General Notice",
+        subject: payload.subject,
+        content: payload.content,
+        sender: payload.sender || "Admissions Desk",
+        sentAt: payload.scheduledAt || new Date().toISOString(),
+        status: payload.scheduledAt ? "Scheduled" : "Sent",
+        openCount: payload.scheduledAt ? 0 : 1,
+        timeline: [
+          {
+            status: payload.scheduledAt ? "Scheduled" : "Sent",
+            timestamp: new Date().toLocaleString("en-IN"),
+            description: payload.scheduledAt
+              ? `Message scheduled for ${payload.scheduledAt}`
+              : `Dispatched to ${payload.recipientEmail} via Brevo SMTP`,
+          },
+        ],
+      };
+      return newLog;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["communications"] });
-      toast.success("Communication sent successfully!");
     },
     onError: (err: any) => {
-      toast.error(err?.message || "Failed to send communication");
+      toast.error(err?.message || "Failed to dispatch communication.");
     },
   });
 }

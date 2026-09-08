@@ -7,6 +7,7 @@ import {
   UserPen,
   FileText,
   Settings,
+  Mail,
 } from "lucide-react";
 import { LeadManagerIcon } from "@/components/icons/lead-manager-icon";
 import { ApplicationsIcon } from "@/components/icons/applications-icon";
@@ -97,6 +98,11 @@ export const sidebarItems: NavGroup[] = [
         title: "Forms",
         url: "/organization/forms",
         icon: FormsIcon,
+      },
+      {
+        title: "Email Templates",
+        url: "/organization/email-templates",
+        icon: Mail,
       },
       // {
       //   title: "Notices",

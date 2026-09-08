@@ -55,8 +55,14 @@ import { useScoreConversionConfig } from "@/hooks/use-shortlisting";
 import { useAuthStore } from "@/stores/auth-store";
 import { gdInterviews } from "@/data/mock-gd-interviews";
 import { toast } from "sonner";
+import { usePageHeader } from "@/hooks/use-page-header";
 
 export default function GDInterviewDetailsPage() {
+  usePageHeader({
+    title: "GD & Interview",
+    description: "Schedule and manage Group Discussions & Interviews.",
+  });
+
   const params = useParams();
   const rawParam = params.application_number;
   const applicationNumber = React.useMemo(() => {

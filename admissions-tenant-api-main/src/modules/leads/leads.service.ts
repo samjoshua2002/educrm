@@ -166,6 +166,8 @@ export class LeadsService {
         lead.assignedAt = assignment.timestamp;
         assignmentNote = ' and reassigned to a counselor';
       }
+    } else if (status === LeadStatus.DISQUALIFIED) {
+      lead.rawPayload = { ...(lead.rawPayload || {}), stage: 'Lost' };
     }
 
     const updated = await this.leadRepository.save(lead);
@@ -204,6 +206,8 @@ export class LeadsService {
         lead.assignedAt = assignment.timestamp;
         assignmentNote = previousAssignedTo !== assignment.userId ? ' and reassigned to a counselor' : '';
       }
+    } else if (nextStatus === LeadStatus.DISQUALIFIED) {
+      lead.rawPayload = { ...(lead.rawPayload || {}), stage: 'Lost' };
     }
 
     const updated = await this.leadRepository.save(lead);
@@ -298,6 +302,9 @@ export class LeadsService {
     const lead = await this.findOne(id, orgId, actorId, role);
     const previousStatus = lead.status;
     lead.status = dto.status as LeadStatus;
+    if (dto.status === LeadStatus.DISQUALIFIED) {
+      lead.rawPayload = { ...(lead.rawPayload || {}), stage: 'Lost' };
+    }
     const updated = await this.leadRepository.save(lead);
 
     await this.logActivity({

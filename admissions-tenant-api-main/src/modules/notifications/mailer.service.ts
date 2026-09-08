@@ -304,4 +304,31 @@ export class MailerService {
       this.logger.error(`Failed to send student verification OTP email to ${email}: ${error?.message || error}`);
     }
   }
+
+  async sendCustomEmail(options: {
+    to: string;
+    subject: string;
+    html: string;
+    text?: string;
+    fromName?: string;
+  }): Promise<boolean> {
+    const fromEmail = this.configService.get<string>('SMTP_FROM_EMAIL') || 'admissions@educrm.com';
+    const fromName = options.fromName || this.configService.get<string>('SMTP_FROM_NAME') || 'Admissions Desk';
+
+    try {
+      await this.transporter.sendMail({
+        from: `"${fromName}" <${fromEmail}>`,
+        to: options.to,
+        subject: options.subject,
+        text: options.text,
+        html: options.html,
+      });
+      this.logger.log(`Custom email sent to ${options.to} (subject: "${options.subject}")`);
+      return true;
+    } catch (error: any) {
+      this.logger.error(`Failed to send custom email to ${options.to}: ${error?.message || error}`);
+      return false;
+    }
+  }
 }
+

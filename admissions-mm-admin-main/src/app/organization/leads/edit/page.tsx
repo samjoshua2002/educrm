@@ -100,7 +100,7 @@ function EditLeadForm() {
         source: lead.source || "",
         medium: lead.utmMedium || "",
         campaign: lead.utmCampaign || "",
-        stage: lead.rawPayload?.stage || "New",
+        stage: (lead.status === "disqualified" || lead.rawPayload?.stage === "Lost" || lead.rawPayload?.stage === "lost") ? "Lost" : (lead.rawPayload?.stage || "New"),
         status: lead.scoreBand ? lead.scoreBand.charAt(0).toUpperCase() + lead.scoreBand.slice(1) : "Warm",
         assignedTo: lead.assignedTo || "",
         notes: lead.rawPayload?.notes || "",
@@ -156,6 +156,7 @@ function EditLeadForm() {
         utmMedium: form.medium || undefined,
         utmCampaign: form.campaign || undefined,
         scoreBand: form.status ? form.status.toLowerCase() : undefined,
+        status: form.stage === "Lost" ? "disqualified" : (form.stage === "Verified" ? "verified" : (lead?.status === "disqualified" && form.stage !== "Lost" ? "unverified" : lead?.status)),
         assignedTo: form.assignedTo || null,
         rawPayload: { ...lead?.rawPayload, notes: form.notes, stage: form.stage }
       }

@@ -4,6 +4,7 @@ export interface CommunicationLog {
   applicantName: string;
   recipientEmail: string;
   recipientPhone: string;
+  photoUrl?: string;
   channel: "Email" | "SMS" | "WhatsApp";
   category: "Interview Schedule" | "Admission Offer" | "Payment Reminder" | "Document Request" | "Application Received" | "General Notice";
   subject: string;

@@ -11,6 +11,7 @@ import {
   FileText,
   Settings,
   Gavel,
+  Mail,
 } from "lucide-react";
 import { LeadManagerIcon } from "@/components/icons/lead-manager-icon";
 import { ApplicationsIcon } from "@/components/icons/applications-icon";
@@ -63,6 +64,10 @@ export const organizationNavItems: NavGroup[] = [
         title: "Communications",
         url: "/organization/communications",
         icon: CommunicationIcon,
+        subItems: [
+          { title: "Communications Log", url: "/organization/communications" },
+          { title: "Email Templates", url: "/organization/email-templates" },
+        ],
       },
       {
         title: "Payments",
@@ -99,6 +104,11 @@ export const organizationNavItems: NavGroup[] = [
         title: "Forms",
         url: "/organization/forms",
         icon: FormsIcon,
+      },
+      {
+        title: "Email Templates",
+        url: "/organization/email-templates",
+        icon: Mail,
       },
       {
         title: "Settings",

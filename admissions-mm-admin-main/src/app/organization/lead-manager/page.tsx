@@ -386,7 +386,9 @@ export default function LeadManagerPage() {
       source: item.source || "Direct",
       medium: item.utmMedium || "N/A",
       campaign: item.utmCampaign || "N/A",
-      stage: item.rawPayload?.stage || (item.status === "verified" ? "Verified" : (item.isDuplicate ? "Duplicate" : "New")),
+      stage: (item.status === "disqualified" || item.rawPayload?.stage === "Lost" || item.rawPayload?.stage === "lost")
+        ? "Lost"
+        : (item.rawPayload?.stage || (item.status === "verified" ? "Verified" : (item.isDuplicate ? "Duplicate" : "New"))),
       status: item.scoreBand
         ? item.scoreBand.charAt(0).toUpperCase() + item.scoreBand.slice(1)
         : "Warm",
@@ -761,13 +763,13 @@ export default function LeadManagerPage() {
                   CONTACT
                 </TableHead>
                 <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
+                  STATUS
+                </TableHead>
+                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
                   CITY
                 </TableHead>
                 <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
                   STAGE
-                </TableHead>
-                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
-                  FOLLOW UP
                 </TableHead>
                 <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
                   ASSIGNED TO
@@ -806,25 +808,20 @@ export default function LeadManagerPage() {
                     className="border-b border-border/80 hover:bg-muted/15 dark:hover:bg-muted/5 transition-colors"
                   >
                     <TableCell className="py-5 px-6 align-middle">
-                      <div className="flex flex-col gap-0.5">
-                        
-                        <div className="flex items-center gap-2">
-
-                          <span className="font-semibold text-foreground text-sm tracking-tight">
-                            {item.name}
-                          </span>
-                          <span className={statusStyles[item.status] ?? ""}>
-                            {item.status}
-                          </span>
-                        </div>
-                        
-                      </div>
+                      <span className="font-semibold text-foreground text-sm tracking-tight">
+                        {item.name}
+                      </span>
                     </TableCell>
                     <TableCell className="py-5 px-6 align-middle text-sm text-foreground/80 font-normal">
                       {item.mobile}
                       <div className="text-xs text-muted-foreground font-normal">
                           {item.email}
                         </div>
+                    </TableCell>
+                    <TableCell className="py-5 px-6 align-middle">
+                      <span className={statusStyles[item.status] ?? ""}>
+                        {item.status}
+                      </span>
                     </TableCell>
                     <TableCell className="py-5 px-6 align-middle text-sm text-foreground/80 font-normal">
                       {item.city}
@@ -833,15 +830,6 @@ export default function LeadManagerPage() {
                       <span className={stageStyles[item.stage] ?? ""}>
                         {item.stage}
                       </span>
-                    </TableCell>
-                    <TableCell className="py-5 px-6 align-middle">
-                      <div className="flex flex-col gap-0.5">
-                        {item.followUpNote && (
-                          <div className="text-sm text-muted-foreground font-normal max-w-[180px] truncate">
-                            {item.followUpNote}
-                          </div>
-                        )}
-                      </div>
                     </TableCell>
                     <TableCell className="py-5 px-6 align-middle">
                       {item.assignedToUser ? (
@@ -1132,12 +1120,7 @@ export default function LeadManagerPage() {
                             <span className="text-foreground/95 font-semibold">
                               {item.assignedToUser.name}
                             </span>
-                            <Badge
-                              variant="secondary"
-                              className="font-semibold text-[9px] px-1.5 py-0 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/80 rounded-md shrink-0 uppercase tracking-wider"
-                            >
-                              {item.assignedToUser.role}
-                            </Badge>
+                           
                           </div>
                         ) : (
                           <span className="text-foreground/95 font-medium">
