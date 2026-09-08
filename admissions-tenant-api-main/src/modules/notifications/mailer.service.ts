@@ -7,6 +7,8 @@ import { OfferLetter } from '../admissions-decisions/entities/offer-letter.entit
 import { OfferAcceptance } from '../admissions-decisions/entities/offer-acceptance.entity.js';
 import { WaitlistEntry } from '../admissions-decisions/entities/waitlist-entry.entity.js';
 import { Rejection } from '../admissions-decisions/entities/rejection.entity.js';
+import { Interview } from '../interviews/entities/interview.entity.js';
+import { InterviewSlot } from '../interviews/entities/interview-slot.entity.js';
 
 @Injectable()
 export class MailerService {
@@ -266,6 +268,158 @@ export class MailerService {
     } catch (error: any) {
       this.logger.error(
         `Failed to send rejection email to ${application.email}: ${error?.message || error}`,
+      );
+    }
+  }
+
+  // Stage 1 — Shortlisting. Sent to each candidate promoted to
+  // "Shortlisted" when an admin commits a Run Shortlisting result
+  // (see ScoringService.commitShortlisting). Catch/log without throwing so
+  // a mail hiccup never blocks the shortlisting commit.
+  async sendShortlistedEmail(application: Application): Promise<void> {
+    const fromEmail = this.configService.get<string>('SMTP_FROM_EMAIL');
+    const fromName = this.configService.get<string>('SMTP_FROM_NAME');
+    const portalUrl = this.configService.get<string>('STUDENT_PORTAL_URL') || '#';
+    const firstName = (application.name || '').trim().split(' ')[0] || 'Applicant';
+    const programLabel = application.program || application.academicSession || '';
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1f2937;">
+        <h2 style="color: #111827;">You've Been Shortlisted!</h2>
+        <p>Dear ${firstName},</p>
+        <p>
+          Congratulations! Your application <strong>${application.applicationNo}</strong>
+          ${programLabel ? `for <strong>${programLabel}</strong> ` : ''}has been
+          <strong>shortlisted</strong> for the next stage of the admissions process.
+        </p>
+        <p>
+          Our team will schedule your interview shortly. You will receive a separate
+          email with the date, time, and venue (or online link) once it is confirmed.
+          No action is needed from you right now.
+        </p>
+        <p style="margin: 24px 0;">
+          <a href="${portalUrl}" style="display:inline-block;padding:10px 20px;background:#2563eb;color:#ffffff;text-decoration:none;border-radius:6px;">
+            View your Student Portal
+          </a>
+        </p>
+        <p>We look forward to meeting you.</p>
+      </div>
+    `;
+
+    try {
+      await this.transporter.sendMail({
+        from: `"${fromName}" <${fromEmail}>`,
+        to: application.email,
+        subject: `You've Been Shortlisted — ${application.applicationNo}`,
+        html,
+      });
+      this.logger.log(
+        `Shortlisted email sent to ${application.email} for ${application.applicationNo}`,
+      );
+    } catch (error: any) {
+      this.logger.error(
+        `Failed to send shortlisted email to ${application.email}: ${error?.message || error}`,
+      );
+    }
+  }
+
+  // Stage 1 — Interview lifecycle. One email covering every status change
+  // an admin makes on the GD & Interview screen: scheduled, rescheduled,
+  // cancelled, marked no-show, or completed. Catch/log without throwing so
+  // a mail hiccup never blocks the interview action.
+  async sendInterviewStatusEmail(
+    application: Application,
+    interview: Interview,
+    slot: InterviewSlot | null,
+    event: 'Scheduled' | 'Rescheduled' | 'Cancelled' | 'No Show' | 'Completed',
+  ): Promise<void> {
+    const fromEmail = this.configService.get<string>('SMTP_FROM_EMAIL');
+    const fromName = this.configService.get<string>('SMTP_FROM_NAME');
+    const portalUrl = this.configService.get<string>('STUDENT_PORTAL_URL') || '#';
+    const firstName = (application.name || '').trim().split(' ')[0] || 'Applicant';
+    const typeLabel = interview.interviewType === 'GD' ? 'Group Discussion' : 'Personal Interview';
+
+    const fmtTime = (d: Date) =>
+      new Date(d).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+    const fmtDate = (d: string | Date) =>
+      new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+
+    const scheduleBlock =
+      slot && (event === 'Scheduled' || event === 'Rescheduled')
+        ? `
+          <table style="margin:16px 0;border-collapse:collapse;">
+            <tr><td style="padding:4px 12px 4px 0;color:#6b7280;">Type</td><td style="padding:4px 0;"><strong>${typeLabel}</strong></td></tr>
+            <tr><td style="padding:4px 12px 4px 0;color:#6b7280;">Date</td><td style="padding:4px 0;"><strong>${fmtDate(slot.slotDate)}</strong></td></tr>
+            <tr><td style="padding:4px 12px 4px 0;color:#6b7280;">Time</td><td style="padding:4px 0;"><strong>${fmtTime(slot.startTime)} – ${fmtTime(slot.endTime)}</strong></td></tr>
+            <tr><td style="padding:4px 12px 4px 0;color:#6b7280;">Mode</td><td style="padding:4px 0;"><strong>${slot.mode === 'Virtual' ? 'Online' : 'In person'}</strong></td></tr>
+            ${
+              slot.mode === 'Virtual'
+                ? slot.meetingLink
+                  ? `<tr><td style="padding:4px 12px 4px 0;color:#6b7280;">Link</td><td style="padding:4px 0;"><a href="${slot.meetingLink}">${slot.meetingLink}</a></td></tr>`
+                  : ''
+                : slot.location
+                  ? `<tr><td style="padding:4px 12px 4px 0;color:#6b7280;">Venue</td><td style="padding:4px 0;"><strong>${slot.location}</strong></td></tr>`
+                  : ''
+            }
+          </table>`
+        : '';
+
+    const copy: Record<typeof event, { subject: string; heading: string; body: string }> = {
+      Scheduled: {
+        subject: `Interview Scheduled — ${application.applicationNo}`,
+        heading: 'Your Interview is Scheduled',
+        body: `Your ${typeLabel} for application <strong>${application.applicationNo}</strong> has been scheduled. Details are below — please be available a few minutes early.`,
+      },
+      Rescheduled: {
+        subject: `Interview Rescheduled — ${application.applicationNo}`,
+        heading: 'Your Interview has been Rescheduled',
+        body: `Your ${typeLabel} for application <strong>${application.applicationNo}</strong> has been moved to a new slot. Please note the updated details below.`,
+      },
+      Cancelled: {
+        subject: `Interview Cancelled — ${application.applicationNo}`,
+        heading: 'Your Interview has been Cancelled',
+        body: `Your ${typeLabel} for application <strong>${application.applicationNo}</strong> has been cancelled. Our team will be in touch if it needs to be rescheduled.`,
+      },
+      'No Show': {
+        subject: `Interview Missed — ${application.applicationNo}`,
+        heading: 'Interview Marked as Missed',
+        body: `Our records show you did not attend your scheduled ${typeLabel} for application <strong>${application.applicationNo}</strong>. If you believe this is an error, please contact the admissions team as soon as possible.`,
+      },
+      Completed: {
+        subject: `Interview Completed — ${application.applicationNo}`,
+        heading: 'Interview Completed',
+        body: `Thank you for attending your ${typeLabel} for application <strong>${application.applicationNo}</strong>. Your result will be communicated to you once the evaluation is finalised.`,
+      },
+    };
+
+    const content = copy[event];
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1f2937;">
+        <h2 style="color: #111827;">${content.heading}</h2>
+        <p>Dear ${firstName},</p>
+        <p>${content.body}</p>
+        ${scheduleBlock}
+        <p style="margin: 24px 0;">
+          <a href="${portalUrl}" style="display:inline-block;padding:10px 20px;background:#2563eb;color:#ffffff;text-decoration:none;border-radius:6px;">
+            View your Student Portal
+          </a>
+        </p>
+      </div>
+    `;
+
+    try {
+      await this.transporter.sendMail({
+        from: `"${fromName}" <${fromEmail}>`,
+        to: application.email,
+        subject: content.subject,
+        html,
+      });
+      this.logger.log(
+        `Interview ${event} email sent to ${application.email} for ${application.applicationNo}`,
+      );
+    } catch (error: any) {
+      this.logger.error(
+        `Failed to send interview ${event} email to ${application.email}: ${error?.message || error}`,
       );
     }
   }

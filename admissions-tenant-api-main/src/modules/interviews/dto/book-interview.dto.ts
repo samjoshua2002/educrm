@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsIn, IsArray, ArrayNotEmpty } from 'class-validator';
+import { IsString, IsNotEmpty, IsIn, IsArray, IsOptional } from 'class-validator';
 
 export class BookInterviewDto {
   @IsString()
@@ -12,8 +12,11 @@ export class BookInterviewDto {
   @IsNotEmpty()
   slotId: string;
 
+  // Optional. The evaluation panel defaults to the slot's assigned
+  // interviewer (set when the slot was created), so the scheduler no
+  // longer needs to pick evaluators. Any ids passed here are merged in.
+  @IsOptional()
   @IsArray()
-  @ArrayNotEmpty()
   @IsString({ each: true })
-  panelUserIds: string[];
+  panelUserIds?: string[];
 }

@@ -41,6 +41,8 @@ export interface ApplicationDetail {
   preferences: {
     preference1: string; // branch UUID
     preference2: string; // branch UUID
+    interviewPreference1?: string; // interview city/location name
+    interviewPreference2?: string;
   };
   entranceTests: EntranceTest[];
   education: {
@@ -131,12 +133,18 @@ export interface Application {
   email: string;
   phone: string;
   formStatus: string;
+  shortlistStatus?: string | null;
   paymentStatus: string;
   paymentMode: string;
   paymentAmount: number;
   lastActivity: string;
   program: string;
   campus: string;
+  preference1?: string | null;
+  preference2?: string | null;
+  interviewPreference1?: string | null;
+  interviewPreference2?: string | null;
+  interviewLocation?: string | null;
   verificationStatus?: string;
   verificationRemarks?: string | null;
   verifiedAt?: string | null;
@@ -228,6 +236,8 @@ function mapApiToApplicationDetail(apiData: any): ApplicationDetail {
     preferences: {
       preference1: apiData.preference1Branch?.name || apiData.preference1 || "",
       preference2: apiData.preference2Branch?.name || apiData.preference2 || "",
+      interviewPreference1: apiData.interviewPreference1 || "",
+      interviewPreference2: apiData.interviewPreference2 || "",
     },
     entranceTests: mappedTests,
     education: {
@@ -375,6 +385,8 @@ function toPreferencesPayload(updatedData: ApplicationDetail) {
     preference2: updatedData.preferences.preference2 || undefined,
     courseId: updatedData.courseId || undefined,
     interviewLocation: updatedData.interviewLocation || undefined,
+    interviewPreference1: updatedData.preferences.interviewPreference1 || undefined,
+    interviewPreference2: updatedData.preferences.interviewPreference2 || undefined,
   };
 }
 

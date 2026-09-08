@@ -2,6 +2,7 @@ import { Controller, Get, Post, Patch, Body, Param, UseGuards, Request, Query } 
 import { SlotsService } from './slots.service.js';
 import { CreateSlotDto } from './dto/create-slot.dto.js';
 import { BulkCreateSlotsDto } from './dto/bulk-create-slots.dto.js';
+import { UpdateSlotDto } from './dto/update-slot.dto.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
@@ -41,6 +42,17 @@ export class SlotsController {
   @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.EXAM_MANAGER)
   findOne(@Param('id') id: string, @Param('orgId') orgId: string) {
     return this.slotsService.findOne(id, orgId);
+  }
+
+  @Patch(':id')
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.EXAM_MANAGER)
+  update(
+    @Param('id') id: string,
+    @Param('orgId') orgId: string,
+    @Body() dto: UpdateSlotDto,
+    @Request() req,
+  ) {
+    return this.slotsService.update(id, orgId, dto, req.user.sub);
   }
 
   @Patch(':id/block')

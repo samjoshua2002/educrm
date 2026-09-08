@@ -687,10 +687,9 @@ export default function ApplicationDetailsPage() {
                     Interview Preference 1
                   </span>
                   <span className="font-bold text-slate-800 text-base font-sans">
-                    {(() => {
-                      const [p1] = (applicationData.interviewLocation || "").split(",").map(s => s.trim());
-                      return p1 || "-";
-                    })()}
+                    {applicationData.preferences.interviewPreference1 ||
+                      (applicationData.interviewLocation || "").split(",").map(s => s.trim())[0] ||
+                      "-"}
                   </span>
                 </div>
                 <div className="flex flex-col space-y-1.5 p-4 bg-[#F8FAFC] rounded-lg border border-slate-100">
@@ -698,10 +697,9 @@ export default function ApplicationDetailsPage() {
                     Interview Preference 2
                   </span>
                   <span className="font-bold text-slate-800 text-base font-sans">
-                    {(() => {
-                      const [, p2] = (applicationData.interviewLocation || "").split(",").map(s => s.trim());
-                      return p2 || "-";
-                    })()}
+                    {applicationData.preferences.interviewPreference2 ||
+                      (applicationData.interviewLocation || "").split(",").map(s => s.trim())[1] ||
+                      "-"}
                   </span>
                 </div>
               </div>
@@ -1949,14 +1947,16 @@ function EditPersonalForm({ appData, onSave, onClose }: FormProps) {
 }
 
 function EditPreferencesForm({ appData, onSave, onClose, branchesList = [], coursesList = [] }: FormProps & { branchesList?: any[], coursesList?: any[] }) {
-  const [initialIntPref1, initialIntPref2] = (appData.interviewLocation || "").split(",").map((s: string) => s.trim());
+  // Prefer the dedicated interview-preference fields; fall back to splitting
+  // the legacy combined interviewLocation string for older applications.
+  const [legacyIntPref1, legacyIntPref2] = (appData.interviewLocation || "").split(",").map((s: string) => s.trim());
 
   const [formData, setFormData] = React.useState({
     preference1: appData.preferences.preference1,
     preference2: appData.preferences.preference2,
     courseId: appData.courseId,
-    interviewPreference1: initialIntPref1 || "",
-    interviewPreference2: initialIntPref2 || "",
+    interviewPreference1: appData.preferences.interviewPreference1 || legacyIntPref1 || "",
+    interviewPreference2: appData.preferences.interviewPreference2 || legacyIntPref2 || "",
   });
 
   const interviewLocations = React.useMemo(() => {
@@ -1995,8 +1995,12 @@ function EditPreferencesForm({ appData, onSave, onClose, branchesList = [], cour
       preferences: {
         preference1: formData.preference1,
         preference2: formData.preference2,
+        interviewPreference1: formData.interviewPreference1 || undefined,
+        interviewPreference2: formData.interviewPreference2 || undefined,
       },
-      interviewLocation: `${formData.interviewPreference1}, ${formData.interviewPreference2}`,
+      interviewLocation: [formData.interviewPreference1, formData.interviewPreference2]
+        .filter(Boolean)
+        .join(", "),
     };
     onSave(updatedData);
   };

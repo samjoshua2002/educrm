@@ -770,7 +770,11 @@ export default function ApplicationsPage() {
                       </div>
                     </TableCell>
                     <TableCell className="py-5 px-6 align-middle">
-                      {app.verificationStatus === "verified" ? (
+                      {app.shortlistStatus === "Shortlisted" ? (
+                        <Badge className="bg-blue-500/10 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0">
+                          Shortlisted
+                        </Badge>
+                      ) : app.verificationStatus === "verified" ? (
                         <Badge className="bg-green-500/10 text-green-700 dark:bg-green-500/20 dark:text-green-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0">
                           Verified
                         </Badge>
@@ -950,7 +954,11 @@ export default function ApplicationsPage() {
                     </div>
 
                     <div className="flex items-center gap-1.5 shrink-0 self-center">
-                      {app.verificationStatus === "verified" ? (
+                      {app.shortlistStatus === "Shortlisted" ? (
+                        <Badge className="bg-blue-500/10 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0">
+                          Shortlisted
+                        </Badge>
+                      ) : app.verificationStatus === "verified" ? (
                         <Badge className="bg-green-500/10 text-green-700 dark:bg-green-500/20 dark:text-green-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0">
                           Verified
                         </Badge>

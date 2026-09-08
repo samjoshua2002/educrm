@@ -8,6 +8,7 @@ import { BookInterviewDto } from './dto/book-interview.dto.js';
 import { RescheduleInterviewDto } from './dto/reschedule-interview.dto.js';
 import { CompleteInterviewDto } from './dto/complete-interview.dto.js';
 import { ScoringService } from './scoring.service.js';
+import { MailerService } from '../notifications/mailer.service.js';
 
 @Injectable()
 export class InterviewsBookingService {
@@ -20,21 +21,44 @@ export class InterviewsBookingService {
     private readonly applicationRepository: Repository<Application>,
     private readonly dataSource: DataSource,
     private readonly scoringService: ScoringService,
+    private readonly mailerService: MailerService,
   ) {}
+
+  // Emails the candidate about an interview status change. Never throws —
+  // the mailer swallows its own errors and we void the call so a slow SMTP
+  // server can't hold up (or fail) the interview action itself.
+  private async notifyInterviewStatus(
+    orgId: string,
+    interview: Interview,
+    event: 'Scheduled' | 'Rescheduled' | 'Cancelled' | 'No Show' | 'Completed',
+  ): Promise<void> {
+    try {
+      const application = await this.applicationRepository.findOne({
+        where: { id: interview.applicationId, organizationId: orgId },
+      });
+      if (!application?.email) return;
+      const slot = interview.slotId
+        ? await this.slotRepository.findOne({ where: { id: interview.slotId, organizationId: orgId } })
+        : null;
+      await this.mailerService.sendInterviewStatusEmail(application, interview, slot, event);
+    } catch {
+      // best-effort only
+    }
+  }
 
   // Books a shortlisted Application into an Available slot: creates the
   // Interview, marks the slot Booked, and mirrors the date/time/location
   // onto Application's flat columns (what the GD-Interview list page reads).
   async book(orgId: string, dto: BookInterviewDto, actorId: string) {
-    return this.dataSource.transaction(async (manager) => {
+    const interview = await this.dataSource.transaction(async (manager) => {
       const application = await manager.findOne(Application, {
         where: { id: dto.applicationId, organizationId: orgId },
       });
       if (!application) {
         throw new NotFoundException(`Application #${dto.applicationId} not found`);
       }
-      if (application.shortlistStatus !== 'Eligible') {
-        throw new BadRequestException('Only applications with shortlistStatus "Eligible" can be scheduled for interview.');
+      if (!['Shortlisted', 'Eligible'].includes(application.shortlistStatus)) {
+        throw new BadRequestException('Only shortlisted applications can be scheduled for interview.');
       }
 
       const slot = await manager.findOne(InterviewSlot, { where: { id: dto.slotId, organizationId: orgId } });
@@ -52,6 +76,12 @@ export class InterviewsBookingService {
         where: { applicationId: application.id, interviewType: dto.interviewType },
       });
 
+      // Panel defaults to the slot's assigned interviewer; any explicitly
+      // passed evaluator ids are merged in (deduped).
+      const assignedPanel = Array.from(
+        new Set([slot.interviewerId, ...(dto.panelUserIds ?? [])].filter(Boolean)),
+      );
+
       const interview = manager.create(Interview, {
         organizationId: orgId,
         applicationId: application.id,
@@ -59,7 +89,7 @@ export class InterviewsBookingService {
         round: existingRounds + 1,
         slotId: slot.id,
         status: 'Scheduled',
-        assignedPanel: dto.panelUserIds,
+        assignedPanel,
         createdBy: actorId,
         updatedBy: actorId,
       });
@@ -73,10 +103,13 @@ export class InterviewsBookingService {
 
       return interview;
     });
+
+    void this.notifyInterviewStatus(orgId, interview, 'Scheduled');
+    return interview;
   }
 
   async reschedule(orgId: string, interviewId: string, dto: RescheduleInterviewDto, actorId: string) {
-    return this.dataSource.transaction(async (manager) => {
+    const interview = await this.dataSource.transaction(async (manager) => {
       const interview = await manager.findOne(Interview, { where: { id: interviewId, organizationId: orgId } });
       if (!interview) {
         throw new NotFoundException(`Interview #${interviewId} not found`);
@@ -121,10 +154,13 @@ export class InterviewsBookingService {
 
       return interview;
     });
+
+    void this.notifyInterviewStatus(orgId, interview, 'Rescheduled');
+    return interview;
   }
 
   async cancel(orgId: string, interviewId: string, actorId: string) {
-    return this.dataSource.transaction(async (manager) => {
+    const interview = await this.dataSource.transaction(async (manager) => {
       const interview = await manager.findOne(Interview, { where: { id: interviewId, organizationId: orgId } });
       if (!interview) {
         throw new NotFoundException(`Interview #${interviewId} not found`);
@@ -146,6 +182,9 @@ export class InterviewsBookingService {
       interview.updatedBy = actorId;
       return manager.save(interview);
     });
+
+    void this.notifyInterviewStatus(orgId, interview, 'Cancelled');
+    return interview;
   }
 
   async markNoShow(orgId: string, interviewId: string, actorId: string) {
@@ -155,7 +194,10 @@ export class InterviewsBookingService {
     }
     interview.status = 'No Show';
     interview.updatedBy = actorId;
-    return this.interviewRepository.save(interview);
+    const saved = await this.interviewRepository.save(interview);
+
+    void this.notifyInterviewStatus(orgId, saved, 'No Show');
+    return saved;
   }
 
   async markCompleted(orgId: string, interviewId: string, dto: CompleteInterviewDto, actorId: string) {
@@ -173,6 +215,7 @@ export class InterviewsBookingService {
     // triggers the rollup at submit time, which may have happened earlier).
     await this.scoringService.computeCompositeScore(orgId, interview.applicationId);
 
+    void this.notifyInterviewStatus(orgId, saved, 'Completed');
     return saved;
   }
 

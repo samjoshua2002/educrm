@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Plus, Layers, Lock, Unlock, Ban, MapPin, Video, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { Plus, Layers, Lock, Unlock, Ban, MapPin, Video, ChevronLeft, ChevronRight, Loader2, Pencil } from "lucide-react";
 
 import {
   AlertDialog,
@@ -43,6 +43,7 @@ import {
   useBlockSlot,
   useUnblockSlot,
   useCancelSlot,
+  useUpdateSlot,
   type InterviewSlot,
 } from "@/hooks/use-interviews";
 import { cn } from "@/lib/utils";
@@ -56,6 +57,14 @@ const STATUS_STYLES: Record<string, string> = {
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+// ISO timestamp -> "HH:MM" in local time, for <input type="time">
+function toTimeInput(iso: string) {
+  const d = new Date(iso);
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${hh}:${mm}`;
 }
 
 export default function InterviewSlotsPage() {
@@ -97,6 +106,52 @@ export default function InterviewSlotsPage() {
     if (!cancelTargetId) return;
     await cancelSlot.mutateAsync(cancelTargetId);
     setCancelTargetId(null);
+  };
+
+  // Edit slot dialog
+  const updateSlot = useUpdateSlot();
+  const [editForm, setEditForm] = React.useState<{
+    id: string;
+    interviewerId: string;
+    interviewType: "GD" | "PI";
+    slotDate: string;
+    startTime: string;
+    endTime: string;
+    location: string;
+    mode: "In-person" | "Virtual";
+    meetingLink: string;
+  } | null>(null);
+
+  const openEdit = (s: InterviewSlot) => {
+    setEditForm({
+      id: s.id,
+      interviewerId: s.interviewerId,
+      interviewType: s.interviewType,
+      slotDate: s.slotDate,
+      startTime: toTimeInput(s.startTime),
+      endTime: toTimeInput(s.endTime),
+      location: s.location || "",
+      mode: s.mode,
+      meetingLink: s.meetingLink || "",
+    });
+  };
+
+  const handleEditSave = async () => {
+    if (!editForm) return;
+    await updateSlot.mutateAsync({
+      id: editForm.id,
+      data: {
+        interviewerId: editForm.interviewerId,
+        interviewType: editForm.interviewType,
+        slotDate: editForm.slotDate,
+        startTime: new Date(`${editForm.slotDate}T${editForm.startTime}`).toISOString(),
+        endTime: new Date(`${editForm.slotDate}T${editForm.endTime}`).toISOString(),
+        location: editForm.mode === "Virtual" ? undefined : editForm.location || undefined,
+        mode: editForm.mode,
+        meetingLink: editForm.mode === "Virtual" ? editForm.meetingLink || undefined : undefined,
+      },
+    });
+    setEditForm(null);
   };
 
   // Single-slot create dialog
@@ -310,6 +365,11 @@ export default function InterviewSlotsPage() {
                     </TableCell>
                     <TableCell className="py-[14px] px-[24px] align-middle text-right">
                       <div className="flex justify-end gap-1">
+                        {s.status !== "Booked" && s.status !== "Cancelled" && (
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-500 hover:text-slate-700" title="Edit" onClick={() => openEdit(s)}>
+                            <Pencil className="size-4" />
+                          </Button>
+                        )}
                         {s.status === "Available" && (
                           <>
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-500 hover:text-slate-700" title="Block" onClick={() => blockSlot.mutate(s.id)}>
@@ -376,6 +436,11 @@ export default function InterviewSlotsPage() {
                   </div>
 
                   <div className="flex justify-end gap-1">
+                    {s.status !== "Booked" && s.status !== "Cancelled" && (
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-500 hover:text-slate-700" title="Edit" onClick={() => openEdit(s)}>
+                        <Pencil className="size-4" />
+                      </Button>
+                    )}
                     {s.status === "Available" && (
                       <>
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-500 hover:text-slate-700" title="Block" onClick={() => blockSlot.mutate(s.id)}>
@@ -698,6 +763,125 @@ export default function InterviewSlotsPage() {
               Generate Slots
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit slot */}
+      <Dialog open={!!editForm} onOpenChange={(open) => !open && setEditForm(null)}>
+        <DialogContent className="sm:max-w-[520px] p-6 bg-white rounded-2xl gap-4">
+          <h3 className="text-lg font-bold text-[#0F172A]">Edit Interview Slot</h3>
+
+          {editForm && (
+            <>
+              <div className="flex flex-col gap-2">
+                <Label>Interviewer</Label>
+                <Select value={editForm.interviewerId} onValueChange={(v) => setEditForm({ ...editForm, interviewerId: v })}>
+                  <SelectTrigger className="w-full h-11 border-[#D4D4D4] rounded-[8px] bg-white">
+                    <SelectValue placeholder="Select interviewer" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {teamMembers.map((m: any) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-2">
+                  <Label>Type</Label>
+                  <Select value={editForm.interviewType} onValueChange={(v) => setEditForm({ ...editForm, interviewType: v as "GD" | "PI" })}>
+                    <SelectTrigger className="w-full h-11 border-[#D4D4D4] rounded-[8px] bg-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="GD">GD</SelectItem>
+                      <SelectItem value="PI">PI</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label>Mode</Label>
+                  <Select value={editForm.mode} onValueChange={(v) => setEditForm({ ...editForm, mode: v as "In-person" | "Virtual" })}>
+                    <SelectTrigger className="w-full h-11 border-[#D4D4D4] rounded-[8px] bg-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="In-person">In-person</SelectItem>
+                      <SelectItem value="Virtual">Virtual</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="flex flex-col gap-2">
+                  <Label>Date</Label>
+                  <Input type="date" value={editForm.slotDate} className="border-[#D4D4D4] rounded-[8px]" onChange={(e) => setEditForm({ ...editForm, slotDate: e.target.value })} />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label>Start</Label>
+                  <Input type="time" value={editForm.startTime} className="border-[#D4D4D4] rounded-[8px]" onChange={(e) => setEditForm({ ...editForm, startTime: e.target.value })} />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label>End</Label>
+                  <Input type="time" value={editForm.endTime} className="border-[#D4D4D4] rounded-[8px]" onChange={(e) => setEditForm({ ...editForm, endTime: e.target.value })} />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <Label>{editForm.mode === "Virtual" ? "Meeting Link" : "Location"}</Label>
+                {editForm.mode === "Virtual" ? (
+                  <Input
+                    value={editForm.meetingLink}
+                    className="border-[#D4D4D4] rounded-[8px]"
+                    onChange={(e) => setEditForm({ ...editForm, meetingLink: e.target.value })}
+                    placeholder="https://..."
+                  />
+                ) : (
+                  <Select value={editForm.location} onValueChange={(v) => setEditForm({ ...editForm, location: v })}>
+                    <SelectTrigger className="w-full h-11 border-[#D4D4D4] rounded-[8px] bg-white">
+                      <SelectValue
+                        placeholder={
+                          (interviewLocations || []).length === 0
+                            ? "No interview locations configured"
+                            : "Select an interview location"
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(interviewLocations || []).map((loc) => (
+                        <SelectItem key={loc.id} value={loc.name}>
+                          {loc.name} {loc.city ? `— ${loc.city}` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-3 mt-4">
+                <Button variant="outline" className="border-[#D4D4D4] rounded-[8px] h-10 cursor-pointer" onClick={() => setEditForm(null)}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleEditSave}
+                  disabled={
+                    updateSlot.isPending ||
+                    !editForm.interviewerId ||
+                    !editForm.slotDate ||
+                    !editForm.startTime ||
+                    !editForm.endTime
+                  }
+                  className="bg-[#2563EB] hover:bg-[#1d4ed8] text-white rounded-[8px] h-10 px-5 font-semibold transition-colors cursor-pointer border-0 shadow-sm"
+                >
+                  {updateSlot.isPending ? "Saving..." : "Save Changes"}
+                </Button>
+              </div>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 
