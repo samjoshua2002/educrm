@@ -31,6 +31,14 @@ import {
   AlignLeft,
   AlignCenter,
   AlignRight,
+  Check,
+  Link2,
+  Share2,
+  User,
+  MapPin,
+  GraduationCap,
+  Building2,
+  Map,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -58,9 +66,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { usePageHeaderStore } from "@/stores/page-header-store";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { SourceIcon } from "@/components/icons/source-icon";
 
 import {
   DndContext,
@@ -80,7 +96,10 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useForm, useUpdateForm } from "@/hooks/use-forms";
+import { useQueryClient } from "@tanstack/react-query";
+import { apiPatch, apiPost } from "@/lib/api";
+import { useAuthStore } from "@/stores/auth-store";
+import { useForm, useUpdateForm, useCreateForm } from "@/hooks/use-forms";
 import { useBranches } from "@/hooks/use-branches";
 import { useCourses } from "@/hooks/use-courses";
 import { FormField, Form, UpdateFormInput } from "@/types/form";
@@ -107,6 +126,29 @@ const FIELD_LIBRARY = [
   { type: "radio", label: "Radio Buttons", icon: Radio },
   { type: "file", label: "File Upload", icon: Upload },
   { type: "payment", label: "Collexo Payment", icon: CreditCard },
+];
+
+const SYSTEM_FIELD_CONFIG: Record<string, { icon: React.ComponentType<{ className?: string }> }> = {
+  full_name: { icon: User },
+  phone: { icon: Phone },
+  location: { icon: MapPin },
+  email: { icon: Mail },
+  course: { icon: GraduationCap },
+  city: { icon: Building2 },
+  state: { icon: Map },
+  country: { icon: Globe },
+};
+
+const STANDARD_SOURCES = [
+  { id: "Website", label: "Website" },
+  { id: "Instagram", label: "Instagram" },
+  { id: "Facebook", label: "Facebook" },
+  { id: "LinkedIn", label: "LinkedIn" },
+  { id: "X", label: "X (Twitter)" },
+  { id: "WhatsApp", label: "WhatsApp" },
+  { id: "YouTube", label: "YouTube" },
+  { id: "Google Ads", label: "Google Ads" },
+  { id: "Direct", label: "Direct" },
 ];
 
 function renderFormattedLabel(label: string) {
@@ -217,6 +259,7 @@ function SortableField({
   onRemove,
   onDuplicate,
   onUpdateField,
+  onOpenSettings,
   branchOptions,
   branchesLoading,
   courseOptions,
@@ -228,6 +271,7 @@ function SortableField({
   onRemove: (id: string) => void;
   onDuplicate: (field: FormField) => void;
   onUpdateField: (id: string, updates: Partial<FormField>) => void;
+  onOpenSettings?: () => void;
   branchOptions: { id: string; label: string }[];
   branchesLoading: boolean;
   courseOptions: { id: string; label: string }[];
@@ -369,6 +413,20 @@ function SortableField({
             <span className="text-[10px] font-semibold bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded border border-indigo-100 uppercase tracking-wider">
               Instruction Banner
             </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-[11px] font-semibold text-indigo-600 hover:bg-indigo-50 lg:hidden flex items-center gap-1"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelect();
+                if (onOpenSettings) onOpenSettings();
+              }}
+            >
+              <Settings className="h-3 w-3" />
+              <span>Configure</span>
+            </Button>
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -664,41 +722,57 @@ function SortableField({
       </div>
 
       {/* Bottom Action Row */}
-      <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-end gap-3 text-slate-400">
-        {!field.systemField && (
+      <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2 text-slate-400">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-8 px-2 text-[11px] font-semibold text-blue-600 hover:bg-blue-50 lg:hidden flex items-center gap-1"
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelect();
+            if (onOpenSettings) onOpenSettings();
+          }}
+        >
+          <Settings className="h-3 w-3" />
+          <span>Configure</span>
+        </Button>
+        <div className="flex items-center gap-2 sm:gap-3 ml-auto">
+          {!field.systemField && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-slate-400 hover:text-slate-600 hover:bg-slate-50"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDuplicate(field);
+              }}
+            >
+              <Copy className="h-4 w-4" />
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 text-slate-400 hover:text-slate-600 hover:bg-slate-50"
+            className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50"
             onClick={(e) => {
               e.stopPropagation();
-              onDuplicate(field);
+              onRemove(field.id);
             }}
           >
-            <Copy className="h-4 w-4" />
+            <Trash2 className="h-4 w-4" />
           </Button>
-        )}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50"
-          onClick={(e) => {
-            e.stopPropagation();
-            onRemove(field.id);
-          }}
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>
-        <div className="h-4 w-px bg-slate-200" />
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-slate-600">Required</span>
-          <CustomSwitch
-            checked={field.required || false}
-            onCheckedChange={(val) => {
-              onUpdateField(field.id, { required: val });
-            }}
-            onClick={(e) => e.stopPropagation()}
-          />
+          <div className="h-4 w-px bg-slate-200" />
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-slate-600">Required</span>
+            <CustomSwitch
+              checked={field.required || false}
+              onCheckedChange={(val) => {
+                onUpdateField(field.id, { required: val });
+              }}
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -713,10 +787,14 @@ export default function OrganizationFormBuilderPage({
   const router = useRouter();
   const unwrappedParams = React.use(params);
   const id = unwrappedParams.id;
+  const queryClient = useQueryClient();
+  const user = useAuthStore((state) => state.user);
+  const orgId = user?.organizationId;
 
   // API Hooks
   const { data: form, isLoading, isError } = useForm(id);
   const { mutate: updateForm, isPending: isSaving } = useUpdateForm();
+  const { mutateAsync: createFormAsync } = useCreateForm();
   const { data: branchesResponse, isLoading: isBranchesLoading } = useBranches(1, 100);
   const branchOptions = React.useMemo(
     () => (branchesResponse?.data || []).map((b) => ({ id: b.id, label: b.name })),
@@ -730,10 +808,17 @@ export default function OrganizationFormBuilderPage({
 
   // Local state for batch editing
   const [activeTab, setActiveTab] = React.useState<"build" | "settings">("build");
+  const [mobileTab, setMobileTab] = React.useState<"elements" | "canvas" | "settings">("canvas");
   const [localFields, setLocalFields] = React.useState<FormField[]>([]);
   const [localName, setLocalName] = React.useState("");
   const [localStatus, setLocalStatus] = React.useState<Form["status"]>("draft");
   const [localSlug, setLocalSlug] = React.useState("");
+  const [localSource, setLocalSource] = React.useState<string>("Website");
+  const [localCampaign, setLocalCampaign] = React.useState<string>("");
+  const [selectedSources, setSelectedSources] = React.useState<string[]>(["Website"]);
+  const [customSourceInput, setCustomSourceInput] = React.useState<string>("");
+  const [copiedSourceKey, setCopiedSourceKey] = React.useState<string | null>(null);
+  const [isGeneratingSources, setIsGeneratingSources] = React.useState<boolean>(false);
   const [selectedFieldId, setSelectedFieldId] = React.useState<string | null>(
     null,
   );
@@ -794,6 +879,9 @@ export default function OrganizationFormBuilderPage({
       setLocalName(form.name);
       setLocalSlug(form.slug);
       setLocalStatus(form.status);
+      setLocalSource(form.source || "Website");
+      setLocalCampaign(form.campaignId || (form as any).campaign || "");
+      setSelectedSources([form.source || "Website"]);
     }
   }, [form]);
 
@@ -842,6 +930,7 @@ export default function OrganizationFormBuilderPage({
     };
     setLocalFields((prev) => [...prev, newField]);
     setSelectedFieldId(newField.id);
+    setMobileTab("canvas");
   };
 
   const addSystemField = (fieldId: SystemFieldId) => {
@@ -856,6 +945,7 @@ export default function OrganizationFormBuilderPage({
         : { ...defaultField };
     setLocalFields((prev) => [...prev, newField]);
     setSelectedFieldId(newField.id);
+    setMobileTab("canvas");
   };
 
   const removeField = (fieldId: string) => {
@@ -878,6 +968,7 @@ export default function OrganizationFormBuilderPage({
     newFields.splice(index + 1, 0, newField);
     setLocalFields(newFields);
     setSelectedFieldId(newField.id);
+    setMobileTab("canvas");
   };
 
   const updateField = (fieldId: string, updates: Partial<FormField>) => {
@@ -1060,18 +1151,93 @@ export default function OrganizationFormBuilderPage({
   const setHeader = usePageHeaderStore((s) => s.setHeader);
   const clearHeader = usePageHeaderStore((s) => s.clearHeader);
 
-  const handleSave = React.useCallback((publish: boolean = false) => {
-    const status = publish ? "active" : localStatus;
-    updateForm({
-      id,
-      data: {
+  const handleCopySourceLink = (sourceName: string) => {
+    const slugSuffix = sourceName.toLowerCase().trim().replace(/ /g, '-').replace(/[^\w-]+/g, '');
+    const variantSlug = sourceName.toLowerCase() === localSource.toLowerCase() ? localSlug : `${localSlug}-${slugSuffix}`;
+    const url = `${window.location.origin}/f/${variantSlug}`;
+    navigator.clipboard.writeText(url).then(
+      () => {
+        setCopiedSourceKey(sourceName);
+        toast.success(`${sourceName} form link copied to clipboard`);
+        setTimeout(() => setCopiedSourceKey((cur) => (cur === sourceName ? null : cur)), 2000);
+      },
+      () => toast.error("Failed to copy link")
+    );
+  };
+
+  const toggleSource = (sourceId: string) => {
+    setSelectedSources((prev) => {
+      const exists = prev.includes(sourceId);
+      if (exists) {
+        return prev.filter((s) => s !== sourceId);
+      }
+      return [...prev, sourceId];
+    });
+  };
+
+  const addCustomSource = () => {
+    const val = customSourceInput.trim();
+    if (val) {
+      setSelectedSources((prev) => (prev.includes(val) ? prev : [...prev, val]));
+      setCustomSourceInput("");
+    }
+  };
+
+  const handleFinalSave = async (publish: boolean = true) => {
+    if (!orgId) {
+      toast.error("Organization not found. Please log in again.");
+      return;
+    }
+    setIsGeneratingSources(true);
+    try {
+      const status = publish ? "active" : localStatus;
+      const uniqueSources = Array.from(new Set(selectedSources.map((s) => s.trim()).filter(Boolean)));
+      const primarySource = uniqueSources[0] || localSource || "Website";
+
+      // 1. Save / Update current form directly
+      await apiPatch(`/organizations/${orgId}/forms/${id}`, {
         name: localName,
         slug: localSlug,
+        source: primarySource,
         fields: reconcileSystemFieldOverrides(localFields),
         status: status as any,
-      },
-    });
-  }, [id, localName, localSlug, localStatus, localFields, updateForm]);
+        campaignId: localCampaign || undefined,
+      });
+
+      // 2. Create variants for any additional selected channels in a single call each
+      let createdCount = 0;
+      for (const src of uniqueSources) {
+        if (src.toLowerCase() === primarySource.toLowerCase()) continue;
+        const slugSuffix = src.toLowerCase().trim().replace(/ /g, '-').replace(/[^\w-]+/g, '');
+        const variantSlug = `${localSlug}-${slugSuffix}`;
+        await apiPost(`/organizations/${orgId}/forms`, {
+          name: localName,
+          slug: variantSlug,
+          source: src,
+          fields: reconcileSystemFieldOverrides(localFields),
+          status: status as any,
+          campaignId: localCampaign || undefined,
+        });
+        createdCount++;
+      }
+
+      // Invalidate queries so the list view is updated
+      queryClient.invalidateQueries({ queryKey: ["forms"] });
+      queryClient.invalidateQueries({ queryKey: ["form", id] });
+
+      toast.success(
+        createdCount > 0
+          ? `Form saved and ${createdCount} source channel copies created!`
+          : "Form saved successfully!"
+      );
+      setIsSettingsOpen(false);
+      router.push("/organization/forms");
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || err?.message || "Failed to save form");
+    } finally {
+      setIsGeneratingSources(false);
+    }
+  };
 
   React.useEffect(() => {
     setHeader({
@@ -1094,55 +1260,16 @@ export default function OrganizationFormBuilderPage({
               }
             }}
           >
-            <Eye className="h-4 w-4 mr-2 text-slate-500" />
             Preview
           </Button>
 
-          <div className="flex items-center -space-x-px">
-            <Button
-              size="sm"
-              className="h-9 font-semibold bg-[#EA2525] hover:bg-[#d32020] text-white shadow-sm rounded-l-[8px] rounded-r-none border-r border-[#d32020]"
-              disabled={isSaving}
-              onClick={() => handleSave(true)}
-            >
-              {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Save Form
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  size="sm"
-                  className="h-9 px-2 bg-[#EA2525] hover:bg-[#d32020] text-white shadow-sm rounded-r-[8px] rounded-l-none"
-                  disabled={isSaving}
-                >
-                  <ChevronDown className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[120px] bg-white border border-slate-200">
-                <DropdownMenuItem
-                  className="text-xs font-semibold text-slate-700 cursor-pointer flex items-center hover:bg-slate-50 focus:bg-slate-50"
-                  disabled={isSaving}
-                  onClick={() => handleSave(false)}
-                >
-                  <Save className="h-3.5 w-3.5 mr-2 text-slate-500" />
-                  Save Draft
-                </DropdownMenuItem>
-                <DropdownMenuSeparator className="bg-slate-100" />
-                <DropdownMenuItem
-                  className="text-xs font-semibold text-slate-700 cursor-pointer flex items-center hover:bg-slate-50 focus:bg-slate-50"
-                  disabled={isSaving}
-                  onClick={() => {
-                    if (localSlug || form?.slug) {
-                      window.open(`/f/${localSlug || form?.slug}`, "_blank");
-                    }
-                  }}
-                >
-                  <Eye className="h-3.5 w-3.5 mr-2 text-slate-500" />
-                  Preview
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+          <Button
+            size="sm"
+            className="h-9 px-5 font-semibold bg-[#EA2525] hover:bg-[#d32020] text-white shadow-sm rounded-[8px] cursor-pointer"
+            onClick={() => setIsSettingsOpen(true)}
+          >
+            Save Form
+          </Button>
         </div>
       )
     });
@@ -1150,7 +1277,7 @@ export default function OrganizationFormBuilderPage({
     return () => {
       clearHeader();
     };
-  }, [localName, localSlug, isSaving, form?.slug, handleSave, setHeader, clearHeader]);
+  }, [localSlug, form?.slug, setHeader, clearHeader]);
 
   if (isLoading) {
     return (
@@ -1200,21 +1327,63 @@ export default function OrganizationFormBuilderPage({
         }
       `}} />
 
-      <main className="flex-1 flex overflow-hidden">
+      {/* Mobile View Navigation Segmented Tabs */}
+      <div className="lg:hidden flex items-center bg-white border-b border-slate-200 px-3 py-2 gap-2 shrink-0 z-10 shadow-xs">
+        <button
+          type="button"
+          onClick={() => setMobileTab("elements")}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs font-semibold transition-all ${
+            mobileTab === "elements"
+              ? "bg-[#120352] text-white shadow-xs"
+              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+          }`}
+        >
+          <Plus className="h-3.5 w-3.5" />
+          <span>Add Fields</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setMobileTab("canvas")}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs font-semibold transition-all ${
+            mobileTab === "canvas"
+              ? "bg-[#120352] text-white shadow-xs"
+              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+          }`}
+        >
+          <Layout className="h-3.5 w-3.5" />
+          <span>Canvas ({localFields.filter((f) => f.id !== "form_metadata").length})</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setMobileTab("settings")}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs font-semibold transition-all ${
+            mobileTab === "settings"
+              ? "bg-[#120352] text-white shadow-xs"
+              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+          }`}
+        >
+          <Settings className="h-3.5 w-3.5" />
+          <span>Properties</span>
+          {selectedField && (
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 ml-0.5" />
+          )}
+        </button>
+      </div>
+
+      <main className="flex-1 flex overflow-hidden w-full relative">
         {/* Left Sidebar: Components */}
-        <aside className="w-72 border-r bg-background flex flex-col shrink-0">
+        <aside className={`${mobileTab === "elements" ? "flex" : "hidden"} lg:flex w-full lg:w-72 border-r bg-background flex-col shrink-0 overflow-hidden h-full z-0`}>
           {/* Form Title & Settings */}
-          <div className="p-4 flex items-center gap-2 border-b border-slate-100 shrink-0">
+          <div className="p-3 sm:p-4 flex items-center gap-2 border-b border-slate-100 shrink-0">
             <Link href="/organization/forms">
-              <Button variant="ghost" size="icon" className="rounded-full h-8 w-8 !text-[#120352] hover:bg-slate-100 -ml-4 shrink-0">
+              <Button variant="ghost" size="icon" className="rounded-full h-8 w-8 !text-[#120352] hover:bg-slate-100 -ml-2 sm:-ml-4 shrink-0">
                 <ChevronLeft className="h-5 w-5" />
               </Button>
             </Link>
             <input
-              className="bg-transparent border-none focus-visible:ring-0 p-0 w-full h-auto focus:outline-none text-[#0A0A0A] placeholder:text-slate-400 font-semibold"
+              className="bg-transparent border-none focus-visible:ring-0 p-0 w-full h-auto focus:outline-none text-[#0A0A0A] placeholder:text-slate-400 font-semibold text-base sm:text-[20px]"
               style={{
                 fontFamily: "Inter, sans-serif",
-                fontSize: "20px",
                 lineHeight: "normal",
               }}
               value={localName}
@@ -1424,6 +1593,7 @@ export default function OrganizationFormBuilderPage({
                         const defaultField = DEFAULT_FORM_FIELDS.find((df) => df.id === sysId);
                         if (!defaultField) return null;
                         const isAdded = localFields.some((f) => f.id === sysId);
+                        const SysIcon = SYSTEM_FIELD_CONFIG[sysId]?.icon || Sparkles;
                         return (
                           <button
                             key={sysId}
@@ -1443,7 +1613,7 @@ export default function OrganizationFormBuilderPage({
                             onClick={() => addSystemField(sysId)}
                           >
                             <div className="flex items-center justify-center shrink-0 w-8 h-8 bg-slate-100/50 rounded-[4px]">
-                              <Sparkles className="h-[16px] w-[16px] text-slate-500 group-hover:text-blue-600" />
+                              <SysIcon className="h-[16px] w-[16px] text-slate-500 group-hover:text-blue-600" />
                             </div>
                             <div className="flex flex-col">
                               <span className="text-xs font-semibold text-slate-700 group-hover:text-slate-900 leading-none">
@@ -1473,15 +1643,14 @@ export default function OrganizationFormBuilderPage({
             </aside>
 
             <div
-              className="flex-1 overflow-y-auto"
+              className={`${mobileTab === "canvas" ? "flex" : "hidden"} lg:flex flex-1 flex-col overflow-y-auto w-full min-w-0 p-3 sm:p-6 lg:p-[30px]`}
               style={{
-                padding: "30px",
                 backgroundColor: "#fafbfc",
                 backgroundImage: "radial-gradient(#e2e8f0 1.5px, transparent 1.5px)",
                 backgroundSize: "24px 24px",
               }}
             >
-              <div className="w-full max-w-4xl mx-auto space-y-6">
+              <div className="w-full max-w-4xl mx-auto space-y-4 sm:space-y-6">
 
                 <div className="space-y-4">
                   <DndContext
@@ -1493,7 +1662,7 @@ export default function OrganizationFormBuilderPage({
                       items={localFields.filter((f) => f.id !== "form_metadata").map((f) => f.id)}
                       strategy={rectSortingStrategy}
                     >
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                         {localFields
                           .filter((field) => field.id !== "form_metadata")
                           .map((field) => (
@@ -1505,6 +1674,7 @@ export default function OrganizationFormBuilderPage({
                               onRemove={removeField}
                               onDuplicate={duplicateField}
                               onUpdateField={updateField}
+                              onOpenSettings={() => setMobileTab("settings")}
                               branchOptions={branchOptions}
                               branchesLoading={isBranchesLoading}
                               courseOptions={courseOptions}
@@ -1516,7 +1686,7 @@ export default function OrganizationFormBuilderPage({
                   </DndContext>
 
                   {localFields.filter((f) => f.id !== "form_metadata").length === 0 && (
-                    <div className="py-20 text-center border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-4 bg-slate-50/50">
+                    <div className="py-16 sm:py-20 text-center border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-4 bg-slate-50/50 p-4">
                       <div className="p-4 rounded-full bg-white shadow-sm border">
                         <Plus className="h-8 w-8 text-primary opacity-20" />
                       </div>
@@ -1525,9 +1695,18 @@ export default function OrganizationFormBuilderPage({
                            Canvas Empty
                         </p>
                         <p className="text-sm text-slate-400 max-w-[200px] mt-1">
-                          Start by adding fields from the left sidebar.
+                          Start by adding fields from the elements list.
                         </p>
                       </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="lg:hidden mt-2 text-xs font-semibold"
+                        onClick={() => setMobileTab("elements")}
+                      >
+                        <Plus className="h-3.5 w-3.5 mr-1" /> Add Elements
+                      </Button>
                     </div>
                   )}
                 </div>
@@ -1535,9 +1714,24 @@ export default function OrganizationFormBuilderPage({
             </div>
 
             {/* Right Sidebar: Field Settings */}
-            <aside className="w-80 border-l bg-background flex flex-col shrink-0 overflow-y-auto">
+            <aside className={`${mobileTab === "settings" ? "flex" : "hidden"} lg:flex w-full lg:w-80 border-l bg-background flex-col shrink-0 overflow-y-auto h-full`}>
+              {/* Mobile Header for Settings */}
+              <div className="p-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between lg:hidden shrink-0">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                  {selectedField ? `Properties: ${selectedField.label || selectedField.type}` : "Field Properties"}
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs font-semibold"
+                  onClick={() => setMobileTab("canvas")}
+                >
+                  Done
+                </Button>
+              </div>
+
               {selectedField ? (
-                <div className="p-6 space-y-6">
+                <div className="p-4 sm:p-6 space-y-6">
                   <div>
                     <h3 className="text-sm font-bold text-slate-800">Field Settings</h3>
                     <p className="text-xs text-slate-500 mt-1">Configure field properties and styling</p>
@@ -1926,231 +2120,218 @@ export default function OrganizationFormBuilderPage({
             </aside>
         </main>
 
-        {/* Form Settings Dialog Popup */}
+        {/* Form Settings & Save Modal */}
         <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
-          <DialogContent className="max-w-2xl bg-white p-0 overflow-hidden border border-slate-200 rounded-[16px] gap-0">
-            <div
-              style={{
-                display: "flex",
-                padding: "32px",
-                flexDirection: "column",
-                alignItems: "flex-start",
-                gap: "24px",
-                background: "#FFF",
-              }}
-              className="w-full"
-            >
-              {/* Form Settings Header */}
-              <div className="flex items-center gap-2">
-                <div
-                  style={{
-                    display: "flex",
-                    padding: "8px",
-                    flexDirection: "column",
-                    alignItems: "flex-start",
-                  }}
-                  className="w-10 h-10 bg-slate-50 rounded-md shrink-0"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
-                    <path d="M10.825 22C10.375 22 9.98748 21.85 9.66248 21.55C9.33748 21.25 9.14165 20.8833 9.07498 20.45L8.84998 18.8C8.63331 18.7167 8.42915 18.6167 8.23748 18.5C8.04581 18.3833 7.85831 18.2583 7.67498 18.125L6.12498 18.775C5.70831 18.9583 5.29165 18.975 4.87498 18.825C4.45831 18.675 4.13331 18.4083 3.89998 18.025L2.72498 15.975C2.49165 15.5917 2.42498 15.1833 2.52498 14.75C2.62498 14.3167 2.84998 13.9583 3.19998 13.675L4.52498 12.675C4.50831 12.5583 4.49998 12.4458 4.49998 12.3375V11.6625C4.49998 11.5542 4.50831 11.4417 4.52498 11.325L3.19998 10.325C2.84998 10.0417 2.62498 9.68333 2.52498 9.25C2.42498 8.81667 2.49165 8.40833 2.72498 8.025L3.89998 5.975C4.13331 5.59167 4.45831 5.325 4.87498 5.175C5.29165 5.025 5.70831 5.04167 6.12498 5.225L7.67498 5.875C7.85831 5.74167 8.04998 5.61667 8.24998 5.5C8.44998 5.38333 8.64998 5.28333 8.84998 5.2L9.07498 3.55C9.14165 3.11667 9.33748 2.75 9.66248 2.45C9.98748 2.15 10.375 2 10.825 2H13.175C13.625 2 14.0125 2.15 14.3375 2.45C14.6625 2.75 14.8583 3.11667 14.925 3.55L15.15 5.2C15.3666 5.28333 15.5708 5.38333 15.7625 5.5C15.9541 5.61667 16.1416 5.74167 16.325 5.875L17.875 5.225C18.2916 5.04167 18.7083 5.025 19.125 5.175C19.5416 5.325 19.8666 5.59167 20.1 5.975L21.275 8.025C21.5083 8.40833 21.575 8.81667 21.475 9.25C21.375 9.68333 21.15 10.0417 20.8 10.325L19.475 11.325C19.4916 11.4417 19.5 11.5542 19.5 11.6625V12.3375C19.5 12.4458 19.4833 12.5583 19.45 12.675L20.775 13.675C21.125 13.9583 21.35 14.3167 21.45 14.75C21.55 15.1833 21.4833 15.5917 21.25 15.975L20.05 18.025C19.8166 18.4083 19.4916 18.675 19.075 18.825C18.6583 18.975 18.2416 18.9583 17.825 18.775L16.325 18.125C16.1416 18.2583 15.95 18.3833 15.75 18.5C15.55 18.6167 15.35 18.7167 15.15 18.8L14.925 20.45C14.8583 20.8833 14.6625 21.25 14.3375 21.55C14.0125 21.85 13.625 22 13.175 22H10.825ZM12.05 15.5C13.0166 15.5 13.8416 15.1583 14.525 14.475C15.2083 13.7917 15.55 12.9667 15.55 12C15.55 11.0333 15.2083 10.2083 14.525 9.525C13.8416 8.84167 13.0166 8.5 12.05 8.5C11.0666 8.5 10.2375 8.84167 9.56248 9.525C8.88748 10.2083 8.54998 11.0333 8.54998 12C8.54998 12.9667 8.88748 13.7917 9.56248 14.475C10.2375 15.1583 11.0666 15.5 12.05 15.5Z" fill="#415876"/>
-                  </svg>
+          <DialogContent className="w-[95vw] sm:max-w-[780px] md:max-w-[820px] max-h-[88vh] overflow-hidden bg-white p-0 border border-slate-200 rounded-[16px] gap-0 flex flex-col shadow-2xl">
+            {/* Modal Header */}
+            <div className="px-5 sm:px-6 py-4 sm:py-5 border-b border-slate-100 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-slate-100 rounded-lg flex items-center justify-center text-slate-700 shrink-0">
+                  <Settings className="size-4" />
                 </div>
-                <h2
-                  style={{
-                    color: "#0A0A0A",
-                    fontFamily: "Inter, sans-serif",
-                    fontSize: "20px",
-                    fontWeight: 600,
-                    lineHeight: "32px",
-                    letterSpacing: "-0.24px",
-                  }}
-                >
-                  Form Settings
-                </h2>
+                <div>
+                  <h2 className="text-base sm:text-lg font-semibold text-[#0A0A0A] leading-none">
+                    Form Settings & Distribution Channels
+                  </h2>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Configure your form, set campaign attribution, and select channels to generate pre-attributed lead links.
+                  </p>
+                </div>
               </div>
+            </div>
 
-              {/* Form Name Field */}
-              <div className="flex flex-col gap-1.5 w-full">
-                <label
-                  style={{
-                    color: "#64748B",
-                    fontFamily: "Inter, sans-serif",
-                    fontSize: "12px",
-                    fontWeight: 600,
-                    lineHeight: "16px",
-                    letterSpacing: "0.6px",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  Form Name
-                </label>
-                <input
-                  value={localName}
-                  onChange={(e) => handleNameChange(e.target.value)}
-                  style={{
-                    display: "flex",
-                    padding: "12px 16px 13px 16px",
-                    alignItems: "flex-start",
-                    alignSelf: "stretch",
-                    borderRadius: "8px",
-                    border: "1px solid #D4D4D4",
-                    background: "#FFF",
-                  }}
-                  className="w-full text-sm focus:outline-none focus:border-slate-400 focus:ring-0 transition-colors"
-                />
-              </div>
-
-              {/* Public Slug Field */}
-              <div className="flex flex-col gap-1.5 w-full">
-                <label
-                  style={{
-                    color: "#64748B",
-                    fontFamily: "Inter, sans-serif",
-                    fontSize: "12px",
-                    fontWeight: 600,
-                    lineHeight: "16px",
-                    letterSpacing: "0.6px",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  Public Slug
-                </label>
-                <div
-                  style={{
-                    display: "flex",
-                    padding: "12px 16px 13px 16px",
-                    alignItems: "center",
-                    alignSelf: "stretch",
-                    borderRadius: "8px",
-                    border: "1px solid #D4D4D4",
-                    background: "#FFF",
-                  }}
-                  className="w-full focus-within:border-slate-400 focus-within:ring-0 transition-colors"
-                >
-                  <span className="text-sm font-semibold text-slate-400 select-none mr-1.5">/f/</span>
+            {/* Modal Body - 2 Columns */}
+            <div className="p-5 sm:p-6 overflow-y-auto grid grid-cols-1 md:grid-cols-12 gap-5 flex-1">
+              {/* Left Column: Form Details & Source Checkboxes */}
+              <div className="md:col-span-6 space-y-3.5">
+                {/* Form Name */}
+                <div className="flex flex-col gap-1.5 w-full">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-[#64748B]">
+                    Form Name
+                  </label>
                   <input
-                    value={localSlug}
-                    onChange={(e) => setLocalSlug(e.target.value)}
-                    className="bg-transparent border-none p-0 w-full h-auto text-sm focus:outline-none"
+                    value={localName}
+                    onChange={(e) => handleNameChange(e.target.value)}
+                    className="w-full px-3.5 py-2 rounded-lg border border-[#D4D4D4] bg-white text-sm focus:outline-none focus:border-slate-400 h-10"
+                    placeholder="Enter form name..."
                   />
                 </div>
-                <p className="text-[10px] text-muted-foreground italic mt-0.5">
-                  Slug updates automatically as you change form name.
-                </p>
-              </div>
 
-              {/* Campaign Connection Field */}
-              <div className="flex flex-col gap-1.5 w-full">
-                <label
-                  style={{
-                    color: "#64748B",
-                    fontFamily: "Inter, sans-serif",
-                    fontSize: "12px",
-                    fontWeight: 600,
-                    lineHeight: "16px",
-                    letterSpacing: "0.6px",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  Campaign Connection
-                </label>
-                <input
-                  value={form.campaignId || ""}
-                  readOnly
-                  placeholder="No campaign linked"
-                  style={{
-                    display: "flex",
-                    padding: "12px 16px 13px 16px",
-                    alignItems: "flex-start",
-                    alignSelf: "stretch",
-                    borderRadius: "8px",
-                    border: "1px solid #D4D4D4",
-                    background: "#F8FAFC",
-                  }}
-                  className="w-full text-sm text-slate-500 focus:outline-none"
-                />
-              </div>
-
-              <Separator />
-
-              {/* General Configuration Section */}
-              <div className="space-y-4 w-full">
-                <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">
-                  General Configuration
-                </h3>
-                <div
-                  className="flex items-center justify-between p-6 bg-[#EFF6FF] rounded-[8px] gap-4 self-stretch w-full"
-                >
-                  <div className="space-y-0.5">
-                    <Label
-                      style={{
-                        color: "#2563EB",
-                        fontFamily: "Inter, sans-serif",
-                        fontSize: "18px",
-                        fontWeight: 500,
-                        lineHeight: "normal",
-                      }}
-                    >
-                      Email Notification
-                    </Label>
-                    <p
-                      style={{
-                        color: "#1E293B",
-                        fontFamily: "Inter, sans-serif",
-                        fontSize: "12px",
-                        fontWeight: 500,
-                        lineHeight: "20px",
-                        letterSpacing: "0.6px",
-                      }}
-                    >
-                      Notify counselors on new lead
-                    </p>
+                {/* Public Slug and Campaign Row */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
+                  {/* Public Base Slug */}
+                  <div className="flex flex-col gap-1.5 w-full">
+                    <label className="text-xs font-semibold uppercase tracking-wider text-[#64748B]">
+                      Public Base Slug
+                    </label>
+                    <div className="flex items-center px-3 py-2 rounded-lg border border-[#D4D4D4] bg-white focus-within:border-slate-400 h-10">
+                      <span className="text-xs font-semibold text-slate-400 select-none mr-1">/f/</span>
+                      <input
+                        value={localSlug}
+                        onChange={(e) => setLocalSlug(e.target.value)}
+                        className="bg-transparent border-none p-0 w-full text-xs focus:outline-none font-mono text-slate-800"
+                        placeholder="form-slug"
+                      />
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setEmailNotifications(!emailNotifications)}
-                    className="focus:outline-none shrink-0"
-                  >
-                    {emailNotifications ? (
-                      <svg xmlns="http://www.w3.org/2000/svg" width="28" height="19" viewBox="0 0 28 19" fill="none">
-                        <rect y="2" width="23" height="10" rx="5" fill="#2563EA"/>
-                        <g filter="url(#filter0_d_949_297)">
-                          <rect x="14" y="3" width="8" height="8" rx="4" fill="white"/>
-                        </g>
-                        <defs>
-                          <filter id="filter0_d_949_297" x="8.75" y="0" width="18.5" height="18.5" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-                            <feFlood flood-opacity="0" result="BackgroundImageFix"/>
-                            <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
-                            <feOffset dy="2.25"/>
-                            <feGaussianBlur stdDeviation="2.625"/>
-                            <feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.12 0"/>
-                            <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_949_297"/>
-                            <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_949_297" result="shape"/>
-                          </filter>
-                        </defs>
-                      </svg>
-                    ) : (
-                      <svg xmlns="http://www.w3.org/2000/svg" width="28" height="19" viewBox="0 0 28 19" fill="none">
-                        <rect y="2" width="23" height="10" rx="5" fill="#D4D4D4"/>
-                        <g filter="url(#filter0_d_949_297)">
-                          <rect x="1" y="3" width="8" height="8" rx="4" fill="#A3A3A3"/>
-                        </g>
-                        <defs>
-                          <filter id="filter0_d_949_297" x="-4.25" y="0" width="18.5" height="18.5" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-                            <feFlood flood-opacity="0" result="BackgroundImageFix"/>
-                            <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
-                            <feOffset dy="2.25"/>
-                            <feGaussianBlur stdDeviation="2.625"/>
-                            <feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.12 0"/>
-                            <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_949_297"/>
-                            <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_949_297" result="shape"/>
-                          </filter>
-                        </defs>
-                      </svg>
-                    )}
-                  </button>
+
+                  {/* Campaign */}
+                  <div className="flex flex-col gap-1.5 w-full">
+                    <label className="text-xs font-semibold uppercase tracking-wider text-[#64748B]">
+                      Campaign
+                    </label>
+                    <input
+                      type="text"
+                      value={localCampaign}
+                      onChange={(e) => setLocalCampaign(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border border-[#D4D4D4] bg-white text-xs focus:outline-none focus:border-slate-400 h-10 text-slate-800"
+                      placeholder="e.g. Summer 2026"
+                    />
+                  </div>
+                </div>
+
+                {/* Source Channels Checkboxes */}
+                <div className="space-y-2 pt-0.5">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-[#64748B] flex items-center justify-between">
+                    <span>Select Social Media & Channels ({Array.from(new Set(selectedSources)).length})</span>
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {STANDARD_SOURCES.map((platform) => {
+                      const isChecked = selectedSources.includes(platform.id);
+                      return (
+                        <button
+                          key={platform.id}
+                          type="button"
+                          onClick={() => toggleSource(platform.id)}
+                          className={`flex items-center gap-2 px-2.5 py-2 rounded-lg border text-left cursor-pointer transition-all select-none ${
+                            isChecked
+                              ? "bg-blue-50 border-blue-300 text-blue-950 font-medium"
+                              : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                          }`}
+                        >
+                          <Checkbox
+                            checked={isChecked}
+                            className="pointer-events-none shrink-0"
+                          />
+                          <SourceIcon source={platform.id} className="size-3.5 shrink-0" />
+                          <span className="text-xs truncate">{platform.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Custom Source Input */}
+                  <div className="flex items-center gap-2 pt-0.5">
+                    <Input
+                      placeholder="Add custom source (e.g. Newspaper)..."
+                      value={customSourceInput}
+                      onChange={(e) => setCustomSourceInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && customSourceInput.trim()) {
+                          e.preventDefault();
+                          addCustomSource();
+                        }
+                      }}
+                      className="h-8 text-xs"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addCustomSource}
+                      className="h-8 px-2.5 text-xs font-semibold shrink-0"
+                    >
+                      Add
+                    </Button>
+                  </div>
                 </div>
               </div>
+
+              {/* Right Column: Generated Links Preview & Channel Info */}
+              <div className="md:col-span-6 bg-slate-50/80 p-4 sm:p-5 rounded-xl border border-slate-200/80 flex flex-col justify-between">
+                <div className="space-y-3">
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                      Shareable Channel Links
+                    </h3>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      Submissions through these links are automatically recorded with their source in Lead Manager.
+                    </p>
+                  </div>
+
+                  {Array.from(new Set(selectedSources)).length === 0 ? (
+                    <div className="py-10 text-center text-xs text-muted-foreground">
+                      No channels selected. Check at least one source on the left to preview links.
+                    </div>
+                  ) : (
+                    <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                      {Array.from(new Set(selectedSources)).map((src, idx) => {
+                        const slugSuffix = src.toLowerCase().trim().replace(/ /g, '-').replace(/[^\w-]+/g, '');
+                        const variantSlug = idx === 0 ? localSlug : `${localSlug}-${slugSuffix}`;
+                        const isCopied = copiedSourceKey === src;
+                        return (
+                          <div
+                            key={src}
+                            className="flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg bg-white border border-slate-200 shadow-2xs"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <SourceIcon source={src} className="size-4 shrink-0" />
+                              <div className="flex flex-col min-w-0">
+                                <span className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+                                  {src}
+                                </span>
+                                <span className="text-[11px] text-slate-500 font-mono truncate">
+                                  /f/{variantSlug}
+                                </span>
+                              </div>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className={`h-7 px-3 text-xs font-medium shrink-0 transition-colors ${
+                                isCopied
+                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                  : "text-slate-700 hover:bg-slate-50"
+                              }`}
+                              onClick={() => handleCopySourceLink(src)}
+                            >
+                              {isCopied ? "Copied" : "Copy Link"}
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-4 border-t border-slate-200/60 mt-3">
+                  <p className="text-[11px] text-slate-500 leading-relaxed">
+                    When you save, the system creates dedicated copies for all selected platforms so each link captures leads under its designated channel.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-3 bg-slate-50/50 shrink-0">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-9 px-4 text-xs font-semibold text-slate-700 border-slate-200 hover:bg-white rounded-[8px]"
+                onClick={() => setIsSettingsOpen(false)}
+                disabled={isGeneratingSources}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                className="h-9 px-5 text-xs font-semibold bg-[#2563EB] hover:bg-[#1D4ED8] text-white shadow-sm rounded-[8px] cursor-pointer"
+                onClick={() => handleFinalSave(true)}
+                disabled={isGeneratingSources}
+              >
+                {isGeneratingSources ? "Saving..." : "Save Form"}
+              </Button>
             </div>
           </DialogContent>
         </Dialog>

@@ -22,7 +22,7 @@ export interface Lead {
   utmMedium?: string;
   utmCampaign?: string;
   formId?: string;
-  form?: { id: string; name: string };
+  form?: { id: string; name: string; fields?: any[] };
   campaignId?: string;
   isDuplicate: boolean;
   duplicateCount: number;
@@ -47,7 +47,9 @@ export function useLeads(
     state?: string;
     city?: string;
     source?: string;
+    campaign?: string;
     stage?: string;
+    sortOrder?: string;
   }
 ) {
   const currentUser = useAuthStore((state) => state.user);
@@ -66,11 +68,14 @@ export function useLeads(
         state: filters?.state || undefined,
         city: filters?.city || undefined,
         source: filters?.source || undefined,
+        campaign: filters?.campaign || undefined,
         stage: filters?.stage || undefined,
+        sortOrder: filters?.sortOrder || undefined,
       }),
     enabled: !!orgId,
   });
 }
+
 
 export function useLead(leadId?: string, explicitOrgId?: string) {
   const currentUser = useAuthStore((state) => state.user);

@@ -65,7 +65,6 @@ export function useCreateForm() {
       apiPost<Form>(`/organizations/${orgId}/forms`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["forms"] });
-      toast.success("Form created successfully");
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || "Failed to create form");

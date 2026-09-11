@@ -41,6 +41,7 @@ export interface Form {
   organizationId: string;
   name: string;
   slug: string;
+  source?: string;
   status: "draft" | "active" | "expired";
   campaignId?: string | null;
   fields: FormField[];
@@ -72,12 +73,16 @@ export interface FormResponse {
 export interface CreateFormInput {
   name: string;
   slug?: string;
+  source?: string;
   campaignId?: string;
+  fields?: FormField[];
+  status?: "draft" | "active" | "expired";
 }
 
 export interface UpdateFormInput {
   name?: string;
   slug?: string;
+  source?: string;
   fields?: FormField[];
   status?: "draft" | "active" | "expired";
 }

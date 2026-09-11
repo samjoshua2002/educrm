@@ -5,6 +5,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLead, useUpdateLead } from "@/hooks/use-leads";
+import { useForm } from "@/hooks/use-forms";
 import { useTeam } from "@/hooks/use-team";
 import { useAuthStore } from "@/stores/auth-store";
 import { Role } from "@/types/auth";
@@ -42,13 +43,6 @@ const MEDIUMS = [
   "Email",
   "Other",
 ] as const;
-const CAMPAIGNS = [
-  "Spring 2025",
-  "Summer 2025",
-  "Fall 2025",
-  "Winter 2025",
-  "Spring 2026",
-] as const;
 
 const STAGES = [
   "New",
@@ -56,8 +50,10 @@ const STAGES = [
   "Interested",
   "Qualified",
   "Converted",
+  "Duplicate",
   "Lost",
 ] as const;
+
 const STATUSES = ["Hot", "Warm", "Cold"] as const;
 
 function EditLeadForm() {
@@ -66,6 +62,10 @@ function EditLeadForm() {
   const leadId = searchParams.get("id");
 
   const { data: lead, isLoading } = useLead(leadId || "");
+  const formId = lead?.formId || lead?.form?.id || "";
+  const { data: formData } = useForm(formId);
+  const formFields = lead?.form?.fields || formData?.fields || [];
+
   const updateLead = useUpdateLead();
   const { data: teamData } = useTeam(1, 100);
   const teamMembers = teamData?.data || [];
@@ -121,17 +121,39 @@ function EditLeadForm() {
       value !== "",
   );
 
+  const fieldLabelMap = React.useMemo(() => {
+    const map = new Map<string, string>();
+    for (const f of formFields) {
+      if (f.id && f.label) {
+        map.set(f.id, f.label);
+      }
+    }
+    return map;
+  }, [formFields]);
+
   function formatFieldLabel(key: string) {
+    if (fieldLabelMap.has(key)) {
+      return fieldLabelMap.get(key)!;
+    }
     return key
       .replace(/[_-]+/g, " ")
       .replace(/\b\w/g, (c) => c.toUpperCase());
   }
 
-  function formatFieldValue(value: any) {
+  function formatFieldValue(key: string, value: any) {
+    if (value === undefined || value === null) return "";
+    const fieldDef = formFields.find((f: any) => f.id === key);
+    if (fieldDef?.options && Array.isArray(fieldDef.options)) {
+      const opt = fieldDef.options.find(
+        (o: any) => (o.id || o) === value || (o.value || o) === value
+      );
+      if (opt) return opt.label || opt.name || opt;
+    }
     if (Array.isArray(value)) return value.join(", ");
     if (typeof value === "object") return JSON.stringify(value);
     return String(value);
   }
+
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -413,24 +435,13 @@ function EditLeadForm() {
                     >
                       Campaign
                     </Label>
-                    <Select
+                    <Input
+                      id="campaign"
+                      placeholder="e.g. Fall 2027, Spring 2027..."
                       value={form.campaign}
-                      onValueChange={(v) => set("campaign", v)}
-                    >
-                      <SelectTrigger
-                        id="campaign"
-                        className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full data-[placeholder]:text-foreground"
-                      >
-                        <SelectValue placeholder="Select Campaign" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {CAMPAIGNS.map((c) => (
-                          <SelectItem key={c} value={c}>
-                            {c}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      onChange={(e) => set("campaign", e.target.value)}
+                      className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full"
+                    />
                   </div>
                 </div>
               </section>
@@ -457,8 +468,9 @@ function EditLeadForm() {
                           {formatFieldLabel(key)}
                         </Label>
                         <div className="border border-input min-h-[40px] rounded-[8px] text-[12px] flex items-center px-3 bg-muted/30 text-foreground break-all">
-                          {formatFieldValue(value)}
+                          {formatFieldValue(key, value)}
                         </div>
+
                       </div>
                     ))}
                   </div>

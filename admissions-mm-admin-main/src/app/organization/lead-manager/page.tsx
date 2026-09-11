@@ -19,7 +19,12 @@ import {
   Loader2,
   Hash,
   MapPin,
+  ArrowUpDown,
+  Calendar,
 } from "lucide-react";
+import { format } from "date-fns";
+import { SourceIcon } from "@/components/icons/source-icon";
+
 
 import {
   AlertDialog,
@@ -64,6 +69,7 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { useLeads, useDeleteLead, useUpdateLeadStatus } from "@/hooks/use-leads";
+import { useForms } from "@/hooks/use-forms";
 import { useTeam } from "@/hooks/use-team";
 import { toast } from "sonner";
 import { usePageHeader } from "@/hooks/use-page-header";
@@ -260,6 +266,7 @@ const STAGES = [
   "Interested",
   "Verified",
   "Converted",
+  "Duplicate",
   "Lost",
 ] as const;
 const STATUSES = ["Hot", "Warm", "Cold"] as const;
@@ -281,15 +288,6 @@ const MEDIUMS = [
   "Email",
   "Other",
 ] as const;
-const CAMPAIGNS = [
-  "Spring 2025",
-  "Summer 2025",
-  "Fall 2025",
-  "Winter 2025",
-  "Spring 2026",
-] as const;
-
-
 
 const stageStyles: Record<string, string> = {
   New: "bg-[#D9770633] text-[#9A3412] dark:bg-orange-500/20 dark:text-orange-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
@@ -303,9 +301,10 @@ const stageStyles: Record<string, string> = {
     "bg-[#05966933] text-[#065F46] dark:bg-emerald-500/20 dark:text-emerald-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
   Lost:
     "bg-[#FEE2E2] text-[#B91C1C] dark:bg-red-500/20 dark:text-red-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
-
   Converted:
     "bg-[#DBEAFE] text-[#1D4ED8] dark:bg-green-500/20 dark:text-green-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
+  Duplicate:
+    "bg-[#EDE9FE] text-[#6D28D9] dark:bg-purple-500/20 dark:text-purple-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
 };
 
 const statusStyles: Record<string, string> = {
@@ -314,7 +313,32 @@ const statusStyles: Record<string, string> = {
   Cold: "bg-[#CFFAFE] text-[#155E75] dark:bg-cyan-500/20 dark:text-cyan-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
 };
 
+function parseApiDate(dateStr?: string): Date | null {
+  if (!dateStr) return null;
+  try {
+    const cleanStr = typeof dateStr === "string" ? dateStr.replace(/Z$/, "") : dateStr;
+    const d = new Date(cleanStr);
+    return isNaN(d.getTime()) ? null : d;
+  } catch {
+    return null;
+  }
+}
+
+function formatLeadDate(dateStr?: string) {
+  const d = parseApiDate(dateStr);
+  if (!d) return "—";
+  return format(d, "dd MMM yyyy");
+}
+
+function formatLeadTime(dateStr?: string) {
+  const d = parseApiDate(dateStr);
+  if (!d) return "";
+  return format(d, "hh:mm a");
+}
+
+
 export default function LeadManagerPage() {
+
   const [currentPage, setCurrentPage] = React.useState(1);
   const itemsPerPage = 8;
   const [mobileVisibleCount, setMobileVisibleCount] = React.useState(5);
@@ -331,11 +355,14 @@ export default function LeadManagerPage() {
   const [searchQuery, setSearchQuery] = React.useState("");
   const [stageDraft, setStageDraft] = React.useState("all");
   const [statusDraft, setStatusDraft] = React.useState("all");
+  const [sourceDraft, setSourceDraft] = React.useState("all");
+  const [sortOrder, setSortOrder] = React.useState<"DESC" | "ASC">("DESC");
 
   const [advancedOpen, setAdvancedOpen] = React.useState(false);
   const [advCity, setAdvCity] = React.useState("");
   const [advState, setAdvState] = React.useState("");
-  const [advSource, setAdvSource] = React.useState("");
+  const [advSource, setAdvSource] = React.useState("all");
+  const [advCampaign, setAdvCampaign] = React.useState("all");
   const [advAssignedTo, setAdvAssignedTo] = React.useState("");
   const [advStatus, setAdvStatus] = React.useState("all");
 
@@ -346,10 +373,21 @@ export default function LeadManagerPage() {
   const [appliedAdvanced, setAppliedAdvanced] = React.useState({
     city: "",
     state: "",
-    source: "",
+    source: "all",
+    campaign: "all",
     assignedTo: "",
     status: "all",
   });
+
+  const { data: formsData } = useForms(1, 100);
+
+  const effectiveSource = sourceDraft !== "all"
+    ? sourceDraft
+    : (appliedAdvanced.source !== "all" ? appliedAdvanced.source : undefined);
+
+  const effectiveCampaign = appliedAdvanced.campaign !== "all" && appliedAdvanced.campaign
+    ? appliedAdvanced.campaign
+    : undefined;
 
   // Hook API Calls
   const { data: leadsResponse, isLoading, error } = useLeads(
@@ -363,10 +401,48 @@ export default function LeadManagerPage() {
       scoreBand: statusDraft !== "all" ? statusDraft.toLowerCase() : (appliedAdvanced.status !== "all" ? appliedAdvanced.status.toLowerCase() : undefined),
       state: appliedAdvanced.state !== "all" ? appliedAdvanced.state : undefined,
       city: appliedAdvanced.city !== "all" ? appliedAdvanced.city : undefined,
-      source: appliedAdvanced.source !== "all" ? appliedAdvanced.source : undefined,
+      source: effectiveSource,
+      campaign: effectiveCampaign,
       stage: stageDraft !== "all" ? stageDraft : undefined,
+      sortOrder: sortOrder,
     }
   );
+
+  const dynamicSources = React.useMemo(() => {
+    const list = [
+      "Website",
+      "Instagram",
+      "LinkedIn",
+      "Facebook",
+      "X (Twitter)",
+      "WhatsApp",
+      "YouTube",
+      "Google Ads",
+      "Direct",
+      "Referral",
+    ];
+    const set = new Set<string>(list);
+    (formsData?.data || []).forEach((f: any) => {
+      if (f.source && f.source !== "Other") set.add(f.source);
+    });
+    (leadsResponse?.data || []).forEach((l: any) => {
+      if (l.source && l.source !== "Other") set.add(l.source);
+    });
+    return Array.from(set);
+  }, [formsData, leadsResponse]);
+
+  const dynamicCampaigns = React.useMemo(() => {
+    const set = new Set<string>();
+    (formsData?.data || []).forEach((f: any) => {
+      const camp = f.campaignId || f.campaign || (f.fields as any[])?.find((field: any) => field?.id === "form_metadata" || field?.type === "metadata")?.campaign;
+      if (camp && typeof camp === "string" && camp.trim() !== "" && camp !== "Other") set.add(camp.trim());
+    });
+    (leadsResponse?.data || []).forEach((l: any) => {
+      const camp = l.utmCampaign || l.campaignId || (l.campaign as any)?.name;
+      if (camp && typeof camp === "string" && camp.trim() !== "" && camp !== "Other") set.add(camp.trim());
+    });
+    return Array.from(set);
+  }, [formsData, leadsResponse]);
 
   const { data: teamData } = useTeam(1, 100);
   const teamMembers = teamData?.data || [];
@@ -384,12 +460,16 @@ export default function LeadManagerPage() {
       state: item.state || "N/A",
       city: item.city || "N/A",
       source: item.source || "Direct",
-      medium: item.utmMedium || "N/A",
-      campaign: item.utmCampaign || "N/A",
+      medium: item.utmMedium && item.utmMedium !== "N/A" ? item.utmMedium : "",
+      campaign: item.utmCampaign && item.utmCampaign !== "N/A" ? item.utmCampaign : (item.campaign?.name || ""),
+      createdAt: item.createdAt || "",
       stage: (item.status === "disqualified" || item.rawPayload?.stage === "Lost" || item.rawPayload?.stage === "lost")
         ? "Lost"
-        : (item.rawPayload?.stage || (item.status === "verified" ? "Verified" : (item.isDuplicate ? "Duplicate" : "New"))),
+        : (item.isDuplicate || item.duplicateCount > 0 || item.rawPayload?.stage === "Duplicate" || item.rawPayload?.stage === "duplicate"
+          ? "Duplicate"
+          : (item.rawPayload?.stage || (item.status === "verified" ? "Verified" : "New"))),
       status: item.scoreBand
+
         ? item.scoreBand.charAt(0).toUpperCase() + item.scoreBand.slice(1)
         : "Warm",
       assignedToUser: item.assignedToUser ? {
@@ -402,6 +482,7 @@ export default function LeadManagerPage() {
       rawLead: item
     }));
   }, [leadsResponse]);
+
 
 
 
@@ -442,9 +523,13 @@ export default function LeadManagerPage() {
       city: advCity,
       state: advState,
       source: advSource,
+      campaign: advCampaign,
       assignedTo: advAssignedTo,
       status: advStatus,
     });
+    if (advSource !== "all") {
+      setSourceDraft(advSource);
+    }
     setAdvancedOpen(false);
     setCurrentPage(1);
   }
@@ -452,13 +537,16 @@ export default function LeadManagerPage() {
   function resetAdvancedFilters() {
     setAdvCity("");
     setAdvState("");
-    setAdvSource("");
+    setAdvSource("all");
+    setAdvCampaign("all");
     setAdvAssignedTo("");
     setAdvStatus("all");
+    setSourceDraft("all");
     setAppliedAdvanced({
       city: "",
       state: "",
-      source: "",
+      source: "all",
+      campaign: "all",
       assignedTo: "",
       status: "all",
     });
@@ -480,7 +568,8 @@ export default function LeadManagerPage() {
   const hasAdvancedFilters =
     appliedAdvanced.city !== "" ||
     appliedAdvanced.state !== "" ||
-    appliedAdvanced.source !== "" ||
+    appliedAdvanced.source !== "all" ||
+    appliedAdvanced.campaign !== "all" ||
     appliedAdvanced.assignedTo !== "" ||
     appliedAdvanced.status !== "all";
 
@@ -586,6 +675,31 @@ export default function LeadManagerPage() {
                 </Select>
               </div>
 
+              {/* Source Select Container */}
+              <div className="flex-1 min-w-0 sm:w-[140px]">
+                <Select
+                  value={sourceDraft}
+                  onValueChange={(val) => {
+                    setSourceDraft(val);
+                    setCurrentPage(1);
+                  }}
+                >
+                  <SelectTrigger className="w-full h-10" size="lg">
+                    <SelectValue placeholder="All Sources" />
+                  </SelectTrigger>
+
+                  <SelectContent>
+                    <SelectItem value="all">All Sources</SelectItem>
+                    {dynamicSources.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {s}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="Other">Other / Custom</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               {/* Advanced Filter Button */}
               <Button
                 variant="outline"
@@ -600,9 +714,47 @@ export default function LeadManagerPage() {
                   <span className="absolute -top-1 -right-1 size-2 rounded-full bg-primary" />
                 )}
               </Button>
+
+              {/* Sort Order Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="relative h-[39px] w-[39px] shrink-0"
+                    title={`Sorted by ${sortOrder === "DESC" ? "Newest First" : "Oldest First"}`}
+                  >
+                    <ArrowUpDown className="size-4" />
+                    <span className="sr-only">Sort Leads</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem
+                    className="flex items-center justify-between cursor-pointer font-medium text-xs py-2"
+                    onClick={() => {
+                      setSortOrder("DESC");
+                      setCurrentPage(1);
+                    }}
+                  >
+                    <span>Newest First (Recent)</span>
+                    {sortOrder === "DESC" && <Check className="size-4 text-primary" />}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="flex items-center justify-between cursor-pointer font-medium text-xs py-2"
+                    onClick={() => {
+                      setSortOrder("ASC");
+                      setCurrentPage(1);
+                    }}
+                  >
+                    <span>Oldest First</span>
+                    {sortOrder === "ASC" && <Check className="size-4 text-primary" />}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>
+
 
         <Dialog open={advancedOpen} onOpenChange={setAdvancedOpen}>
           <DialogContent className="sm:max-w-[580px] px-6 bg-white rounded-2xl gap-5 border border-slate-200 overflow-y-auto max-h-[90vh] text-left">
@@ -623,18 +775,65 @@ export default function LeadManagerPage() {
                 </Label>
                 <Select
                   value={advSource || "all"}
-                  onValueChange={(val) => setAdvSource(val === "all" ? "" : val)}
+                  onValueChange={(val) => setAdvSource(val === "all" ? "all" : val)}
                 >
                   <SelectTrigger className="w-full border-[#D4D4D4] rounded-lg h-11 text-sm bg-white text-[#0F172A]">
                     <SelectValue placeholder="All Sources" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Sources</SelectItem>
-                    {SOURCES.map((s) => (
+                    {dynamicSources.map((s) => (
                       <SelectItem key={s} value={s}>{s}</SelectItem>
                     ))}
+                    <SelectItem value="Other">Other / Custom</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              {/* Campaign */}
+              <div className="flex flex-col gap-2">
+                <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                  Campaign
+                </Label>
+                {dynamicCampaigns.length > 0 ? (
+                  <div className="flex flex-col gap-1.5">
+                    <Select
+                      value={dynamicCampaigns.includes(advCampaign) ? advCampaign : (advCampaign === "all" || !advCampaign ? "all" : "custom")}
+                      onValueChange={(val) => {
+                        if (val === "all") setAdvCampaign("all");
+                        else if (val === "custom") setAdvCampaign("");
+                        else setAdvCampaign(val);
+                      }}
+                    >
+                      <SelectTrigger className="w-full border-[#D4D4D4] rounded-lg h-11 text-sm bg-white text-[#0F172A]">
+                        <SelectValue placeholder="All Campaigns" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Campaigns</SelectItem>
+                        {dynamicCampaigns.map((c) => (
+                          <SelectItem key={c} value={c}>{c}</SelectItem>
+                        ))}
+                        <SelectItem value="custom">Custom Campaign / Year</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {(!dynamicCampaigns.includes(advCampaign) && advCampaign !== "all") && (
+                      <Input
+                        placeholder="Type campaign name (e.g. Fall 2027)..."
+                        value={advCampaign}
+                        onChange={(e) => setAdvCampaign(e.target.value)}
+                        className="border-[#D4D4D4] rounded-lg h-10 text-sm bg-white text-[#0F172A]"
+                        autoFocus
+                      />
+                    )}
+                  </div>
+                ) : (
+                  <Input
+                    placeholder="Filter by campaign (e.g. Fall 2027)..."
+                    value={advCampaign === "all" ? "" : advCampaign}
+                    onChange={(e) => setAdvCampaign(e.target.value || "all")}
+                    className="border-[#D4D4D4] rounded-lg h-11 text-sm bg-white text-[#0F172A]"
+                  />
+                )}
               </div>
 
               {/* Lead Status */}
@@ -752,32 +951,35 @@ export default function LeadManagerPage() {
         </Dialog>
 
         {/* Desktop View Table */}
-        <div className="hidden lg:block overflow-hidden rounded-[12px] border border-border bg-card shadow-[0_1px_3px_0_rgba(0,0,0,0.05),0_1px_2px_-1px_rgba(0,0,0,0.05)]">
+        <div className="hidden lg:block overflow-x-auto rounded-[12px] border border-border bg-card shadow-[0_1px_3px_0_rgba(0,0,0,0.05),0_1px_2px_-1px_rgba(0,0,0,0.05)]">
           <Table>
             <TableHeader className="bg-zinc-100 dark:bg-muted/5 border-b border-border/80">
               <TableRow className="hover:bg-transparent border-b border-border/80">
-                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
+                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto whitespace-nowrap">
                   NAME
                 </TableHead>
-                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
+                <TableHead className="py-4 pl-4 pr-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto whitespace-nowrap">
                   CONTACT
                 </TableHead>
-                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
+                <TableHead className="py-4 pl-1 pr-4 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto whitespace-nowrap">
                   STATUS
                 </TableHead>
-                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
+                <TableHead className="py-4 px-4 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto whitespace-nowrap">
                   CITY
                 </TableHead>
-                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
+                <TableHead className="py-4 px-4 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto whitespace-nowrap">
                   STAGE
                 </TableHead>
-                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
+                <TableHead className="py-4 px-4 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto whitespace-nowrap">
                   ASSIGNED TO
                 </TableHead>
-                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
+                <TableHead className="py-4 px-5 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto whitespace-nowrap">
                   SOURCE
                 </TableHead>
-                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto text-right w-[85px]">
+                <TableHead className="py-4 px-5 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto whitespace-nowrap">
+                  DATE & TIME
+                </TableHead>
+                <TableHead className="py-4 px-4 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto text-right w-[85px] whitespace-nowrap">
                   ACTION
                 </TableHead>
               </TableRow>
@@ -785,7 +987,7 @@ export default function LeadManagerPage() {
             <TableBody>
               {filteredLeads.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="h-64 text-center">
+                  <TableCell colSpan={9} className="h-64 text-center">
                     <div className="flex flex-col items-center justify-center gap-3">
                       <div className="flex size-12 items-center justify-center rounded-full bg-muted/40">
                         <SearchX className="size-6 text-muted-foreground/80" />
@@ -808,53 +1010,70 @@ export default function LeadManagerPage() {
                     className="border-b border-border/80 hover:bg-muted/15 dark:hover:bg-muted/5 transition-colors"
                   >
                     <TableCell className="py-5 px-6 align-middle">
-                      <span className="font-semibold text-foreground text-sm tracking-tight">
+                      <Link
+                        href={`/organization/lead-manager/edit?id=${item.id}`}
+                        className="font-semibold text-foreground hover:underline text-sm tracking-tight inline-block whitespace-nowrap"
+                      >
                         {item.name}
-                      </span>
+                      </Link>
                     </TableCell>
-                    <TableCell className="py-5 px-6 align-middle text-sm text-foreground/80 font-normal">
-                      {item.mobile}
-                      <div className="text-xs text-muted-foreground font-normal">
-                          {item.email}
-                        </div>
+                    <TableCell className="py-5 pl-4 pr-1 align-middle text-sm text-foreground/80 font-normal">
+                      <div className="font-medium whitespace-nowrap">{item.mobile}</div>
+                      <div className="text-xs text-muted-foreground font-normal truncate max-w-[160px]" title={item.email}>
+                        {item.email}
+                      </div>
                     </TableCell>
-                    <TableCell className="py-5 px-6 align-middle">
+                    <TableCell className="py-5 pl-1 pr-4 align-middle">
                       <span className={statusStyles[item.status] ?? ""}>
                         {item.status}
                       </span>
                     </TableCell>
-                    <TableCell className="py-5 px-6 align-middle text-sm text-foreground/80 font-normal">
+                    <TableCell className="py-5 px-4 align-middle text-sm text-foreground/80 font-normal whitespace-nowrap">
                       {item.city}
                     </TableCell>
-                    <TableCell className="py-5 px-6 align-middle">
+                    <TableCell className="py-5 px-4 align-middle">
                       <span className={stageStyles[item.stage] ?? ""}>
                         {item.stage}
                       </span>
                     </TableCell>
-                    <TableCell className="py-5 px-6 align-middle">
+                    <TableCell className="py-5 px-4 align-middle">
                       {item.assignedToUser ? (
-                        <div className="flex flex-col items-start gap-1">
-                          <span className="font-semibold text-foreground text-sm tracking-tight block">
+                        <div className="flex flex-col items-start gap-0.5">
+                          <span className="font-semibold text-foreground text-sm tracking-tight block whitespace-nowrap">
                             {item.assignedToUser.name}
                           </span>
                         </div>
                       ) : (
-                        <span className="text-muted-foreground italic text-xs font-normal">
+                        <span className="text-muted-foreground italic text-xs font-normal whitespace-nowrap">
                           {item.assignedTo && item.assignedTo !== "Unassigned" ? `ID: ${item.assignedTo}` : "Unassigned"}
                         </span>
                       )}
                     </TableCell>
-                    <TableCell className="py-5 px-6 align-middle">
+                    <TableCell className="py-5 px-5 align-middle">
                       <div className="flex flex-col gap-0.5">
-                        <div className="font-medium text-foreground text-sm tracking-tight">
-                          {item.source}
+                        <div className="inline-flex items-center gap-1.5 font-medium text-foreground text-sm tracking-tight whitespace-nowrap">
+                          <SourceIcon source={item.source} className="size-3.5 shrink-0" />
+                          <span>{item.source}</span>
                         </div>
-                        <div className="text-xs text-muted-foreground font-normal">
-                          {item.medium} · {item.campaign}
+                        {Boolean(item.medium || item.campaign) && (
+                          <div className="text-xs text-muted-foreground font-normal whitespace-nowrap">
+                            {[item.medium, item.campaign].filter(Boolean).join(" · ")}
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="py-5 px-5 align-middle">
+                      <div className="flex flex-col gap-0.5">
+                        <div className="flex items-center gap-1.5 font-medium text-foreground text-sm tracking-tight whitespace-nowrap">
+                          <Calendar className="size-3.5 text-muted-foreground shrink-0" />
+                          <span>{formatLeadDate(item.createdAt)}</span>
+                        </div>
+                        <div className="text-xs text-muted-foreground font-normal whitespace-nowrap pl-5">
+                          {formatLeadTime(item.createdAt)}
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="py-5 px-6 align-middle text-right">
+                    <TableCell className="py-5 px-4 align-middle text-right">
                       <div className="flex justify-end">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -906,6 +1125,8 @@ export default function LeadManagerPage() {
               )}
             </TableBody>
           </Table>
+
+
 
           {/* Desktop Pagination Footer */}
           <div className="flex flex-col sm:flex-row items-center justify-between border-t border-border/80 bg-zinc-100 dark:bg-muted/5 py-4 px-6 gap-4">
@@ -1014,9 +1235,12 @@ export default function LeadManagerPage() {
                       </div>
 
                       <div className="min-w-0">
-                        <span className="font-semibold text-foreground text-sm tracking-tight truncate block">
+                        <Link
+                          href={`/organization/lead-manager/edit?id=${item.id}`}
+                          className="font-semibold text-foreground hover:underline text-sm tracking-tight truncate block"
+                        >
                           {item.name}
-                        </span>
+                        </Link>
                         <span className="text-xs text-muted-foreground truncate block mt-0.5">
                           {item.email}
                         </span>
@@ -1134,12 +1358,30 @@ export default function LeadManagerPage() {
                       <span className="font-medium text-muted-foreground/80 block">
                         Source:
                       </span>
-                      <span className="text-foreground/95 font-medium truncate">
-                        {item.source} · {item.medium}
+                      <div className="inline-flex items-center gap-1.5 text-foreground/95 font-medium truncate">
+                        <SourceIcon source={item.source} className="size-3.5 shrink-0" />
+                        <span>{item.source}</span>
+                        {Boolean(item.medium || item.campaign) && (
+                          <span className="text-muted-foreground text-xs font-normal">
+                            · {[item.medium, item.campaign].filter(Boolean).join(" · ")}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1 col-span-2 border-t border-border/40 pt-2.5">
+                      <span className="font-medium text-muted-foreground/80 block">
+                        Date & Time:
                       </span>
+                      <div className="flex items-center gap-1.5 text-foreground/95 font-medium text-xs">
+                        <Calendar className="size-3 text-muted-foreground shrink-0" />
+                        <span>{formatLeadDate(item.createdAt)} {formatLeadTime(item.createdAt) ? `· ${formatLeadTime(item.createdAt)}` : ""}</span>
+                      </div>
+
                     </div>
                   </div>
                 </div>
+
               );
             })}
           </div>

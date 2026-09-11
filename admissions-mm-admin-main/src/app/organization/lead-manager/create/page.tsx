@@ -25,29 +25,19 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 
 const SOURCES = [
-  "Google Ads",
-  "Facebook",
+  "Website",
   "Instagram",
   "LinkedIn",
-  "Website",
+  "Facebook",
+  "X (Twitter)",
+  "WhatsApp",
+  "YouTube",
+  "Google Ads",
+  "Direct",
   "Referral",
   "Other",
 ] as const;
-const MEDIUMS = [
-  "CPC",
-  "Social",
-  "Organic",
-  "Word of Mouth",
-  "Email",
-  "Other",
-] as const;
-const CAMPAIGNS = [
-  "Spring 2025",
-  "Summer 2025",
-  "Fall 2025",
-  "Winter 2025",
-  "Spring 2026",
-] as const;
+
 
 const STAGES = [
   "New",
@@ -72,7 +62,6 @@ export default function AddLeadPage() {
     city: "",
     state: "",
     source: "",
-    medium: "",
     campaign: "",
     stage: "New",
     status: "Warm",
@@ -106,7 +95,6 @@ export default function AddLeadPage() {
       state: form.state || undefined,
       source: form.source || undefined,
       utmSource: form.source || undefined,
-      utmMedium: form.medium || undefined,
       utmCampaign: form.campaign || undefined,
       status: "unverified",
       scoreBand: form.status ? form.status.toLowerCase() : undefined,
@@ -281,7 +269,8 @@ export default function AddLeadPage() {
                     Where did this lead come from?
                   </p>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  {/* Source */}
                   <div className="flex flex-col gap-2">
                     <Label
                       htmlFor="source"
@@ -290,8 +279,20 @@ export default function AddLeadPage() {
                       Source
                     </Label>
                     <Select
-                      value={form.source}
-                      onValueChange={(v) => set("source", v)}
+                      value={
+                        (SOURCES as readonly string[]).includes(form.source) && form.source !== "Other"
+                          ? form.source
+                          : form.source
+                          ? "Other"
+                          : ""
+                      }
+                      onValueChange={(v) => {
+                        if (v === "Other") {
+                          set("source", "Other");
+                        } else {
+                          set("source", v);
+                        }
+                      }}
                     >
                       <SelectTrigger
                         id="source"
@@ -305,35 +306,25 @@ export default function AddLeadPage() {
                             {s}
                           </SelectItem>
                         ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <Label
-                      htmlFor="medium"
-                      className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground"
-                    >
-                      Medium
-                    </Label>
-                    <Select
-                      value={form.medium}
-                      onValueChange={(v) => set("medium", v)}
-                    >
-                      <SelectTrigger
-                        id="medium"
-                        className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full data-[placeholder]:text-foreground"
-                      >
-                        <SelectValue placeholder="Select Medium" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {MEDIUMS.map((m) => (
-                          <SelectItem key={m} value={m}>
-                            {m}
+                        {form.source && !(SOURCES as readonly string[]).includes(form.source) && (
+                          <SelectItem value={form.source}>
+                            {form.source} (Custom)
                           </SelectItem>
-                        ))}
+                        )}
                       </SelectContent>
                     </Select>
+                    {(form.source === "Other" || (!((SOURCES as readonly string[]).includes(form.source)) && form.source !== "")) && (
+                      <Input
+                        placeholder="Type custom source (e.g. Newspaper, Seminar)..."
+                        value={form.source === "Other" ? "" : form.source}
+                        onChange={(e) => set("source", e.target.value)}
+                        className="h-[38px] rounded-[8px] text-[12px] mt-1"
+                        autoFocus={form.source === "Other"}
+                      />
+                    )}
                   </div>
+
+                  {/* Campaign */}
                   <div className="flex flex-col gap-2">
                     <Label
                       htmlFor="campaign"
@@ -341,24 +332,13 @@ export default function AddLeadPage() {
                     >
                       Campaign
                     </Label>
-                    <Select
+                    <Input
+                      id="campaign"
+                      placeholder="e.g. Fall 2027, Spring 2027, Direct Walk-in..."
                       value={form.campaign}
-                      onValueChange={(v) => set("campaign", v)}
-                    >
-                      <SelectTrigger
-                        id="campaign"
-                        className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full data-[placeholder]:text-foreground"
-                      >
-                        <SelectValue placeholder="Select Campaign" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {CAMPAIGNS.map((c) => (
-                          <SelectItem key={c} value={c}>
-                            {c}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      onChange={(e) => set("campaign", e.target.value)}
+                      className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full"
+                    />
                   </div>
                 </div>
               </section>

@@ -41,6 +41,9 @@ export class Form {
   @Column({ name: 'campaign_id', nullable: true, type: 'uuid' })
   campaignId: string;
 
+  @Column({ length: 100, nullable: true, default: 'Direct' })
+  source: string;
+
   @Column({ type: 'jsonb', default: '[]' })
   fields: any[];
 

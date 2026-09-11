@@ -37,4 +37,17 @@ export class LeadQueryDto extends PaginationDto {
   @IsOptional()
   @IsString()
   stage?: string;
+
+  @IsOptional()
+  @IsString()
+  campaign?: string;
+
+  @IsOptional()
+  @IsString()
+  sortOrder?: 'ASC' | 'DESC' | 'asc' | 'desc';
+
+  @IsOptional()
+  @IsString()
+  sortBy?: string;
 }
+

@@ -105,11 +105,11 @@ export const organizationNavItems: NavGroup[] = [
         url: "/organization/forms",
         icon: FormsIcon,
       },
-      {
-        title: "Email Templates",
-        url: "/organization/email-templates",
-        icon: Mail,
-      },
+      // {
+      //   title: "Email Templates",
+      //   url: "/organization/email-templates",
+      //   icon: Mail,
+      // },
       {
         title: "Settings",
         url: "/organization/settings",

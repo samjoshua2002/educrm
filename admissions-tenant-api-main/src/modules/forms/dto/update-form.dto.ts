@@ -17,4 +17,12 @@ export class UpdateFormDto {
   @IsEnum(FormStatus)
   @IsOptional()
   status?: FormStatus;
+
+  @IsString()
+  @IsOptional()
+  source?: string;
+
+  @IsString()
+  @IsOptional()
+  campaignId?: string;
 }

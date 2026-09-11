@@ -32,7 +32,6 @@ import {
 import {
   useFormTemplates,
   useCreateForm,
-  useUpdateForm,
   useDeleteTemplate,
 } from "@/hooks/use-forms";
 import { FormField, Template } from "@/types/form";
@@ -121,7 +120,6 @@ export default function OrganizationCreateFormPage() {
   const { data: templatesResponse, isLoading: isLoadingTemplates } =
     useFormTemplates();
   const { mutateAsync: createForm, isPending: isCreating } = useCreateForm();
-  const { mutateAsync: updateForm, isPending: isUpdating } = useUpdateForm();
   const { mutate: deleteTemplate, isPending: isDeletingTemplate } = useDeleteTemplate();
 
   const templates = templatesResponse?.data || [];
@@ -136,39 +134,28 @@ export default function OrganizationCreateFormPage() {
       const template = templates.find((t) => t.id === templateId);
       const name = template ? `${template.name}` : "Untitled Form";
 
-      // 1. Create the basic form
+      let fields: FormField[] = [];
+      if (template && template.fields.length > 0) {
+        fields = template.fields;
+      }
+
+      // 1. Create form with fields in one single call
       const newForm = await createForm({
         name,
         slug:
           name.toLowerCase().trim().replace(/\s+/g, "-") +
           "-" +
           Math.floor(Math.random() * 1000),
+        fields,
       });
 
-      // 2. Initialize with the template's fields as-is; system fields are opt-in
-      // via the builder's "System Fields" panel, not auto-injected.
-      let fields: FormField[] = [];
-      if (template && template.fields.length > 0) {
-        fields = template.fields;
-      }
-
-      await updateForm({
-        id: newForm.id,
-        data: { fields },
-      });
-
-      if (template) {
-        router.push(`/organization/forms/${newForm.id}/edit?template=true`);
-      } else {
-        toast.success("Form created successfully");
-        router.push(`/organization/forms/${newForm.id}/edit`);
-      }
-    } catch (err) {
-      // Error handled by mutation toast
+      router.push(`/organization/forms/${newForm.id}/edit`);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || err?.message || "Failed to create form");
     }
   };
 
-  const isProcessing = isCreating || isUpdating;
+  const isProcessing = isCreating;
 
   function handleDeleteTemplate() {
     if (deleteTemplateId) {

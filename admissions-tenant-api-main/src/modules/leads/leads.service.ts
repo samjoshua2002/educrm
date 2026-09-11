@@ -113,18 +113,40 @@ export class LeadsService {
     }
 
     if (queryDto.source) {
-      query.andWhere('lead.source = :source', { source: queryDto.source });
+      if (queryDto.source.toLowerCase() === 'other') {
+        const standardList = ['website', 'instagram', 'linkedin', 'facebook', 'x (twitter)', 'twitter', 'whatsapp', 'youtube', 'google ads', 'direct', 'referral'];
+        query.andWhere(
+          '(lead.source ILIKE :other OR LOWER(lead.source) NOT IN (:...standardList) OR lead.source IS NULL)',
+          { other: '%other%', standardList }
+        );
+      } else {
+        query.andWhere(
+          '(lead.source ILIKE :source OR lead.utm_source ILIKE :source)',
+          { source: `%${queryDto.source}%` }
+        );
+      }
+    }
+
+    if (queryDto.campaign) {
+      query.andWhere(
+        '(lead.utm_campaign ILIKE :campaign OR lead.campaign_id::text ILIKE :campaign)',
+        { campaign: `%${queryDto.campaign}%` }
+      );
     }
 
     if (queryDto.stage) {
       query.andWhere("lead.raw_payload->>'stage' = :stage", { stage: queryDto.stage });
     }
 
+    const sortDirection =
+      (queryDto.sortOrder || 'DESC').toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+
     const [data, total] = await query
       .skip(queryDto.skip)
       .take(queryDto.limit)
-      .orderBy('lead.createdAt', 'DESC')
+      .orderBy('lead.createdAt', sortDirection)
       .getManyAndCount();
+
 
     const totalPages = Math.ceil(total / queryDto.limit);
     return { data, total, totalPages, page: queryDto.page, limit: queryDto.limit };

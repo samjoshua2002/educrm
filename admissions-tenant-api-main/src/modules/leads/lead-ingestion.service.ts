@@ -97,13 +97,18 @@ export class LeadIngestionService {
 
     // Wrap in transaction for integrity
     await this.dataSource.transaction(async (manager) => {
+      const leadSource =
+        form.source && form.source.toLowerCase() !== 'direct'
+          ? form.source
+          : (dto.source || form.source || 'Direct');
+
       // 8. Store Raw Submission
       const submission = manager.create(FormSubmission, {
         formId: form.id,
         organizationId: form.organizationId,
         data: dto.data,
         utmData: dto.utmData || {},
-        source: dto.source || 'public_form',
+        source: leadSource,
         ipAddress: meta.ip,
         userAgent: meta.userAgent,
       });
@@ -141,6 +146,7 @@ export class LeadIngestionService {
       if (existingLead) {
         existingLead.duplicateCount += 1;
         existingLead.isDuplicate = true;
+        existingLead.source = leadSource;
         existingLead.rawPayload = dto.data;
         if (branchId) existingLead.branchId = branchId;
         if (courseId) existingLead.courseId = courseId;
@@ -151,23 +157,26 @@ export class LeadIngestionService {
         if (lastName) existingLead.lastName = lastName;
         await manager.save(existingLead);
       } else {
+        const metaField = (form.fields || []).find((f: any) => f && (f.id === 'form_metadata' || f.type === 'metadata'));
+        const formCampaign = form.campaignId || (form as any).campaign || metaField?.campaign;
+
         const lead = manager.create(Lead, {
           organizationId: form.organizationId,
-          branchId: branchId,
-          courseId: courseId,
+          branchId,
+          courseId,
           city: city,
           state: state,
           country: country,
           formId: form.id,
-          campaignId: form.campaignId,
+          campaignId: form.campaignId || undefined,
           firstName,
           lastName,
           email,
           phone,
-          source: dto.source || 'public_form',
+          source: leadSource,
           utmSource: dto.utmData?.utm_source,
           utmMedium: dto.utmData?.utm_medium,
-          utmCampaign: dto.utmData?.utm_campaign || form.campaignId,
+          utmCampaign: dto.utmData?.utm_campaign || formCampaign,
           rawPayload: dto.data,
           isDuplicate: false,
           duplicateCount: 0,
@@ -296,12 +305,16 @@ export class LeadIngestionService {
   }
 
   private async logSubmission(form: Form, dto: SubmitPublicFormDto, meta: any) {
+    const leadSource =
+      form.source && form.source.toLowerCase() !== 'direct'
+        ? form.source
+        : (dto.source || form.source || 'Direct');
     const submission = this.submissionRepository.create({
       formId: form.id,
       organizationId: form.organizationId,
       data: dto.data,
       utmData: dto.utmData || {},
-      source: dto.source || 'public_form',
+      source: leadSource,
       ipAddress: meta.ip,
       userAgent: meta.userAgent,
     });

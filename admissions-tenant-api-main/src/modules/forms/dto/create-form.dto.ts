@@ -1,4 +1,5 @@
-import { IsString, IsNotEmpty, IsOptional, IsUUID } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsUUID, IsArray, IsEnum } from 'class-validator';
+import { FormStatus } from '../entities/form.entity.js';
 
 export class CreateFormDto {
   @IsString()
@@ -9,7 +10,20 @@ export class CreateFormDto {
   @IsNotEmpty()
   slug: string;
 
-  @IsUUID()
+  @IsString()
   @IsOptional()
   campaignId?: string;
+
+  @IsString()
+  @IsOptional()
+  source?: string;
+
+  @IsArray()
+  @IsOptional()
+  fields?: any[];
+
+  @IsEnum(FormStatus)
+  @IsOptional()
+  status?: FormStatus;
 }
+

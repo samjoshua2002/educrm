@@ -37,6 +37,7 @@ import {
 import { ActiveFormIcon } from "@/components/icons/active-form-icon";
 import { TotalResponseIcon } from "@/components/icons/total-response-icon";
 import { ConversionRateIcon } from "@/components/icons/conversion-rate-icon";
+import { SourceIcon } from "@/components/icons/source-icon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -343,12 +344,15 @@ export default function OrganizationFormsPage() {
         </div>
 
         {/* Desktop View - Table */}
-        <div className="hidden lg:block border border-[#e5e5e5] rounded-[12px] bg-white overflow-hidden shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)]">
+        <div className="hidden md:block border border-[#e5e5e5] rounded-[12px] bg-white overflow-x-auto shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)]">
           <Table>
             <TableHeader className="bg-[#fafafa] border-b border-[#e2e8f0]">
               <TableRow className="hover:bg-transparent border-b border-[#e2e8f0]">
-                <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
+                <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto whitespace-nowrap">
                   FORM NAME
+                </TableHead>
+                <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto whitespace-nowrap">
+                  SOURCE
                 </TableHead>
                 <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
                   STATUS
@@ -367,7 +371,7 @@ export default function OrganizationFormsPage() {
             <TableBody>
               {(!mounted || isLoading) && allForms.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-48 text-center">
+                  <TableCell colSpan={6} className="h-48 text-center">
                     <div className="flex flex-col items-center justify-center text-muted-foreground">
                       <div className="size-8 animate-spin rounded-full border-4 border-primary border-t-transparent mb-4" />
                       <p>Loading forms...</p>
@@ -376,7 +380,7 @@ export default function OrganizationFormsPage() {
                 </TableRow>
               ) : filteredForms.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-64 text-center">
+                  <TableCell colSpan={6} className="h-64 text-center">
                     <div className="flex flex-col items-center justify-center gap-3">
                       <div className="flex size-12 items-center justify-center rounded-full bg-muted/40">
                         <SearchX className="size-6 text-muted-foreground/80" />
@@ -398,32 +402,46 @@ export default function OrganizationFormsPage() {
                     key={item.id}
                     className="border-b border-[#e2e8f0] hover:bg-muted/15 transition-colors"
                   >
-                    <TableCell className="py-[24px] px-[24px] align-middle">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-[#1e293b] text-[14px]">
-                          {item.name}
-                        </span>
+                    <TableCell className="py-[24px] px-[24px] align-middle group/name">
+                      <div className="flex items-center justify-between gap-3 min-w-[180px]">
+                        <div className="flex flex-col min-w-0 pr-2">
+                          <Link
+                            href={`/organization/forms/${item.id}/edit`}
+                            className="font-semibold text-[#1e293b] text-[14px] hover:underline transition-colors truncate"
+                          >
+                            {item.name.replace(/\s*\((Instagram|LinkedIn|Facebook|X|Twitter|WhatsApp|YouTube|Google Ads|Website|Direct|custom)\)$/i, '').trim() || item.name}
+                          </Link>
+                          <div className="text-[#64748b] text-[12px] mt-0.5 whitespace-nowrap">
+                            Last modified: {item.updatedAt ? new Date(item.updatedAt).toLocaleDateString("en-GB", {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                            }) : "No date"}
+                          </div>
+                        </div>
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="size-7 shrink-0 text-muted-foreground hover:text-[#2563EB]"
+                          className="size-7 shrink-0 text-slate-400 hover:text-[#2563EB] hover:bg-slate-100 rounded-md opacity-0 group-hover/name:opacity-100 transition-all cursor-pointer"
                           title="Copy form link"
-                          onClick={() => handleCopyLink(item)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCopyLink(item);
+                          }}
                         >
                           {copiedFormId === item.id ? (
                             <Check className="size-3.5 text-emerald-600" />
                           ) : (
-                            <Link2 className="size-3.5" />
+                            <Copy className="size-3.5" />
                           )}
                           <span className="sr-only">Copy form link</span>
                         </Button>
                       </div>
-                      <div className="text-[#64748b] text-[12px] mt-0.5">
-                        Last modifies: {item.updatedAt ? new Date(item.updatedAt).toLocaleDateString("en-GB", {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric",
-                        }) : "No date"}
+                    </TableCell>
+                    <TableCell className="py-[24px] px-[24px] align-middle">
+                      <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-slate-100/90 border border-slate-200 text-slate-700 text-[12px] font-medium whitespace-nowrap">
+                        <SourceIcon source={item.source || "Website"} className="size-3.5 shrink-0" />
+                        <span>{item.source || "Website"}</span>
                       </div>
                     </TableCell>
                     <TableCell className="py-[24px] px-[24px] align-middle">
@@ -441,7 +459,7 @@ export default function OrganizationFormsPage() {
                     </TableCell>
                     <TableCell className="py-[24px] px-[24px] align-middle">
                       <div className="text-[#475569] text-[14px]">
-                        {item.campaignId || "Campaign Name"}
+                        {(item as any).campaign || item.campaignId || ((item.fields as any[])?.find((f: any) => f?.id === "form_metadata" || f?.type === "metadata")?.campaign) || "—"}
                       </div>
                     </TableCell>
                     <TableCell className="py-[24px] px-[24px] align-middle text-right">
@@ -581,12 +599,12 @@ export default function OrganizationFormsPage() {
 
         {/* Mobile View - Ultra-Compact List Layout */}
         {(!mounted || isLoading) && allForms.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-3 py-16 border border-border/80 bg-card rounded-xl lg:hidden text-center px-4 w-full">
+          <div className="flex flex-col items-center justify-center gap-3 py-16 border border-border/80 bg-card rounded-xl md:hidden text-center px-4 w-full">
             <div className="size-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
             <p className="text-sm text-muted-foreground">Loading forms...</p>
           </div>
         ) : filteredForms.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-3 py-16 border border-border/80 bg-card rounded-xl lg:hidden text-center px-4 w-full">
+          <div className="flex flex-col items-center justify-center gap-3 py-16 border border-border/80 bg-card rounded-xl md:hidden text-center px-4 w-full">
             <div className="flex size-12 items-center justify-center rounded-full bg-muted/40">
               <SearchX className="size-6 text-muted-foreground/80" />
             </div>
@@ -600,7 +618,7 @@ export default function OrganizationFormsPage() {
             </div>
           </div>
         ) : (
-          <div className="flex flex-col gap-3.5 lg:hidden w-full">
+          <div className="flex flex-col gap-3.5 md:hidden w-full">
             {mobileForms.map((item: Form) => {
               return (
                 <div
@@ -615,7 +633,9 @@ export default function OrganizationFormsPage() {
                       </div>
                       <div className="min-w-0">
                         <span className="font-semibold text-foreground text-sm tracking-tight flex items-center gap-1.5">
-                          <span className="truncate">{item.name}</span>
+                          <span className="truncate">
+                            {item.name.replace(/\s*\((Instagram|LinkedIn|Facebook|X|Twitter|WhatsApp|YouTube|Google Ads|Website|Direct|custom)\)$/i, '').trim() || item.name}
+                          </span>
                           <button
                             type="button"
                             className="shrink-0 text-muted-foreground hover:text-[#2563EB]"
@@ -705,6 +725,16 @@ export default function OrganizationFormsPage() {
                   <div className="grid grid-cols-2 gap-x-4 gap-y-3.5 text-xs border-t border-border/40 pt-3 text-muted-foreground">
                     <div className="flex flex-col gap-1">
                       <span className="font-medium text-muted-foreground/80 block flex items-center gap-1">
+                         Source:
+                      </span>
+                      <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-slate-700 text-[11px] font-medium w-fit">
+                        <SourceIcon source={item.source || "Website"} className="size-3 shrink-0" />
+                        <span>{item.source || "Website"}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <span className="font-medium text-muted-foreground/80 block flex items-center gap-1">
                          Status:
                       </span>
                       <span className="text-foreground/95 font-medium">
@@ -726,12 +756,12 @@ export default function OrganizationFormsPage() {
                       </div>
                     </div>
                     
-                    <div className="flex flex-col gap-1 col-span-2">
+                    <div className="flex flex-col gap-1">
                       <span className="font-medium text-muted-foreground/80 block flex items-center gap-1">
                          Campaign:
                       </span>
                       <span className="text-foreground/95 font-medium truncate">
-                        {item.campaignId || "Campaign Name"}
+                        {(item as any).campaign || item.campaignId || ((item.fields as any[])?.find((f: any) => f?.id === "form_metadata" || f?.type === "metadata")?.campaign) || "—"}
                       </span>
                     </div>
                   </div>
@@ -743,7 +773,7 @@ export default function OrganizationFormsPage() {
 
         {/* Mobile & Tablet Load More Footer */}
         {mobileVisibleCount < filteredForms.length ? (
-          <div className="flex lg:hidden flex-col items-center justify-center gap-3 mt-2">
+          <div className="flex md:hidden flex-col items-center justify-center gap-3 mt-2">
             <Button
               variant="outline"
               className="w-full bg-background hover:bg-muted/50 border-border/80 text-foreground font-medium h-10 shadow-sm"
@@ -765,7 +795,7 @@ export default function OrganizationFormsPage() {
           </div>
         ) : (
           filteredForms.length > 0 && (
-            <div className="flex lg:hidden flex-col items-center justify-center gap-3 mt-2">
+            <div className="flex md:hidden flex-col items-center justify-center gap-3 mt-2">
               <p className="text-xs text-muted-foreground font-normal">
                 Showing all{" "}
                 <span className="font-medium text-foreground">

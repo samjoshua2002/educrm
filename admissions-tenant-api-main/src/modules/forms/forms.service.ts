@@ -12,6 +12,26 @@ import { UpdateResponseStatusDto } from './dto/update-response-status.dto.js';
 import { PaginationDto } from '../../common/dto/pagination.dto.js';
 import { mergeDefaultFormFields } from './form-default-fields.js';
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function applyCampaign(form: Form, campaignId?: string) {
+  if (campaignId !== undefined) {
+    if (campaignId && UUID_REGEX.test(campaignId)) {
+      form.campaignId = campaignId;
+    } else {
+      form.campaignId = null as any;
+    }
+    const fields = form.fields || [];
+    const meta = fields.find((f: any) => f && (f.id === 'form_metadata' || f.type === 'metadata'));
+    if (meta) {
+      meta.campaign = campaignId || '';
+    } else if (campaignId) {
+      fields.push({ id: 'form_metadata', type: 'metadata', campaign: campaignId });
+    }
+    form.fields = fields;
+  }
+}
+
 @Injectable()
 export class FormsService {
   constructor(
@@ -26,14 +46,18 @@ export class FormsService {
   ) {}
 
   async create(orgId: string, dto: CreateFormDto, userId: string): Promise<Form> {
-    const slug = dto.name.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '') + '-' + Date.now().toString().slice(-4);
+    const slug = dto.slug || (dto.name.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '') + '-' + Date.now().toString().slice(-4));
+    const fields = dto.fields ? mergeDefaultFormFields(dto.fields) : mergeDefaultFormFields([]);
     const form = this.formRepository.create({
-      ...dto,
-      slug,
-      organizationId: orgId,
-      createdBy: userId,
-      fields: mergeDefaultFormFields([]),
+       name: dto.name,
+       slug,
+       source: dto.source || 'Direct',
+       organizationId: orgId,
+       createdBy: userId,
+       fields,
+       status: dto.status || FormStatus.DRAFT,
     });
+    applyCampaign(form, dto.campaignId);
     return this.formRepository.save(form);
   }
 
@@ -64,6 +88,11 @@ export class FormsService {
       const statsByFormId = new Map(stats.map((s) => [s.formId, s.totalSubmissions]));
       data.forEach((f) => {
         (f as any).responseCount = statsByFormId.get(f.id) ?? 0;
+        const meta = (f.fields || []).find((field: any) => field && (field.id === 'form_metadata' || field.type === 'metadata'));
+        if (meta?.campaign && !f.campaignId) {
+          (f as any).campaignId = meta.campaign;
+          (f as any).campaign = meta.campaign;
+        }
       });
     }
 
@@ -79,6 +108,11 @@ export class FormsService {
       throw new NotFoundException(`Form with ID ${id} not found`);
     }
     form.fields = mergeDefaultFormFields(form.fields);
+    const meta = (form.fields || []).find((field: any) => field && (field.id === 'form_metadata' || field.type === 'metadata'));
+    if (meta?.campaign && !form.campaignId) {
+      (form as any).campaignId = meta.campaign;
+      (form as any).campaign = meta.campaign;
+    }
     return form;
   }
 
@@ -91,6 +125,11 @@ export class FormsService {
       throw new NotFoundException(`Form with slug ${slug} not found or not active`);
     }
     form.fields = mergeDefaultFormFields(form.fields);
+    const meta = (form.fields || []).find((field: any) => field && (field.id === 'form_metadata' || field.type === 'metadata'));
+    if (meta?.campaign && !form.campaignId) {
+      (form as any).campaignId = meta.campaign;
+      (form as any).campaign = meta.campaign;
+    }
     return form;
   }
 
@@ -99,7 +138,9 @@ export class FormsService {
     if (dto.fields) {
       dto.fields = mergeDefaultFormFields(dto.fields);
     }
-    Object.assign(form, dto);
+    const { campaignId, ...restDto } = dto;
+    Object.assign(form, restDto);
+    applyCampaign(form, campaignId);
     return this.formRepository.save(form);
   }
 
@@ -115,6 +156,7 @@ export class FormsService {
     const duplicatedForm = this.formRepository.create({
       ...rest,
       name: `${originalForm.name} (Copy)`,
+      source: originalForm.source || 'Direct',
       status: FormStatus.DRAFT,
       createdBy: userId,
       fields: mergeDefaultFormFields(originalForm.fields),

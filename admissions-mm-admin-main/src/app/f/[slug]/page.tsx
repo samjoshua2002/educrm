@@ -23,7 +23,8 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, CheckCircle2, AlertCircle, ShieldCheck } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle, ShieldCheck, Upload, Paperclip, FileText, Trash2, ExternalLink, X } from "lucide-react";
+import { toast } from "sonner";
 
 function renderFormattedLabel(label: string) {
   if (!label) return "";
@@ -112,6 +113,63 @@ export default function PublicFormPage({
   // Form State
   const [formData, setFormData] = React.useState<Record<string, any>>({});
   const [errors, setErrors] = React.useState<Record<string, string>>({});
+  const [uploadingFiles, setUploadingFiles] = React.useState<Record<string, boolean>>({});
+
+  // File Upload Handler
+  const handleFileUpload = async (field: any, selectedFiles: File[]) => {
+    const limit = field.maxFiles || 1;
+    const maxMB = field.maxSize || 5;
+    const maxBytes = maxMB * 1024 * 1024;
+
+    const rawVal = formData[field.id];
+    const existingCount = Array.isArray(rawVal)
+      ? rawVal.length
+      : rawVal ? 1 : 0;
+
+    if (existingCount + selectedFiles.length > limit) {
+      toast.error(`You can upload a maximum of ${limit} file(s).`);
+      return;
+    }
+
+    for (const f of selectedFiles) {
+      if (f.size > maxBytes) {
+        toast.error(`"${f.name}" exceeds the maximum size limit of ${maxMB}MB.`);
+        return;
+      }
+    }
+
+    setUploadingFiles((prev) => ({ ...prev, [field.id]: true }));
+    try {
+      const uploadPromises = selectedFiles.map(async (file) => {
+        const uploadFormData = new FormData();
+        uploadFormData.append("file", file);
+        uploadFormData.append("category", "formUploads");
+        const res = await fetch("/api/upload", {
+          method: "POST",
+          body: uploadFormData,
+        });
+        const data = await res.json();
+        if (!data.url) {
+          throw new Error(data.error || `Failed to upload ${file.name}`);
+        }
+        return data.url as string;
+      });
+
+      const uploadedUrls = await Promise.all(uploadPromises);
+      if (limit === 1) {
+        handleInputChange(field.id, uploadedUrls[0] || "");
+      } else {
+        const existingUrls = Array.isArray(rawVal) ? rawVal : (rawVal ? [rawVal] : []);
+        handleInputChange(field.id, [...existingUrls, ...uploadedUrls]);
+      }
+      toast.success("File uploaded to cloud successfully");
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Failed to upload file to cloud");
+    } finally {
+      setUploadingFiles((prev) => ({ ...prev, [field.id]: false }));
+    }
+  };
 
   // Seed default values (e.g. Country defaulting to "India") once the form loads
   React.useEffect(() => {
@@ -143,10 +201,13 @@ export default function PublicFormPage({
       const val = searchParams.get(key);
       if (val) utm[key] = val;
     });
+    if (!utm["utm_campaign"] && ((form as any)?.campaignId || (form as any)?.campaign)) {
+      utm["utm_campaign"] = (form as any).campaignId || (form as any).campaign;
+    }
     return utm;
-  }, [searchParams]);
+  }, [searchParams, form]);
 
-  const source = searchParams.get("source") || "direct";
+  const source = searchParams.get("source") || form?.source || "Direct";
 
   const handleInputChange = (fieldId: string, value: any) => {
     setFormData((prev) => ({ ...prev, [fieldId]: value }));
@@ -205,7 +266,7 @@ export default function PublicFormPage({
       slug,
       data: formData,
       utmData,
-      source,
+      source: searchParams.get("source") || form?.source || "Direct",
     });
   };
 
@@ -432,46 +493,152 @@ export default function PublicFormPage({
                               ))}
                             </div>
                           ) : field.type === "file" ? (
-                            <div className="space-y-2">
-                              <div className="flex flex-col items-center justify-center border border-dashed border-slate-200 hover:border-indigo-400 transition-colors p-4 rounded-lg bg-slate-50/30 text-slate-500 gap-2 relative">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400">
-                                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                  <polyline points="17 8 12 3 7 8" />
-                                  <line x1="12" x2="12" y1="3" y2="15" />
-                                </svg>
-                                <input
-                                  id={field.id}
-                                  type="file"
-                                  multiple={(field.maxFiles || 1) > 1}
-                                  accept={(field.allowedTypes || ["pdf", "docx", "image"]).map((x) => x === "image" ? "image/*" : `.${x}`).join(",")}
-                                  onChange={(e) => {
-                                    const files = Array.from(e.target.files || []);
-                                    const maxMB = field.maxSize || 5;
-                                    const maxBytes = maxMB * 1024 * 1024;
-                                    const limit = field.maxFiles || 1;
-                                    
-                                    if (files.length > limit) {
-                                      alert(`You can upload a maximum of ${limit} files.`);
-                                      e.target.value = "";
-                                      return;
-                                    }
-                                    for (const f of files) {
-                                      if (f.size > maxBytes) {
-                                        alert(`File "${f.name}" exceeds the maximum size limit of ${maxMB}MB.`);
-                                        e.target.value = "";
-                                        return;
-                                      }
-                                    }
-                                    handleInputChange(field.id, files);
-                                  }}
-                                  className="text-xs file:mr-4 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-[10px] file:font-bold file:bg-indigo-50 file:text-indigo-600 hover:file:bg-indigo-100 cursor-pointer w-full text-center"
-                                />
-                              </div>
-                              <div className="flex items-center justify-between text-[9px] font-bold uppercase tracking-wider text-slate-400 select-none">
-                                <span>Max size: {field.maxSize || 5}MB</span>
-                                <span>Max files: {field.maxFiles || 1}</span>
-                                <span>Format: {(field.allowedTypes || ["pdf", "docx", "image"]).join(", ")}</span>
-                              </div>
+                            <div className="space-y-3 w-full max-w-full">
+                              {(() => {
+                                const rawVal = formData[field.id];
+                                const uploadedUrls: string[] = Array.isArray(rawVal)
+                                  ? rawVal.map((v: any) => (typeof v === "string" ? v : v?.url)).filter(Boolean)
+                                  : typeof rawVal === "string" && rawVal.trim() !== ""
+                                  ? [rawVal]
+                                  : rawVal?.url
+                                  ? [rawVal.url]
+                                  : [];
+                                const maxFilesLimit = field.maxFiles || 1;
+                                const isMaxReached = uploadedUrls.length >= maxFilesLimit;
+                                const isUploading = !!uploadingFiles[field.id];
+
+                                const extractName = (url: string) => {
+                                  try {
+                                    const pathname = new URL(url).pathname;
+                                    const last = pathname.split("/").pop() || "";
+                                    return decodeURIComponent(last.replace(/^\d+-[a-z0-9]+-/, "")) || "Uploaded File";
+                                  } catch {
+                                    return url.split("/").pop() || "Uploaded File";
+                                  }
+                                };
+
+                                return (
+                                  <div className="flex flex-col gap-2.5 w-full max-w-full">
+                                    {/* Uploaded File Cards */}
+                                    {uploadedUrls.map((url, idx) => (
+                                      <div
+                                        key={url + idx}
+                                        className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg shadow-xs gap-3 w-full max-w-full min-w-0"
+                                      >
+                                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                          <div className="w-8 h-8 rounded-md bg-indigo-50 flex items-center justify-center flex-shrink-0 text-indigo-600">
+                                            <FileText className="h-4 w-4" />
+                                          </div>
+                                          <div className="flex flex-col min-w-0 flex-1">
+                                            <span
+                                              className="text-xs font-semibold text-slate-800 truncate block"
+                                              title={extractName(url)}
+                                            >
+                                              {extractName(url)}
+                                            </span>
+                                            <span className="text-[10px] text-emerald-600 font-medium flex items-center gap-1">
+                                              <CheckCircle2 className="h-3 w-3 flex-shrink-0" /> Cloud Connected
+                                            </span>
+                                          </div>
+                                        </div>
+                                        <div className="flex items-center gap-1 flex-shrink-0">
+                                          <a
+                                            href={url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors inline-flex items-center justify-center"
+                                            title="View / Download"
+                                          >
+                                            <ExternalLink className="h-4 w-4" />
+                                          </a>
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              if (maxFilesLimit === 1) {
+                                                handleInputChange(field.id, "");
+                                              } else {
+                                                const next = uploadedUrls.filter((_, i) => i !== idx);
+                                                handleInputChange(field.id, next);
+                                              }
+                                            }}
+                                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors inline-flex items-center justify-center"
+                                            title="Remove File"
+                                          >
+                                            <Trash2 className="h-4 w-4" />
+                                          </button>
+                                        </div>
+                                      </div>
+                                    ))}
+
+                                    {/* Upload Trigger Dropzone */}
+                                    {!isMaxReached && (
+                                      <div className="w-full max-w-full">
+                                        <label
+                                          htmlFor={field.id}
+                                          className={`w-full flex flex-col items-center justify-center p-4 sm:p-5 rounded-lg border-2 border-dashed transition-all cursor-pointer text-center gap-2 ${
+                                            isUploading
+                                              ? "border-indigo-300 bg-indigo-50/40 cursor-not-allowed"
+                                              : errors[field.id]
+                                              ? "border-destructive/40 bg-destructive/5 hover:border-destructive"
+                                              : "border-slate-200 hover:border-indigo-400 bg-slate-50/50 hover:bg-indigo-50/20"
+                                          }`}
+                                        >
+                                          {isUploading ? (
+                                            <div className="flex flex-col items-center gap-2 py-2">
+                                              <Loader2 className="h-6 w-6 text-indigo-600 animate-spin" />
+                                              <span className="text-xs font-semibold text-indigo-600">
+                                                Uploading to cloud storage...
+                                              </span>
+                                              <span className="text-[10px] text-slate-400">
+                                                Please wait while your file is securely transferred
+                                              </span>
+                                            </div>
+                                          ) : (
+                                            <>
+                                              <div className="w-9 h-9 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600">
+                                                <Upload className="h-4 w-4" />
+                                              </div>
+                                              <div className="flex flex-col gap-0.5">
+                                                <span className="text-xs font-bold text-slate-700">
+                                                  {uploadedUrls.length > 0 ? "Upload additional file" : "Click to upload or drag and drop"}
+                                                </span>
+                                                <span className="text-[10px] text-slate-400 font-medium">
+                                                  Files are securely stored in cloud
+                                                </span>
+                                              </div>
+                                              <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-white border border-slate-200 shadow-2xs rounded-md text-[11px] font-semibold text-indigo-600 mt-1 hover:bg-slate-50">
+                                                <Paperclip className="h-3 w-3" /> Browse File
+                                              </div>
+                                            </>
+                                          )}
+                                        </label>
+                                        <input
+                                          id={field.id}
+                                          type="file"
+                                          disabled={isUploading}
+                                          multiple={maxFilesLimit > 1}
+                                          accept={(field.allowedTypes || ["pdf", "docx", "image"]).map((x) => x === "image" ? "image/*" : `.${x}`).join(",")}
+                                          onChange={(e) => {
+                                            const files = Array.from(e.target.files || []);
+                                            if (files.length > 0) {
+                                              handleFileUpload(field, files);
+                                            }
+                                            e.target.value = "";
+                                          }}
+                                          className="hidden"
+                                        />
+                                      </div>
+                                    )}
+
+                                    {/* Limits Info */}
+                                    <div className="flex flex-wrap items-center justify-between text-[9px] font-bold uppercase tracking-wider text-slate-400 select-none gap-1 pt-0.5 w-full">
+                                      <span>Max size: {field.maxSize || 5}MB</span>
+                                      <span>Max files: {maxFilesLimit}</span>
+                                      <span>Formats: {(field.allowedTypes || ["pdf", "docx", "image"]).join(", ")}</span>
+                                    </div>
+                                  </div>
+                                );
+                              })()}
                             </div>
                           ) : (
                             <Input
@@ -502,11 +669,15 @@ export default function PublicFormPage({
                 <Button
                   type="submit"
                   className="bg-[#120352] hover:bg-[#0c023d] text-white text-[11px] font-black uppercase tracking-widest px-8 h-12 rounded-[4px] shadow-md transition-all active:scale-[0.98]"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || Object.values(uploadingFiles).some(Boolean)}
                 >
                   {isSubmitting ? (
                     <span className="flex items-center gap-2">
                       <Loader2 className="h-4 w-4 animate-spin" /> Verifying Submission...
+                    </span>
+                  ) : Object.values(uploadingFiles).some(Boolean) ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" /> Uploading Files...
                     </span>
                   ) : (
                     "Submit Application"

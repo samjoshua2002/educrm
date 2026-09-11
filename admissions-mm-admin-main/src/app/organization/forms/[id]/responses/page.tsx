@@ -29,6 +29,23 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import { usePageHeaderStore } from "@/stores/page-header-store";
 
+function parseApiDate(dateStr?: string): Date | null {
+  if (!dateStr) return null;
+  try {
+    const cleanStr = typeof dateStr === "string" ? dateStr.replace(/Z$/, "") : dateStr;
+    const d = new Date(cleanStr);
+    return isNaN(d.getTime()) ? null : d;
+  } catch {
+    return null;
+  }
+}
+
+function formatResponseDate(dateStr?: string, formatPattern: string = "dd MMM yyyy, hh:mm a") {
+  const d = parseApiDate(dateStr);
+  if (!d) return "—";
+  return format(d, formatPattern);
+}
+
 export default function OrganizationResponsesPage({
   params,
 }: {
@@ -311,12 +328,7 @@ export default function OrganizationResponsesPage({
                       <TableCell className="py-[20px] px-[24px] align-middle">
                         <div className="flex items-center gap-1.5 text-muted-foreground text-[12px] font-medium">
                           <Calendar className="h-3.5 w-3.5" />
-                          {res.submittedAt
-                            ? format(
-                                new Date(res.submittedAt),
-                                "dd MMM yyyy, hh:mm a",
-                              )
-                            : "—"}
+                          {formatResponseDate(res.submittedAt, "dd MMM yyyy, hh:mm a")}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -458,9 +470,7 @@ export default function OrganizationResponsesPage({
                         Submitted:
                       </span>
                       <span className="text-foreground/95 font-medium truncate">
-                        {res.submittedAt
-                          ? format(new Date(res.submittedAt), "dd MMM, hh:mm a")
-                          : "—"}
+                        {formatResponseDate(res.submittedAt, "dd MMM, hh:mm a")}
                       </span>
                     </div>
                   </div>
