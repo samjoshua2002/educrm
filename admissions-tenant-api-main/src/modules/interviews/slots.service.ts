@@ -81,10 +81,10 @@ export class SlotsService {
       query.andWhere('slot.interviewer_id = :interviewerId', { interviewerId: filters.interviewerId });
     }
     if (filters?.interviewType) {
-      query.andWhere('slot.interview_type = :interviewType', { interviewType: filters.interviewType });
+      query.andWhere('LOWER(slot.interview_type) = LOWER(:interviewType)', { interviewType: filters.interviewType });
     }
     if (filters?.status) {
-      query.andWhere('slot.status = :status', { status: filters.status });
+      query.andWhere('LOWER(slot.status) = LOWER(:status)', { status: filters.status });
     }
     if (filters?.dateFrom) {
       query.andWhere('slot.slot_date >= :dateFrom', { dateFrom: filters.dateFrom });

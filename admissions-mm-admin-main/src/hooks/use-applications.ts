@@ -611,6 +611,7 @@ export function useUpdateApplication() {
         queryKey: ["application", variables.applicationNo],
       });
       queryClient.invalidateQueries({ queryKey: ["active-application"] });
+      queryClient.invalidateQueries({ queryKey: ["interviews"] });
       toast.success("Application details updated successfully");
     },
     onError: (err: any) => {

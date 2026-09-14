@@ -150,7 +150,7 @@ function ScheduleInterviewDialog({
   applicationName,
   mode,
   existingInterview,
-  preferredLocations,
+  preferredLocations = [],
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -175,35 +175,39 @@ function ScheduleInterviewDialog({
     }
   }, [open, existingInterview]);
 
-  const { data: slots, isLoading: slotsLoading } = useInterviewSlots({
+  const { data: rawSlots, isLoading: slotsLoading } = useInterviewSlots({
     interviewType,
     status: "Available",
   });
-  // Only the candidate's own preferred interview locations are offered
-  // (from their application's Preferences step) — never the full master.
-  const locationOptions = React.useMemo(
-    () => Array.from(new Set(preferredLocations.map((s) => s.trim()).filter(Boolean))),
+
+  const availableSlots = React.useMemo(() => {
+    return (rawSlots || []).filter((s) => (s.status || "").toLowerCase() === "available");
+  }, [rawSlots]);
+
+  // Collect candidate preferred locations
+  const preferredSet = React.useMemo(
+    () => new Set((preferredLocations || []).map((s) => s.trim().toLowerCase()).filter(Boolean)),
     [preferredLocations],
   );
-  const restrictToPreferred = locationOptions.length > 0;
 
-  // "Interview mode" (In-person / Virtual) and location both live on the
-  // slot, so they act as filters that narrow which available slots are
-  // offered — the picker never lists every location's slots at once.
-  const visibleSlots = React.useMemo(
-    () =>
-      (slots || []).filter((s) => {
-        if (modeFilter !== "all" && s.mode !== modeFilter) return false;
-        if (locationFilter !== "all") return (s.location || "") === locationFilter;
-        // "Any location": still confine virtual-exempt slots to the
-        // candidate's preferred locations when they have some.
-        if (restrictToPreferred && s.mode !== "Virtual") {
-          return locationOptions.includes(s.location || "");
-        }
-        return true;
-      }),
-    [slots, modeFilter, locationFilter, restrictToPreferred, locationOptions],
-  );
+  // Collect all available locations from real slots + preferred
+  const allLocationOptions = React.useMemo(() => {
+    const fromSlots = availableSlots.map((s) => s.location?.trim()).filter(Boolean) as string[];
+    const fromPreferred = (preferredLocations || []).map((s) => s.trim()).filter(Boolean);
+    return Array.from(new Set([...fromPreferred, ...fromSlots]));
+  }, [availableSlots, preferredLocations]);
+
+  // Filter visible slots by mode & chosen location (if specific location selected)
+  const visibleSlots = React.useMemo(() => {
+    return availableSlots.filter((s) => {
+      if (modeFilter !== "all" && s.mode !== modeFilter) return false;
+      if (locationFilter !== "all") {
+        return (s.location || "").trim().toLowerCase() === locationFilter.trim().toLowerCase();
+      }
+      return true;
+    });
+  }, [availableSlots, modeFilter, locationFilter]);
+
   const bookInterview = useBookInterview();
   const rescheduleInterview = useRescheduleInterview();
 
@@ -222,119 +226,160 @@ function ScheduleInterviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[520px] p-6 bg-white rounded-2xl gap-4">
-        <h3 className="text-lg font-bold text-[#0F172A]">
-          {mode === "schedule" ? "Schedule Interview" : "Reschedule Interview"} — {applicationName}
-        </h3>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div className="flex flex-col gap-2">
-            <Label>Interview Type</Label>
-            <Select
-              value={interviewType}
-              onValueChange={(v) => { setInterviewType(v as "GD" | "PI"); setSlotId(""); }}
-              disabled={mode === "reschedule"}
-            >
-              <SelectTrigger className="w-full h-11">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="GD">Group Discussion (GD)</SelectItem>
-                <SelectItem value="PI">Personal Interview (PI)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label>Interview Mode</Label>
-            <Select
-              value={modeFilter}
-              onValueChange={(v) => {
-                setModeFilter(v as "all" | "In-person" | "Virtual");
-                if (v === "Virtual") setLocationFilter("all");
-                setSlotId("");
-              }}
-            >
-              <SelectTrigger className="w-full h-11">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Any Mode</SelectItem>
-                <SelectItem value="In-person">In Person</SelectItem>
-                <SelectItem value="Virtual">Online</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        {modeFilter !== "Virtual" && (
-          <div className="flex flex-col gap-2">
-            <Label>Interview Location</Label>
-            <Select
-              value={locationFilter}
-              onValueChange={(v) => { setLocationFilter(v); setSlotId(""); }}
-            >
-              <SelectTrigger className="w-full h-11">
-                <SelectValue placeholder="Any location" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">
-                  {restrictToPreferred ? "Any preferred location" : "Any location"}
-                </SelectItem>
-                {locationOptions.map((name) => (
-                  <SelectItem key={name} value={name}>
-                    {name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              {restrictToPreferred
-                ? `Only ${applicationName.split(" ")[0]}'s preferred interview location(s) from their application are shown.`
-                : "This candidate did not select any interview location preference in their application."}
+      <DialogContent className="sm:max-w-[540px] p-6 bg-white rounded-2xl gap-5 border border-slate-200 shadow-xl">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+          <div>
+            <h3 className="text-lg font-bold text-[#0F172A]">
+              {mode === "schedule" ? "Schedule Interview" : "Reschedule Interview"}
+            </h3>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">
+              Candidate: <span className="text-slate-800 font-semibold">{applicationName}</span>
             </p>
           </div>
-        )}
-
-        <div className="flex flex-col gap-2">
-          <Label>Available Slot</Label>
-          <Select value={slotId} onValueChange={setSlotId}>
-            <SelectTrigger className="w-full h-11">
-              <SelectValue placeholder={slotsLoading ? "Loading slots..." : "Select an available slot"} />
-            </SelectTrigger>
-            <SelectContent>
-              {visibleSlots.length === 0 && (
-                <div className="px-3 py-2 text-sm text-muted-foreground">
-                  No available {interviewType}
-                  {modeFilter === "In-person" ? " (In Person)" : modeFilter === "Virtual" ? " (Online)" : ""} slots
-                </div>
-              )}
-              {visibleSlots.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {s.slotDate} · {new Date(s.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                  {" – "}
-                  {new Date(s.endTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                  {" · "}
-                  {s.mode === "Virtual" ? "Online" : "In Person"}
-                  {s.location ? ` · ${s.location}` : ""}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
         </div>
 
-        <p className="text-xs text-muted-foreground -mt-1">
-          The evaluator is the interviewer assigned to the selected slot.
-        </p>
+        <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-2">
+              <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                Interview Type *
+              </Label>
+              <Select
+                value={interviewType}
+                onValueChange={(v) => { setInterviewType(v as "GD" | "PI"); setSlotId(""); }}
+                disabled={mode === "reschedule"}
+              >
+                <SelectTrigger className="w-full h-11 border-[#D4D4D4] rounded-lg text-sm bg-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="GD">Group Discussion (GD)</SelectItem>
+                  <SelectItem value="PI">Personal Interview (PI)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                Interview Mode
+              </Label>
+              <Select
+                value={modeFilter}
+                onValueChange={(v) => {
+                  setModeFilter(v as "all" | "In-person" | "Virtual");
+                  if (v === "Virtual") setLocationFilter("all");
+                  setSlotId("");
+                }}
+              >
+                <SelectTrigger className="w-full h-11 border-[#D4D4D4] rounded-lg text-sm bg-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Any Mode (All)</SelectItem>
+                  <SelectItem value="In-person">In Person</SelectItem>
+                  <SelectItem value="Virtual">Online (Virtual)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
-        <div className="flex justify-end gap-3 mt-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          {modeFilter !== "Virtual" && (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                  Location Filter
+                </Label>
+                {preferredLocations.length > 0 && (
+                  <span className="text-[11px] text-blue-600 font-medium">
+                    Pref: {preferredLocations.join(", ")}
+                  </span>
+                )}
+              </div>
+              <Select
+                value={locationFilter}
+                onValueChange={(v) => { setLocationFilter(v); setSlotId(""); }}
+              >
+                <SelectTrigger className="w-full h-11 border-[#D4D4D4] rounded-lg text-sm bg-white">
+                  <SelectValue placeholder="All Locations" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Locations</SelectItem>
+                  {allLocationOptions.map((name) => {
+                    const isPref = preferredSet.has(name.toLowerCase());
+                    return (
+                      <SelectItem key={name} value={name}>
+                        {name} {isPref ? "(Candidate Preferred)" : ""}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          <div className="flex flex-col gap-2">
+            <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+              Available Slot *
+            </Label>
+            <Select value={slotId} onValueChange={setSlotId}>
+              <SelectTrigger className="w-full h-11 border-[#D4D4D4] rounded-lg text-sm bg-white">
+                <SelectValue placeholder={slotsLoading ? "Loading available slots..." : "Select an available slot"} />
+              </SelectTrigger>
+              <SelectContent className="max-h-60">
+                {visibleSlots.length === 0 && (
+                  <div className="px-3 py-3 text-xs text-muted-foreground text-center">
+                    No available {interviewType} slots found.
+                    <br />
+                    <Link
+                      href="/organization/interview-slots"
+                      className="text-blue-600 hover:underline font-semibold mt-1 inline-block"
+                      target="_blank"
+                    >
+                      + Create Slots in Interview Slots
+                    </Link>
+                  </div>
+                )}
+                {visibleSlots.map((s) => {
+                  const isPref = s.location && preferredSet.has(s.location.trim().toLowerCase());
+                  const interviewerName = s.interviewer?.name || s.interviewerId || "Assigned Faculty";
+                  return (
+                    <SelectItem key={s.id} value={s.id}>
+                      <span className="font-semibold">{s.slotDate}</span>
+                      {" · "}
+                      {new Date(s.startTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      {" – "}
+                      {new Date(s.endTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      {" · "}
+                      {s.mode === "Virtual" ? "Online" : s.location || "In-person"}
+                      {" · "}
+                      <span className="text-slate-500">{interviewerName}</span>
+                      {isPref ? " ★" : ""}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <p className="text-xs text-slate-500">
+            The evaluator is the interviewer assigned to the selected slot.
+          </p>
+        </div>
+
+        <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
+          <Button
+            type="button"
+            variant="outline"
+            className="h-11 px-6 rounded-[10px] text-sm font-semibold border-[#D4D4D4] text-[#1E293B] bg-white hover:bg-slate-50 cursor-pointer"
+            onClick={() => onOpenChange(false)}
+          >
             Cancel
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={!slotId || isPending}
+            className="h-11 px-8 rounded-[10px] text-sm font-semibold bg-[#2563EB] hover:bg-[#1D4ED8] text-white cursor-pointer border-0 shadow-sm"
           >
-            {mode === "schedule" ? "Schedule" : "Reschedule"}
+            {isPending ? "Scheduling..." : mode === "schedule" ? "Schedule Interview" : "Reschedule Interview"}
           </Button>
         </div>
       </DialogContent>
@@ -451,14 +496,97 @@ export default function GDInterviewPage() {
     [interviewsByApplicationId],
   );
 
-  // Interview location: the assigned slot's location once scheduled,
-  // otherwise the applicant's preference-1 branch from the application.
-  const getInterviewLocation = React.useCallback(
-    (item: { applicationId?: string; preference1?: string | null; interviewLocation: string }): string => {
+  // Interview location / preferences: the assigned slot's location once scheduled,
+  // otherwise both applicant interview location preferences (Pref 1 & Pref 2).
+  const renderLocationPreferences = React.useCallback(
+    (item: {
+      applicationId?: string;
+      preference1?: string | null;
+      interviewLocation: string;
+      interviewPreference1?: string | null;
+      interviewPreference2?: string | null;
+      preferredInterviewLocations?: string[];
+    }) => {
       const slotLocation = item.applicationId
         ? interviewsByApplicationId.get(item.applicationId)?.slot?.location
         : undefined;
-      return slotLocation || item.preference1 || item.interviewLocation || "—";
+
+      const pref1 =
+        item.interviewPreference1 ||
+        (item.preferredInterviewLocations && item.preferredInterviewLocations[0]) ||
+        item.interviewLocation ||
+        item.preference1;
+      const pref2 =
+        item.interviewPreference2 ||
+        (item.preferredInterviewLocations && item.preferredInterviewLocations[1]);
+
+      if (slotLocation) {
+        return (
+          <div className="flex flex-col gap-0.5">
+            <span className="font-semibold text-foreground text-sm tracking-tight whitespace-nowrap">
+              {slotLocation}
+            </span>
+            {pref1 && (
+              <span className="text-[11px] text-muted-foreground font-normal whitespace-nowrap">
+                Pref: {pref1}{pref2 && pref2 !== pref1 ? `, ${pref2}` : ""}
+              </span>
+            )}
+          </div>
+        );
+      }
+
+      if (pref1 && pref2 && pref1 !== pref2) {
+        return (
+          <div className="flex flex-col gap-0.5">
+            <div className="text-sm font-medium text-foreground tracking-tight whitespace-nowrap">
+              <span className="text-[10px] font-bold text-slate-400 uppercase mr-1.5">P1:</span>
+              {pref1}
+            </div>
+            <div className="text-xs text-muted-foreground font-normal whitespace-nowrap">
+              <span className="text-[10px] font-bold text-slate-400 uppercase mr-1.5">P2:</span>
+              {pref2}
+            </div>
+          </div>
+        );
+      }
+
+      if (pref1) {
+        return (
+          <span className="text-sm text-foreground/85 font-medium whitespace-nowrap">
+            {pref1}
+          </span>
+        );
+      }
+
+      return <span className="text-xs text-muted-foreground font-normal whitespace-nowrap">—</span>;
+    },
+    [interviewsByApplicationId],
+  );
+
+  const getInterviewLocation = React.useCallback(
+    (item: {
+      applicationId?: string;
+      preference1?: string | null;
+      interviewLocation: string;
+      interviewPreference1?: string | null;
+      interviewPreference2?: string | null;
+      preferredInterviewLocations?: string[];
+    }): string => {
+      const slotLocation = item.applicationId
+        ? interviewsByApplicationId.get(item.applicationId)?.slot?.location
+        : undefined;
+      const pref1 =
+        item.interviewPreference1 ||
+        (item.preferredInterviewLocations && item.preferredInterviewLocations[0]) ||
+        item.interviewLocation ||
+        item.preference1;
+      const pref2 =
+        item.interviewPreference2 ||
+        (item.preferredInterviewLocations && item.preferredInterviewLocations[1]);
+
+      if (slotLocation) return slotLocation;
+      if (pref1 && pref2 && pref1 !== pref2) return `${pref1}, ${pref2}`;
+      return pref1 || "—";
     },
     [interviewsByApplicationId],
   );
@@ -508,6 +636,22 @@ export default function GDInterviewPage() {
         ? (app.campus || "Main Campus")
         : "—";
 
+      const explicit = [app.interviewPreference1, app.interviewPreference2]
+        .map((v) => (v || "").trim())
+        .filter(Boolean);
+      const legacy = (app.interviewLocation || "")
+        .split(",")
+        .map((s: string) => s.trim())
+        .filter(Boolean);
+      const preferredInterviewLocations = explicit.length > 0 ? Array.from(new Set(explicit)) : Array.from(new Set(legacy));
+
+      const primaryInterviewLoc =
+        app.interviewPreference1 ||
+        preferredInterviewLocations[0] ||
+        app.campus ||
+        mockMatch?.interviewLocation ||
+        "";
+
       return {
         id: app.id || index + 1,
         applicationId: app.id || undefined,
@@ -515,28 +659,12 @@ export default function GDInterviewPage() {
         name: app.name,
         email: app.email,
         phone: app.phone,
-        interviewLocation: app.campus || mockMatch?.interviewLocation || "Kochi",
+        interviewLocation: primaryInterviewLoc,
         preference1: app.preference1 || null,
         preference2: app.preference2 || null,
         interviewPreference1: app.interviewPreference1 || null,
         interviewPreference2: app.interviewPreference2 || null,
-        // Preferred interview locations from the application's Preferences
-        // step: the dedicated fields, or the legacy combined
-        // "City A, City B" interviewLocation string for older applications.
-        preferredInterviewLocations: (() => {
-          const explicit = [app.interviewPreference1, app.interviewPreference2]
-            .map((v) => (v || "").trim())
-            .filter(Boolean);
-          if (explicit.length > 0) return Array.from(new Set(explicit));
-          return Array.from(
-            new Set(
-              (app.interviewLocation || "")
-                .split(",")
-                .map((s: string) => s.trim())
-                .filter(Boolean),
-            ),
-          );
-        })(),
+        preferredInterviewLocations,
         date: mockMatch?.date || "2026-02-07",
         time: mockMatch?.time || "14:30",
         course: app.program || mockMatch?.course || "PGDM 2026-28",
@@ -545,18 +673,7 @@ export default function GDInterviewPage() {
       };
     });
 
-    setInterviewsState((prev) => {
-      // Check if there are actual diffs to prevent unnecessary renders
-      const hasChanges = prev.length !== mapped.length || prev.some((item, idx) => (
-        item.applicationNo !== mapped[idx]?.applicationNo ||
-        item.name !== mapped[idx]?.name ||
-        item.email !== mapped[idx]?.email ||
-        item.phone !== mapped[idx]?.phone ||
-        item.selectionStatus !== mapped[idx]?.selectionStatus ||
-        item.confirmedCampus !== mapped[idx]?.confirmedCampus
-      ));
-      return hasChanges ? mapped : prev;
-    });
+    setInterviewsState(mapped);
   }, [appsList]);
 
   const activeAppNos = React.useMemo(() => {
@@ -675,7 +792,7 @@ export default function GDInterviewPage() {
         return false;
       if (
         appliedLocation !== "all" &&
-        item.interviewLocation !== appliedLocation
+        getInterviewLocation(item) !== appliedLocation
       )
         return false;
       if (
@@ -690,7 +807,7 @@ export default function GDInterviewPage() {
         return false;
       if (
         appliedAdvanced.location !== "all" &&
-        item.interviewLocation !== appliedAdvanced.location
+        getInterviewLocation(item) !== appliedAdvanced.location
       )
         return false;
       if (
@@ -825,10 +942,10 @@ export default function GDInterviewPage() {
                   }}
                 >
                   <SelectTrigger className="w-full h-10" size="lg">
-                    <SelectValue placeholder="All Locations" />
+                    <SelectValue placeholder="All Preferences" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Locations</SelectItem>
+                    <SelectItem value="all">All Preferences</SelectItem>
                     {uniqueLocations.map((loc) => (
                       <SelectItem key={loc} value={loc}>
                         {loc}
@@ -963,14 +1080,14 @@ export default function GDInterviewPage() {
 
                 <div className="flex flex-col gap-2">
                   <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
-                    Interview Location
+                    Location Preferences
                   </Label>
                   <Select value={advLocation} onValueChange={setAdvLocation}>
                     <SelectTrigger className="w-full border-[#D4D4D4] rounded-lg h-11 text-sm bg-white text-[#0F172A]">
-                      <SelectValue placeholder="All Locations" />
+                      <SelectValue placeholder="All Preferences" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Locations</SelectItem>
+                      <SelectItem value="all">All Preferences</SelectItem>
                       {uniqueLocations.map((loc) => (
                         <SelectItem key={loc} value={loc}>
                           {loc}
@@ -1052,156 +1169,157 @@ export default function GDInterviewPage() {
         </Dialog>
 
         {/* Desktop View Table */}
-        <div className="hidden lg:block overflow-hidden rounded-[12px] border border-border bg-card shadow-[0_1px_3px_0_rgba(0,0,0,0.05),0_1px_2px_-1px_rgba(0,0,0,0.05)]">
-          <Table>
-            <TableHeader className="bg-zinc-100 dark:bg-muted/5 border-b border-border/80">
-              <TableRow className="hover:bg-transparent border-b border-border/80">
-                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
-                  APPLICANT DETAIL
-                </TableHead>
-                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
-                  APPLICATION NO.
-                </TableHead>
-                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
-                  LOCATION
-                </TableHead>
-
-                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
-                  COURSE
-                </TableHead>
-                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
-                  INTERVIEW STATUS
-                </TableHead>
-                <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
-                  DATE & TIME
-                </TableHead>
-                <TableHead className="py-4 px-3 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto text-right w-[85px]">
-                  ACTION
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredInterviews.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="h-64 text-center">
-                    <div className="flex flex-col items-center justify-center gap-3">
-                      <div className="flex size-12 items-center justify-center rounded-full bg-muted/40">
-                        <SearchX className="size-6 text-muted-foreground/80" />
-                      </div>
-                      <div className="flex flex-col gap-0.5 text-center">
-                        <p className="text-sm font-semibold text-foreground">
-                          No results found
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Try adjusting your filters or search query.
-                        </p>
-                      </div>
-                    </div>
-                  </TableCell>
+        <div className="hidden lg:block w-full overflow-hidden rounded-[12px] border border-border bg-card shadow-[0_1px_3px_0_rgba(0,0,0,0.05),0_1px_2px_-1px_rgba(0,0,0,0.05)]">
+          <div className="w-full overflow-x-auto">
+            <Table className="w-full">
+              <TableHeader className="bg-zinc-100 dark:bg-muted/5 border-b border-border/80">
+                <TableRow className="hover:bg-transparent border-b border-border/80">
+                  <TableHead className="py-4 px-5 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto whitespace-nowrap min-w-[200px]">
+                    APPLICANT DETAIL
+                  </TableHead>
+                  <TableHead className="py-4 px-4 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto whitespace-nowrap min-w-[140px]">
+                    APPLICATION NO.
+                  </TableHead>
+                  <TableHead className="py-4 px-4 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto whitespace-nowrap min-w-[150px]">
+                    PREFERENCES
+                  </TableHead>
+                  <TableHead className="py-4 px-4 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto whitespace-nowrap min-w-[130px]">
+                    COURSE
+                  </TableHead>
+                  <TableHead className="py-4 px-4 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto whitespace-nowrap min-w-[140px]">
+                    INTERVIEW STATUS
+                  </TableHead>
+                  <TableHead className="py-4 px-4 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto whitespace-nowrap min-w-[150px]">
+                    DATE & TIME
+                  </TableHead>
+                  <TableHead className="py-4 px-4 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto text-right w-[70px] whitespace-nowrap">
+                    ACTION
+                  </TableHead>
                 </TableRow>
-              ) : (
-                paginatedInterviews.map((item) => (
-                  <TableRow
-                    key={item.id}
-                    className="border-b border-border/80 hover:bg-muted/15 dark:hover:bg-muted/5 transition-colors"
-                  >
-                    <TableCell className="py-5 px-6 align-middle">
-                      <div className="flex flex-col gap-0.5">
-                        <div className="font-semibold text-foreground text-sm tracking-tight">
-                          {item.name}
+              </TableHeader>
+              <TableBody>
+                {filteredInterviews.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="h-64 text-center">
+                      <div className="flex flex-col items-center justify-center gap-3">
+                        <div className="flex size-12 items-center justify-center rounded-full bg-muted/40">
+                          <SearchX className="size-6 text-muted-foreground/80" />
                         </div>
-                        <div className="text-xs text-muted-foreground font-normal">
-                          {item.email}
+                        <div className="flex flex-col gap-0.5 text-center">
+                          <p className="text-sm font-semibold text-foreground">
+                            No results found
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Try adjusting your filters or search query.
+                          </p>
                         </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="py-5 px-6 align-middle text-sm text-foreground/80 font-normal">
-                      {item.applicationNo}
-                    </TableCell>
-                    <TableCell className="py-5 px-6 align-middle text-sm text-foreground/80 font-normal">
-                      {getInterviewLocation(item)}
-                    </TableCell>
-
-                    <TableCell className="py-5 px-6 align-middle text-sm text-foreground/80 font-normal">
-                      {item.course}
-                    </TableCell>
-                    <TableCell className="py-5 px-6 align-middle">
-                      <StatusBadge status={getInterviewStatus(item.applicationId)} />
-                    </TableCell>
-                    <TableCell className="py-5 px-6 align-middle">
-                      {(() => {
-                        const sched = getInterviewSchedule(item.applicationId, item.date, item.time);
-                        return sched.scheduled ? (
-                          <div className="flex flex-col gap-0.5">
-                            <div className="font-medium text-foreground text-sm tracking-tight">
-                              {formatDate(sched.date)}
-                            </div>
-                            <div className="text-xs text-muted-foreground font-normal">
-                              {sched.time}
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-muted-foreground font-normal">Not scheduled</span>
-                        );
-                      })()}
-                    </TableCell>
-                    <TableCell className="py-5 px-3 align-middle text-right">
-                      <div className="flex justify-end">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              className="data-[state=open]:bg-muted text-muted-foreground flex size-8 rounded-md hover:bg-muted"
-                              size="icon"
-                            >
-                              <EllipsisVertical className="size-4" />
-                              <span className="sr-only">Open menu</span>
-                            </Button>
-                  </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-48">
-                            <DropdownMenuItem className="gap-2" asChild>
-                              <Link href={`/organization/gd-interview/${item.applicationNo}`}>
-                                <Eye className="size-4" />
-                                View
-                              </Link>
-                            </DropdownMenuItem>
-                            {item.applicationId && (
-                              <InterviewActionItems
-                                applicationId={item.applicationId}
-                                applicationName={item.name}
-                                interview={interviewsByApplicationId.get(item.applicationId) || null}
-                                onSchedule={(mode) =>
-                                  setScheduleTarget({
-                                    applicationId: item.applicationId!,
-                                    applicationName: item.name,
-                                    mode,
-                                    existingInterview: interviewsByApplicationId.get(item.applicationId!) || null,
-                                    preferredLocations: item.preferredInterviewLocations || [],
-                                  })
-                                }
-                                onCancelInterview={(id) => cancelInterview.mutate(id)}
-                                onMarkNoShow={(id) => markNoShow.mutate(id)}
-                                onMarkCompleted={(id) => markCompleted.mutate({ id })}
-                              />
-                            )}
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              variant="destructive"
-                              className="gap-2"
-                              onClick={() => setDeleteId(item.id)}
-                            >
-                              <Trash2 className="size-4" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
                       </div>
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ) : (
+                  paginatedInterviews.map((item) => (
+                    <TableRow
+                      key={item.id}
+                      className="border-b border-border/80 hover:bg-muted/15 dark:hover:bg-muted/5 transition-colors"
+                    >
+                      <TableCell className="py-4 px-5 align-middle">
+                        <div className="flex flex-col gap-0.5">
+                          <div className="font-semibold text-foreground text-sm tracking-tight whitespace-nowrap">
+                            {item.name}
+                          </div>
+                          <div className="text-xs text-muted-foreground font-normal whitespace-nowrap">
+                            {item.email}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-4 px-4 align-middle text-sm text-foreground/80 font-normal whitespace-nowrap">
+                        {item.applicationNo}
+                      </TableCell>
+                      <TableCell className="py-4 px-4 align-middle">
+                        {renderLocationPreferences(item)}
+                      </TableCell>
+
+                      <TableCell className="py-4 px-4 align-middle text-sm text-foreground/80 font-normal whitespace-nowrap">
+                        {item.course}
+                      </TableCell>
+                      <TableCell className="py-4 px-4 align-middle whitespace-nowrap">
+                        <StatusBadge status={getInterviewStatus(item.applicationId)} />
+                      </TableCell>
+                      <TableCell className="py-4 px-4 align-middle whitespace-nowrap">
+                        {(() => {
+                          const sched = getInterviewSchedule(item.applicationId, item.date, item.time);
+                          return sched.scheduled ? (
+                            <div className="flex flex-col gap-0.5">
+                              <div className="font-medium text-foreground text-sm tracking-tight whitespace-nowrap">
+                                {formatDate(sched.date)}
+                              </div>
+                              <div className="text-xs text-muted-foreground font-normal whitespace-nowrap">
+                                {sched.time}
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground font-normal whitespace-nowrap">Not scheduled</span>
+                          );
+                        })()}
+                      </TableCell>
+                      <TableCell className="py-4 px-4 align-middle text-right">
+                        <div className="flex justify-end">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                className="data-[state=open]:bg-muted text-muted-foreground flex size-8 rounded-md hover:bg-muted"
+                                size="icon"
+                              >
+                                <EllipsisVertical className="size-4" />
+                                <span className="sr-only">Open menu</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48">
+                              <DropdownMenuItem className="gap-2" asChild>
+                                <Link href={`/organization/gd-interview/${item.applicationNo}`}>
+                                  <Eye className="size-4" />
+                                  View
+                                </Link>
+                              </DropdownMenuItem>
+                              {item.applicationId && (
+                                <InterviewActionItems
+                                  applicationId={item.applicationId}
+                                  applicationName={item.name}
+                                  interview={interviewsByApplicationId.get(item.applicationId) || null}
+                                  onSchedule={(mode) =>
+                                    setScheduleTarget({
+                                      applicationId: item.applicationId!,
+                                      applicationName: item.name,
+                                      mode,
+                                      existingInterview: interviewsByApplicationId.get(item.applicationId!) || null,
+                                      preferredLocations: item.preferredInterviewLocations || [],
+                                    })
+                                  }
+                                  onCancelInterview={(id) => cancelInterview.mutate(id)}
+                                  onMarkNoShow={(id) => markNoShow.mutate(id)}
+                                  onMarkCompleted={(id) => markCompleted.mutate({ id })}
+                                />
+                              )}
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                variant="destructive"
+                                className="gap-2"
+                                onClick={() => setDeleteId(item.id)}
+                              >
+                                <Trash2 className="size-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
 
           {/* Desktop Pagination Footer */}
           <div className="flex flex-col sm:flex-row items-center justify-between border-t border-border/80 bg-zinc-100 dark:bg-muted/5 py-4 px-6 gap-4">
@@ -1384,11 +1502,11 @@ export default function GDInterviewPage() {
 
                     <div className="flex flex-col gap-1">
                       <span className="font-medium text-muted-foreground/80 block">
-                        Location:
+                        Preferences:
                       </span>
-                      <span className="text-foreground/95 font-medium truncate">
-                        {getInterviewLocation(item)}
-                      </span>
+                      <div className="text-foreground/95 font-medium">
+                        {renderLocationPreferences(item)}
+                      </div>
                     </div>
 
                     <div className="flex flex-col gap-1">
