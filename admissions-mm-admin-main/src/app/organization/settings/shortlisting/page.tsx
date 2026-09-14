@@ -139,9 +139,6 @@ export default function ShortlistingConfigPage() {
   const [ruleForm, setRuleForm] = React.useState({
     program: "",
     academicYear: "",
-    minGpa: "",
-    minTestScore: "",
-    minExperienceYears: "",
     academicWeightage: "",
     testWeightage: "",
     experienceWeightage: "",
@@ -171,9 +168,6 @@ export default function ShortlistingConfigPage() {
       setRuleForm({
         program: "",
         academicYear: "",
-        minGpa: "",
-        minTestScore: "",
-        minExperienceYears: "",
         academicWeightage: "",
         testWeightage: "",
         experienceWeightage: "",
@@ -343,9 +337,9 @@ export default function ShortlistingConfigPage() {
     const payload = {
       program: ruleForm.program,
       academicYear: ruleForm.academicYear,
-      minGpa: ruleForm.minGpa ? Number(ruleForm.minGpa) : undefined,
-      minTestScore: ruleForm.minTestScore ? Number(ruleForm.minTestScore) : undefined,
-      minExperienceYears: ruleForm.minExperienceYears ? Number(ruleForm.minExperienceYears) : undefined,
+      minGpa: undefined,
+      minTestScore: undefined,
+      minExperienceYears: undefined,
       academicWeightage: Number(ruleForm.academicWeightage),
       testWeightage: Number(ruleForm.testWeightage),
       experienceWeightage: Number(ruleForm.experienceWeightage),
@@ -365,9 +359,6 @@ export default function ShortlistingConfigPage() {
     setRuleForm({
       program: r.program,
       academicYear: r.academicYear,
-      minGpa: r.minGpa != null ? String(r.minGpa) : "",
-      minTestScore: r.minTestScore != null ? String(r.minTestScore) : "",
-      minExperienceYears: r.minExperienceYears != null ? String(r.minExperienceYears) : "",
       academicWeightage: String(r.academicWeightage),
       testWeightage: String(r.testWeightage),
       experienceWeightage: String(r.experienceWeightage),
@@ -1435,45 +1426,6 @@ export default function ShortlistingConfigPage() {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="flex flex-col gap-2">
-                <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
-                  Min GPA/UG %
-                </Label>
-                <Input
-                  type="number"
-                  placeholder="e.g. 7.5"
-                  value={ruleForm.minGpa}
-                  onChange={(e) => setRuleForm({ ...ruleForm, minGpa: e.target.value })}
-                  className="border-[#D4D4D4] rounded-lg h-11 text-sm placeholder:text-slate-400"
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
-                  Min Test Score
-                </Label>
-                <Input
-                  type="number"
-                  placeholder="e.g. 85"
-                  value={ruleForm.minTestScore}
-                  onChange={(e) => setRuleForm({ ...ruleForm, minTestScore: e.target.value })}
-                  className="border-[#D4D4D4] rounded-lg h-11 text-sm placeholder:text-slate-400"
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
-                  Min Experience (Mm)
-                </Label>
-                <Input
-                  type="number"
-                  placeholder="e.g. 2"
-                  value={ruleForm.minExperienceYears}
-                  onChange={(e) => setRuleForm({ ...ruleForm, minExperienceYears: e.target.value })}
-                  className="border-[#D4D4D4] rounded-lg h-11 text-sm placeholder:text-slate-400"
-                />
               </div>
             </div>
 

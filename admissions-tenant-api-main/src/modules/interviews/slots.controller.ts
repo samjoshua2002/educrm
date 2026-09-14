@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, UseGuards, Request, Query } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, Request, Query } from '@nestjs/common';
 import { SlotsService } from './slots.service.js';
 import { CreateSlotDto } from './dto/create-slot.dto.js';
 import { BulkCreateSlotsDto } from './dto/bulk-create-slots.dto.js';
@@ -71,5 +71,11 @@ export class SlotsController {
   @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.EXAM_MANAGER)
   cancel(@Param('id') id: string, @Param('orgId') orgId: string, @Request() req) {
     return this.slotsService.cancel(id, orgId, req.user.sub);
+  }
+
+  @Delete(':id')
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.EXAM_MANAGER)
+  remove(@Param('id') id: string, @Param('orgId') orgId: string) {
+    return this.slotsService.remove(id, orgId);
   }
 }

@@ -24,7 +24,7 @@ export class LocationsController {
   // Read access is broader — exam_manager needs this list to populate the
   // interview-slot location dropdown.
   @Get()
-  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.EXAM_MANAGER, Role.APPLICATION_MANAGER, Role.COUNSELOR)
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.EXAM_MANAGER, Role.APPLICATION_MANAGER, Role.COUNSELOR, Role.STUDENT)
   findAll(
     @Param('orgId') orgId: string,
     @Query('type') type?: string,
@@ -39,7 +39,7 @@ export class LocationsController {
   }
 
   @Get(':id')
-  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.EXAM_MANAGER, Role.APPLICATION_MANAGER, Role.COUNSELOR)
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.EXAM_MANAGER, Role.APPLICATION_MANAGER, Role.COUNSELOR, Role.STUDENT)
   findOne(@Param('id') id: string, @Param('orgId') orgId: string) {
     return this.locationsService.findOne(id, orgId);
   }

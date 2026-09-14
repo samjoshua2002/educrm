@@ -167,4 +167,13 @@ export class SlotsService {
     slot.updatedBy = actorId;
     return this.slotRepository.save(slot);
   }
+
+  async remove(id: string, orgId: string) {
+    const slot = await this.findOne(id, orgId);
+    if (slot.status === 'Booked') {
+      throw new BadRequestException('Cannot delete a slot that is booked — cancel or reschedule the interview first.');
+    }
+    await this.slotRepository.delete({ id, organizationId: orgId });
+    return { success: true, message: 'Slot deleted successfully' };
+  }
 }

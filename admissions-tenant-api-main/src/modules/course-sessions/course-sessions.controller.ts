@@ -34,7 +34,7 @@ export class CourseSessionsController {
   }
 
   @Get()
-  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.APPLICATION_MANAGER, Role.COUNSELOR)
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.APPLICATION_MANAGER, Role.COUNSELOR, Role.STUDENT)
   findAll(
     @Param('orgId') orgId: string,
     @Query('courseId') courseId?: string,
@@ -50,7 +50,7 @@ export class CourseSessionsController {
   }
 
   @Get(':id')
-  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.APPLICATION_MANAGER, Role.COUNSELOR)
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.APPLICATION_MANAGER, Role.COUNSELOR, Role.STUDENT)
   findOne(@Param('id') id: string, @Param('orgId') orgId: string) {
     return this.courseSessionsService.findOne(id, orgId);
   }

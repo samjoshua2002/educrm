@@ -270,77 +270,86 @@ export default function ApplicationDetailsPage() {
           <h2 className="text-xl md:text-2xl font-bold text-slate-900 leading-tight break-words">
             {applicationData.applicant.name}
           </h2>
-          <div className="flex">
-            {!isStudent ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
+          {(() => {
+            const isShortlisted =
+              applicationData.shortlistStatus === "Shortlisted" ||
+              applicationData.shortlistStatus === "Eligible" ||
+              applicationData.status?.toLowerCase() === "shortlisted";
+
+            const displayStatus = isShortlisted
+              ? "Shortlisted"
+              : applicationData.verificationStatus === "verified"
+              ? "Verified"
+              : applicationData.verificationStatus === "rejected"
+              ? "Rejected"
+              : applicationData.status || "Submitted";
+
+            const statusBg = isShortlisted
+              ? "rgba(37, 99, 235, 0.1)"
+              : applicationData.verificationStatus === "verified"
+              ? "rgb(220 252 231)"
+              : applicationData.verificationStatus === "rejected"
+              ? "rgb(254 226 226)"
+              : "#EFF6FF";
+
+            const statusColor = isShortlisted
+              ? "#1D4ED8"
+              : applicationData.verificationStatus === "verified"
+              ? "rgb(21 128 61)"
+              : applicationData.verificationStatus === "rejected"
+              ? "rgb(185 28 28)"
+              : "#1D4ED8";
+
+            return (
+              <div className="flex">
+                {!isStudent && !isShortlisted ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Badge
+                        variant="secondary"
+                        className="text-[10px] md:text-xs px-2.5 py-0.5 font-bold uppercase rounded-[10px] cursor-pointer"
+                        style={{
+                          letterSpacing: "1px",
+                          backgroundColor: statusBg,
+                          color: statusColor,
+                        }}
+                      >
+                        {displayStatus}
+                      </Badge>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                      <DropdownMenuItem
+                        className="gap-2 cursor-pointer"
+                        onClick={() => handleVerify("verified")}
+                      >
+                        <Check className="size-4 text-green-600" />
+                        Mark as Verified
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="gap-2 cursor-pointer text-red-600 hover:text-red-700"
+                        onClick={() => handleVerify("rejected")}
+                      >
+                        <XCircle className="size-4 text-red-600" />
+                        Mark as Rejected
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : (
                   <Badge
                     variant="secondary"
-                    className="text-[10px] md:text-xs px-2.5 py-0.5 font-bold uppercase rounded-[10px] cursor-pointer"
+                    className="text-[10px] md:text-xs px-2.5 py-0.5 font-bold uppercase rounded-[10px]"
                     style={{
                       letterSpacing: "1px",
-                      backgroundColor: applicationData.verificationStatus === "verified"
-                        ? "rgb(220 252 231)"
-                        : applicationData.verificationStatus === "rejected"
-                        ? "rgb(254 226 226)"
-                        : "#EFF6FF",
-                      color: applicationData.verificationStatus === "verified"
-                        ? "rgb(21 128 61)"
-                        : applicationData.verificationStatus === "rejected"
-                        ? "rgb(185 28 28)"
-                        : "#1D4ED8"
+                      backgroundColor: statusBg,
+                      color: statusColor,
                     }}
                   >
-                    {applicationData.verificationStatus === "verified"
-                      ? "Verified"
-                      : applicationData.verificationStatus === "rejected"
-                      ? "Rejected"
-                      : applicationData.status}
+                    {displayStatus}
                   </Badge>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start">
-                  <DropdownMenuItem
-                    className="gap-2 cursor-pointer"
-                    onClick={() => handleVerify("verified")}
-                  >
-                    <Check className="size-4 text-green-600" />
-                    Mark as Verified
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    className="gap-2 cursor-pointer text-red-600 hover:text-red-700"
-                    onClick={() => handleVerify("rejected")}
-                  >
-                    <XCircle className="size-4 text-red-600" />
-                    Mark as Rejected
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <Badge
-                variant="secondary"
-                className="text-[10px] md:text-xs px-2.5 py-0.5 font-bold uppercase rounded-[10px]"
-                style={{
-                  letterSpacing: "1px",
-                  backgroundColor: applicationData.verificationStatus === "verified"
-                    ? "rgb(220 252 231)"
-                    : applicationData.verificationStatus === "rejected"
-                    ? "rgb(254 226 226)"
-                    : "#EFF6FF",
-                  color: applicationData.verificationStatus === "verified"
-                    ? "rgb(21 128 61)"
-                    : applicationData.verificationStatus === "rejected"
-                    ? "rgb(185 28 28)"
-                    : "#1D4ED8"
-                }}
-              >
-                {applicationData.verificationStatus === "verified"
-                  ? "Verified"
-                  : applicationData.verificationStatus === "rejected"
-                  ? "Rejected"
-                  : applicationData.status}
-              </Badge>
-            )}
-          </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
 
         {/* Details & Buttons Row */}

@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { apiGet, apiPost, apiPatch } from "@/lib/api";
+import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth-store";
 import { PaginatedResponse } from "@/types/api";
 
@@ -176,6 +176,19 @@ export function useCancelSlot() {
       toast.success("Slot cancelled");
     },
     onError: (err: any) => toast.error(err.response?.data?.message || "Failed to cancel slot"),
+  });
+}
+
+export function useDeleteSlot() {
+  const queryClient = useQueryClient();
+  const orgId = useAuthStore((s) => s.user?.organizationId);
+  return useMutation({
+    mutationFn: (id: string) => apiDelete(`/organizations/${orgId}/interview-slots/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["interview-slots"] });
+      toast.success("Slot deleted successfully");
+    },
+    onError: (err: any) => toast.error(err.response?.data?.message || "Failed to delete slot"),
   });
 }
 

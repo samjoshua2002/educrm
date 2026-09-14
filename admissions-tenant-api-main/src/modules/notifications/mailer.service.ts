@@ -430,6 +430,8 @@ export class MailerService {
     const studentLoginUrl = 'http://localhost:3001/student-login';
     const firstName = (name || '').trim().split(' ')[0] || 'Student';
 
+    this.logger.log(`\n========================================\n[STUDENT OTP GENERATED]\nTo: ${email}\nStudent Name: ${name}\nOTP: ${otp}\nStudent Login URL: ${studentLoginUrl}\n========================================`);
+
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1f2937;">
         <h2 style="color: #111827;">Lead Verified Successfully</h2>

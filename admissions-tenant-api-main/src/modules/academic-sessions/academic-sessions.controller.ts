@@ -44,7 +44,7 @@ export class AcademicSessionsController {
   }
 
   @Get(':id')
-  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN)
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.APPLICATION_MANAGER, Role.COUNSELOR, Role.LEAD_MANAGER, Role.EXAM_MANAGER, Role.STUDENT)
   findOne(@Param('id') id: string, @Param('orgId') orgId: string) {
     return this.academicSessionsService.findOne(id, orgId);
   }

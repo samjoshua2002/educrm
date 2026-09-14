@@ -435,8 +435,18 @@ export class ApplicationsService {
       const count = await queryRunner.manager.count(Application, {
         where: { organizationId: orgId },
       });
-      const sequence = count + 1001;
-      const appNo = `${branchPrefix}/${currentYear}/${sequence}`;
+      let sequence = count + 1001;
+      let appNo = `${branchPrefix}/${currentYear}/${sequence}`;
+      let existingApp = await queryRunner.manager.findOne(Application, {
+        where: { applicationNo: appNo, organizationId: orgId },
+      });
+      while (existingApp) {
+        sequence += 1;
+        appNo = `${branchPrefix}/${currentYear}/${sequence}`;
+        existingApp = await queryRunner.manager.findOne(Application, {
+          where: { applicationNo: appNo, organizationId: orgId },
+        });
+      }
 
       // Save application
       const application = queryRunner.manager.create(Application, {

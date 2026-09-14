@@ -244,115 +244,74 @@ const Stepper = ({ currentStep }: { currentStep: number }) => {
   ];
 
   return (
-    <div className="w-full mb-10">
+    <div className="w-full mb-10 px-1 sm:px-2">
       <div className="relative flex justify-between items-start">
-        <div className="absolute top-5 left-[20px] right-[20px] h-[2px] -translate-y-1/2 z-0" style={{ background: "#DBEAFE" }}>
+        {/* Progress connecting track */}
+        <div className="absolute top-5 left-[24px] right-[24px] sm:left-[36px] sm:right-[36px] h-[3px] -translate-y-1/2 z-0 bg-slate-200 rounded-full">
           <div
-            className="h-full transition-all duration-700 ease-in-out"
+            className="h-full bg-blue-600 rounded-full transition-all duration-700 ease-in-out"
             style={{
-              width: `${((currentStep - 1) / (steps.length - 1)) * 100}%`,
-              background: "#2563EA"
+              width: `${((Math.min(currentStep, steps.length) - 1) / (steps.length - 1)) * 100}%`,
             }}
           />
         </div>
 
         {steps.map((step, idx) => {
-          const isActive = currentStep === idx + 1;
-          const isCompleted = currentStep > idx + 1;
+          const stepNumber = idx + 1;
+          const isCompleted = currentStep > stepNumber;
+          const isActive = currentStep === stepNumber;
 
           return (
             <div
               key={idx}
-              className="relative z-10 flex flex-col items-center group"
+              className="relative z-10 flex flex-col items-center flex-1 min-w-0 px-0.5"
             >
               <div
                 style={{
-                  borderRadius: "20px",
-                  background: "var(--Blue-Primary, #2563EA)",
-                  border: "none",
-                  display: "flex",
-                  padding: "12px",
-                  alignItems: "center",
-                  gap: "10px",
                   width: "40px",
                   height: "40px",
-                  justifyContent: "center"
+                  borderRadius: "50%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "all 0.3s ease",
                 }}
+                className={
+                  isCompleted
+                    ? "bg-blue-600 text-white shadow-sm ring-2 ring-blue-600/20"
+                    : isActive
+                    ? "bg-blue-600 text-white ring-4 ring-blue-100 shadow-md scale-105"
+                    : "bg-white text-slate-400 border-2 border-slate-200"
+                }
               >
-                {(() => {
-                  const strokeColor = "white";
-                  const fillColor = "white";
-
-                  if (idx === 0) {
-                    return (
-                      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="16" viewBox="0 0 13 16" fill="none">
-                        <path d="M9.66667 3.83333C9.66667 5.67305 8.17305 7.16667 6.33333 7.16667C4.49362 7.16667 3 5.67305 3 3.83333C3 1.99362 4.49362 0.5 6.33333 0.5C8.17305 0.5 9.66667 1.99362 9.66667 3.83333V3.83333M6.33333 9.66667C3.11383 9.66667 0.5 12.2805 0.5 15.5H12.1667C12.1667 12.2805 9.55284 9.66667 6.33333 9.66667V9.66667" stroke={strokeColor} strokeWidth="1.5"/>
-                      </svg>
-                    );
-                  }
-                  if (idx === 1) {
-                    return (
-                      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="16" viewBox="0 0 15 16" fill="none">
-                        <path d="M13.3333 15.4165V2.08317C13.3333 1.1627 12.5871 0.416504 11.6667 0.416504H3.33333C2.41286 0.416504 1.66667 1.1627 1.66667 2.08317V15.4165M13.3333 15.4165H15M13.3333 15.4165H9.16667M1.66667 15.4165H0M1.66667 15.4165H5.83333M5 3.74984H5.83333M5 7.08317H5.83333M9.16667 3.74984H10M9.16667 7.08317H10M5.83333 15.4165V11.2498C5.83333 10.7896 6.20643 10.4165 6.66667 10.4165H8.33333C8.79357 10.4165 9.16667 10.7896 9.16667 11.2498V15.4165M5.83333 15.4165H9.16667" stroke={strokeColor} strokeWidth="0.833333"/>
-                      </svg>
-                    );
-                  }
-                  if (idx === 2) {
-                    return (
-                      <svg xmlns="http://www.w3.org/2000/svg" width="17" height="15" viewBox="0 0 17 15" fill="none">
-                        <path d="M8.35791 8.8099L15.8579 4.64323L8.35791 0.476562L0.85791 4.64323L8.35791 8.8099V8.8099M8.35791 8.8099L13.4912 5.95823C14.1667 7.6733 14.3584 9.54087 14.0454 11.3574C11.9317 11.5625 9.93892 12.4379 8.35791 13.8557C6.77712 12.4381 4.78465 11.5627 2.67124 11.3574C2.35808 9.54088 2.54977 7.67325 3.22541 5.95823L8.35791 8.8099V8.8099M5.02458 13.8099V7.5599L8.35791 5.70823" stroke={strokeColor} strokeWidth="0.833333"/>
-                      </svg>
-                    );
-                  }
-                  if (idx === 3) {
-                    return (
-                      <svg xmlns="http://www.w3.org/2000/svg" width="19" height="14" viewBox="0 0 19 14" fill="none">
-                        <path d="M14.9516 3.3125C14.8371 4.90117 13.6586 6.125 12.3735 6.125C11.0883 6.125 9.90784 4.90156 9.79534 3.3125C9.67816 1.65977 10.8254 0.5 12.3735 0.5C13.9215 0.5 15.0688 1.68984 14.9516 3.3125Z" stroke={strokeColor} strokeLinecap="round" strokeLinejoin="round"/>
-                        <path d="M12.3734 8.625C9.82768 8.625 7.37963 9.88945 6.76635 12.352C6.6851 12.6777 6.8894 13 7.22416 13H17.523C17.8578 13 18.0609 12.6777 17.9808 12.352C17.3675 9.85 14.9195 8.625 12.3734 8.625Z" stroke={strokeColor} strokeMiterlimit="10"/>
-                        <path d="M7.06116 4.01328C6.96976 5.28203 6.01741 6.28125 4.99085 6.28125C3.96429 6.28125 3.01038 5.28242 2.92054 4.01328C2.82718 2.69336 3.75413 1.75 4.99085 1.75C6.22757 1.75 7.15452 2.71758 7.06116 4.01328Z" stroke={strokeColor} strokeLinecap="round" strokeLinejoin="round"/>
-                        <path d="M7.2953 8.70313C6.59023 8.38008 5.81366 8.25586 4.99062 8.25586C2.95937 8.25586 1.00234 9.26563 0.512101 11.2324C0.447648 11.4926 0.610929 11.75 0.878117 11.75H5.26405" stroke={strokeColor} strokeMiterlimit="10" strokeLinecap="round"/>
-                      </svg>
-                    );
-                  }
-                  if (idx === 4) {
-                    return (
-                      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 13 13" fill="none">
-                        <path fillRule="evenodd" clipRule="evenodd" d="M0 0.541667C0 0.398008 0.0570684 0.260233 0.158651 0.158651C0.260233 0.0570684 0.398008 0 0.541667 0H12.4583C12.602 0 12.7398 0.0570684 12.8414 0.158651C12.9429 0.260233 13 0.398008 13 0.541667V5.41667H11.9167V1.08333H1.08333V11.9167H3.25542V13H0.541667C0.398008 13 0.260233 12.9429 0.158651 12.8414C0.0570684 12.7398 0 12.602 0 12.4583V0.541667ZM12.9935 7.943L8.09683 12.8386C7.9953 12.9398 7.85778 12.9966 7.71442 12.9966C7.57105 12.9966 7.43353 12.9398 7.332 12.8386L4.61283 10.1194L5.37767 9.35242L7.71442 11.6892L12.2276 7.176L12.9935 7.943Z" fill={fillColor}/>
-                      </svg>
-                    );
-                  }
-                  if (idx === 5) {
-                    return (
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="13" viewBox="0 0 16 13" fill="none">
-                        <rect x="0.5" y="0.5" width="15" height="12" rx="1.5" stroke={strokeColor} strokeWidth="1"/>
-                        <path d="M0.5 4.5H15.5" stroke={strokeColor} strokeWidth="1"/>
-                      </svg>
-                    );
-                  }
-                  return null;
-                })()}
+                {isCompleted ? (
+                  <Check className="size-5 stroke-[2.5]" />
+                ) : (
+                  <span className={`text-sm ${isActive ? "text-white font-bold" : "text-slate-500 font-medium"}`}>
+                    {stepNumber}
+                  </span>
+                )}
               </div>
-              <div className="mt-2 md:mt-3 hidden md:flex flex-col items-center text-center">
+              <div className="mt-2.5 flex flex-col items-center text-center w-full min-w-0">
                 <span
-                  style={{
-                    color: "#171717",
-                    fontFamily: "Inter, sans-serif",
-                    fontSize: "16px",
-                    fontWeight: 700,
-                    lineHeight: "24px"
-                  }}
+                  className={`text-[11px] sm:text-[13px] md:text-[14px] font-bold leading-tight truncate max-w-full tracking-tight transition-colors ${
+                    isActive
+                      ? "text-blue-600 font-extrabold"
+                      : isCompleted
+                      ? "text-slate-900 font-bold"
+                      : "text-slate-400 font-medium"
+                  }`}
                 >
                   {step.title}
                 </span>
-                <span 
-                  style={{
-                    color: "var(--Colorsecondary-text-color, #475569)",
-                    fontFamily: "Inter, sans-serif",
-                    fontSize: "14px",
-                    fontStyle: "normal",
-                    fontWeight: 400,
-                    lineHeight: "24px"
-                  }}
+                <span
+                  className={`text-[10px] sm:text-[11px] md:text-[12px] leading-tight truncate max-w-full font-medium mt-0.5 hidden sm:block transition-colors ${
+                    isActive
+                      ? "text-blue-500 font-medium"
+                      : isCompleted
+                      ? "text-slate-500"
+                      : "text-slate-400"
+                  }`}
                 >
                   {step.description}
                 </span>
@@ -908,7 +867,7 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
 
   if (isPreview) {
     return (
-      <div className={`max-w-7xl mx-auto py-6 md:py-10 px-4 md:px-6 bg-white flex flex-col gap-6 ${manrope.className}`}>
+      <div className={`w-full py-6 md:py-8 px-4 sm:px-6 lg:px-8 bg-white flex flex-col gap-6 ${manrope.className}`}>
         {/* Review Title Banner */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border border-border bg-muted/20 p-5 rounded-[8px]">
           <div>
@@ -1508,75 +1467,189 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
 
   if (showPayment) {
     return (
-      <div className={`max-w-3xl mx-auto py-6 md:py-10 px-4 md:px-6 bg-white flex flex-col gap-6 ${manrope.className}`}>
-        <Stepper currentStep={6} />
-        <Card className="border border-border rounded-[8px]">
-          <CardHeader>
-            <CardTitle className="text-xl font-bold text-foreground">Application Fee Payment</CardTitle>
-            <CardDescription>
-              Your application has been saved as <strong>{createdApplication?.applicationNo}</strong>. Complete the
-              payment below to submit your application for review.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col items-center gap-6 py-8">
-            {paymentState === "success" ? (
-              <div className="flex flex-col items-center gap-3 text-center">
-                <ShieldCheck className="size-12 text-green-600" />
-                <p className="font-semibold text-foreground">Payment successful!</p>
-                <p className="text-sm text-muted-foreground">Finalizing and submitting your application...</p>
-                {isFinalizing && <Loader2 className="size-5 animate-spin text-primary" />}
-              </div>
-            ) : paymentState === "failed" ? (
-              <div className="flex flex-col items-center gap-3 text-center">
-                <XCircle className="size-12 text-destructive" />
-                <p className="font-semibold text-foreground">Payment failed or cancelled</p>
-                {paymentError && <p className="text-sm text-muted-foreground">{paymentError}</p>}
-                <Button onClick={handlePayNow} className="mt-2">
-                  Try Again
-                </Button>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center gap-4 text-center">
-                <CreditCard className="size-12 text-primary" />
-                <p className="text-sm text-muted-foreground max-w-sm">
-                  Click below to securely pay your application fee via Razorpay and complete your submission.
+      <div className={`w-full pt-1 pb-8 px-4 sm:px-6 lg:px-8 bg-white ${manrope.className}`}>
+        {/* Main Payment Container Card */}
+        <div className="relative rounded-2xl border border-slate-200/80 bg-white shadow-xl shadow-slate-100 overflow-hidden">
+          {/* Top Header Section */}
+          <div className="p-6 md:p-8 bg-gradient-to-b from-slate-50/70 to-white border-b border-slate-100">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 font-semibold px-3 py-1 rounded-full text-xs flex items-center gap-1.5 shadow-2xs">
+                    <Check className="size-3.5 stroke-[2.5]" /> Application Draft Saved
+                  </Badge>
+                  <Badge variant="outline" className="text-slate-600 border-slate-300 font-mono text-xs px-2.5 py-0.5">
+                    Final Step
+                  </Badge>
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+                  Application Fee Payment
+                </h1>
+                <p className="text-sm text-slate-600 max-w-2xl leading-relaxed">
+                  Your admission form has been saved under Application ID{" "}
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                    {createdApplication?.applicationNo || "APP/2026/PENDING"}
+                  </span>
+                  . Complete the payment below to finalize your submission for committee review.
                 </p>
-                <Button
-                  className="bg-ring hover:bg-ring/90 text-primary-foreground h-11 px-8 text-base font-medium rounded-[8px] cursor-pointer border-0 shadow-sm"
-                  onClick={handlePayNow}
-                  disabled={paymentState === "creating-order" || paymentState === "awaiting-payment" || paymentState === "verifying"}
-                >
-                  {paymentState === "creating-order" || paymentState === "awaiting-payment" || paymentState === "verifying" ? (
-                    <>
-                      <Loader2 className="size-4 animate-spin mr-2 inline" /> Processing...
-                    </>
-                  ) : (
-                    "Pay Now"
-                  )}
-                </Button>
               </div>
-            )}
-          </CardContent>
-        </Card>
-        <div className="flex justify-center">
-          <Button
-            variant="outline"
-            className="border border-border h-10 px-5 text-[14px] font-medium text-foreground rounded-[8px] hover:bg-accent hover:text-accent-foreground cursor-pointer bg-white"
-            onClick={() => {
-              setShowPayment(false);
-              setIsPreview(true);
-            }}
-            disabled={paymentState === "verifying" || paymentState === "success"}
-          >
-            Back to review
-          </Button>
+
+              {/* Secure Transaction Icon Badge */}
+              <div className="hidden md:flex size-16 rounded-2xl bg-blue-50 border border-blue-100 items-center justify-center shrink-0 text-blue-600 shadow-inner">
+                <CreditCard className="size-8" />
+              </div>
+            </div>
+          </div>
+
+          <div className="p-6 md:p-8 space-y-8">
+            {/* 2-Column Info Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              {/* Left Column (7 cols): Applicant & Program Details */}
+              <div className="lg:col-span-7 space-y-4">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Applicant & Application Details
+                </h3>
+
+                <div className="p-5 rounded-xl border border-slate-200/80 bg-slate-50/50 space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                    <div>
+                      <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Candidate Name</span>
+                      <p className="text-sm font-bold text-slate-900 mt-0.5">{form.getValues("personal.fullName") || "Applicant"}</p>
+                    </div>
+
+                    <div>
+                      <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Application ID</span>
+                      <p className="text-sm font-mono font-bold text-blue-600 mt-0.5">{createdApplication?.applicationNo || "—"}</p>
+                    </div>
+
+                    <div className="sm:col-span-2 border-t border-slate-200/60 pt-3">
+                      <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Applied Program</span>
+                      <p className="text-sm font-bold text-slate-900 mt-0.5">{form.getValues("preferences.program") || "Not selected"}</p>
+                    </div>
+
+                    <div className="border-t border-slate-200/60 pt-3">
+                      <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Email Address</span>
+                      <p className="text-xs font-medium text-slate-700 mt-0.5 truncate">{form.getValues("personal.email")}</p>
+                    </div>
+
+                    <div className="border-t border-slate-200/60 pt-3">
+                      <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Mobile Number</span>
+                      <p className="text-xs font-medium text-slate-700 mt-0.5">{formatMobile(form.getValues("personal.phone"))}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column (5 cols): Fee Breakdown & Checkout Box */}
+              <div className="lg:col-span-5 space-y-4">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Fee Breakdown
+                </h3>
+
+                <div className="p-6 rounded-2xl border-2 border-blue-100 bg-gradient-to-b from-blue-50/40 via-white to-white space-y-5 shadow-xs">
+                  <div className="space-y-3 text-xs">
+                    <div className="flex justify-between items-center text-slate-600">
+                      <span>Application Processing Fee</span>
+                      <span className="font-semibold text-slate-900">₹1,500.00</span>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-dashed border-slate-200 pt-4">
+                    <div className="flex justify-between items-baseline">
+                      <div>
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Total Payable</span>
+                        <span className="text-[11px] text-slate-400">All taxes included</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-2xl sm:text-3xl font-extrabold text-blue-600 font-mono tracking-tight">
+                          ₹1,500
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Payment States Rendering */}
+                  {paymentState === "success" ? (
+                    <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-center space-y-2">
+                      <div className="size-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto">
+                        <ShieldCheck className="size-6" />
+                      </div>
+                      <p className="font-bold text-emerald-900 text-sm">Payment Successful!</p>
+                      <p className="text-xs text-emerald-700">Submitting and finalizing your application...</p>
+                      {isFinalizing && <Loader2 className="size-4 animate-spin text-emerald-600 mx-auto mt-2" />}
+                    </div>
+                  ) : paymentState === "failed" ? (
+                    <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-center space-y-2">
+                      <div className="size-10 rounded-full bg-red-100 text-red-700 flex items-center justify-center mx-auto">
+                        <XCircle className="size-6" />
+                      </div>
+                      <p className="font-bold text-red-900 text-sm">Payment Cancelled or Failed</p>
+                      {paymentError && <p className="text-xs text-red-700 leading-normal">{paymentError}</p>}
+                      <Button
+                        onClick={handlePayNow}
+                        className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold text-xs h-9 rounded-lg mt-2"
+                      >
+                        Try Again
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 pt-2">
+                      <Button
+                        className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white flex items-center justify-center gap-2 h-12 text-sm sm:text-base font-bold rounded-xl shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer border-0"
+                        onClick={handlePayNow}
+                        disabled={paymentState === "creating-order" || paymentState === "awaiting-payment" || paymentState === "verifying"}
+                      >
+                        {paymentState === "creating-order" || paymentState === "awaiting-payment" || paymentState === "verifying" ? (
+                          <>
+                            <Loader2 className="size-5 animate-spin mr-1.5 inline" />
+                            {paymentState === "creating-order" ? "Creating Order..." : "Verifying Payment..."}
+                          </>
+                        ) : (
+                          <>
+                            <CreditCard className="size-5" />
+                            Pay ₹1,500 via Razorpay
+                          </>
+                        )}
+                      </Button>
+
+                      <div className="flex items-center justify-center gap-2 text-[11px] text-slate-400 text-center font-medium">
+                        <span>Supports UPI, Cards, Net Banking & Wallets</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom Actions and Support note */}
+            <div className="border-t border-slate-100 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <Button
+                variant="outline"
+                className="w-full sm:w-auto border-slate-300 h-10 px-5 text-xs font-semibold text-slate-700 rounded-lg hover:bg-slate-50 cursor-pointer"
+                onClick={() => {
+                  setShowPayment(false);
+                  setIsPreview(true);
+                }}
+                disabled={paymentState === "verifying" || paymentState === "success"}
+              >
+                <ArrowLeft className="size-3.5 mr-1.5" /> Back to Review Application
+              </Button>
+
+              <p className="text-xs text-slate-400 text-center sm:text-right">
+                Need help with submission? Email{" "}
+                <a href="mailto:admissions@educrm.com" className="text-blue-600 hover:underline font-medium">
+                  admissions@educrm.com
+                </a>
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className={`max-w-7xl mx-auto py-6 md:py-10 px-4 md:px-6 pb-20 bg-white w-full ${manrope.className}`}>
+    <div className={`w-full py-6 md:py-8 px-4 sm:px-6 lg:px-8 pb-20 bg-white ${manrope.className}`}>
       {/* Redesigned Header Block */}
       <div className="flex flex-col mb-10 space-y-4 w-full">
         <div>
@@ -2538,10 +2611,10 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
                       render={({ field }) => (
                         <FormItem className="space-y-0">
                           <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px]">
-                            {form.watch("education.graduation.status") === "Completed" ? "Graduation Percentage / CGPA" : "Score Till Last Sem (%)"}
+                            Graduation Percentage (%)
                           </FormLabel>
                           <FormControl>
-                            <Input placeholder={form.watch("education.graduation.status") === "Completed" ? "e.g. 84.5% or 8.5 CGPA" : "e.g. 84.5"} className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground tracking-wider" {...field} />
+                            <Input placeholder="e.g. 84.5" className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground tracking-wider" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>

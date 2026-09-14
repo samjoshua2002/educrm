@@ -23,6 +23,7 @@ const getInitialUser = (): User | null => {
       id: decoded.sub,
       name: decoded.name || "User",
       email: decoded.email,
+      phone: decoded.phone,
       role: role as Role,
       organizationId: decoded.organizationId || null,
     };
