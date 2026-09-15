@@ -100,6 +100,7 @@ export function useActivateOrganization() {
 export interface OrganizationSettings {
   applicationFee: number;
   seatBookingFee: number;
+  applicationNumberFormat: string;
 }
 
 export function useOrganizationSettings(id: string) {

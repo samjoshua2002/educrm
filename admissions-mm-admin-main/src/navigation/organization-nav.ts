@@ -67,6 +67,7 @@ export const organizationNavItems: NavGroup[] = [
         subItems: [
           { title: "Communications Log", url: "/organization/communications" },
           { title: "Email Templates", url: "/organization/email-templates" },
+          { title: "Template Categories", url: "/organization/email-templates/categories" },
         ],
       },
       {

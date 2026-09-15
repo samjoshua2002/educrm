@@ -17,6 +17,7 @@ import { OfferLetter } from '../admissions-decisions/entities/offer-letter.entit
 import { CreateOrderDto } from './dto/create-order.dto.js';
 import { CreateSeatBookingOrderDto } from './dto/create-seat-booking-order.dto.js';
 import { VerifyPaymentDto } from './dto/verify-payment.dto.js';
+import { EmailTemplatesService } from '../email-templates/email-templates.service.js';
 
 const DEFAULT_APPLICATION_FEE = 2000;
 // Phase 6b — default seat-booking fee, same fallback pattern as
@@ -40,6 +41,7 @@ export class PaymentsService {
     @InjectRepository(OfferLetter)
     private readonly offerLetterRepo: Repository<OfferLetter>,
     private readonly configService: ConfigService,
+    private readonly emailTemplatesService: EmailTemplatesService,
   ) {
     this.razorpay = new Razorpay({
       key_id: this.configService.get<string>('RAZORPAY_KEY_ID') || '',
@@ -236,6 +238,32 @@ export class PaymentsService {
       application.paymentDate = new Date();
       application.paymentReference = paymentId;
       await this.applicationRepo.save(application);
+
+      await this.emailTemplatesService.sendTransactional({
+        organizationId: application.organizationId,
+        categorySlug: 'fee_payment_confirmation',
+        to: application.email,
+        applicationNo: application.applicationNo,
+        applicantName: application.name,
+        variables: {
+          name: application.name,
+          email: application.email,
+          phone: application.primaryMobile,
+          application_no: application.applicationNo,
+          academic_session: application.academicSession,
+          course: application.program,
+          branch: application.confirmedCampus,
+          amount: String(paymentOrder.amount),
+          currency: paymentOrder.currency,
+          payment_method: paymentOrder.method,
+          transaction_id: paymentId,
+          paid_at: paymentOrder.paidAt?.toLocaleDateString('en-IN', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+          }),
+        },
+      });
     }
   }
 

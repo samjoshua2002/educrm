@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { apiGet, apiPost, apiDelete } from "@/lib/api";
 import { mockCommunications, mockCommunicationTemplates, CommunicationLog, CommunicationTemplate } from "@/data/mock-communications";
+import { PaginatedResponse } from "@/types/api";
 
 // 1. Fetch all communication logs
 export function useCommunications(page = 1, limit = 50, filters?: Record<string, any>) {
@@ -9,13 +10,16 @@ export function useCommunications(page = 1, limit = 50, filters?: Record<string,
     queryKey: ["communications", page, limit, filters],
     queryFn: async () => {
       try {
-        const response = await apiGet<{ data: CommunicationLog[]; total: number }>("/communications", {
+        const raw = await apiGet<
+          { data: CommunicationLog[]; total: number } | PaginatedResponse<CommunicationLog>
+        >("/communications", {
           page,
           limit,
           ...filters,
         });
-        if (response && Array.isArray((response as any).data)) {
-          return response;
+        if (raw && Array.isArray((raw as any).data)) {
+          const total = (raw as any).total ?? (raw as any).pagination?.total ?? (raw as any).data.length;
+          return { data: (raw as any).data as CommunicationLog[], total };
         }
       } catch {
         // Fallback to local mock data if API endpoint is not yet connected
@@ -24,10 +28,6 @@ export function useCommunications(page = 1, limit = 50, filters?: Record<string,
         data: mockCommunications,
         total: mockCommunications.length,
       };
-    },
-    initialData: {
-      data: mockCommunications,
-      total: mockCommunications.length,
     },
   });
 }
@@ -73,7 +73,6 @@ export function useCommunicationTemplates() {
       }
       return mockCommunicationTemplates;
     },
-    initialData: mockCommunicationTemplates,
   });
 }
 

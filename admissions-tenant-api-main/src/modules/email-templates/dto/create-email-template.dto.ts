@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsArray, IsBoolean } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsArray, IsBoolean, IsUUID } from 'class-validator';
 
 export class CreateEmailTemplateDto {
   @IsString()
@@ -8,6 +8,10 @@ export class CreateEmailTemplateDto {
   @IsString()
   @IsNotEmpty()
   category: string;
+
+  @IsUUID()
+  @IsOptional()
+  categoryId?: string;
 
   @IsString()
   @IsOptional()
@@ -24,6 +28,10 @@ export class CreateEmailTemplateDto {
   @IsString()
   @IsOptional()
   description?: string;
+
+  @IsString()
+  @IsOptional()
+  footer?: string;
 
   @IsArray()
   @IsOptional()

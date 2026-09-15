@@ -1,4 +1,4 @@
-import { IsNumber, IsOptional, Min } from 'class-validator';
+import { IsNumber, IsOptional, Min, IsString, MaxLength } from 'class-validator';
 
 export class UpdateOrgSettingsDto {
   @IsOptional()
@@ -12,4 +12,11 @@ export class UpdateOrgSettingsDto {
   @IsNumber()
   @Min(0)
   seatBookingFee?: number;
+
+  // Template for generated application numbers, e.g. "{BRANCH}/{YEAR}/{SEQ}".
+  // See ApplicationsService.buildApplicationNo for supported tokens.
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  applicationNumberFormat?: string;
 }

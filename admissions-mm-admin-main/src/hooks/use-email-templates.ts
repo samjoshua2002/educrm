@@ -7,8 +7,8 @@ import {
   EmailTemplate,
   CreateEmailTemplateInput,
   UpdateEmailTemplateInput,
-  AVAILABLE_SHORTCUTS,
 } from "@/types/email-template";
+import { PaginatedResponse } from "@/types/api";
 
 export const INITIAL_EMAIL_TEMPLATES: EmailTemplate[] = [
   {
@@ -171,50 +171,19 @@ function saveStoredTemplates(templates: EmailTemplate[]) {
 }
 
 /**
- * Replaces all shortcut placeholders such as {student}, {course}, {date}, etc.
- * Supports both {variable} and {{variable}} case-insensitively.
+ * Replaces variable placeholders such as {name}, {course}, {application_no}, etc.
+ * Keys are resolved directly against the category's variable set (see
+ * useEmailTemplateCategories) — no alias/fallback mapping, since variables
+ * now have one fixed key defined in the database.
  */
 export function renderTemplate(template: string, context: Record<string, string | undefined | null>): string {
   if (!template) return "";
 
-  let result = template;
-  // Standard mapped aliases
-  const aliasMap: Record<string, string> = {
-    student: "student",
-    student_name: "student",
-    applicant_name: "student",
-    candidate: "student",
-    course: "course",
-    program: "course",
-    course_name: "course",
-    application_no: "application_no",
-    app_no: "application_no",
-    application_number: "application_no",
-    date: "date",
-    today: "date",
-    time: "time",
-    slot: "time",
-    time_slot: "time",
-    venue: "venue",
-    location: "venue",
-    sender: "sender",
-    sender_name: "sender",
-    organization: "organization",
-    org_name: "organization",
-    email: "email",
-    phone: "phone",
-    mobile: "phone",
-  };
-
-  // Replace {key} or {{key}}
-  result = result.replace(/\{\{?([a-zA-Z0-9_-]+)\}?\}/g, (match, capturedKey) => {
+  return template.replace(/\{([a-zA-Z0-9_-]+)\}/g, (match, capturedKey) => {
     const cleanKey = capturedKey.trim().toLowerCase();
-    const resolvedKey = aliasMap[cleanKey] || cleanKey;
-    const val = context[resolvedKey] || context[cleanKey];
+    const val = context[cleanKey];
     return val !== undefined && val !== null && val !== "" ? String(val) : match;
   });
-
-  return result;
 }
 
 /**
@@ -229,11 +198,12 @@ export function useEmailTemplates(search?: string, category?: string, status?: s
     queryFn: async () => {
       try {
         const endpoint = orgId ? `/organizations/${orgId}/email-templates` : `/email-templates`;
-        const res = await apiGet<EmailTemplate[]>(endpoint, {
+        const raw = await apiGet<EmailTemplate[] | PaginatedResponse<EmailTemplate>>(endpoint, {
           search,
           category: category === "all" ? undefined : category,
           status: status === "all" ? undefined : status,
         });
+        const res = Array.isArray(raw) ? raw : raw.data;
         if (Array.isArray(res) && res.length > 0) {
           saveStoredTemplates(res);
           return res;
@@ -261,7 +231,6 @@ export function useEmailTemplates(search?: string, category?: string, status?: s
       }
       return list;
     },
-    initialData: getStoredTemplates(),
   });
 }
 
@@ -493,6 +462,7 @@ export function useSendTemplatedEmail() {
       to: string;
       subject: string;
       body: string;
+      footer?: string;
       senderName?: string;
       category?: string;
       templateId?: string;

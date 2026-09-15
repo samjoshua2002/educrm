@@ -42,24 +42,13 @@ import {
 } from "@/components/ui/tooltip";
 import { usePageHeader } from "@/hooks/use-page-header";
 import { useAuthStore } from "@/stores/auth-store";
+import { useCreateEmailTemplate, renderTemplate } from "@/hooks/use-email-templates";
 import {
-  useCreateEmailTemplate,
-  useEmailTemplates,
-  renderTemplate,
-} from "@/hooks/use-email-templates";
-import {
-  AVAILABLE_SHORTCUTS,
-  CreateEmailTemplateInput,
-} from "@/types/email-template";
+  useEmailTemplateCategories,
+  useCreateCategory,
+} from "@/hooks/use-email-template-categories";
+import { CreateEmailTemplateInput } from "@/types/email-template";
 import { toast } from "sonner";
-
-const DEFAULT_CATEGORIES = [
-  "Interview Schedule",
-  "Admission Offer",
-  "Document Request",
-  "Payment Reminder",
-  "General Notice",
-];
 
 const TIME_SLOT_PRESETS = [
   "09:30 AM - 10:30 AM IST",
@@ -80,36 +69,34 @@ export default function CreateEmailTemplatePage() {
   });
 
   const createMutation = useCreateEmailTemplate();
-  const { data: allTemplates = [] } = useEmailTemplates();
+  const createCategoryMutation = useCreateCategory();
+  const { data: categories = [] } = useEmailTemplateCategories();
 
   // Form State
   const [name, setName] = React.useState("");
-  const [category, setCategory] = React.useState("Interview Schedule");
+  const [categoryId, setCategoryId] = React.useState<string>("");
   const [channel, setChannel] = React.useState<"Email" | "SMS" | "WhatsApp">("Email");
   const [status, setStatus] = React.useState<"active" | "draft">("active");
   const [description, setDescription] = React.useState("");
-  const [subject, setSubject] = React.useState(
-    "Interview Schedule: GD & Personal Interview Slot - {course} ({application_no})"
+  const [subject, setSubject] = React.useState("");
+  const [body, setBody] = React.useState("");
+  const [footer, setFooter] = React.useState("");
+
+  // Default to the first category once categories have loaded
+  React.useEffect(() => {
+    if (!categoryId && categories.length > 0) {
+      setCategoryId(categories[0].id);
+    }
+  }, [categories, categoryId]);
+
+  const selectedCategory = React.useMemo(
+    () => categories.find((c) => c.id === categoryId) || null,
+    [categories, categoryId]
   );
-  const [body, setBody] = React.useState(
-    `Dear {student},
+  const categoryVariables = selectedCategory?.variables || [];
+  const hasScheduleVariables = categoryVariables.some((v) => v.key === "date" || v.key === "time" || v.key === "venue");
 
-We are pleased to inform you that your application {application_no} for {course} has been shortlisted for the upcoming selection round.
-
-Selection Round Details:
-- Date: {date}
-- Time Slot: {time}
-- Venue: {venue}
-
-Please carry a copy of your verified documents, admit card, and government identity proof.
-
-Warm regards,
-{sender}
-Admissions Directorate`
-  );
-
-  // Custom Category State
-  const [customCategories, setCustomCategories] = React.useState<string[]>([]);
+  // Add Category Dialog State
   const [addCategoryOpen, setAddCategoryOpen] = React.useState(false);
   const [newCategoryInput, setNewCategoryInput] = React.useState("");
 
@@ -121,57 +108,30 @@ Admissions Directorate`
   const [selectedTime, setSelectedTime] = React.useState("10:30 AM - 11:30 AM IST");
   const [selectedVenue, setSelectedVenue] = React.useState("Main Campus Seminar Hall A");
 
-  React.useEffect(() => {
-    try {
-      const saved = localStorage.getItem("educrm_email_template_categories");
-      if (saved) {
-        setCustomCategories(JSON.parse(saved));
-      }
-    } catch {
-      // Ignore
-    }
-  }, []);
-
-  // Combined categories from defaults, database, and localStorage
-  const availableCategories = React.useMemo(() => {
-    const set = new Set<string>(DEFAULT_CATEGORIES);
-    customCategories.forEach((c) => set.add(c));
-    allTemplates.forEach((t) => {
-      if (t.category) set.add(t.category);
-    });
-    if (category && category !== "__add_new__") set.add(category);
-    return Array.from(set);
-  }, [customCategories, allTemplates, category]);
-
-  const handleSaveNewCategory = () => {
+  const handleSaveNewCategory = async () => {
     const trimmed = newCategoryInput.trim();
     if (!trimmed) {
       toast.error("Please enter a category name");
       return;
     }
-    const formatted = trimmed
-      .split(" ")
-      .filter(Boolean)
-      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-      .join(" ");
-
-    if (!customCategories.includes(formatted)) {
-      const updated = [...customCategories, formatted];
-      setCustomCategories(updated);
-      try {
-        localStorage.setItem("educrm_email_template_categories", JSON.stringify(updated));
-      } catch {
-        // Ignore
-      }
+    const slug = trimmed.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+    try {
+      const created = await createCategoryMutation.mutateAsync({ name: trimmed, slug });
+      setCategoryId(created.id);
+      setNewCategoryInput("");
+      setAddCategoryOpen(false);
+    } catch {
+      // Error handled by mutation
     }
-    setCategory(formatted);
-    setNewCategoryInput("");
-    setAddCategoryOpen(false);
-    toast.success(`Category "${formatted}" added and selected`);
   };
 
   const bodyTextareaRef = React.useRef<HTMLTextAreaElement>(null);
   const subjectInputRef = React.useRef<HTMLInputElement>(null);
+  const footerTextareaRef = React.useRef<HTMLTextAreaElement>(null);
+
+  // Tracks which field (subject/body/footer) a variable click should insert
+  // into — whichever the user last focused, defaulting to body.
+  const [activeField, setActiveField] = React.useState<"subject" | "body" | "footer">("body");
 
   // Formatted date string (e.g. 15 Oct 2026)
   const formattedDateStr = React.useMemo(() => {
@@ -186,62 +146,75 @@ Admissions Directorate`
         });
   }, [selectedDate]);
 
-  // Context for real-time live preview
-  const candidateContext: Record<string, string> = {
-    student: "Aarav Sharma",
-    course: "PGDM (Two-Year, Full-Time)",
-    application_no: "APP2026001",
-    date: formattedDateStr,
-    time: selectedTime,
-    venue: selectedVenue,
-    sender: user?.name || "Admissions Desk",
-    organization: "Global Educational Institute",
-    email: "aarav.sharma@gmail.com",
-    phone: "+91 98765 43210",
-  };
+  // Context for real-time live preview, built from the selected category's
+  // variable sample values, with date/time/venue overridden by the schedule popup.
+  const candidateContext: Record<string, string> = React.useMemo(() => {
+    const ctx: Record<string, string> = {};
+    categoryVariables.forEach((v) => {
+      ctx[v.key] = v.sampleValue || "";
+    });
+    if (hasScheduleVariables) {
+      ctx.date = formattedDateStr;
+      ctx.time = selectedTime;
+      ctx.venue = selectedVenue;
+    }
+    return ctx;
+  }, [categoryVariables, hasScheduleVariables, formattedDateStr, selectedTime, selectedVenue]);
 
-  // Helper to insert shortcut tag at cursor in body
-  const insertShortcut = (shortcutKey: string) => {
-    if (shortcutKey === "date" || shortcutKey === "time" || shortcutKey === "venue") {
-      // Ask date and time in popup first
+  // Inserts a variable tag into whichever field (subject/body/footer) was
+  // last focused — lets category variables be used in any of the three.
+  const insertVariable = (shortcutKey: string, targetField?: "subject" | "body" | "footer") => {
+    const field = targetField || activeField;
+    if ((field === "body" || field === "footer") && (shortcutKey === "date" || shortcutKey === "time" || shortcutKey === "venue")) {
       setDateTimeDialogOpen(true);
       return;
     }
 
     const tag = `{${shortcutKey}}`;
+
+    if (field === "subject") {
+      const input = subjectInputRef.current;
+      if (input) {
+        const start = input.selectionStart ?? subject.length;
+        const end = input.selectionEnd ?? subject.length;
+        setSubject(subject.substring(0, start) + tag + subject.substring(end));
+        setTimeout(() => {
+          input.focus();
+          input.setSelectionRange(start + tag.length, start + tag.length);
+        }, 50);
+      } else {
+        setSubject((prev) => prev + " " + tag);
+      }
+      return;
+    }
+
+    if (field === "footer") {
+      const textarea = footerTextareaRef.current;
+      if (textarea) {
+        const start = textarea.selectionStart ?? footer.length;
+        const end = textarea.selectionEnd ?? footer.length;
+        setFooter(footer.substring(0, start) + tag + footer.substring(end));
+        setTimeout(() => {
+          textarea.focus();
+          textarea.setSelectionRange(start + tag.length, start + tag.length);
+        }, 50);
+      } else {
+        setFooter((prev) => prev + " " + tag);
+      }
+      return;
+    }
+
     const textarea = bodyTextareaRef.current;
     if (textarea) {
       const start = textarea.selectionStart ?? body.length;
       const end = textarea.selectionEnd ?? body.length;
-      const nextBody = body.substring(0, start) + tag + body.substring(end);
-      setBody(nextBody);
+      setBody(body.substring(0, start) + tag + body.substring(end));
       setTimeout(() => {
         textarea.focus();
         textarea.setSelectionRange(start + tag.length, start + tag.length);
       }, 50);
     } else {
       setBody((prev) => prev + " " + tag);
-    }
-  };
-
-  const insertSubjectShortcut = (shortcutKey: string) => {
-    if (shortcutKey === "date" || shortcutKey === "time") {
-      setDateTimeDialogOpen(true);
-      return;
-    }
-    const tag = `{${shortcutKey}}`;
-    const input = subjectInputRef.current;
-    if (input) {
-      const start = input.selectionStart ?? subject.length;
-      const end = input.selectionEnd ?? subject.length;
-      const nextSubject = subject.substring(0, start) + tag + subject.substring(end);
-      setSubject(nextSubject);
-      setTimeout(() => {
-        input.focus();
-        input.setSelectionRange(start + tag.length, start + tag.length);
-      }, 50);
-    } else {
-      setSubject((prev) => prev + " " + tag);
     }
   };
 
@@ -277,19 +250,27 @@ Admissions Directorate`
       return;
     }
 
+    if (!categoryId) {
+      toast.error("Please select a category");
+      return;
+    }
+
     const matches = body.match(/\{([a-zA-Z0-9_-]+)\}/g) || [];
     const subjectMatches = subject.match(/\{([a-zA-Z0-9_-]+)\}/g) || [];
-    const rawVars = [...matches, ...subjectMatches].map((v) =>
+    const footerMatches = footer.match(/\{([a-zA-Z0-9_-]+)\}/g) || [];
+    const rawVars = [...matches, ...subjectMatches, ...footerMatches].map((v) =>
       v.replace(/[{}]/g, "").trim().toLowerCase()
     );
     const variables = Array.from(new Set(rawVars));
 
     const payload: CreateEmailTemplateInput = {
       name: name.trim(),
-      category,
+      category: selectedCategory?.name || "General Notice",
+      categoryId,
       channel,
       subject: subject.trim(),
       body: body.trim(),
+      footer: footer.trim() || undefined,
       description: description.trim() || undefined,
       variables,
       status: saveStatus || status,
@@ -403,12 +384,12 @@ Admissions Directorate`
                     </button>
                   </div>
                   <Select
-                    value={category}
+                    value={categoryId}
                     onValueChange={(val) => {
                       if (val === "__add_new__") {
                         setAddCategoryOpen(true);
                       } else {
-                        setCategory(val);
+                        setCategoryId(val);
                       }
                     }}
                   >
@@ -416,9 +397,9 @@ Admissions Directorate`
                       <SelectValue placeholder="Select Category" />
                     </SelectTrigger>
                     <SelectContent>
-                      {availableCategories.map((cat) => (
-                        <SelectItem key={cat} value={cat} className="text-[13px]">
-                          {cat}
+                      {categories.map((cat) => (
+                        <SelectItem key={cat.id} value={cat.id} className="text-[13px]">
+                          {cat.name}
                         </SelectItem>
                       ))}
                       <SelectSeparator />
@@ -488,17 +469,18 @@ Admissions Directorate`
                   className="h-10 border-[#e5e5e5] rounded-[6px] text-[14px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] bg-white font-medium"
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
+                  onFocus={() => setActiveField("subject")}
                 />
 
                 <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                  {["student", "course", "application_no", "date"].map((k) => (
+                  {categoryVariables.slice(0, 4).map((v) => (
                     <button
-                      key={k}
+                      key={v.key}
                       type="button"
-                      onClick={() => insertSubjectShortcut(k)}
+                      onClick={() => insertVariable(v.key, "subject")}
                       className="text-[11px] font-mono font-medium px-2.5 py-1 rounded-[4px] bg-[#fafafa] hover:bg-[#eff6ff] text-[#475569] hover:text-[#2563eb] border border-[#e2e8f0] transition-colors cursor-pointer"
                     >
-                      +&#123;{k}&#125;
+                      +{v.tag}
                     </button>
                   ))}
                 </div>
@@ -508,55 +490,63 @@ Admissions Directorate`
               <div className="rounded-[8px] bg-[#fafafa] border border-[#e5e5e5] p-3.5 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="text-[12px] font-semibold text-[#1e293b]">
-                    Candidate & Schedule Variables
+                    {selectedCategory ? `${selectedCategory.name} Variables` : "Category Variables"}
                   </span>
                   <span className="text-[11px] text-[#64748b]">
-                    Hover to preview value • Click to insert
+                    Inserts into <strong className="capitalize">{activeField}</strong> • Click a field first to target it
                   </span>
                 </div>
 
-                <div className="flex flex-wrap gap-1.5">
-                  {AVAILABLE_SHORTCUTS.map((sc) => (
-                    <Tooltip key={sc.key}>
-                      <TooltipTrigger asChild>
-                        <button
-                          type="button"
-                          onClick={() => insertShortcut(sc.key)}
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] text-left transition-all cursor-pointer shadow-2xs ${
-                            sc.key === "date" || sc.key === "time"
-                              ? "bg-[#EFF6FF] border border-[#BFDBFE] text-[#2563EB] hover:bg-[#DBEAFE] font-medium"
-                              : "bg-white border border-[#E2E8F0] hover:border-[#2563EB] text-[#0F172A] hover:bg-[#F8FAFC]"
-                          }`}
+                {categoryVariables.length === 0 ? (
+                  <p className="text-[12px] text-[#94a3b8] italic">
+                    Select a category above to see its available variables.
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {categoryVariables.map((v) => (
+                      <Tooltip key={v.id}>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            onClick={() => insertVariable(v.key)}
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] text-left transition-all cursor-pointer shadow-2xs ${
+                              v.key === "date" || v.key === "time" || v.key === "venue"
+                                ? "bg-[#EFF6FF] border border-[#BFDBFE] text-[#2563EB] hover:bg-[#DBEAFE] font-medium"
+                                : "bg-white border border-[#E2E8F0] hover:border-[#2563EB] text-[#0F172A] hover:bg-[#F8FAFC]"
+                            }`}
+                          >
+                            <span className="font-mono text-[11px] font-bold text-[#2563EB]">
+                              {v.tag}
+                            </span>
+                            <span className="text-[11px] text-[#475569] font-medium">
+                              {v.label}
+                            </span>
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent
+                          side="top"
+                          className="bg-white text-[#0F172A] border border-[#E2E8F0] shadow-[0px_6px_20px_rgba(0,0,0,0.08)] p-3 rounded-[8px] max-w-xs z-50 animate-in fade-in-0 zoom-in-95"
                         >
-                          <span className="font-mono text-[11px] font-bold text-[#2563EB]">
-                            {sc.tag}
-                          </span>
-                          <span className="text-[11px] text-[#475569] font-medium">
-                            {sc.label}
-                          </span>
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent
-                        side="top"
-                        className="bg-white text-[#0F172A] border border-[#E2E8F0] shadow-[0px_6px_20px_rgba(0,0,0,0.08)] p-3 rounded-[8px] max-w-xs z-50 animate-in fade-in-0 zoom-in-95"
-                      >
-                        <div className="flex items-center gap-2 pb-1.5 border-b border-[#F1F5F9]">
-                          <span className="font-mono text-[12px] font-bold text-[#2563EB] bg-[#EFF6FF] px-1.5 py-0.5 rounded border border-[#DBEAFE]">
-                            {sc.tag}
-                          </span>
-                          <span className="text-[12px] font-bold text-[#0F172A]">{sc.label}</span>
-                        </div>
-                        <p className="text-[11px] text-[#475569] mt-2 leading-relaxed">{sc.description}</p>
-                        <div className="mt-2.5 bg-[#F8FAFC] border border-[#E2E8F0] rounded-[6px] px-2.5 py-1.5 flex items-center justify-between text-[11px]">
-                          <span className="text-[#64748B] font-medium">Resolves to:</span>
-                          <span className="font-mono font-semibold text-[#2563EB]">
-                            {sc.key === "sender" ? user?.name || "Admissions Desk" : sc.sampleValue}
-                          </span>
-                        </div>
-                      </TooltipContent>
-                    </Tooltip>
-                  ))}
-                </div>
+                          <div className="flex items-center gap-2 pb-1.5 border-b border-[#F1F5F9]">
+                            <span className="font-mono text-[12px] font-bold text-[#2563EB] bg-[#EFF6FF] px-1.5 py-0.5 rounded border border-[#DBEAFE]">
+                              {v.tag}
+                            </span>
+                            <span className="text-[12px] font-bold text-[#0F172A]">{v.label}</span>
+                          </div>
+                          {v.description && (
+                            <p className="text-[11px] text-[#475569] mt-2 leading-relaxed">{v.description}</p>
+                          )}
+                          <div className="mt-2.5 bg-[#F8FAFC] border border-[#E2E8F0] rounded-[6px] px-2.5 py-1.5 flex items-center justify-between text-[11px]">
+                            <span className="text-[#64748B] font-medium">Resolves to:</span>
+                            <span className="font-mono font-semibold text-[#2563EB]">
+                              {v.sampleValue || "—"}
+                            </span>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Email Body Textarea */}
@@ -571,14 +561,34 @@ Admissions Directorate`
                   className="border-[#e5e5e5] rounded-[6px] text-[14px] leading-relaxed p-3.5 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] bg-white font-sans"
                   value={body}
                   onChange={(e) => setBody(e.target.value)}
+                  onFocus={() => setActiveField("body")}
                 />
+              </div>
+
+              {/* Footer Field */}
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-medium text-[#1e293b]">
+                  Footer (Optional)
+                </label>
+                <Textarea
+                  ref={footerTextareaRef}
+                  rows={4}
+                  placeholder="e.g. Application Number: {application_no} — this message was sent automatically."
+                  className="border-[#e5e5e5] rounded-[6px] text-[13px] leading-relaxed p-3 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] bg-white font-sans"
+                  value={footer}
+                  onChange={(e) => setFooter(e.target.value)}
+                  onFocus={() => setActiveField("footer")}
+                />
+                <p className="text-[11px] text-[#94a3b8]">
+                  Rendered as a separate, visually distinct block below the email body. Click here, then click a variable above to insert it.
+                </p>
               </div>
 
               {/* Dynamic note */}
               <div className="flex items-start gap-2.5 p-3 rounded-[6px] bg-[#f8fafc] border border-[#e2e8f0] text-[12px] text-[#475569]">
                 <Info className="size-4 text-[#2563eb] shrink-0 mt-0.5" />
                 <p className="leading-relaxed">
-                  <strong>Personalized Sender:</strong> The <code className="text-[#1e293b] font-mono">&#123;sender&#125;</code> variable dynamically evaluates to the current authenticated counselor ({user?.name || "Admissions Desk"}) upon message dispatch.
+                  Variables shown above come from the selected category and are the only placeholders this template can use.
                 </p>
               </div>
             </div>
@@ -626,7 +636,7 @@ Admissions Directorate`
                 <div className="flex items-baseline justify-between">
                   <span className="text-[#64748b]">Category:</span>
                   <span className="font-semibold text-[#1D4ED8] bg-[#EFF6FF] border border-[#DBEAFE] px-2 py-0.5 rounded-full text-[11px]">
-                    {category}
+                    {selectedCategory?.name || "—"}
                   </span>
                 </div>
                 <div className="pt-2 border-t border-[#f1f5f9]">
@@ -648,6 +658,11 @@ Admissions Directorate`
                     </span>
                   )}
                 </div>
+                {footer.trim() && (
+                  <div className="mt-5 pt-3 border-t border-[#e2e8f0] whitespace-pre-line text-[11px] text-[#64748b] leading-relaxed font-sans">
+                    {renderTemplate(footer, candidateContext)}
+                  </div>
+                )}
               </div>
 
               {/* Schedule pill indicator */}

@@ -9,7 +9,7 @@ import { InterviewEvaluation } from './entities/interview-evaluation.entity.js';
 import { EvaluationScore } from './entities/evaluation-score.entity.js';
 import { EvaluationRubric } from './entities/evaluation-rubric.entity.js';
 import { ScoreAdjustmentDto } from './dto/score-adjustment.dto.js';
-import { MailerService } from '../notifications/mailer.service.js';
+import { EmailTemplatesService } from '../email-templates/email-templates.service.js';
 
 export interface InterviewScoreBreakdown {
   interviewId: string;
@@ -180,7 +180,7 @@ export class ScoringService {
     @InjectRepository(EvaluationScore)
     private readonly evaluationScoreRepository: Repository<EvaluationScore>,
     private readonly conversionConfigService: ScoreConversionConfigService,
-    private readonly mailerService: MailerService,
+    private readonly emailTemplatesService: EmailTemplatesService,
   ) {}
 
   // Stage 1 — pre-interview shortlisting score, computed per Application
@@ -302,7 +302,23 @@ export class ScoringService {
     });
     for (const application of applications) {
       if (!application.email) continue;
-      await this.mailerService.sendShortlistedEmail(application);
+      await this.emailTemplatesService.sendTransactional({
+        organizationId: orgId,
+        categorySlug: 'shortlisted',
+        to: application.email,
+        applicationNo: application.applicationNo,
+        applicantName: application.name,
+        variables: {
+          name: application.name,
+          email: application.email,
+          phone: application.primaryMobile,
+          application_no: application.applicationNo,
+          academic_session: application.academicSession,
+          course: application.program,
+          branch: application.confirmedCampus,
+          shortlist_score: application.shortlistScore != null ? String(application.shortlistScore) : undefined,
+        },
+      });
     }
   }
 

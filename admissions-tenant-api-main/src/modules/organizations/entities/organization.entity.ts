@@ -52,7 +52,13 @@ export class Organization {
   subscriptionEnd: Date;
 
   @Column({ type: 'jsonb', nullable: true })
-  settings: { applicationFee?: number; seatBookingFee?: number } | null;
+  settings: {
+    applicationFee?: number;
+    seatBookingFee?: number;
+    // Template tokens: {ORG} {BRANCH} {YEAR} {YY} {SEQ} {SEQ:N} (zero-padded
+    // to N digits). See ApplicationsService.buildApplicationNo.
+    applicationNumberFormat?: string;
+  } | null;
 
   @Column({ name: 'created_by', nullable: true, type: 'uuid' })
   createdBy: string;

@@ -16,7 +16,7 @@ import { ApplicationsService } from './applications.service.js';
 import { ApplicationsController } from './applications.controller.js';
 import { LeadsModule } from '../leads/leads.module.js';
 import { CoursesModule } from '../courses/courses.module.js';
-import { NotificationsModule } from '../notifications/notifications.module.js';
+import { EmailTemplatesModule } from '../email-templates/email-templates.module.js';
 
 @Module({
   imports: [
@@ -36,7 +36,7 @@ import { NotificationsModule } from '../notifications/notifications.module.js';
     ]),
     LeadsModule,
     CoursesModule,
-    NotificationsModule,
+    EmailTemplatesModule,
   ],
   controllers: [ApplicationsController],
   providers: [ApplicationsService],

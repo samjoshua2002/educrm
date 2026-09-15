@@ -21,7 +21,10 @@ export class EmailTemplate {
 
   @Index()
   @Column({ length: 100, default: 'General Notice' })
-  category: string;
+  category: string; // deprecated display/fallback string, superseded by categoryId
+
+  @Column({ name: 'category_id', type: 'uuid', nullable: true })
+  categoryId: string | null;
 
   @Column({ length: 50, default: 'Email' })
   channel: string; // 'Email' | 'SMS' | 'WhatsApp'
@@ -34,6 +37,9 @@ export class EmailTemplate {
 
   @Column({ type: 'text', nullable: true })
   description: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  footer: string | null;
 
   @Column({ type: 'jsonb', default: '[]' })
   variables: string[]; // e.g. ['student', 'date', 'course', 'application_no', 'sender']

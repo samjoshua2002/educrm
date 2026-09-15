@@ -59,7 +59,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { usePageHeader } from "@/hooks/use-page-header";
 import { useAuthStore } from "@/stores/auth-store";
-import { useCommunication, useResendCommunication, useSendCommunication } from "@/hooks/use-communications";
+import { useCommunication, useCommunications, useResendCommunication, useSendCommunication } from "@/hooks/use-communications";
 import { useApplication } from "@/hooks/use-applications";
 import { useEmailTemplates, renderTemplate } from "@/hooks/use-email-templates";
 import { mockCommunications } from "@/data/mock-communications";
@@ -124,6 +124,15 @@ export default function CommunicationDetailsPage() {
 
   const { data: commData, isLoading: isCommLoading } = useCommunication(logId);
   const { data: appData, isLoading: isAppLoading } = useApplication(cleanAppNo, { enabled: !!cleanAppNo });
+
+  // Real, backend-logged sends (application submitted / fee payment
+  // confirmations, etc.) for this specific application — merged into
+  // Conversation History below alongside any locally-sent messages.
+  const { data: backendCommsData } = useCommunications(
+    1,
+    100,
+    cleanAppNo ? { applicationNo: cleanAppNo } : undefined
+  );
 
   const resendMutation = useResendCommunication();
   const sendMutation = useSendCommunication();
@@ -259,23 +268,47 @@ export default function CommunicationDetailsPage() {
     return null;
   }, [commData, appData, logId, cleanAppNo, activeSender]);
 
-  // All messages sent to this applicant (from localStorage + current item) — must be after `item`
+  // All messages sent to this applicant — merges real backend-logged sends
+  // (application submitted, fee payment confirmation, etc.) with any
+  // messages sent manually from this page (stored locally) and the
+  // currently loaded item. Backend rows are the source of truth for
+  // anything triggered by the system itself.
   const auditHistoryMsgs = React.useMemo(() => {
     const appNo = item?.applicationNo;
     if (!appNo || typeof window === "undefined") return [];
     const msgs: any[] = [];
+
+    (backendCommsData?.data || [])
+      .filter((m: any) => m.applicationNo === appNo)
+      .forEach((m: any) =>
+        msgs.push({
+          id: m.id,
+          applicationNo: m.applicationNo,
+          subject: m.subject,
+          category: m.category,
+          channel: m.channel,
+          content: m.content,
+          sender: m.sender,
+          sentAt: m.sentAt,
+          status: m.status,
+        })
+      );
+
     try {
       const raw = localStorage.getItem("educrm_communications_history");
       if (raw) {
         const hist = JSON.parse(raw) as Array<any>;
-        hist.filter((m) => m.applicationNo === appNo).forEach((m) => msgs.push(m));
+        hist
+          .filter((m) => m.applicationNo === appNo && !msgs.find((x) => x.id === m.id))
+          .forEach((m) => msgs.push(m));
       }
     } catch { /* ignore */ }
+
     if (item && !msgs.find((m) => m.id === item.id)) {
       msgs.push({ id: item.id, subject: item.subject, category: item.category, channel: item.channel, content: (item as any).content, sender: item.sender || "Admissions Desk", sentAt: item.sentAt, status: item.status });
     }
     return msgs.sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime());
-  }, [item, latestSentMessage]);
+  }, [item, latestSentMessage, backendCommsData]);
 
   // Context for resolving shortcuts with this specific candidate
   const candidateContext = React.useMemo(() => {

@@ -36,4 +36,8 @@ export class SendEmailTemplateDto {
   @IsString()
   @IsOptional()
   channel?: string;
+
+  @IsString()
+  @IsOptional()
+  footer?: string;
 }

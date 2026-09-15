@@ -12,10 +12,11 @@ import { Student } from './entities/student.entity.js';
 import { CourseSession } from '../course-sessions/entities/course-session.entity.js';
 import { Lead } from '../leads/entities/lead.entity.js';
 import { Branch } from '../branches/entities/branch.entity.js';
+import { Organization } from '../organizations/entities/organization.entity.js';
 import { User } from '../users/entities/user.entity.js';
 import { LeadsService } from '../leads/leads.service.js';
 import { CoursesService } from '../courses/courses.service.js';
-import { MailerService } from '../notifications/mailer.service.js';
+import { EmailTemplatesService } from '../email-templates/email-templates.service.js';
 import { CreateApplicationDto } from './dto/create-application.dto.js';
 import { SubmitApplicationDto } from './dto/submit-application.dto.js';
 import { PaginationDto } from '../../common/dto/pagination.dto.js';
@@ -47,6 +48,10 @@ import { ApplicationAddress } from './entities/application-address.entity.js';
 import { ApplicationExtraCurricular } from './entities/application-extra-curricular.entity.js';
 import { ApplicationOtherQualification } from './entities/application-other-qualification.entity.js';
 
+// Mirrors OrganizationsService's own default so an org that never sets a
+// custom format sees no change in the numbers it was already generating.
+const DEFAULT_APPLICATION_NUMBER_FORMAT = '{BRANCH}/{YEAR}/{SEQ}';
+
 @Injectable()
 export class ApplicationsService {
   constructor(
@@ -60,7 +65,7 @@ export class ApplicationsService {
     private readonly branchRepository: Repository<Branch>,
     private readonly leadsService: LeadsService,
     private readonly coursesService: CoursesService,
-    private readonly mailerService: MailerService,
+    private readonly emailTemplatesService: EmailTemplatesService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -431,18 +436,21 @@ export class ApplicationsService {
         }
       }
 
-      const currentYear = new Date().getFullYear();
+      const organization = await queryRunner.manager.findOne(Organization, { where: { id: orgId } });
+      const format = organization?.settings?.applicationNumberFormat || DEFAULT_APPLICATION_NUMBER_FORMAT;
+      const orgToken = (organization?.slug || 'ORG').toUpperCase();
+
       const count = await queryRunner.manager.count(Application, {
         where: { organizationId: orgId },
       });
       let sequence = count + 1001;
-      let appNo = `${branchPrefix}/${currentYear}/${sequence}`;
+      let appNo = this.buildApplicationNo(format, { org: orgToken, branch: branchPrefix, sequence });
       let existingApp = await queryRunner.manager.findOne(Application, {
         where: { applicationNo: appNo, organizationId: orgId },
       });
       while (existingApp) {
         sequence += 1;
-        appNo = `${branchPrefix}/${currentYear}/${sequence}`;
+        appNo = this.buildApplicationNo(format, { org: orgToken, branch: branchPrefix, sequence });
         existingApp = await queryRunner.manager.findOne(Application, {
           where: { applicationNo: appNo, organizationId: orgId },
         });
@@ -580,6 +588,26 @@ export class ApplicationsService {
     } finally {
       await queryRunner.release();
     }
+  }
+
+  // Renders an org's custom application-number template. Supported tokens:
+  // {ORG} org slug, {BRANCH} branch code/prefix, {YEAR} 4-digit year,
+  // {YY} 2-digit year, {SEQ} sequence number, {SEQ:N} sequence zero-padded
+  // to N digits. Any literal text/separators in the template pass through
+  // unchanged (e.g. "{ORG}-{YEAR}-{SEQ:4}" -> "MERIT-2026-1001").
+  private buildApplicationNo(
+    format: string,
+    ctx: { org: string; branch: string; sequence: number },
+  ): string {
+    const now = new Date();
+    const year = String(now.getFullYear());
+    return format
+      .replace(/\{SEQ:(\d+)\}/g, (_match, width) => String(ctx.sequence).padStart(Number(width), '0'))
+      .replace(/\{SEQ\}/g, String(ctx.sequence))
+      .replace(/\{ORG\}/g, ctx.org)
+      .replace(/\{BRANCH\}/g, ctx.branch)
+      .replace(/\{YEAR\}/g, year)
+      .replace(/\{YY\}/g, year.slice(-2));
   }
 
   // =========================================================================
@@ -816,7 +844,27 @@ export class ApplicationsService {
       }
     }
 
-    await this.mailerService.sendApplicationSubmittedEmail(saved);
+    await this.emailTemplatesService.sendTransactional({
+      organizationId: orgId,
+      categorySlug: 'application_submitted',
+      to: saved.email,
+      applicationNo: saved.applicationNo,
+      applicantName: saved.name,
+      variables: {
+        name: saved.name,
+        email: saved.email,
+        phone: saved.primaryMobile,
+        application_no: saved.applicationNo,
+        academic_session: saved.academicSession,
+        course: saved.program,
+        branch: saved.confirmedCampus,
+        submitted_at: saved.submittedAt?.toLocaleDateString('en-IN', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+        }),
+      },
+    });
     saved.confirmationEmailSentAt = new Date();
     saved = await this.applicationRepository.save(saved);
 

@@ -27,47 +27,6 @@ export class MailerService {
     });
   }
 
-  async sendApplicationSubmittedEmail(application: Application): Promise<void> {
-    const fromEmail = this.configService.get<string>('SMTP_FROM_EMAIL');
-    const fromName = this.configService.get<string>('SMTP_FROM_NAME');
-    const portalUrl = this.configService.get<string>('STUDENT_PORTAL_URL') || '#';
-    const firstName = (application.name || '').trim().split(' ')[0] || 'Applicant';
-    const programLabel = application.program || application.academicSession || '';
-
-    const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1f2937;">
-        <h2 style="color: #111827;">Application Submitted Successfully</h2>
-        <p>Dear ${firstName},</p>
-        <p>
-          Your application <strong>${application.applicationNo}</strong>
-          ${programLabel ? `for <strong>${programLabel}</strong> ` : ''}has been submitted successfully.
-        </p>
-        <p style="margin: 24px 0;">
-          <a href="${portalUrl}" style="display:inline-block;padding:10px 20px;background:#2563eb;color:#ffffff;text-decoration:none;border-radius:6px;">
-            Access your Student Portal
-          </a>
-        </p>
-        <p>Thank you for applying. We will keep you updated on the next steps.</p>
-      </div>
-    `;
-
-    try {
-      await this.transporter.sendMail({
-        from: `"${fromName}" <${fromEmail}>`,
-        to: application.email,
-        subject: `Application Submitted Successfully — ${application.applicationNo}`,
-        html,
-      });
-      this.logger.log(
-        `Application submitted email sent to ${application.email} for ${application.applicationNo}`,
-      );
-    } catch (error: any) {
-      this.logger.error(
-        `Failed to send application submitted email to ${application.email}: ${error?.message || error}`,
-      );
-    }
-  }
-
   // Phase 6a — Admission Decisions. Generic "your application status has
   // been updated" notification, subject/body varying by finalDecision.
   // Follows sendApplicationSubmittedEmail's exact pattern: build html, try
@@ -268,57 +227,6 @@ export class MailerService {
     } catch (error: any) {
       this.logger.error(
         `Failed to send rejection email to ${application.email}: ${error?.message || error}`,
-      );
-    }
-  }
-
-  // Stage 1 — Shortlisting. Sent to each candidate promoted to
-  // "Shortlisted" when an admin commits a Run Shortlisting result
-  // (see ScoringService.commitShortlisting). Catch/log without throwing so
-  // a mail hiccup never blocks the shortlisting commit.
-  async sendShortlistedEmail(application: Application): Promise<void> {
-    const fromEmail = this.configService.get<string>('SMTP_FROM_EMAIL');
-    const fromName = this.configService.get<string>('SMTP_FROM_NAME');
-    const portalUrl = this.configService.get<string>('STUDENT_PORTAL_URL') || '#';
-    const firstName = (application.name || '').trim().split(' ')[0] || 'Applicant';
-    const programLabel = application.program || application.academicSession || '';
-
-    const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1f2937;">
-        <h2 style="color: #111827;">You've Been Shortlisted!</h2>
-        <p>Dear ${firstName},</p>
-        <p>
-          Congratulations! Your application <strong>${application.applicationNo}</strong>
-          ${programLabel ? `for <strong>${programLabel}</strong> ` : ''}has been
-          <strong>shortlisted</strong> for the next stage of the admissions process.
-        </p>
-        <p>
-          Our team will schedule your interview shortly. You will receive a separate
-          email with the date, time, and venue (or online link) once it is confirmed.
-          No action is needed from you right now.
-        </p>
-        <p style="margin: 24px 0;">
-          <a href="${portalUrl}" style="display:inline-block;padding:10px 20px;background:#2563eb;color:#ffffff;text-decoration:none;border-radius:6px;">
-            View your Student Portal
-          </a>
-        </p>
-        <p>We look forward to meeting you.</p>
-      </div>
-    `;
-
-    try {
-      await this.transporter.sendMail({
-        from: `"${fromName}" <${fromEmail}>`,
-        to: application.email,
-        subject: `You've Been Shortlisted — ${application.applicationNo}`,
-        html,
-      });
-      this.logger.log(
-        `Shortlisted email sent to ${application.email} for ${application.applicationNo}`,
-      );
-    } catch (error: any) {
-      this.logger.error(
-        `Failed to send shortlisted email to ${application.email}: ${error?.message || error}`,
       );
     }
   }

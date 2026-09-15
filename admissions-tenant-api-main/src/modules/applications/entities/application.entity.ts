@@ -7,6 +7,7 @@ import {
   ManyToOne,
   JoinColumn,
   OneToMany,
+  Index,
 } from 'typeorm';
 import { Organization } from '../../organizations/entities/organization.entity.js';
 import { Branch } from '../../branches/entities/branch.entity.js';
@@ -23,7 +24,12 @@ import { ApplicationExtraCurricular } from './application-extra-curricular.entit
 import { ApplicationOtherQualification } from './application-other-qualification.entity.js';
 import { ApplicationActivity } from './application-activity.entity.js';
 
+// application_no is only unique WITHIN an organization, not globally — two
+// orgs can legitimately generate the same number (e.g. both default to
+// "APP/2026/1001" for their first applicant). The old bare-column
+// unique:true caused cross-org collisions in this multi-tenant setup.
 @Entity('applications')
+@Index(['organizationId', 'applicationNo'], { unique: true })
 export class Application {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -63,7 +69,7 @@ export class Application {
   @JoinColumn({ name: 'assigned_counselor_id' })
   assignedCounselor: User;
 
-  @Column({ name: 'application_no', length: 50, unique: true })
+  @Column({ name: 'application_no', length: 50 })
   applicationNo: string;
 
   @Column({ name: 'form_id', type: 'uuid', nullable: true })

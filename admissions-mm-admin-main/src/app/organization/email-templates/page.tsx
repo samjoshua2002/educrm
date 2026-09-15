@@ -81,8 +81,8 @@ import {
   useSendTemplatedEmail,
   renderTemplate,
 } from "@/hooks/use-email-templates";
-import { EmailTemplate, AVAILABLE_SHORTCUTS } from "@/types/email-template";
-import { toast } from "sonner";
+import { useEmailTemplateCategories } from "@/hooks/use-email-template-categories";
+import { EmailTemplate } from "@/types/email-template";
 
 const statusStyles: Record<string, string> = {
   active:
@@ -159,28 +159,26 @@ export default function OrganizationEmailTemplatesPage() {
     categoryFilter,
     statusFilter
   );
+  const { data: categories = [] } = useEmailTemplateCategories();
 
-  const filterCategories = React.useMemo(() => {
-    const set = new Set<string>([
-      "Interview Schedule",
-      "Admission Offer",
-      "Document Request",
-      "Payment Reminder",
-      "General Notice",
-    ]);
-    allTemplates.forEach((t: EmailTemplate) => {
-      if (t.category) set.add(t.category);
+  const filterCategories = React.useMemo(
+    () => categories.map((c) => c.name),
+    [categories]
+  );
+
+  // Flattened lookup of every category's variables, keyed by variable key,
+  // used to resolve a template's saved variable list to its label/description.
+  const variablesByKey = React.useMemo(() => {
+    const map = new Map<string, { label: string; description?: string | null; sampleValue?: string | null }>();
+    categories.forEach((cat) => {
+      cat.variables.forEach((v) => {
+        if (!map.has(v.key)) {
+          map.set(v.key, { label: v.label, description: v.description, sampleValue: v.sampleValue });
+        }
+      });
     });
-    try {
-      const saved = localStorage.getItem("educrm_email_template_categories");
-      if (saved) {
-        JSON.parse(saved).forEach((c: string) => set.add(c));
-      }
-    } catch {
-      // Ignore
-    }
-    return Array.from(set);
-  }, [allTemplates]);
+    return map;
+  }, [categories]);
 
   const { mutate: duplicateTemplate } = useDuplicateEmailTemplate();
   const deleteTemplateMutation = useDeleteEmailTemplate();
@@ -259,23 +257,16 @@ export default function OrganizationEmailTemplatesPage() {
     setMounted(true);
   }, []);
 
-  // Candidate sample context for preview
-  const sampleCandidateContext: Record<string, string> = {
-    student: "Aarav Sharma",
-    course: "PGDM (Two-Year, Full-Time)",
-    application_no: "APP2026001",
-    date: new Date().toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    }),
-    time: "10:30 AM - 12:00 PM IST",
-    venue: "Main Campus Seminar Hall A",
-    sender: user?.name || "Admissions Desk",
-    organization: "Global Educational Institute",
-    email: "aarav.sharma@gmail.com",
-    phone: "+91 98765 43210",
-  };
+  // Candidate sample context for preview, built from every category's sample values
+  const sampleCandidateContext: Record<string, string> = React.useMemo(() => {
+    const ctx: Record<string, string> = {
+      date: new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
+    };
+    variablesByKey.forEach((v, key) => {
+      ctx[key] = v.sampleValue || "";
+    });
+    return ctx;
+  }, [variablesByKey]);
 
   if (error) {
     return (
@@ -490,7 +481,7 @@ export default function OrganizationEmailTemplatesPage() {
                         <div className="flex flex-wrap items-center gap-1 mt-0.5">
                           {item.variables && item.variables.length > 0 ? (
                             item.variables.map((v) => {
-                              const sc = AVAILABLE_SHORTCUTS.find((s) => s.key.toLowerCase() === v.toLowerCase());
+                              const sc = variablesByKey.get(v.toLowerCase());
                               return (
                                 <Tooltip key={v}>
                                   <TooltipTrigger asChild>
@@ -940,6 +931,12 @@ export default function OrganizationEmailTemplatesPage() {
                 <div className="whitespace-pre-line text-xs md:text-sm text-slate-700 leading-relaxed font-sans">
                   {renderTemplate(previewTemplate.body, sampleCandidateContext)}
                 </div>
+
+                {previewTemplate.footer && (
+                  <div className="pt-3 border-t border-slate-100 whitespace-pre-line text-[11px] text-slate-500 leading-relaxed font-sans">
+                    {renderTemplate(previewTemplate.footer, sampleCandidateContext)}
+                  </div>
+                )}
               </div>
 
               <DialogFooter>
@@ -1011,11 +1008,10 @@ export default function OrganizationEmailTemplatesPage() {
                   <p className="font-semibold text-slate-900">
                     Subject:{" "}
                     {renderTemplate(testSendTemplate.subject, {
-                      student: testCandidateName,
-                      course: "PGDM 2026-28",
+                      ...sampleCandidateContext,
+                      name: testCandidateName,
                       application_no: testAppNo,
                       date: new Date().toLocaleDateString("en-IN"),
-                      sender: user?.name || "Admissions Desk",
                     })}
                   </p>
                   <p className="text-[11px] text-slate-500">
@@ -1034,20 +1030,17 @@ export default function OrganizationEmailTemplatesPage() {
                   disabled={sendEmailMutation.isPending || !testRecipientEmail}
                   onClick={() => {
                     const ctx = {
-                      student: testCandidateName,
-                      course: "PGDM 2026-28",
+                      ...sampleCandidateContext,
+                      name: testCandidateName,
                       application_no: testAppNo,
                       date: new Date().toLocaleDateString("en-IN"),
-                      time: "10:00 AM IST",
-                      venue: "Main Campus Seminar Hall A",
-                      sender: user?.name || "Admissions Desk",
-                      organization: "Global Educational Institute",
                     };
                     sendEmailMutation.mutate(
                       {
                         to: testRecipientEmail,
                         subject: renderTemplate(testSendTemplate.subject, ctx),
                         body: renderTemplate(testSendTemplate.body, ctx),
+                        footer: testSendTemplate.footer ? renderTemplate(testSendTemplate.footer, ctx) : undefined,
                         category: testSendTemplate.category,
                         templateId: testSendTemplate.id,
                         senderName: user?.name || "Admissions Desk",

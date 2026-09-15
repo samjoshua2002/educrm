@@ -1,7 +1,13 @@
 import Link from "next/link";
-import { BookOpen, MapPin, ClipboardList, IndianRupee, Gauge } from "lucide-react";
+import { BookOpen, MapPin, ClipboardList, IndianRupee, Gauge, Plug } from "lucide-react";
 
 const settingsLinks = [
+  {
+    title: "Organization Settings",
+    description: "Configure this organization's SMTP sender and Razorpay payment gateway credentials.",
+    href: "/organization/settings/organization",
+    icon: Plug,
+  },
   {
     title: "Courses & Sessions",
     description: "Manage course catalogs, academic sessions, and availability.",

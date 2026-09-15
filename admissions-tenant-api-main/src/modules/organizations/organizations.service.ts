@@ -15,6 +15,9 @@ import { Role } from '../../common/enums/roles.enum.js';
 const DEFAULT_APPLICATION_FEE = 2000;
 // Phase 6b — default seat-booking fee, same pattern as DEFAULT_APPLICATION_FEE.
 const DEFAULT_SEAT_BOOKING_FEE = 5000;
+// Matches the format this generator has always produced, so orgs that never
+// set a custom format see no change in their application numbers.
+const DEFAULT_APPLICATION_NUMBER_FORMAT = '{BRANCH}/{YEAR}/{SEQ}';
 
 import { PaginationDto } from '../../common/dto/pagination.dto.js';
 
@@ -112,11 +115,14 @@ export class OrganizationsService {
     await this.orgRepo.remove(org);
   }
 
-  async getSettings(id: string): Promise<{ applicationFee: number; seatBookingFee: number }> {
+  async getSettings(
+    id: string,
+  ): Promise<{ applicationFee: number; seatBookingFee: number; applicationNumberFormat: string }> {
     const org = await this.findOne(id);
     return {
       applicationFee: org.settings?.applicationFee ?? DEFAULT_APPLICATION_FEE,
       seatBookingFee: org.settings?.seatBookingFee ?? DEFAULT_SEAT_BOOKING_FEE,
+      applicationNumberFormat: org.settings?.applicationNumberFormat ?? DEFAULT_APPLICATION_NUMBER_FORMAT,
     };
   }
 
@@ -124,7 +130,7 @@ export class OrganizationsService {
     id: string,
     dto: UpdateOrgSettingsDto,
     actorId: string,
-  ): Promise<{ applicationFee: number; seatBookingFee: number }> {
+  ): Promise<{ applicationFee: number; seatBookingFee: number; applicationNumberFormat: string }> {
     const org = await this.findOne(id);
     org.settings = { ...(org.settings || {}), ...dto };
     org.updatedBy = actorId;
@@ -132,6 +138,7 @@ export class OrganizationsService {
     return {
       applicationFee: org.settings.applicationFee ?? DEFAULT_APPLICATION_FEE,
       seatBookingFee: org.settings.seatBookingFee ?? DEFAULT_SEAT_BOOKING_FEE,
+      applicationNumberFormat: org.settings.applicationNumberFormat ?? DEFAULT_APPLICATION_NUMBER_FORMAT,
     };
   }
 }

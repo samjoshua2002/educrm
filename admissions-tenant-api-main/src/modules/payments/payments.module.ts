@@ -7,6 +7,7 @@ import { OfferAcceptance } from '../admissions-decisions/entities/offer-acceptan
 import { OfferLetter } from '../admissions-decisions/entities/offer-letter.entity.js';
 import { PaymentsService } from './payments.service.js';
 import { PaymentsController } from './payments.controller.js';
+import { EmailTemplatesModule } from '../email-templates/email-templates.module.js';
 
 // Phase 6b — imports the OfferAcceptance/OfferLetter entities directly (via
 // TypeOrmModule.forFeature) rather than importing AdmissionsDecisionsModule
@@ -15,6 +16,7 @@ import { PaymentsController } from './payments.controller.js';
 @Module({
   imports: [
     TypeOrmModule.forFeature([PaymentOrder, Application, Organization, OfferAcceptance, OfferLetter]),
+    EmailTemplatesModule,
   ],
   controllers: [PaymentsController],
   providers: [PaymentsService],

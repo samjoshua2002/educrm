@@ -9,6 +9,13 @@ import { RescheduleInterviewDto } from './dto/reschedule-interview.dto.js';
 import { CompleteInterviewDto } from './dto/complete-interview.dto.js';
 import { ScoringService } from './scoring.service.js';
 import { MailerService } from '../notifications/mailer.service.js';
+import { EmailTemplatesService } from '../email-templates/email-templates.service.js';
+
+const INTERVIEW_EVENT_CATEGORY_SLUGS: Partial<Record<string, string>> = {
+  Scheduled: 'interview_gd_slot_invitation',
+  Rescheduled: 'interview_gd_reschedule',
+  Cancelled: 'interview_gd_cancellation',
+};
 
 @Injectable()
 export class InterviewsBookingService {
@@ -22,6 +29,7 @@ export class InterviewsBookingService {
     private readonly dataSource: DataSource,
     private readonly scoringService: ScoringService,
     private readonly mailerService: MailerService,
+    private readonly emailTemplatesService: EmailTemplatesService,
   ) {}
 
   // Emails the candidate about an interview status change. Never throws —

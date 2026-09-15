@@ -19,6 +19,9 @@ import { PaymentsModule } from './modules/payments/payments.module.js';
 import { NotificationsModule } from './modules/notifications/notifications.module.js';
 import { AdmissionsDecisionsModule } from './modules/admissions-decisions/admissions-decisions.module.js';
 import { EmailTemplatesModule } from './modules/email-templates/email-templates.module.js';
+import { EmailTemplateCategoriesModule } from './modules/email-template-categories/email-template-categories.module.js';
+import { OrganizationSettingsModule } from './modules/organization-settings/organization-settings.module.js';
+import { CommunicationsModule } from './modules/communications/communications.module.js';
 
 @Module({
   imports: [
@@ -64,6 +67,9 @@ import { EmailTemplatesModule } from './modules/email-templates/email-templates.
     NotificationsModule,
     AdmissionsDecisionsModule,
     EmailTemplatesModule,
+    EmailTemplateCategoriesModule,
+    OrganizationSettingsModule,
+    CommunicationsModule,
   ],
   providers: [
     {

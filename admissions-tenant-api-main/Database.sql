@@ -73,6 +73,33 @@ CREATE TABLE IF NOT EXISTS organizations (
 
 
 -- ============================================================
+-- TABLE: organization_settings
+-- Per-organization integration credentials (SMTP, payment gateway).
+-- One row per organization; plaintext for now (see plan for
+-- encryption-at-rest follow-up before this holds live secrets
+-- for many tenants).
+-- ============================================================
+CREATE TABLE IF NOT EXISTS organization_settings (
+    id                       UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    organization_id          UUID NOT NULL UNIQUE REFERENCES organizations(id) ON DELETE CASCADE,
+
+    smtp_host                VARCHAR(255),
+    smtp_port                INTEGER,
+    smtp_user                VARCHAR(255),
+    smtp_pass                VARCHAR(255),
+    smtp_from_email          VARCHAR(255),
+    smtp_from_name           VARCHAR(255),
+
+    razorpay_key_id          VARCHAR(255),
+    razorpay_key_secret      VARCHAR(255),
+    razorpay_webhook_secret  VARCHAR(255),
+
+    created_at               TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at               TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+
+-- ============================================================
 -- TABLE: branches
 -- ============================================================
 CREATE TABLE IF NOT EXISTS branches (
@@ -1085,6 +1112,106 @@ BEGIN
 
   RAISE NOTICE 'Sample data inserted successfully.';
 END $$;
+
+-- ============================================================
+-- TABLE: email_templates
+-- (created via TypeORM synchronize; included here for reference
+-- and so category_id / footer stay documented as source of truth)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS email_templates (
+    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    organization_id UUID,
+    name            VARCHAR(255)    NOT NULL,
+    category        VARCHAR(100)    NOT NULL DEFAULT 'General Notice',
+    category_id     UUID REFERENCES email_template_categories(id) ON DELETE SET NULL,
+    channel         VARCHAR(50)     NOT NULL DEFAULT 'Email',
+    subject         VARCHAR(500)    NOT NULL,
+    body            TEXT            NOT NULL,
+    description     TEXT,
+    footer          TEXT,
+    variables       JSONB           NOT NULL DEFAULT '[]',
+    status          VARCHAR(20)     NOT NULL DEFAULT 'active',
+    is_default      BOOLEAN         NOT NULL DEFAULT FALSE,
+    usage_count     INTEGER         NOT NULL DEFAULT 0,
+    created_at      TIMESTAMP       NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMP       NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE email_templates ADD COLUMN IF NOT EXISTS category_id UUID REFERENCES email_template_categories(id) ON DELETE SET NULL;
+ALTER TABLE email_templates ADD COLUMN IF NOT EXISTS footer TEXT;
+
+
+-- ============================================================
+-- TABLE: email_template_categories
+-- NULL organization_id = global category seeded by superadmin.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS email_template_categories (
+    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    organization_id UUID,
+    name            VARCHAR(100)    NOT NULL,
+    slug            VARCHAR(100)    NOT NULL,
+    description     TEXT,
+    icon            VARCHAR(50),
+    sort_order      INTEGER         NOT NULL DEFAULT 0,
+    is_active       BOOLEAN         NOT NULL DEFAULT TRUE,
+    created_at      TIMESTAMP       NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMP       NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_email_template_categories_org_slug
+    ON email_template_categories (organization_id, slug);
+
+
+-- ============================================================
+-- TABLE: email_template_category_variables
+-- Add new variables here at any time without any code change.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS email_template_category_variables (
+    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    category_id     UUID NOT NULL REFERENCES email_template_categories(id) ON DELETE CASCADE,
+    key             VARCHAR(100)    NOT NULL,
+    tag             VARCHAR(120)    NOT NULL,
+    label           VARCHAR(150)    NOT NULL,
+    description     TEXT,
+    sample_value    VARCHAR(255),
+    source_field    VARCHAR(255),
+    sort_order      INTEGER         NOT NULL DEFAULT 0,
+    created_at      TIMESTAMP       NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_email_template_category_variables_category_key
+    ON email_template_category_variables (category_id, key);
+
+
+-- ============================================================
+-- TABLE: communication_logs
+-- Records every transactional email actually sent (application
+-- submitted, fee payment confirmed, etc.) for the Communications
+-- / Conversation History screens.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS communication_logs (
+    id                UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    organization_id   UUID,
+    application_no    VARCHAR(100),
+    applicant_name    VARCHAR(255),
+    recipient_email   VARCHAR(255),
+    recipient_phone   VARCHAR(50),
+    channel           VARCHAR(50)     NOT NULL DEFAULT 'Email',
+    category          VARCHAR(150),
+    category_id       UUID REFERENCES email_template_categories(id) ON DELETE SET NULL,
+    template_id       UUID REFERENCES email_templates(id) ON DELETE SET NULL,
+    subject           VARCHAR(500)    NOT NULL,
+    content           TEXT            NOT NULL,
+    footer            TEXT,
+    sender            VARCHAR(150),
+    status            VARCHAR(20)     NOT NULL DEFAULT 'Sent',
+    message_id        VARCHAR(150),
+    sent_at           TIMESTAMP       NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_communication_logs_org ON communication_logs (organization_id);
+CREATE INDEX IF NOT EXISTS idx_communication_logs_application_no ON communication_logs (application_no);
+
 
 -- ============================================================
 -- END OF SCHEMA
