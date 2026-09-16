@@ -58,6 +58,13 @@ export class Organization {
     // Template tokens: {ORG} {BRANCH} {YEAR} {YY} {SEQ} {SEQ:N} (zero-padded
     // to N digits). See ApplicationsService.buildApplicationNo.
     applicationNumberFormat?: string;
+    discountEnabled?: boolean;
+    discountType?: string;
+    discountValue?: number;
+    discountReason?: string;
+    discountStartDate?: string;
+    discountEndDate?: string;
+    [key: string]: any;
   } | null;
 
   @Column({ name: 'created_by', nullable: true, type: 'uuid' })

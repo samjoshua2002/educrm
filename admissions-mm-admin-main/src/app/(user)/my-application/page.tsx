@@ -38,6 +38,9 @@ import {
   CheckCircle2,
   Copy,
   Printer,
+  BadgePercent,
+  Lock,
+  Tag,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -422,13 +425,33 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
   const { user } = useAuthStore();
   const orgId = user?.organizationId || "";
   const { data: orgSettings } = useOrganizationSettings(orgId);
+  const rawBaseFee = Number(orgSettings?.applicationFee ?? 2000);
+
+  const isDiscountActive = React.useMemo(() => {
+    if (!orgSettings?.discountEnabled) return false;
+    const now = new Date();
+    const todayStr = now.toISOString().split("T")[0];
+    if (orgSettings.discountStartDate && todayStr < orgSettings.discountStartDate) return false;
+    if (orgSettings.discountEndDate && todayStr > orgSettings.discountEndDate) return false;
+    return (Number(orgSettings.discountValue) || 0) > 0;
+  }, [orgSettings]);
+
+  const discountAmount = React.useMemo(() => {
+    if (!isDiscountActive || !orgSettings?.discountValue) return 0;
+    const val = Number(orgSettings.discountValue) || 0;
+    if (orgSettings.discountType === "fixed") {
+      return Math.min(rawBaseFee, val);
+    }
+    const pct = Math.min(100, Math.max(0, val));
+    return Math.round((rawBaseFee * pct) / 100);
+  }, [isDiscountActive, orgSettings, rawBaseFee]);
+
+  const payableFee = Math.max(0, rawBaseFee - discountAmount);
   const [feeAmount, setFeeAmount] = React.useState<number>(2000);
 
   React.useEffect(() => {
-    if (orgSettings?.applicationFee !== undefined) {
-      setFeeAmount(Number(orgSettings.applicationFee));
-    }
-  }, [orgSettings?.applicationFee]);
+    setFeeAmount(payableFee);
+  }, [payableFee]);
 
   const getDefaultValues = React.useCallback((): ApplicationFormValues => ({
     personal: {
@@ -1065,114 +1088,192 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
   };
 
   if (isSubmittedSuccess && submittedAppNumber) {
+    const submissionDateStr = new Date().toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+
+    const getBranchName = (val?: string) => {
+      if (!val) return "—";
+      const found = branchesList.find((b: any) => b.id === val || b.name === val);
+      if (found) {
+        return found.name + (found.city ? ` (${found.city})` : "");
+      }
+      return val;
+    };
+
     return (
-      <div className={`w-full py-6 md:py-10 px-4 sm:px-6 lg:px-8 bg-white max-w-4xl mx-auto ${manrope.className}`}>
-        {/* Top Header Badge */}
-        <div className="flex flex-col items-center text-center space-y-4 mb-8">
-          <div className="size-20 rounded-full bg-emerald-100/80 border-4 border-emerald-50 flex items-center justify-center text-emerald-600 shadow-sm animate-in zoom-in-90 duration-300">
-            <CheckCircle2 className="size-10 stroke-[2.2]" />
-          </div>
-          <div className="space-y-1.5 max-w-xl">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200 mb-1">
-              <Check className="size-3.5 stroke-[2.5]" /> Payment & Submission Verified
+      <div className={`w-full max-w-full min-w-0 p-4 sm:p-6 lg:p-8 space-y-6 ${manrope.className}`}>
+        {/* Printable Official Receipt Slip Container */}
+        <div id="printable-application-receipt" className="w-full bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
+          {/* Top Receipt Header */}
+          <div className="bg-[#FAFAFA] border-b border-slate-200 p-6 sm:p-8">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <span className="text-[11px] font-bold tracking-wider text-slate-500 uppercase">
+                  Admissions 2026-2027 • Official Acknowledgement
+                </span>
+                <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+                  Application Submission Slip
+                </h1>
+                <p className="text-xs text-slate-500">
+                  Your admission application has been registered and application fee payment received.
+                </p>
+              </div>
+
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 self-start sm:self-center shadow-2xs">
+                <Check className="size-3.5 stroke-[2.5]" /> Submitted
+              </div>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-[#120352] tracking-tight">
-              Application Submitted Successfully!
-            </h1>
-            <p className="text-sm text-slate-600 leading-relaxed">
-              Congratulations <span className="font-semibold text-slate-900">{form.getValues("personal.fullName")}</span>! Your admission application has been officially registered and received by the admissions committee.
-            </p>
+
+            {/* Application Number & Print Bar */}
+            <div className="mt-6 pt-5 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-lg border border-slate-200/80">
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block">
+                  Official Application Number
+                </span>
+                <p className="text-2xl sm:text-3xl font-mono font-black text-[#2563EB] tracking-wider mt-0.5 select-all">
+                  {submittedAppNumber}
+                </p>
+              </div>
+
+              <div className="no-print flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    navigator.clipboard.writeText(submittedAppNumber);
+                    setCopiedAppNo(true);
+                    setTimeout(() => setCopiedAppNo(false), 2000);
+                  }}
+                  className="h-9 px-3.5 rounded-lg border-slate-300 text-slate-700 bg-white hover:bg-slate-50 text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                >
+                  {copiedAppNo ? <Check className="size-3.5 text-emerald-600" /> : <Copy className="size-3.5" />}
+                  <span>{copiedAppNo ? "Copied" : "Copy No"}</span>
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => window.print()}
+                  className="h-9 px-4 rounded-lg bg-[#2563EB] hover:bg-[#1d4ed8] text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs border-0"
+                >
+                  <Printer className="size-3.5" />
+                  <span>Print Slip</span>
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Receipt Body Details */}
+          <div className="p-6 sm:p-8 space-y-6">
+            {/* Candidate Information */}
+            <div>
+              <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-3">
+                Candidate Information
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs bg-slate-50/70 p-4 rounded-lg border border-slate-200/70">
+                <div>
+                  <span className="text-slate-400 block font-medium">Full Name</span>
+                  <span className="text-slate-900 font-bold text-sm block mt-0.5">
+                    {form.getValues("personal.fullName") || "—"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block font-medium">Email Address</span>
+                  <span className="text-slate-800 font-medium block mt-0.5 truncate">
+                    {form.getValues("personal.email") || "—"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block font-medium">Contact Phone</span>
+                  <span className="text-slate-800 font-medium block mt-0.5">
+                    {formatMobile(form.getValues("personal.phone")) || "—"}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Admission Program & Academic Preferences */}
+            <div>
+              <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-3">
+                Admission Details
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs bg-slate-50/70 p-4 rounded-lg border border-slate-200/70">
+                <div>
+                  <span className="text-slate-400 block font-medium">Applied Program</span>
+                  <span className="text-slate-900 font-bold text-sm block mt-0.5">
+                    {form.getValues("preferences.program") || "—"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block font-medium">Campus / Branch Preference</span>
+                  <span className="text-slate-800 font-medium block mt-0.5">
+                    {getBranchName(form.getValues("preferences.preference1"))}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block font-medium">Submission Date</span>
+                  <span className="text-slate-800 font-medium block mt-0.5">
+                    {submissionDateStr}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Payment & Transaction Breakdown */}
+            <div>
+              <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-3">
+                Fee & Payment Summary
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs bg-slate-50/70 p-4 rounded-lg border border-slate-200/70">
+                <div>
+                  <span className="text-slate-400 block font-medium">Standard Application Fee</span>
+                  <span className="text-slate-800 font-bold text-sm block mt-0.5">
+                    ₹{rawBaseFee.toLocaleString("en-IN")}.00
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block font-medium">Discount Applied</span>
+                  <span className="text-emerald-700 font-bold text-sm block mt-0.5">
+                    {isDiscountActive && discountAmount > 0
+                      ? `-₹${discountAmount.toLocaleString("en-IN")}.00 (${orgSettings?.discountType === "fixed" ? `₹${orgSettings?.discountValue}` : `${orgSettings?.discountValue}%`} OFF)`
+                      : "₹0.00 (None)"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block font-medium">Total Amount Paid</span>
+                  <span className="text-[#2563EB] font-extrabold text-base block mt-0.5">
+                    ₹{feeAmount.toLocaleString("en-IN")}.00
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block font-medium">Payment Status</span>
+                  <span className="inline-flex items-center gap-1 font-bold text-emerald-700 mt-0.5">
+                    <Check className="size-3 text-emerald-600" /> Paid & Confirmed
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Next Steps Guidance */}
+            <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-5 space-y-2">
+              <h5 className="text-[11px] font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                <ShieldCheck className="size-3.5 text-blue-600" /> Next Steps
+              </h5>
+              <ul className="text-xs text-slate-600 space-y-1.5 list-disc list-inside">
+                <li>A formal submission confirmation has been recorded for application <span className="font-mono font-bold text-slate-800">{submittedAppNumber}</span>.</li>
+                <li>The admissions committee will review your educational marksheets and eligibility criteria.</li>
+                <li>You will receive SMS and email notifications regarding GD / Personal Interview slot scheduling.</li>
+              </ul>
+            </div>
           </div>
         </div>
 
-        {/* Application Number Highlight Card */}
-        <div className="rounded-2xl border-2 border-blue-200/80 bg-gradient-to-br from-blue-50/70 via-indigo-50/30 to-white p-6 sm:p-8 shadow-sm mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-blue-100">
-            <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-blue-700 block">
-                Official Application Number
-              </span>
-              <p className="text-2xl sm:text-3xl font-mono font-extrabold text-[#120352] tracking-wider mt-1 select-all">
-                {submittedAppNumber}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  navigator.clipboard.writeText(submittedAppNumber);
-                  setCopiedAppNo(true);
-                  setTimeout(() => setCopiedAppNo(false), 2000);
-                }}
-                className="h-9 px-3.5 rounded-lg border-blue-300 text-blue-700 bg-white hover:bg-blue-50 text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-2xs"
-              >
-                {copiedAppNo ? <Check className="size-3.5 text-emerald-600" /> : <Copy className="size-3.5" />}
-                <span>{copiedAppNo ? "Copied!" : "Copy Application No"}</span>
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => window.print()}
-                className="h-9 px-3.5 rounded-lg border-slate-300 text-slate-700 bg-white hover:bg-slate-50 text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-2xs"
-              >
-                <Printer className="size-3.5" />
-                <span>Print</span>
-              </Button>
-            </div>
-          </div>
-
-          {/* Key Details Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-y-4 gap-x-6 pt-6 text-xs">
-            <div>
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Candidate Name</span>
-              <p className="text-sm font-bold text-slate-900 mt-0.5">{form.getValues("personal.fullName") || "—"}</p>
-            </div>
-            <div>
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Applied Program</span>
-              <p className="text-sm font-bold text-slate-900 mt-0.5">{form.getValues("preferences.program") || "—"}</p>
-            </div>
-            <div>
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Payment Status</span>
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 mt-0.5 rounded-md text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                <Check className="size-3" /> Paid ₹{feeAmount.toLocaleString("en-IN")}.00
-              </span>
-            </div>
-            <div>
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Registered Email</span>
-              <p className="text-sm font-medium text-slate-700 mt-0.5 truncate">{form.getValues("personal.email") || "—"}</p>
-            </div>
-            <div>
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Contact Phone</span>
-              <p className="text-sm font-medium text-slate-700 mt-0.5">{formatMobile(form.getValues("personal.phone")) || "—"}</p>
-            </div>
-            <div>
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Date of Submission</span>
-              <p className="text-sm font-medium text-slate-700 mt-0.5">
-                {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Informational Guidance Box */}
-        <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 mb-8 space-y-3">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
-            <ShieldCheck className="size-4 text-blue-600" />
-            What happens next?
-          </h4>
-          <ul className="text-xs text-slate-600 space-y-2 list-disc list-inside leading-relaxed">
-            <li>A payment receipt and submission confirmation has been sent to your registered email address (<span className="font-semibold text-slate-800">{form.getValues("personal.email")}</span>).</li>
-            <li>Our admissions office will verify your submitted educational marksheets and eligibility criteria.</li>
-            <li>You will be notified via SMS/Email once your GD & Personal Interview slot schedule is assigned.</li>
-          </ul>
-        </div>
-
-        {/* Primary Action Buttons */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+        {/* Bottom Navigation Buttons (Hidden when printing) */}
+        <div className="no-print flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
           <Button
             onClick={() => { window.location.reload(); }}
-            className="w-full sm:w-auto h-11 px-8 rounded-lg bg-[#2563EA] hover:bg-[#1d4ed8] text-white font-semibold text-sm shadow-sm cursor-pointer"
+            className="w-full sm:w-auto h-11 px-8 rounded-lg bg-[#2563EB] hover:bg-[#1d4ed8] text-white font-semibold text-sm shadow-sm cursor-pointer border-0"
           >
             View Submitted Application
           </Button>
@@ -1257,81 +1358,121 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
 
               {/* Right Column (5 cols): Fee Breakdown & Checkout Box */}
               <div className="lg:col-span-5 space-y-4">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Fee Breakdown
-                </h3>
-
-                <div className="p-6 rounded-2xl border-2 border-blue-100 bg-gradient-to-b from-blue-50/40 via-white to-white space-y-5 shadow-xs">
-                  <div className="space-y-3 text-xs">
-                    <div className="flex justify-between items-center text-slate-600">
-                      <span>Application Processing Fee</span>
-                      <span className="font-semibold text-slate-900">₹{feeAmount.toLocaleString("en-IN")}.00</span>
+                <div className="rounded-xl border border-slate-200 bg-white shadow-xs overflow-hidden">
+                  {/* Card Header */}
+                  <div className="bg-[#FAFAFA] px-5 py-3.5 border-b border-slate-200 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <FileText className="size-4 text-slate-500" />
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-700">Fee Breakdown</span>
                     </div>
+                    {isDiscountActive && discountAmount > 0 && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <Tag className="size-3 text-emerald-600" />
+                        {orgSettings?.discountType === "fixed"
+                          ? `₹${Number(orgSettings?.discountValue).toLocaleString("en-IN")} Off`
+                          : `${orgSettings?.discountValue}% Off`}
+                      </span>
+                    )}
                   </div>
 
-                  <div className="border-t border-dashed border-slate-200 pt-4">
-                    <div className="flex justify-between items-baseline">
-                      <div>
-                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Total Payable</span>
-                        <span className="text-[11px] text-slate-400">All taxes included</span>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-2xl sm:text-3xl font-extrabold text-blue-600 font-mono tracking-tight">
-                          ₹{feeAmount.toLocaleString("en-IN")}
+                  <div className="p-5 space-y-4">
+                    {/* Itemized Line Rows */}
+                    <div className="space-y-2.5 text-xs">
+                      <div className="flex justify-between items-center text-slate-600">
+                        <span>Application Processing Fee</span>
+                        <span className={`font-semibold ${isDiscountActive && discountAmount > 0 ? "text-slate-400 line-through text-[11px]" : "text-slate-900"}`}>
+                          ₹{rawBaseFee.toLocaleString("en-IN")}.00
                         </span>
                       </div>
+
+                      {isDiscountActive && discountAmount > 0 && (
+                        <div className="flex justify-between items-center text-emerald-700">
+                          <span className="font-medium">
+                            {orgSettings?.discountReason || "Promotional Discount"}
+                          </span>
+                          <span className="font-bold text-emerald-600">-₹{discountAmount.toLocaleString("en-IN")}.00</span>
+                        </div>
+                      )}
+
+                      <div className="flex justify-between items-center text-slate-500 pt-0.5">
+                        <span>GST & Taxes</span>
+                        <span className="font-medium text-slate-600">Included</span>
+                      </div>
                     </div>
+
+                    {/* Total Summary Box */}
+                    <div className="border-t border-slate-200 pt-3.5">
+                      <div className="flex justify-between items-end">
+                        <div>
+                          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                            Total Payable
+                          </span>
+                          <span className="text-[11px] text-slate-400">All inclusive</span>
+                        </div>
+                        <div className="text-right">
+                          {isDiscountActive && discountAmount > 0 && (
+                            <div className="text-[11px] font-semibold text-emerald-600 mb-0.5">
+                              You save ₹{discountAmount.toLocaleString("en-IN")}
+                            </div>
+                          )}
+                          <span className="text-3xl font-extrabold text-[#2563EB] font-mono tracking-tight">
+                            ₹{feeAmount.toLocaleString("en-IN")}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Payment Action States */}
+                    {paymentState === "success" ? (
+                      <div className="p-4 rounded-lg bg-emerald-50 border border-emerald-200 text-center space-y-2">
+                        <div className="size-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto">
+                          <ShieldCheck className="size-6" />
+                        </div>
+                        <p className="font-bold text-emerald-900 text-sm">Payment Successful!</p>
+                        <p className="text-xs text-emerald-700">Submitting and finalizing your application...</p>
+                        {isFinalizing && <Loader2 className="size-4 animate-spin text-emerald-600 mx-auto mt-2" />}
+                      </div>
+                    ) : paymentState === "failed" ? (
+                      <div className="p-4 rounded-lg bg-red-50 border border-red-200 text-center space-y-2">
+                        <div className="size-10 rounded-full bg-red-100 text-red-700 flex items-center justify-center mx-auto">
+                          <XCircle className="size-6" />
+                        </div>
+                        <p className="font-bold text-red-900 text-sm">Payment Cancelled or Failed</p>
+                        {paymentError && <p className="text-xs text-red-700 leading-normal">{paymentError}</p>}
+                        <Button
+                          onClick={handlePayNow}
+                          className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold text-xs h-9 rounded-lg mt-2 cursor-pointer"
+                        >
+                          Try Again
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2.5 pt-1">
+                        <Button
+                          className="w-full bg-[#2563EB] hover:bg-[#1d4ed8] text-white flex items-center justify-center gap-2 h-11 text-sm font-semibold rounded-lg shadow-sm transition-all cursor-pointer border-0"
+                          onClick={handlePayNow}
+                          disabled={paymentState === "creating-order" || paymentState === "awaiting-payment" || paymentState === "verifying"}
+                        >
+                          {paymentState === "creating-order" || paymentState === "awaiting-payment" || paymentState === "verifying" ? (
+                            <>
+                              <Loader2 className="size-4 animate-spin mr-1.5 inline" />
+                              {paymentState === "creating-order" ? "Creating Order..." : "Verifying Payment..."}
+                            </>
+                          ) : (
+                            <>
+                              <CreditCard className="size-4" />
+                              Pay ₹{feeAmount.toLocaleString("en-IN")} via Razorpay
+                            </>
+                          )}
+                        </Button>
+
+                        <div className="flex items-center justify-center gap-1.5 text-[11px] text-slate-400 font-medium">
+                          <Lock className="size-3 text-slate-400" />
+                          <span>256-Bit SSL Encrypted • Razorpay Checkout</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
-
-                  {/* Payment States Rendering */}
-                  {paymentState === "success" ? (
-                    <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-center space-y-2">
-                      <div className="size-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto">
-                        <ShieldCheck className="size-6" />
-                      </div>
-                      <p className="font-bold text-emerald-900 text-sm">Payment Successful!</p>
-                      <p className="text-xs text-emerald-700">Submitting and finalizing your application...</p>
-                      {isFinalizing && <Loader2 className="size-4 animate-spin text-emerald-600 mx-auto mt-2" />}
-                    </div>
-                  ) : paymentState === "failed" ? (
-                    <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-center space-y-2">
-                      <div className="size-10 rounded-full bg-red-100 text-red-700 flex items-center justify-center mx-auto">
-                        <XCircle className="size-6" />
-                      </div>
-                      <p className="font-bold text-red-900 text-sm">Payment Cancelled or Failed</p>
-                      {paymentError && <p className="text-xs text-red-700 leading-normal">{paymentError}</p>}
-                      <Button
-                        onClick={handlePayNow}
-                        className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold text-xs h-9 rounded-lg mt-2"
-                      >
-                        Try Again
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="space-y-3 pt-2">
-                      <Button
-                        className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white flex items-center justify-center gap-2 h-12 text-sm sm:text-base font-bold rounded-xl shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer border-0"
-                        onClick={handlePayNow}
-                        disabled={paymentState === "creating-order" || paymentState === "awaiting-payment" || paymentState === "verifying"}
-                      >
-                        {paymentState === "creating-order" || paymentState === "awaiting-payment" || paymentState === "verifying" ? (
-                          <>
-                            <Loader2 className="size-5 animate-spin mr-1.5 inline" />
-                            {paymentState === "creating-order" ? "Creating Order..." : "Verifying Payment..."}
-                          </>
-                        ) : (
-                          <>
-                            <CreditCard className="size-5" />
-                            Pay ₹{feeAmount.toLocaleString("en-IN")} via Razorpay
-                          </>
-                        )}
-                      </Button>
-
-                      <div className="flex items-center justify-center gap-2 text-[11px] text-slate-400 text-center font-medium">
-                        <span>Supports UPI, Cards, Net Banking & Wallets</span>
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>

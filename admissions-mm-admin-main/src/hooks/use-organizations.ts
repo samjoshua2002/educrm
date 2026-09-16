@@ -101,6 +101,20 @@ export interface OrganizationSettings {
   applicationFee: number;
   seatBookingFee: number;
   applicationNumberFormat: string;
+  discountEnabled?: boolean;
+  discountType?: "percentage" | "fixed";
+  discountValue?: number;
+  discountReason?: string;
+  discountStartDate?: string;
+  discountEndDate?: string;
+  coupons?: Array<{
+    code: string;
+    discountType: "percentage" | "fixed";
+    discountValue: number;
+    validUntil?: string;
+    maxUses?: number;
+    usedCount?: number;
+  }>;
 }
 
 export function useOrganizationSettings(id?: string) {

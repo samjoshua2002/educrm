@@ -115,7 +115,7 @@ export class OrganizationsService {
     await this.orgRepo.remove(org);
   }
 
-  async getPublicSettings(): Promise<{ applicationFee: number; seatBookingFee: number; applicationNumberFormat: string }> {
+  async getPublicSettings(): Promise<any> {
     let org = await this.orgRepo.findOne({
       where: { status: OrgStatus.ACTIVE },
     });
@@ -125,36 +125,33 @@ export class OrganizationsService {
       });
     }
     return {
+      ...(org?.settings || {}),
       applicationFee: Number(org?.settings?.applicationFee ?? DEFAULT_APPLICATION_FEE),
       seatBookingFee: Number(org?.settings?.seatBookingFee ?? DEFAULT_SEAT_BOOKING_FEE),
       applicationNumberFormat: org?.settings?.applicationNumberFormat ?? DEFAULT_APPLICATION_NUMBER_FORMAT,
     };
   }
 
-  async getSettings(
-    id: string,
-  ): Promise<{ applicationFee: number; seatBookingFee: number; applicationNumberFormat: string }> {
+  async getSettings(id: string): Promise<any> {
     const org = await this.findOne(id);
     return {
+      ...(org.settings || {}),
       applicationFee: Number(org.settings?.applicationFee ?? DEFAULT_APPLICATION_FEE),
       seatBookingFee: Number(org.settings?.seatBookingFee ?? DEFAULT_SEAT_BOOKING_FEE),
       applicationNumberFormat: org.settings?.applicationNumberFormat ?? DEFAULT_APPLICATION_NUMBER_FORMAT,
     };
   }
 
-  async updateSettings(
-    id: string,
-    dto: UpdateOrgSettingsDto,
-    actorId: string,
-  ): Promise<{ applicationFee: number; seatBookingFee: number; applicationNumberFormat: string }> {
+  async updateSettings(id: string, dto: UpdateOrgSettingsDto, actorId: string): Promise<any> {
     const org = await this.findOne(id);
     org.settings = { ...(org.settings || {}), ...dto };
     org.updatedBy = actorId;
     await this.orgRepo.save(org);
     return {
-      applicationFee: org.settings.applicationFee ?? DEFAULT_APPLICATION_FEE,
-      seatBookingFee: org.settings.seatBookingFee ?? DEFAULT_SEAT_BOOKING_FEE,
-      applicationNumberFormat: org.settings.applicationNumberFormat ?? DEFAULT_APPLICATION_NUMBER_FORMAT,
+      ...(org.settings || {}),
+      applicationFee: Number(org.settings?.applicationFee ?? DEFAULT_APPLICATION_FEE),
+      seatBookingFee: Number(org.settings?.seatBookingFee ?? DEFAULT_SEAT_BOOKING_FEE),
+      applicationNumberFormat: org.settings?.applicationNumberFormat ?? DEFAULT_APPLICATION_NUMBER_FORMAT,
     };
   }
 }

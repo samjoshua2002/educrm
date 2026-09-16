@@ -69,9 +69,27 @@ export class PaymentsService {
       organization = await this.organizationRepo.findOne({ order: { createdAt: 'ASC' } });
     }
 
-    const applicationFee = Number(
+    let applicationFee = Number(
       organization?.settings?.applicationFee ?? DEFAULT_APPLICATION_FEE,
     );
+
+    const s = organization?.settings;
+    if (s?.discountEnabled) {
+      const now = new Date();
+      const todayStr = now.toISOString().split('T')[0];
+      const isStarted = !s.discountStartDate || todayStr >= s.discountStartDate;
+      const isNotExpired = !s.discountEndDate || todayStr <= s.discountEndDate;
+
+      if (isStarted && isNotExpired && s.discountValue) {
+        if (s.discountType === 'percentage') {
+          const pct = Math.min(100, Math.max(0, Number(s.discountValue)));
+          const discountAmt = (applicationFee * pct) / 100;
+          applicationFee = Math.max(0, applicationFee - discountAmt);
+        } else {
+          applicationFee = Math.max(0, applicationFee - Number(s.discountValue));
+        }
+      }
+    }
 
     const amountInPaise = Math.round(applicationFee * 100);
 
@@ -402,7 +420,23 @@ export class PaymentsService {
     });
 
     const org = orgId ? await this.organizationRepo.findOne({ where: { id: orgId } }) : null;
-    const defaultFee = org?.settings?.applicationFee ?? DEFAULT_APPLICATION_FEE;
+    let defaultFee = Number(org?.settings?.applicationFee ?? DEFAULT_APPLICATION_FEE);
+    if (org?.settings?.discountEnabled) {
+      const s = org.settings;
+      const now = new Date();
+      const todayStr = now.toISOString().split('T')[0];
+      const isStarted = !s.discountStartDate || todayStr >= s.discountStartDate;
+      const isNotExpired = !s.discountEndDate || todayStr <= s.discountEndDate;
+
+      if (isStarted && isNotExpired && s.discountValue) {
+        if (s.discountType === 'percentage') {
+          const pct = Math.min(100, Math.max(0, Number(s.discountValue)));
+          defaultFee = Math.max(0, defaultFee - (defaultFee * pct) / 100);
+        } else {
+          defaultFee = Math.max(0, defaultFee - Number(s.discountValue));
+        }
+      }
+    }
 
     const orphanApps = allApps.filter((app) => !existingAppIds.has(app.id));
     const mappedOrphanApps = orphanApps.map((app) => {
@@ -517,7 +551,23 @@ export class PaymentsService {
     });
 
     const org = orgId ? await this.organizationRepo.findOne({ where: { id: orgId } }) : null;
-    const defaultFee = org?.settings?.applicationFee ?? DEFAULT_APPLICATION_FEE;
+    let defaultFee = Number(org?.settings?.applicationFee ?? DEFAULT_APPLICATION_FEE);
+    if (org?.settings?.discountEnabled) {
+      const s = org.settings;
+      const now = new Date();
+      const todayStr = now.toISOString().split('T')[0];
+      const isStarted = !s.discountStartDate || todayStr >= s.discountStartDate;
+      const isNotExpired = !s.discountEndDate || todayStr <= s.discountEndDate;
+
+      if (isStarted && isNotExpired && s.discountValue) {
+        if (s.discountType === 'percentage') {
+          const pct = Math.min(100, Math.max(0, Number(s.discountValue)));
+          defaultFee = Math.max(0, defaultFee - (defaultFee * pct) / 100);
+        } else {
+          defaultFee = Math.max(0, defaultFee - Number(s.discountValue));
+        }
+      }
+    }
 
     const orphanApps = allApps.filter((app) => !existingAppIds.has(app.id));
 
