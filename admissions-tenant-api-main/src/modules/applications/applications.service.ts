@@ -23,6 +23,8 @@ import { PaginationDto } from '../../common/dto/pagination.dto.js';
 import { Role } from '../../common/enums/roles.enum.js';
 import { LeadStatus } from '../leads/entities/lead.entity.js';
 import { ApplicationActivity } from './entities/application-activity.entity.js';
+import { Interview } from '../interviews/entities/interview.entity.js';
+import { InterviewSlot } from '../interviews/entities/interview-slot.entity.js';
 import {
   UpdatePersonalDto,
   UpdatePreferencesDto,
@@ -130,10 +132,10 @@ export class ApplicationsService {
     const existing = await this.applicationRepository.findOne({
       where: {
         organizationId: orgId,
-        email,
+        email: ILike(email.trim()),
         courseId,
         academicSession,
-        formStatus: Not(In(['rejected'])),
+        formStatus: Not(In(['draft', 'incomplete', 'rejected'])),
       },
     });
     if (existing) {
@@ -235,18 +237,22 @@ export class ApplicationsService {
       campus: app.preference1Branch?.name || null,
       preference1: app.preference1Branch?.name || null,
       preference2: app.preference2Branch?.name || null,
-      interviewPreference1: app.interviewPreference1 ?? null,
-      interviewPreference2: app.interviewPreference2 ?? null,
-      interviewLocation: app.interviewLocation ?? null,
       formStatus: this.mapStatusToFrontend(app.formStatus),
       shortlistStatus: app.shortlistStatus ?? null,
-      paymentStatus: app.paymentStatus,
-      paymentMode: app.paymentMode,
-      paymentAmount: app.paymentAmount,
+      paymentStatus:
+        app.paymentStatus === 'success' || app.paymentStatus === 'paid'
+          ? 'Paid'
+          : app.paymentStatus === 'refunded'
+          ? 'Refunded'
+          : app.paymentStatus === 'failed'
+          ? 'Failed'
+          : 'Pending',
+      paymentMode: app.paymentMode || (app.paymentStatus === 'success' ? 'Razorpay' : '—'),
+      paymentAmount: Number(app.paymentAmount || 0),
       lastActivity: app.lastActivityAt,
-      verificationStatus: app.verificationStatus,
-      verificationRemarks: app.verificationRemarks,
-      verifiedAt: app.verifiedAt,
+      verificationStatus: app.verificationStatus || (app as any).verification_status || 'pending',
+      verificationRemarks: app.verificationRemarks || (app as any).verification_remarks || null,
+      verifiedAt: app.verifiedAt || (app as any).verified_at || null,
     }));
 
     return {
@@ -288,13 +294,38 @@ export class ApplicationsService {
 
   async remove(idOrAppNo: string, orgId: string) {
     const app = await this.findOne(idOrAppNo, orgId);
+    const manager = this.applicationRepository.manager;
+    try {
+      const interviews = await manager.find(Interview, {
+        where: { applicationId: app.id, organizationId: orgId },
+      });
+      const slotIds = interviews.map((i) => i.slotId).filter(Boolean);
+      if (slotIds.length > 0) {
+        await manager.update(
+          InterviewSlot,
+          { id: In(slotIds), organizationId: orgId },
+          { status: 'Available' }
+        );
+      }
+    } catch (e) {
+      // Continue removing application even if interview slot release encounters an issue
+    }
     await this.applicationRepository.remove(app);
     return { success: true };
   }
 
-  async findActiveByEmail(email: string, orgId: string) {
-    const app = await this.applicationRepository.findOne({
-      where: { email, organizationId: orgId },
+  async findActiveByEmail(email: string, orgId?: string) {
+    const trimmedEmail = (email || '').trim();
+    const whereCondition: any = {
+      email: ILike(trimmedEmail),
+      formStatus: Not(In(['draft', 'incomplete', 'rejected'])),
+    };
+    if (orgId) {
+      whereCondition.organizationId = orgId;
+    }
+
+    let app = await this.applicationRepository.findOne({
+      where: whereCondition,
       relations: [
         'student',
         'educationRecords',
@@ -305,7 +336,28 @@ export class ApplicationsService {
         'extraCurricularRecords',
         'otherQualificationRecords',
       ],
+      order: { createdAt: 'DESC' },
     });
+
+    if (!app && orgId) {
+      app = await this.applicationRepository.findOne({
+        where: {
+          email: ILike(trimmedEmail),
+          formStatus: Not(In(['draft', 'incomplete', 'rejected'])),
+        },
+        relations: [
+          'student',
+          'educationRecords',
+          'entranceTests',
+          'workExperienceRecords',
+          'parentRecords',
+          'addressRecords',
+          'extraCurricularRecords',
+          'otherQualificationRecords',
+        ],
+        order: { createdAt: 'DESC' },
+      });
+    }
 
     if (!app) {
       throw new NotFoundException(`No active application found for email ${email}`);
@@ -380,8 +432,22 @@ export class ApplicationsService {
     const applicantCategory = dto.applicant?.category || undefined;
     const applicantMaritalStatus = dto.applicant?.maritalStatus || undefined;
 
-    // Rule 4: Duplicate Application Check
+    // Rule 4: Duplicate Application Check (only blocks already submitted applications)
     await this.checkDuplicateApplication(orgId, applicantEmail, course.id, course.name, academicSession);
+
+    // Clean up any unsubmitted draft applications for this student/course/session
+    const existingDrafts = await this.applicationRepository.find({
+      where: {
+        organizationId: orgId,
+        email: ILike(applicantEmail.trim()),
+        courseId: course.id,
+        academicSession,
+        formStatus: In(['draft', 'incomplete']),
+      },
+    });
+    for (const draft of existingDrafts) {
+      await this.applicationRepository.delete({ id: draft.id });
+    }
 
     // Rule 3: Preferences Check
     const p1 = dto.preferences?.preference1;
@@ -468,7 +534,8 @@ export class ApplicationsService {
         academicSession: academicSession,
         photoUrl: dto.photoUrl || (dto.applicant as any)?.photoUrl || (dto.applicant as any)?.photo || undefined,
         assignedCounselorId: creatorRole === Role.COUNSELOR ? creatorId : undefined,
-        formStatus: 'submitted',
+        formStatus: 'draft',
+        paymentStatus: 'pending',
         preference1: p1Id || undefined,
         preference2: p2Id || undefined,
         name: applicantName,
@@ -977,11 +1044,12 @@ export class ApplicationsService {
   private mapStatusToFrontend(status: string): string {
     const mapping: Record<string, string> = {
       incomplete: 'Incomplete',
+      draft: 'Draft',
       submitted: 'Submitted',
       under_review: 'Under Review',
       accepted: 'Accepted',
       rejected: 'Rejected',
     };
-    return mapping[status.toLowerCase()] || status;
+    return mapping[(status || '').toLowerCase()] || status;
   }
 }

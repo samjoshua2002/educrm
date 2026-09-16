@@ -93,9 +93,13 @@ export function DynamicHeader() {
     actionHref = "/superadmin/organizations/create";
   }
 
+  const isStudent = user?.role === "student";
+
   const showActionButton =
+    !isStudent &&
     !pathname.startsWith("/gd-interview") &&
-    !pathname.startsWith("/student-application");
+    !pathname.startsWith("/student-application") &&
+    !pathname.startsWith("/my-application");
 
   const buttonWidths: Record<string, string> = {
     "New applications": "w-[166px]",
@@ -129,18 +133,20 @@ export function DynamicHeader() {
       <Button variant="ghost" size="icon" className="size-9 rounded-full">
         <Bell className="size-5" />
       </Button>
-      {(storeAction || isOrganizationRoute)
-        ? orgActionButton
-        : showActionButton && (
-            <Link href={actionHref}>
-              <Button
-                className={`hidden md:flex rounded-[8px] bg-[#ea2525] hover:bg-[#bb1e1e] justify-center ${buttonWidths[actionText] || ""}`}
-              >
-                <Plus className="size-4" />
-                {actionText}
-              </Button>
-            </Link>
-          )}
+      {!isStudent && !pathname.startsWith("/student-application") && !pathname.startsWith("/my-application") && (
+        (storeAction || isOrganizationRoute)
+          ? orgActionButton
+          : showActionButton && (
+              <Link href={actionHref}>
+                <Button
+                  className={`hidden md:flex rounded-[8px] bg-[#ea2525] hover:bg-[#bb1e1e] justify-center ${buttonWidths[actionText] || ""}`}
+                >
+                  <Plus className="size-4" />
+                  {actionText}
+                </Button>
+              </Link>
+            )
+      )}
     </div>
   );
 

@@ -18,6 +18,7 @@ import { CreateOrderDto } from './dto/create-order.dto.js';
 import { CreateSeatBookingOrderDto } from './dto/create-seat-booking-order.dto.js';
 import { VerifyPaymentDto } from './dto/verify-payment.dto.js';
 import { EmailTemplatesService } from '../email-templates/email-templates.service.js';
+import { PaginationDto } from '../../common/dto/pagination.dto.js';
 
 const DEFAULT_APPLICATION_FEE = 2000;
 // Phase 6b — default seat-booking fee, same fallback pattern as
@@ -50,20 +51,27 @@ export class PaymentsService {
   }
 
   async createOrder(dto: CreateOrderDto) {
-    const application = await this.applicationRepo.findOne({
-      where: { id: dto.applicationId },
-    });
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(dto.applicationId);
+    let application = isUuid
+      ? await this.applicationRepo.findOne({ where: { id: dto.applicationId } })
+      : await this.applicationRepo.findOne({ where: { applicationNo: dto.applicationId } });
+
     if (!application) {
       throw new NotFoundException(
         `Application with ID "${dto.applicationId}" not found`,
       );
     }
 
-    const organization = await this.organizationRepo.findOne({
-      where: { id: application.organizationId },
-    });
-    const applicationFee =
-      organization?.settings?.applicationFee ?? DEFAULT_APPLICATION_FEE;
+    let organization = application.organizationId
+      ? await this.organizationRepo.findOne({ where: { id: application.organizationId } })
+      : null;
+    if (!organization) {
+      organization = await this.organizationRepo.findOne({ order: { createdAt: 'ASC' } });
+    }
+
+    const applicationFee = Number(
+      organization?.settings?.applicationFee ?? DEFAULT_APPLICATION_FEE,
+    );
 
     const amountInPaise = Math.round(applicationFee * 100);
 
@@ -311,5 +319,251 @@ export class PaymentsService {
     } else if (event === 'payment.failed') {
       await this.markFailed(paymentOrder);
     }
+  }
+
+  async recordFailure(orderId: string, _reason?: string) {
+    const paymentOrder = await this.paymentOrderRepo.findOne({
+      where: { razorpayOrderId: orderId },
+      relations: ['application'],
+    });
+    if (!paymentOrder) return { success: false };
+
+    await this.markFailed(paymentOrder);
+
+    if (paymentOrder.applicationId) {
+      await this.applicationRepo.update(
+        { id: paymentOrder.applicationId },
+        { paymentStatus: 'failed' },
+      );
+    }
+    return { success: true };
+  }
+
+  async findAll(
+    orgId: string,
+    paginationDto: PaginationDto,
+    search?: string,
+    status?: string,
+    purpose?: string,
+    dateFrom?: string,
+    dateTo?: string,
+  ) {
+    // 1. Fetch payment orders
+    const paymentOrders = await this.paymentOrderRepo.find({
+      relations: ['application', 'application.student', 'application.preference1Branch'],
+      order: { createdAt: 'DESC' },
+    });
+
+    const orgPaymentOrders = orgId
+      ? paymentOrders.filter(
+          (po) => !po.application || !po.application.organizationId || po.application.organizationId === orgId,
+        )
+      : paymentOrders;
+
+    const mappedPaymentOrders = orgPaymentOrders.map((po) => {
+      const pStatus = (po.status || '').toLowerCase();
+      const normalizedStatus =
+        pStatus === 'paid' || pStatus === 'success'
+          ? 'paid'
+          : pStatus === 'failed'
+          ? 'failed'
+          : pStatus === 'refunded'
+          ? 'refunded'
+          : 'pending';
+
+      return {
+        id: po.id,
+        applicationId: po.applicationId,
+        applicationNo: po.application?.applicationNo || '—',
+        applicantName: po.application?.name || po.application?.student?.name || '—',
+        applicantEmail: po.application?.email || po.application?.student?.email || '—',
+        applicantPhone: po.application?.primaryMobile || po.application?.student?.phone || '—',
+        program: po.application?.program || '—',
+        campus: po.application?.confirmedCampus || po.application?.preference1Branch?.name || '—',
+        amount: Number(po.amount),
+        currency: po.currency || 'INR',
+        status: normalizedStatus,
+        purpose: po.purpose || 'application_fee',
+        method: po.method || 'Razorpay Gateway',
+        razorpayOrderId: po.razorpayOrderId,
+        razorpayPaymentId: po.razorpayPaymentId || '—',
+        razorpaySignature: po.razorpaySignature,
+        createdAt: po.createdAt,
+        paidAt: po.paidAt,
+      };
+    });
+
+    // 2. Fetch applications without payment orders
+    const existingAppIds = new Set(orgPaymentOrders.map((po) => po.applicationId).filter(Boolean));
+    const allApps = await this.applicationRepo.find({
+      where: orgId ? { organizationId: orgId } : {},
+      relations: ['student', 'preference1Branch'],
+      order: { createdAt: 'DESC' },
+    });
+
+    const org = orgId ? await this.organizationRepo.findOne({ where: { id: orgId } }) : null;
+    const defaultFee = org?.settings?.applicationFee ?? DEFAULT_APPLICATION_FEE;
+
+    const orphanApps = allApps.filter((app) => !existingAppIds.has(app.id));
+    const mappedOrphanApps = orphanApps.map((app) => {
+      const pStatus = (app.paymentStatus || 'pending').toLowerCase();
+      const normalizedStatus =
+        pStatus === 'paid' || pStatus === 'success'
+          ? 'paid'
+          : pStatus === 'failed'
+          ? 'failed'
+          : pStatus === 'refunded'
+          ? 'refunded'
+          : 'pending';
+
+      return {
+        id: `app_pay_${app.id}`,
+        applicationId: app.id,
+        applicationNo: app.applicationNo || '—',
+        applicantName: app.name || app.student?.name || '—',
+        applicantEmail: app.email || app.student?.email || '—',
+        applicantPhone: app.primaryMobile || app.student?.phone || '—',
+        program: app.program || '—',
+        campus: app.confirmedCampus || app.preference1Branch?.name || '—',
+        amount: Number(app.paymentAmount || defaultFee),
+        currency: 'INR',
+        status: normalizedStatus,
+        purpose: 'application_fee',
+        method: app.paymentMode || 'Razorpay Gateway',
+        razorpayOrderId: app.paymentReference || '—',
+        razorpayPaymentId: app.paymentReference || '—',
+        razorpaySignature: null,
+        createdAt: app.createdAt,
+        paidAt: normalizedStatus === 'paid' ? app.createdAt : null,
+      };
+    });
+
+    let combined = [...mappedPaymentOrders, ...mappedOrphanApps];
+
+    // Apply search filter
+    if (search && search.trim() !== '') {
+      const s = search.trim().toLowerCase();
+      combined = combined.filter(
+        (p) =>
+          p.applicantName.toLowerCase().includes(s) ||
+          p.applicantEmail.toLowerCase().includes(s) ||
+          p.applicantPhone.toLowerCase().includes(s) ||
+          p.applicationNo.toLowerCase().includes(s) ||
+          p.razorpayOrderId.toLowerCase().includes(s) ||
+          p.razorpayPaymentId.toLowerCase().includes(s),
+      );
+    }
+
+    // Apply status filter
+    if (status && status !== 'all') {
+      const s = status.toLowerCase();
+      if (s === 'pending' || s === 'created') {
+        combined = combined.filter((p) => p.status === 'pending' || p.status === 'created');
+      } else {
+        combined = combined.filter((p) => p.status.toLowerCase() === s);
+      }
+    }
+
+    // Apply purpose filter
+    if (purpose && purpose !== 'all') {
+      combined = combined.filter((p) => p.purpose === purpose);
+    }
+
+    // Apply dateFrom filter
+    if (dateFrom && dateFrom.trim() !== '') {
+      const fromDate = new Date(dateFrom);
+      fromDate.setHours(0, 0, 0, 0);
+      combined = combined.filter((p) => new Date(p.createdAt) >= fromDate);
+    }
+
+    // Apply dateTo filter
+    if (dateTo && dateTo.trim() !== '') {
+      const toDate = new Date(dateTo);
+      toDate.setHours(23, 59, 59, 999);
+      combined = combined.filter((p) => new Date(p.createdAt) <= toDate);
+    }
+
+    // Sort by createdAt DESC
+    combined.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    const total = combined.length;
+    const page = paginationDto.page || 1;
+    const limit = paginationDto.limit || 10;
+    const skip = (page - 1) * limit;
+    const data = combined.slice(skip, skip + limit);
+
+    return {
+      data,
+      total,
+      totalPages: Math.ceil(total / limit),
+      page,
+      limit,
+    };
+  }
+
+  async getStats(orgId: string) {
+    const paymentOrders = await this.paymentOrderRepo.find({
+      relations: ['application'],
+    });
+    const orgPaymentOrders = orgId
+      ? paymentOrders.filter(
+          (po) => !po.application || !po.application.organizationId || po.application.organizationId === orgId,
+        )
+      : paymentOrders;
+
+    const existingAppIds = new Set(orgPaymentOrders.map((po) => po.applicationId).filter(Boolean));
+    const allApps = await this.applicationRepo.find({
+      where: orgId ? { organizationId: orgId } : {},
+    });
+
+    const org = orgId ? await this.organizationRepo.findOne({ where: { id: orgId } }) : null;
+    const defaultFee = org?.settings?.applicationFee ?? DEFAULT_APPLICATION_FEE;
+
+    const orphanApps = allApps.filter((app) => !existingAppIds.has(app.id));
+
+    const totalOrders = orgPaymentOrders.length + orphanApps.length;
+
+    const paidOrders = [
+      ...orgPaymentOrders.filter(
+        (o) => (o.status || '').toLowerCase() === 'paid' || (o.status || '').toLowerCase() === 'success',
+      ),
+      ...orphanApps.filter(
+        (a) =>
+          (a.paymentStatus || '').toLowerCase() === 'paid' ||
+          (a.paymentStatus || '').toLowerCase() === 'success',
+      ),
+    ];
+
+    const totalCollected = paidOrders.reduce((sum, o: any) => {
+      const amt = o.amount !== undefined ? Number(o.amount) : Number(o.paymentAmount || defaultFee);
+      return sum + (amt || 0);
+    }, 0);
+
+    const pendingCount =
+      orgPaymentOrders.filter(
+        (o) => (o.status || '').toLowerCase() === 'created' || (o.status || '').toLowerCase() === 'pending',
+      ).length +
+      orphanApps.filter(
+        (a) =>
+          (a.paymentStatus || '').toLowerCase() === 'pending' ||
+          (a.paymentStatus || '').toLowerCase() === 'created' ||
+          !a.paymentStatus,
+      ).length;
+
+    const failedCount =
+      orgPaymentOrders.filter((o) => (o.status || '').toLowerCase() === 'failed').length +
+      orphanApps.filter((a) => (a.paymentStatus || '').toLowerCase() === 'failed').length;
+
+    const avgPayment =
+      paidOrders.length > 0 ? Math.round(totalCollected / paidOrders.length) : 0;
+
+    return {
+      totalCollected,
+      totalOrders,
+      successfulOrders: paidOrders.length,
+      pendingCount,
+      failedCount,
+      avgPayment,
+    };
   }
 }

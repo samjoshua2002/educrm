@@ -2,10 +2,18 @@ import { cn } from "@/lib/utils";
 
 export const formStatusStyles: Record<string, string> = {
   Rejected: "bg-[rgba(217,119,6,0.20)] text-[#BD0F0F]",
+  rejected: "bg-[rgba(217,119,6,0.20)] text-[#BD0F0F]",
   "In Progress": "bg-[#FEF3C7] text-[#A34123]",
   Accepted: "bg-[rgba(5,150,105,0.20)] text-[#065F46]",
+  accepted: "bg-[rgba(5,150,105,0.20)] text-[#065F46]",
   Submitted: "bg-[#F3E8FF] text-[#6B21A8]",
+  submitted: "bg-[#F3E8FF] text-[#6B21A8]",
+  Draft: "bg-amber-500/10 text-amber-700",
+  draft: "bg-amber-500/10 text-amber-700",
+  Pending: "bg-yellow-500/10 text-yellow-700",
+  pending: "bg-yellow-500/10 text-yellow-700",
   Incomplete: "bg-gray-500/10 text-gray-700",
+  incomplete: "bg-gray-500/10 text-gray-700",
   "Under Review": "bg-purple-500/10 text-purple-700",
   // Interview lifecycle statuses (GD & Interview screen)
   "Slot Available": "bg-slate-500/10 text-slate-600",

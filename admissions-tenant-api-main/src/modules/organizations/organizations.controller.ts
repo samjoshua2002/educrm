@@ -24,11 +24,11 @@ import { ResponseMessage } from '../../common/decorators/response-message.decora
 import { PaginationDto } from '../../common/dto/pagination.dto.js';
 
 @Controller('organizations')
-@UseGuards(JwtAuthGuard, RolesGuard)
 export class OrganizationsController {
   constructor(private readonly organizationsService: OrganizationsService) {}
 
   @Post()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.SUPERADMIN)
   @ResponseMessage('Organization created successfully')
   create(@Body() dto: CreateOrganizationDto, @Request() req: any) {
@@ -36,13 +36,37 @@ export class OrganizationsController {
   }
 
   @Get()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.SUPERADMIN)
   @ResponseMessage('Organizations fetched successfully')
   findAll(@Query() paginationDto: PaginationDto) {
     return this.organizationsService.findAll(paginationDto);
   }
 
+  @Get('public/settings')
+  @ResponseMessage('Public organization settings fetched successfully')
+  getPublicSettings() {
+    return this.organizationsService.getPublicSettings();
+  }
+
+  @Get(':id/settings')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.APPLICATION_MANAGER, Role.COUNSELOR, Role.STUDENT)
+  @ResponseMessage('Organization settings fetched successfully')
+  getSettings(@Param('id', ParseUUIDPipe) id: string, @Request() req: any) {
+    const user = req.user;
+
+    if (user && user.role === Role.ORG_ADMIN && user.organizationId !== id) {
+      throw new ForbiddenException(
+        'Access denied: You can only view your own organization settings',
+      );
+    }
+
+    return this.organizationsService.getSettings(id);
+  }
+
   @Get(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.SUPERADMIN, Role.ORG_ADMIN)
   @ResponseMessage('Organization details fetched successfully')
   findOne(
@@ -62,6 +86,7 @@ export class OrganizationsController {
   }
 
   @Patch(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.SUPERADMIN, Role.ORG_ADMIN)
   @ResponseMessage('Organization updated successfully')
   update(
@@ -82,28 +107,15 @@ export class OrganizationsController {
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.SUPERADMIN)
   @ResponseMessage('Organization deleted successfully')
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.organizationsService.remove(id);
   }
 
-  @Get(':id/settings')
-  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN)
-  @ResponseMessage('Organization settings fetched successfully')
-  getSettings(@Param('id', ParseUUIDPipe) id: string, @Request() req: any) {
-    const user = req.user;
-
-    if (user.role === Role.ORG_ADMIN && user.organizationId !== id) {
-      throw new ForbiddenException(
-        'Access denied: You can only view your own organization settings',
-      );
-    }
-
-    return this.organizationsService.getSettings(id);
-  }
-
   @Patch(':id/settings')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.SUPERADMIN, Role.ORG_ADMIN)
   @ResponseMessage('Organization settings updated successfully')
   updateSettings(

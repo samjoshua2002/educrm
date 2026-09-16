@@ -103,11 +103,15 @@ export interface OrganizationSettings {
   applicationNumberFormat: string;
 }
 
-export function useOrganizationSettings(id: string) {
+export function useOrganizationSettings(id?: string) {
   return useQuery({
-    queryKey: ["organization-settings", id],
-    queryFn: () => apiGet<OrganizationSettings>(`/organizations/${id}/settings`),
-    enabled: !!id,
+    queryKey: ["organization-settings", id || "public"],
+    queryFn: () => {
+      if (id && id.trim() !== "") {
+        return apiGet<OrganizationSettings>(`/organizations/${id}/settings`);
+      }
+      return apiGet<OrganizationSettings>(`/organizations/public/settings`);
+    },
   });
 }
 

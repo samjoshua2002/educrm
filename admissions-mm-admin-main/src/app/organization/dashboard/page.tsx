@@ -34,7 +34,7 @@ export default function DashboardPage() {
   });
 
   const [mounted, setMounted] = React.useState(false);
-  const { data: applicationsResponse, isLoading } = useApplications();
+  const { data: applicationsResponse, isLoading } = useApplications(1, 500);
 
   React.useEffect(() => {
     setMounted(true);

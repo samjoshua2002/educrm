@@ -455,7 +455,6 @@ export default function GDInterviewPage() {
 
   const [interviewsState, setInterviewsState] =
     React.useState<GDInterview[]>([]);
-  const [deleteId, setDeleteId] = React.useState<number | null>(null);
 
   const { data: appsResponse } = useApplications(1, 100);
   const appsList = React.useMemo(() => {
@@ -471,8 +470,16 @@ export default function GDInterviewPage() {
     const map = new Map<string, Interview>();
     for (const iv of allInterviews || []) {
       const existing = map.get(iv.applicationId);
-      if (!existing || new Date(iv.createdAt) > new Date(existing.createdAt)) {
+      if (!existing) {
         map.set(iv.applicationId, iv);
+      } else {
+        const isActive = ["Scheduled", "Rescheduled"].includes(iv.status);
+        const isExistingActive = ["Scheduled", "Rescheduled"].includes(existing.status);
+        if (isActive && !isExistingActive) {
+          map.set(iv.applicationId, iv);
+        } else if (isActive === isExistingActive && new Date(iv.createdAt) > new Date(existing.createdAt)) {
+          map.set(iv.applicationId, iv);
+        }
       }
     }
     return map;
@@ -1301,15 +1308,6 @@ export default function GDInterviewPage() {
                                   onMarkCompleted={(id) => markCompleted.mutate({ id })}
                                 />
                               )}
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                variant="destructive"
-                                className="gap-2"
-                                onClick={() => setDeleteId(item.id)}
-                              >
-                                <Trash2 className="size-4" />
-                                Delete
-                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
@@ -1475,15 +1473,6 @@ export default function GDInterviewPage() {
                               onMarkCompleted={(id) => markCompleted.mutate({ id })}
                             />
                           )}
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            variant="destructive"
-                            className="gap-2"
-                            onClick={() => setDeleteId(item.id)}
-                          >
-                            <Trash2 className="size-4" />
-                            Delete
-                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -1576,42 +1565,6 @@ export default function GDInterviewPage() {
           </div>
         )}
       </div>
-
-      {/* Delete Confirmation Alert Dialog */}
-      <AlertDialog
-        open={deleteId !== null}
-        onOpenChange={(open) => {
-          if (!open) setDeleteId(null);
-        }}
-      >
-        <AlertDialogContent className="w-[92%] sm:w-full sm:max-w-[400px] rounded-[12px] p-5 sm:p-6 gap-4">
-          <AlertDialogHeader className="text-left">
-            <AlertDialogTitle className="text-base font-semibold text-foreground">
-              Are you sure?
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-xs text-muted-foreground leading-relaxed mt-1">
-              This action cannot be undone. This will permanently delete the GD
-              & Interview record from the system.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="mt-5 gap-2 sm:gap-3 flex flex-col-reverse sm:flex-row sm:justify-end">
-            <AlertDialogCancel className="w-full sm:w-auto h-9.5 rounded-[8px] text-xs font-medium border border-border bg-background text-foreground hover:bg-muted/30">
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              className="w-full sm:w-auto h-9.5 rounded-[8px] text-xs font-medium bg-red-600 text-white hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700"
-              onClick={() => {
-                if (deleteId !== null) {
-                  handleDelete(deleteId);
-                  setDeleteId(null);
-                }
-              }}
-            >
-              Confirm Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       {/* Schedule / Reschedule Interview Dialog (B4, B5) */}
       {scheduleTarget && (

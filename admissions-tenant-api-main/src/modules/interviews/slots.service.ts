@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { InterviewSlot } from './entities/interview-slot.entity.js';
+import { Interview } from './entities/interview.entity.js';
 import { CreateSlotDto } from './dto/create-slot.dto.js';
 import { BulkCreateSlotsDto } from './dto/bulk-create-slots.dto.js';
 import { UpdateSlotDto } from './dto/update-slot.dto.js';
@@ -170,8 +171,13 @@ export class SlotsService {
 
   async remove(id: string, orgId: string) {
     const slot = await this.findOne(id, orgId);
-    if (slot.status === 'Booked') {
-      throw new BadRequestException('Cannot delete a slot that is booked — cancel or reschedule the interview first.');
+    if ((slot.status || '').toLowerCase() === 'booked') {
+      const interview = await this.slotRepository.manager.findOne(Interview, {
+        where: { slotId: slot.id, organizationId: orgId },
+      });
+      if (interview && !['Cancelled', 'No Show'].includes(interview.status)) {
+        throw new BadRequestException('Cannot delete a slot that is booked — cancel or reschedule the interview first.');
+      }
     }
     await this.slotRepository.delete({ id, organizationId: orgId });
     return { success: true, message: 'Slot deleted successfully' };

@@ -32,14 +32,13 @@ export default function FeesSettingsPage() {
   const updateSettings = useUpdateOrganizationSettings(orgId);
 
   const [applicationFee, setApplicationFee] = React.useState("2000");
-  const [seatBookingFee, setSeatBookingFee] = React.useState("5000");
   const [initialized, setInitialized] = React.useState(false);
 
   React.useEffect(() => {
     setHeader({
       title: "Application Fee Settings",
       description:
-        "Configure the fees students must pay via Razorpay — the application fee before submission, and the seat booking fee after an offer is accepted.",
+        "Configure the application fee amount students must pay via Razorpay before application submission.",
     });
     return () => clearHeader();
   }, [setHeader, clearHeader]);
@@ -47,7 +46,6 @@ export default function FeesSettingsPage() {
   React.useEffect(() => {
     if (settings && !initialized) {
       setApplicationFee(String(settings.applicationFee ?? 2000));
-      setSeatBookingFee(String(settings.seatBookingFee ?? 5000));
       setInitialized(true);
     }
   }, [settings, initialized]);
@@ -55,11 +53,9 @@ export default function FeesSettingsPage() {
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     const fee = Number(applicationFee);
-    const bookingFee = Number(seatBookingFee);
     if (Number.isNaN(fee) || fee < 0) return;
-    if (Number.isNaN(bookingFee) || bookingFee < 0) return;
 
-    updateSettings.mutate({ applicationFee: fee, seatBookingFee: bookingFee });
+    updateSettings.mutate({ applicationFee: fee });
   };
 
   return (
@@ -96,28 +92,7 @@ export default function FeesSettingsPage() {
                   />
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Default is ₹2,000. Students will be charged this amount via
-                  Razorpay before their application submission is finalized.
-                </p>
-
-                <Label htmlFor="seatBookingFee" className="text-sm font-medium mt-4">
-                  Seat Booking Fee (INR)
-                </Label>
-                <div className="relative max-w-xs">
-                  <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                  <Input
-                    id="seatBookingFee"
-                    type="number"
-                    min={0}
-                    step="1"
-                    className="pl-9 h-10"
-                    value={seatBookingFee}
-                    onChange={(e) => setSeatBookingFee(e.target.value)}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Default is ₹5,000. Charged via Razorpay once a candidate
-                  accepts an offer, to confirm and book their seat.
+                  Students will be charged this amount via Razorpay before their application submission is finalized.
                 </p>
               </div>
             )}

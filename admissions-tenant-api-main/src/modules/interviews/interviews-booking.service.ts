@@ -179,11 +179,12 @@ export class InterviewsBookingService {
 
       if (interview.slotId) {
         const slot = await manager.findOne(InterviewSlot, { where: { id: interview.slotId, organizationId: orgId } });
-        if (slot && slot.status === 'Booked') {
+        if (slot && (slot.status || '').toLowerCase() === 'booked') {
           slot.status = 'Available';
           slot.updatedBy = actorId;
           await manager.save(slot);
         }
+        interview.slotId = null as any;
       }
 
       interview.status = 'Cancelled';

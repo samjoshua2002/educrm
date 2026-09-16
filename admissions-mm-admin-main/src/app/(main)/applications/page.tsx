@@ -69,10 +69,20 @@ import { usePageHeader } from "@/hooks/use-page-header";
 
 const paymentStatusStyles: Record<string, string> = {
   Pending:
-    "bg-yellow-500/10 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
-  Paid: "bg-green-500/10 text-green-700 dark:bg-green-500/20 dark:text-green-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
+    "bg-yellow-500/10 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0 inline-block text-center",
+  pending:
+    "bg-yellow-500/10 text-yellow-700 dark:bg-yellow-500/20 dark:text-yellow-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0 inline-block text-center",
+  Paid: "bg-green-500/10 text-green-700 dark:bg-green-500/20 dark:text-green-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0 inline-block text-center",
+  paid: "bg-green-500/10 text-green-700 dark:bg-green-500/20 dark:text-green-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0 inline-block text-center",
+  success: "bg-green-500/10 text-green-700 dark:bg-green-500/20 dark:text-green-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0 inline-block text-center",
   Refunded:
-    "bg-red-500/10 text-red-700 dark:bg-red-500/20 dark:text-red-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
+    "bg-red-500/10 text-red-700 dark:bg-red-500/20 dark:text-red-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0 inline-block text-center",
+  refunded:
+    "bg-red-500/10 text-red-700 dark:bg-red-500/20 dark:text-red-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0 inline-block text-center",
+  Failed:
+    "bg-red-500/10 text-red-700 dark:bg-red-500/20 dark:text-red-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0 inline-block text-center",
+  failed:
+    "bg-red-500/10 text-red-700 dark:bg-red-500/20 dark:text-red-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0 inline-block text-center",
 };
 
 function formatDate(dateStr: string) {
@@ -930,6 +940,10 @@ export default function ApplicationsPage() {
 
                     <div className="flex items-center gap-1.5 shrink-0 self-center">
                       <StatusBadge status={app.formStatus} />
+
+                      <span className={paymentStatusStyles[app.paymentStatus] ?? ""}>
+                        {app.paymentStatus}
+                      </span>
 
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>

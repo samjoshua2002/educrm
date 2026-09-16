@@ -11,8 +11,14 @@ import {
 } from "@/components/ui/sheet";
 import Link from "next/link";
 
+import { useAuthStore } from "@/stores/auth-store";
+
 export function MobileFab() {
   const pathname = usePathname();
+  const user = useAuthStore((state) => state.user);
+  const isStudent = user?.role === "student" || pathname.startsWith("/my-application") || pathname.startsWith("/student-application");
+
+  if (isStudent) return null;
 
   const getTitle = () => {
     if (pathname.startsWith("/dashboard")) return "Dashboard Overview";

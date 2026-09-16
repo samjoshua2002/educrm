@@ -205,15 +205,14 @@ const NavItemCollapsed = ({
 };
 
 export function NavMain({ items }: NavMainProps) {
-  const [mounted, setMounted] = React.useState(false);
   const path = usePathname();
   const { state, isMobile, setOpenMobile } = useSidebar();
   const { user } = useAuthStore();
   const userRole = user?.role;
-
-  React.useEffect(() => {
-    setMounted(true);
-  }, []);
+  const isStudent =
+    userRole === "student" ||
+    path.startsWith("/my-application") ||
+    path.startsWith("/student-application");
 
   const isItemActive = (url: string, subItems?: NavMainItem["subItems"]) => {
     if (subItems?.length) {
@@ -240,8 +239,7 @@ export function NavMain({ items }: NavMainProps) {
   };
 
   const filteredGroups = items.filter((group) => {
-    const activeRole = mounted ? userRole : undefined;
-    if (activeRole === "student") {
+    if (isStudent) {
       return group.id === 3;
     }
     return group.id !== 3;

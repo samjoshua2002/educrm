@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Organization } from './entities/organization.entity.js';
+import { Organization, OrgStatus } from './entities/organization.entity.js';
 import { CreateOrganizationDto } from './dto/create-organization.dto.js';
 import { UpdateOrganizationDto } from './dto/update-organization.dto.js';
 import { UpdateOrgSettingsDto } from './dto/update-org-settings.dto.js';
@@ -115,13 +115,29 @@ export class OrganizationsService {
     await this.orgRepo.remove(org);
   }
 
+  async getPublicSettings(): Promise<{ applicationFee: number; seatBookingFee: number; applicationNumberFormat: string }> {
+    let org = await this.orgRepo.findOne({
+      where: { status: OrgStatus.ACTIVE },
+    });
+    if (!org) {
+      org = await this.orgRepo.findOne({
+        order: { createdAt: 'ASC' },
+      });
+    }
+    return {
+      applicationFee: Number(org?.settings?.applicationFee ?? DEFAULT_APPLICATION_FEE),
+      seatBookingFee: Number(org?.settings?.seatBookingFee ?? DEFAULT_SEAT_BOOKING_FEE),
+      applicationNumberFormat: org?.settings?.applicationNumberFormat ?? DEFAULT_APPLICATION_NUMBER_FORMAT,
+    };
+  }
+
   async getSettings(
     id: string,
   ): Promise<{ applicationFee: number; seatBookingFee: number; applicationNumberFormat: string }> {
     const org = await this.findOne(id);
     return {
-      applicationFee: org.settings?.applicationFee ?? DEFAULT_APPLICATION_FEE,
-      seatBookingFee: org.settings?.seatBookingFee ?? DEFAULT_SEAT_BOOKING_FEE,
+      applicationFee: Number(org.settings?.applicationFee ?? DEFAULT_APPLICATION_FEE),
+      seatBookingFee: Number(org.settings?.seatBookingFee ?? DEFAULT_SEAT_BOOKING_FEE),
       applicationNumberFormat: org.settings?.applicationNumberFormat ?? DEFAULT_APPLICATION_NUMBER_FORMAT,
     };
   }

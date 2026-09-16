@@ -23,27 +23,37 @@ export function DashboardStats({
   const totalCount = applications.length;
 
   const verifiedCount = React.useMemo(() => {
-    return applications.filter((a) => a.formStatus === "Accepted").length;
+    return applications.filter((a: any) => {
+      const vStatus = (a.verificationStatus || a.verification_status || "").toLowerCase();
+      const fStatus = (a.formStatus || a.form_status || "").toLowerCase();
+      const sStatus = (a.shortlistStatus || a.shortlist_status || "").toLowerCase();
+      return vStatus === "verified" || fStatus === "accepted" || sStatus === "shortlisted";
+    }).length;
   }, [applications]);
 
   const pendingCount = React.useMemo(() => {
-    return applications.filter(
-      (a) =>
-        a.formStatus === "Submitted" ||
-        a.formStatus === "Under Review" ||
-        a.formStatus === "In Progress" ||
-        a.formStatus === "Incomplete",
-    ).length;
+    return applications.filter((a: any) => {
+      const vStatus = (a.verificationStatus || a.verification_status || "").toLowerCase();
+      const fStatus = (a.formStatus || a.form_status || "").toLowerCase();
+      return (
+        vStatus === "pending" ||
+        (!vStatus && fStatus !== "accepted" && fStatus !== "rejected" && fStatus !== "verified")
+      );
+    }).length;
   }, [applications]);
 
   const rejectedCount = React.useMemo(() => {
-    return applications.filter((a) => a.formStatus === "Rejected").length;
+    return applications.filter((a: any) => {
+      const vStatus = (a.verificationStatus || a.verification_status || "").toLowerCase();
+      const fStatus = (a.formStatus || a.form_status || "").toLowerCase();
+      return vStatus === "rejected" || fStatus === "rejected";
+    }).length;
   }, [applications]);
 
   const totalFees = React.useMemo(() => {
     return applications
-      .filter((a) => a.paymentStatus === "Paid")
-      .reduce((acc, a) => acc + (a.paymentAmount ?? 0), 0);
+      .filter((a) => (a.paymentStatus || "").toLowerCase() === "paid" || (a.paymentStatus || "").toLowerCase() === "success")
+      .reduce((acc, a) => acc + Number(a.paymentAmount || 0), 0);
   }, [applications]);
 
   // Format currency dynamically
@@ -54,7 +64,7 @@ export function DashboardStats({
     if (totalFees >= 1000) {
       return `₹${(totalFees / 1000).toFixed(1)}k`;
     }
-    return `₹${totalFees}`;
+    return `₹${totalFees.toLocaleString("en-IN")}`;
   }, [totalFees]);
 
   if (showLoader) {

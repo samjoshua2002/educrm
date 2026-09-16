@@ -34,6 +34,10 @@ import {
   CreditCard,
   ShieldCheck,
   XCircle,
+  RotateCcw,
+  CheckCircle2,
+  Copy,
+  Printer,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -85,6 +89,7 @@ import { useCourses } from "@/hooks/use-courses";
 import { useAcademicSessions } from "@/hooks/use-academic-sessions";
 import { useCourseSessions } from "@/hooks/use-course-sessions";
 import { useBranches } from "@/hooks/use-branches";
+import { useOrganizationSettings } from "@/hooks/use-organizations";
 
 
 
@@ -169,7 +174,7 @@ const applicationSchema = z.object({
       passingYear: z.string().regex(/^\d{4}$/, "Must be a 4-digit year"),
       percentageTillLast: z.string().min(1, "Score/Percentage is required"),
       mode: z.string().min(1, "Mode of study is required"),
-      documentUrl: z.string().optional(),
+      documentUrl: z.string().min(1, "Graduation Marksheet/Certificate upload is required"),
     }),
     hasWorkExp: z.string().optional(),
     experiences: z
@@ -231,7 +236,15 @@ type ApplicationFormValues = z.infer<typeof applicationSchema>;
 
 // --- Stepper Component ---
 
-const Stepper = ({ currentStep }: { currentStep: number }) => {
+const Stepper = ({
+  currentStep,
+  maxStepReached = 1,
+  onStepClick,
+}: {
+  currentStep: number;
+  maxStepReached?: number;
+  onStepClick?: (stepNumber: number) => void;
+}) => {
   const steps = [
     { title: "Personal", description: "Identity" },
     { title: "Preferences", description: "Campus" },
@@ -253,17 +266,25 @@ const Stepper = ({ currentStep }: { currentStep: number }) => {
           />
         </div>
 
-        {steps.map((step, idx) => {
+        {steps.map((stepItem, idx) => {
           const stepNumber = idx + 1;
           const isCompleted = currentStep > stepNumber;
           const isActive = currentStep === stepNumber;
+          const canNavigate = Boolean(onStepClick && stepNumber <= Math.max(currentStep, maxStepReached) && stepNumber <= 5);
 
           return (
             <div
               key={idx}
               className="relative z-10 flex flex-col items-center flex-1 min-w-0 px-0.5"
             >
-              <div
+              <button
+                type="button"
+                disabled={!canNavigate}
+                onClick={() => {
+                  if (canNavigate && onStepClick) {
+                    onStepClick(stepNumber);
+                  }
+                }}
                 style={{
                   width: "40px",
                   height: "40px",
@@ -273,33 +294,53 @@ const Stepper = ({ currentStep }: { currentStep: number }) => {
                   justifyContent: "center",
                   transition: "all 0.3s ease",
                 }}
-                className={
+                className={`border-0 outline-none select-none transition-all ${
+                  canNavigate
+                    ? "cursor-pointer hover:scale-110 active:scale-95"
+                    : "cursor-not-allowed opacity-80"
+                } ${
                   isCompleted
-                    ? "bg-blue-600 text-white shadow-sm ring-2 ring-blue-600/20"
+                    ? "bg-blue-600 text-white shadow-sm ring-2 ring-blue-600/20 hover:bg-blue-700"
                     : isActive
                     ? "bg-blue-600 text-white ring-4 ring-blue-100 shadow-md scale-105"
+                    : canNavigate
+                    ? "bg-white text-blue-600 border-2 border-blue-300 hover:border-blue-500"
                     : "bg-white text-slate-400 border-2 border-slate-200"
-                }
+                }`}
+                title={canNavigate ? `Jump to Step ${stepNumber}: ${stepItem.title}` : `Complete step ${stepNumber - 1} first to unlock`}
               >
                 {isCompleted ? (
                   <Check className="size-5 stroke-[2.5]" />
                 ) : (
-                  <span className={`text-sm ${isActive ? "text-white font-bold" : "text-slate-500 font-medium"}`}>
+                  <span className={`text-sm ${isActive ? "text-white font-bold" : canNavigate ? "text-blue-600 font-semibold" : "text-slate-500 font-medium"}`}>
                     {stepNumber}
                   </span>
                 )}
-              </div>
-              <div className="mt-2.5 flex flex-col items-center text-center w-full min-w-0">
+              </button>
+              <button
+                type="button"
+                disabled={!canNavigate}
+                onClick={() => {
+                  if (canNavigate && onStepClick) {
+                    onStepClick(stepNumber);
+                  }
+                }}
+                className={`mt-2.5 flex flex-col items-center text-center w-full min-w-0 bg-transparent border-0 p-0 outline-none ${
+                  canNavigate ? "cursor-pointer" : "cursor-not-allowed"
+                }`}
+              >
                 <span
                   className={`text-[11px] sm:text-[13px] md:text-[14px] font-bold leading-tight truncate max-w-full tracking-tight transition-colors ${
                     isActive
                       ? "text-blue-600 font-extrabold"
                       : isCompleted
                       ? "text-slate-900 font-bold"
+                      : canNavigate
+                      ? "text-slate-700 font-bold hover:text-blue-600"
                       : "text-slate-400 font-medium"
                   }`}
                 >
-                  {step.title}
+                  {stepItem.title}
                 </span>
                 <span
                   className={`text-[10px] sm:text-[11px] md:text-[12px] leading-tight truncate max-w-full font-medium mt-0.5 hidden sm:block transition-colors ${
@@ -310,9 +351,9 @@ const Stepper = ({ currentStep }: { currentStep: number }) => {
                       : "text-slate-400"
                   }`}
                 >
-                  {step.description}
+                  {stepItem.description}
                 </span>
-              </div>
+              </button>
             </div>
           );
         })}
@@ -362,6 +403,8 @@ export default function MyApplicationPage() {
 function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
   const router = useRouter();
   const [step, setStep] = React.useState(1);
+  const [maxStepReached, setMaxStepReached] = React.useState(1);
+  const [isDraftRestored, setIsDraftRestored] = React.useState(false);
   const [isPreview, setIsPreview] = React.useState(false);
   const [imagePreview, setImagePreview] = React.useState<string | null>(null);
   const [sameAddress, setSameAddress] = React.useState(false);
@@ -372,6 +415,230 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
   const [paymentState, setPaymentState] = React.useState<"idle" | "creating-order" | "awaiting-payment" | "verifying" | "success" | "failed">("idle");
   const [paymentError, setPaymentError] = React.useState<string | null>(null);
   const [isFinalizing, setIsFinalizing] = React.useState(false);
+  const [isSubmittedSuccess, setIsSubmittedSuccess] = React.useState(false);
+  const [submittedAppNumber, setSubmittedAppNumber] = React.useState<string | null>(null);
+  const [copiedAppNo, setCopiedAppNo] = React.useState(false);
+
+  const { user } = useAuthStore();
+  const orgId = user?.organizationId || "";
+  const { data: orgSettings } = useOrganizationSettings(orgId);
+  const [feeAmount, setFeeAmount] = React.useState<number>(2000);
+
+  React.useEffect(() => {
+    if (orgSettings?.applicationFee !== undefined) {
+      setFeeAmount(Number(orgSettings.applicationFee));
+    }
+  }, [orgSettings?.applicationFee]);
+
+  const getDefaultValues = React.useCallback((): ApplicationFormValues => ({
+    personal: {
+      fullName: user?.role === "student" ? user?.name : "",
+      email: user?.email || "",
+      phone: user?.role === "student" ? stripNonDigits(user?.phone || "") : "",
+      alternateMobile: "",
+      gender: "",
+      dob: "",
+      category: "",
+      religion: "",
+      nationality: "Indian",
+      aadhaar: "",
+      maritalStatus: "",
+      photoUrl: "",
+    },
+    preferences: {
+      program: "",
+      preference1: "",
+      preference2: "",
+      interviewPreference1: "",
+      interviewPreference2: "",
+    },
+    education: {
+      tenth: {
+        institute: "",
+        board: "",
+        year: "",
+        percentage: "",
+        documentUrl: "",
+      },
+      twelfth: {
+        institute: "",
+        board: "",
+        stream: "",
+        year: "",
+        percentage: "",
+        documentUrl: "",
+      },
+      graduation: {
+        degree: "",
+        college: "",
+        university: "",
+        status: "",
+        passingYear: "",
+        percentageTillLast: "",
+        mode: "",
+        documentUrl: "",
+      },
+      hasWorkExp: "No",
+      experiences: [],
+      entrance: [{
+        exam: "",
+        rollNo: "",
+        month: "",
+        status: "",
+        percentile: "",
+      }],
+    },
+    family: {
+      father: {
+        name: "",
+        mobile: "",
+        occupation: "",
+        income: "",
+      },
+      mother: {
+        name: "",
+        mobile: "",
+        occupation: "",
+        income: "",
+      },
+      address: {
+        present: "",
+        presentPincode: "",
+        permanent: "",
+        permanentPincode: "",
+      },
+    },
+    declaration: {
+      inspiration: "",
+      source: "",
+      hobbies: "",
+      hasMedicalCondition: "no",
+      medicalConditions: "",
+      medicalConditionDocument: "",
+      agreed: false,
+    },
+  }), [user]);
+
+  const form = useForm<ApplicationFormValues>({
+    resolver: zodResolver(applicationSchema) as any,
+    defaultValues: getDefaultValues(),
+    mode: "onChange",
+  });
+
+  // Generate a distinct draft storage key per user/account/organization
+  const userDraftKey = React.useMemo(() => {
+    if (user?.id) return `user_${user.id}`;
+    if (user?.email) return `user_${user.email.replace(/[^a-zA-Z0-9]/g, "_")}`;
+    if (user?.organizationId) return `org_${user.organizationId}`;
+    return "guest";
+  }, [user?.id, user?.email, user?.organizationId]);
+
+  const DRAFT_FORM_KEY = `educrm_draft_app_${userDraftKey}_form`;
+  const DRAFT_META_KEY = `educrm_draft_app_${userDraftKey}_meta`;
+
+  // Track maximum step completed/reached
+  React.useEffect(() => {
+    setMaxStepReached((prev) => Math.max(prev, step));
+  }, [step]);
+
+  // Restore draft from localStorage on initial mount / user change
+  React.useEffect(() => {
+    setIsDraftRestored(false);
+    try {
+      // Clean up legacy non-user-scoped keys if they exist
+      localStorage.removeItem("educrm_draft_application_form");
+      localStorage.removeItem("educrm_draft_application_meta");
+
+      const savedData = localStorage.getItem(DRAFT_FORM_KEY);
+      const savedMeta = localStorage.getItem(DRAFT_META_KEY);
+      if (savedData) {
+        const parsedData = JSON.parse(savedData);
+        form.reset(parsedData);
+      } else {
+        form.reset(getDefaultValues());
+      }
+      if (savedMeta) {
+        const parsedMeta = JSON.parse(savedMeta);
+        if (parsedMeta.step) setStep(parsedMeta.step);
+        if (parsedMeta.maxStepReached) setMaxStepReached(parsedMeta.maxStepReached);
+        if (parsedMeta.imagePreview) setImagePreview(parsedMeta.imagePreview);
+        if (typeof parsedMeta.sameAddress === "boolean") setSameAddress(parsedMeta.sameAddress);
+        if (typeof parsedMeta.isPreview === "boolean") setIsPreview(parsedMeta.isPreview);
+      } else {
+        setStep(1);
+        setMaxStepReached(1);
+        setImagePreview(null);
+        setSameAddress(false);
+        setIsPreview(false);
+      }
+    } catch (e) {
+      console.error("Failed to restore draft from localStorage", e);
+    } finally {
+      setIsDraftRestored(true);
+    }
+  }, [userDraftKey, DRAFT_FORM_KEY, DRAFT_META_KEY]);
+
+  // Auto-save form contents to localStorage whenever form fields change
+  React.useEffect(() => {
+    if (!isDraftRestored) return;
+    const subscription = form.watch((values) => {
+      try {
+        localStorage.setItem(DRAFT_FORM_KEY, JSON.stringify(values));
+      } catch (e) {
+        console.error("Failed to save draft form data", e);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [form, isDraftRestored, DRAFT_FORM_KEY]);
+
+  // Auto-save step and metadata to localStorage
+  React.useEffect(() => {
+    if (!isDraftRestored) return;
+    try {
+      localStorage.setItem(
+        DRAFT_META_KEY,
+        JSON.stringify({
+          step,
+          maxStepReached: Math.max(maxStepReached, step),
+          imagePreview,
+          sameAddress,
+          isPreview,
+        })
+      );
+    } catch (e) {
+      console.error("Failed to save draft meta", e);
+    }
+  }, [step, maxStepReached, imagePreview, sameAddress, isPreview, isDraftRestored, DRAFT_META_KEY]);
+
+  const handleStepClick = (targetStep: number) => {
+    if (targetStep <= Math.max(step, maxStepReached) && targetStep <= 5) {
+      setStep(targetStep);
+      setIsPreview(false);
+      setShowPayment(false);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  const handleResetForm = () => {
+    if (typeof window !== "undefined") {
+      const confirmed = window.confirm("Are you sure you want to reset the application? All entered information will be cleared.");
+      if (!confirmed) return;
+      try {
+        localStorage.removeItem(DRAFT_FORM_KEY);
+        localStorage.removeItem(DRAFT_META_KEY);
+      } catch (e) {
+        console.error(e);
+      }
+      form.reset(getDefaultValues());
+      setImagePreview(null);
+      setSameAddress(false);
+      setStep(1);
+      setMaxStepReached(1);
+      setIsPreview(false);
+      setShowPayment(false);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
 
   const handleFileUpload = async (file: File, fieldName: string) => {
     try {
@@ -441,106 +708,8 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
 
 
   usePageHeader({
-    title: "New Application",
-    description: "Fill in the details below to submit a new admission application.",
-    action: {
-      label: "View Applications",
-      href: "/organization/applications",
-    },
-  });
-
-  const { user } = useAuthStore();
-  const form = useForm<ApplicationFormValues>({
-    resolver: zodResolver(applicationSchema) as any,
-    defaultValues: {
-      personal: {
-        fullName: user?.role === "student" ? user?.name : "",
-        email: user?.email || "",
-        phone: user?.role === "student" ? stripNonDigits(user?.phone || "") : "",
-        alternateMobile: "",
-        gender: "",
-        dob: "",
-        category: "",
-        religion: "",
-        nationality: "Indian",
-        aadhaar: "",
-        maritalStatus: "",
-        photoUrl: "",
-      },
-      preferences: {
-        program: "",
-        preference1: "",
-        preference2: "",
-        interviewPreference1: "",
-        interviewPreference2: "",
-      },
-      education: {
-        tenth: {
-          institute: "",
-          board: "",
-          year: "",
-          percentage: "",
-          documentUrl: "",
-        },
-        twelfth: {
-          institute: "",
-          board: "",
-          stream: "",
-          year: "",
-          percentage: "",
-          documentUrl: "",
-        },
-        graduation: {
-          degree: "",
-          college: "",
-          university: "",
-          status: "",
-          passingYear: "",
-          percentageTillLast: "",
-          mode: "",
-          documentUrl: "",
-        },
-        hasWorkExp: "No",
-        experiences: [],
-        entrance: [{
-          exam: "",
-          rollNo: "",
-          month: "",
-          status: "",
-          percentile: "",
-        }],
-      },
-      family: {
-        father: {
-          name: "",
-          mobile: "",
-          occupation: "",
-          income: "",
-        },
-        mother: {
-          name: "",
-          mobile: "",
-          occupation: "",
-          income: "",
-        },
-        address: {
-          present: "",
-          presentPincode: "",
-          permanent: "",
-          permanentPincode: "",
-        },
-      },
-      declaration: {
-        inspiration: "",
-        source: "",
-        hobbies: "",
-        hasMedicalCondition: "no",
-        medicalConditions: "",
-        medicalConditionDocument: "",
-        agreed: false,
-      },
-    },
-    mode: "onChange",
+    title: "My Application",
+    description: "Fill in the details below to submit your admission application.",
   });
 
   const { fields: entranceFields, append: appendEntrance, remove: removeEntrance } = useFieldArray({
@@ -796,6 +965,11 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
         applicationId: createdApplication.id || createdApplication.applicationNo,
       });
 
+      if (order?.amount) {
+        const orderFee = Math.round(order.amount / 100);
+        if (orderFee > 0) setFeeAmount(orderFee);
+      }
+
       const scriptLoaded = await loadRazorpayScript();
       if (!scriptLoaded) {
         setPaymentState("failed");
@@ -837,6 +1011,9 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
           ondismiss: () => {
             setPaymentState((prev) => (prev === "verifying" || prev === "success" ? prev : "failed"));
             setPaymentError((prev) => prev || "Payment was cancelled.");
+            if (order?.orderId) {
+              apiPost("/payments/razorpay/fail", { orderId: order.orderId, reason: "Payment cancelled by user" }).catch(() => {});
+            }
           },
         },
         theme: { color: "#2563EA" },
@@ -845,7 +1022,11 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
       const rzp = new (window as any).Razorpay(options);
       rzp.on("payment.failed", (resp: any) => {
         setPaymentState("failed");
-        setPaymentError(resp?.error?.description || "Payment failed. Please try again.");
+        const desc = resp?.error?.description || "Payment failed. Please try again.";
+        setPaymentError(desc);
+        if (order?.orderId) {
+          apiPost("/payments/razorpay/fail", { orderId: order.orderId, reason: desc }).catch(() => {});
+        }
       });
       rzp.open();
     } catch (err: any) {
@@ -862,11 +1043,18 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
         applicationNo: createdApplication.applicationNo,
         password: (form.getValues() as any)?.personal?.password || undefined,
       });
-      if (isStudent) {
-        window.location.href = "/my-application";
-      } else {
-        router.push("/organization/applications");
+      try {
+        localStorage.removeItem(DRAFT_FORM_KEY);
+        localStorage.removeItem(DRAFT_META_KEY);
+      } catch (e) {
+        console.error("Failed to clear draft after submission", e);
       }
+      setSubmittedAppNumber(createdApplication.applicationNo);
+      setPaymentState("success");
+      setIsSubmittedSuccess(true);
+      setShowPayment(false);
+      setIsPreview(false);
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (error: any) {
       console.error("Failed to finalize application submission:", error);
       setPaymentState("failed");
@@ -875,6 +1063,123 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
       setIsFinalizing(false);
     }
   };
+
+  if (isSubmittedSuccess && submittedAppNumber) {
+    return (
+      <div className={`w-full py-6 md:py-10 px-4 sm:px-6 lg:px-8 bg-white max-w-4xl mx-auto ${manrope.className}`}>
+        {/* Top Header Badge */}
+        <div className="flex flex-col items-center text-center space-y-4 mb-8">
+          <div className="size-20 rounded-full bg-emerald-100/80 border-4 border-emerald-50 flex items-center justify-center text-emerald-600 shadow-sm animate-in zoom-in-90 duration-300">
+            <CheckCircle2 className="size-10 stroke-[2.2]" />
+          </div>
+          <div className="space-y-1.5 max-w-xl">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200 mb-1">
+              <Check className="size-3.5 stroke-[2.5]" /> Payment & Submission Verified
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-[#120352] tracking-tight">
+              Application Submitted Successfully!
+            </h1>
+            <p className="text-sm text-slate-600 leading-relaxed">
+              Congratulations <span className="font-semibold text-slate-900">{form.getValues("personal.fullName")}</span>! Your admission application has been officially registered and received by the admissions committee.
+            </p>
+          </div>
+        </div>
+
+        {/* Application Number Highlight Card */}
+        <div className="rounded-2xl border-2 border-blue-200/80 bg-gradient-to-br from-blue-50/70 via-indigo-50/30 to-white p-6 sm:p-8 shadow-sm mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-blue-100">
+            <div>
+              <span className="text-xs font-bold uppercase tracking-wider text-blue-700 block">
+                Official Application Number
+              </span>
+              <p className="text-2xl sm:text-3xl font-mono font-extrabold text-[#120352] tracking-wider mt-1 select-all">
+                {submittedAppNumber}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  navigator.clipboard.writeText(submittedAppNumber);
+                  setCopiedAppNo(true);
+                  setTimeout(() => setCopiedAppNo(false), 2000);
+                }}
+                className="h-9 px-3.5 rounded-lg border-blue-300 text-blue-700 bg-white hover:bg-blue-50 text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-2xs"
+              >
+                {copiedAppNo ? <Check className="size-3.5 text-emerald-600" /> : <Copy className="size-3.5" />}
+                <span>{copiedAppNo ? "Copied!" : "Copy Application No"}</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.print()}
+                className="h-9 px-3.5 rounded-lg border-slate-300 text-slate-700 bg-white hover:bg-slate-50 text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-2xs"
+              >
+                <Printer className="size-3.5" />
+                <span>Print</span>
+              </Button>
+            </div>
+          </div>
+
+          {/* Key Details Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-y-4 gap-x-6 pt-6 text-xs">
+            <div>
+              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Candidate Name</span>
+              <p className="text-sm font-bold text-slate-900 mt-0.5">{form.getValues("personal.fullName") || "—"}</p>
+            </div>
+            <div>
+              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Applied Program</span>
+              <p className="text-sm font-bold text-slate-900 mt-0.5">{form.getValues("preferences.program") || "—"}</p>
+            </div>
+            <div>
+              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Payment Status</span>
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 mt-0.5 rounded-md text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <Check className="size-3" /> Paid ₹{feeAmount.toLocaleString("en-IN")}.00
+              </span>
+            </div>
+            <div>
+              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Registered Email</span>
+              <p className="text-sm font-medium text-slate-700 mt-0.5 truncate">{form.getValues("personal.email") || "—"}</p>
+            </div>
+            <div>
+              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Contact Phone</span>
+              <p className="text-sm font-medium text-slate-700 mt-0.5">{formatMobile(form.getValues("personal.phone")) || "—"}</p>
+            </div>
+            <div>
+              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Date of Submission</span>
+              <p className="text-sm font-medium text-slate-700 mt-0.5">
+                {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Informational Guidance Box */}
+        <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-5 mb-8 space-y-3">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+            <ShieldCheck className="size-4 text-blue-600" />
+            What happens next?
+          </h4>
+          <ul className="text-xs text-slate-600 space-y-2 list-disc list-inside leading-relaxed">
+            <li>A payment receipt and submission confirmation has been sent to your registered email address (<span className="font-semibold text-slate-800">{form.getValues("personal.email")}</span>).</li>
+            <li>Our admissions office will verify your submitted educational marksheets and eligibility criteria.</li>
+            <li>You will be notified via SMS/Email once your GD & Personal Interview slot schedule is assigned.</li>
+          </ul>
+        </div>
+
+        {/* Primary Action Buttons */}
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+          <Button
+            onClick={() => { window.location.reload(); }}
+            className="w-full sm:w-auto h-11 px-8 rounded-lg bg-[#2563EA] hover:bg-[#1d4ed8] text-white font-semibold text-sm shadow-sm cursor-pointer"
+          >
+            View Submitted Application
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (showPayment) {
     return (
@@ -897,11 +1202,7 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
                   Application Fee Payment
                 </h1>
                 <p className="text-sm text-slate-600 max-w-2xl leading-relaxed">
-                  Your admission form has been saved under Application ID{" "}
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                    {createdApplication?.applicationNo || "APP/2026/PENDING"}
-                  </span>
-                  . Complete the payment below to finalize your submission for committee review.
+                  Your admission details have been saved. Complete the payment below via Razorpay to finalize your submission and receive your official application number.
                 </p>
               </div>
 
@@ -929,8 +1230,11 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
                     </div>
 
                     <div>
-                      <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Application ID</span>
-                      <p className="text-sm font-mono font-bold text-blue-600 mt-0.5">{createdApplication?.applicationNo || "—"}</p>
+                      <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Application Status</span>
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 mt-0.5 rounded-md text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                        <span className="size-1.5 rounded-full bg-amber-500 animate-pulse" />
+                        Payment Pending
+                      </span>
                     </div>
 
                     <div className="sm:col-span-2 border-t border-slate-200/60 pt-3">
@@ -961,7 +1265,7 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
                   <div className="space-y-3 text-xs">
                     <div className="flex justify-between items-center text-slate-600">
                       <span>Application Processing Fee</span>
-                      <span className="font-semibold text-slate-900">₹1,500.00</span>
+                      <span className="font-semibold text-slate-900">₹{feeAmount.toLocaleString("en-IN")}.00</span>
                     </div>
                   </div>
 
@@ -973,7 +1277,7 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
                       </div>
                       <div className="text-right">
                         <span className="text-2xl sm:text-3xl font-extrabold text-blue-600 font-mono tracking-tight">
-                          ₹1,500
+                          ₹{feeAmount.toLocaleString("en-IN")}
                         </span>
                       </div>
                     </div>
@@ -1018,7 +1322,7 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
                         ) : (
                           <>
                             <CreditCard className="size-5" />
-                            Pay ₹1,500 via Razorpay
+                            Pay ₹{feeAmount.toLocaleString("en-IN")} via Razorpay
                           </>
                         )}
                       </Button>
@@ -1712,7 +2016,7 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
         </p>
       </div>
 
-      <Stepper currentStep={step} />
+      <Stepper currentStep={step} maxStepReached={maxStepReached} onStepClick={handleStepClick} />
 
       <Form {...form}>
         <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
@@ -2300,63 +2604,84 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
                         </FormItem>
                       )}
                     />
-                    <div className="col-span-1 md:col-span-2 pt-2">
-                      <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px] mb-2 block">
-                        10th Marksheet / Certificate Attachment
-                      </FormLabel>
-                      {form.watch("education.tenth.documentUrl") ? (
-                        <div className="flex items-center justify-between p-3 border border-emerald-200 bg-emerald-50/60 rounded-[8px]">
-                          <div className="flex items-center gap-2 overflow-hidden">
-                            <FileText className="h-5 w-5 text-emerald-600 shrink-0" />
-                            <span className="text-xs font-semibold text-emerald-900 truncate">10th_Certificate_Attached</span>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <a
-                              href={form.watch("education.tenth.documentUrl")}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-xs font-semibold text-blue-600 hover:underline flex items-center gap-1 bg-white px-2.5 py-1 rounded border border-blue-200 shadow-xs"
-                            >
-                              <Eye className="h-3.5 w-3.5" /> View
-                            </a>
-                            <button
-                              type="button"
-                              onClick={() => form.setValue("education.tenth.documentUrl", "")}
-                              className="text-xs font-semibold text-red-600 hover:text-red-700 bg-white px-2.5 py-1 rounded border border-red-200 shadow-xs cursor-pointer"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-3">
-                          <Label
-                            htmlFor="tenth-doc-upload"
-                            className="cursor-pointer border border-dashed border-slate-300 hover:border-blue-500 bg-slate-50 hover:bg-blue-50/50 rounded-[8px] p-3 flex items-center justify-center gap-2 w-full text-xs font-semibold text-slate-700 transition-colors"
-                          >
-                            {uploadingState["tenthDoc"] ? (
-                              <><Loader2 className="h-4 w-4 animate-spin text-blue-600" /> Uploading 10th Certificate...</>
-                            ) : (
-                              <><Upload className="h-4 w-4 text-blue-600" /> Upload 10th Marksheet / Certificate (PDF, JPG, PNG)</>
-                            )}
-                          </Label>
-                          <Input
-                            id="tenth-doc-upload"
-                            type="file"
-                            accept=".pdf,.jpg,.jpeg,.png"
-                            disabled={uploadingState["tenthDoc"]}
-                            onChange={async (e) => {
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                const url = await handleFileUpload(file, "tenthDoc");
-                                if (url) form.setValue("education.tenth.documentUrl", url);
-                              }
-                            }}
-                            className="hidden"
-                          />
-                        </div>
+                    <FormField
+                      control={form.control}
+                      name="education.tenth.documentUrl"
+                      render={({ field, fieldState }) => (
+                        <FormItem className="col-span-1 md:col-span-2 pt-1 space-y-1.5">
+                          <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px] block">
+                            10th Marksheet / Certificate Attachment <span className="text-red-500">*</span>
+                          </FormLabel>
+                          <FormControl>
+                            <div>
+                              {field.value ? (
+                                <div className="flex items-center justify-between p-2.5 max-w-md border border-emerald-200 bg-emerald-50/70 rounded-[8px]">
+                                  <div className="flex items-center gap-2 overflow-hidden">
+                                    <FileCheck className="h-4 w-4 text-emerald-600 shrink-0" />
+                                    <span className="text-xs font-semibold text-emerald-900 truncate">10th_Marksheet_Attached</span>
+                                  </div>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <a
+                                      href={field.value}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-xs font-semibold text-blue-600 hover:underline flex items-center gap-1 bg-white px-2.5 py-1 rounded-[6px] border border-blue-200 shadow-2xs"
+                                    >
+                                      <Eye className="h-3.5 w-3.5" /> View
+                                    </a>
+                                    <button
+                                      type="button"
+                                      onClick={() => field.onChange("")}
+                                      className="text-xs font-semibold text-red-600 hover:text-red-700 bg-white px-2 py-1 rounded-[6px] border border-red-200 shadow-2xs cursor-pointer"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="flex flex-col items-start gap-1.5">
+                                  <Label
+                                    htmlFor="tenth-doc-upload"
+                                    className={`cursor-pointer inline-flex items-center gap-2 h-9 px-3.5 rounded-[8px] border text-xs font-semibold transition-all shadow-2xs ${
+                                      fieldState.error
+                                        ? "border-red-500 bg-red-50/60 text-red-700 hover:bg-red-100/60 ring-1 ring-red-500/30"
+                                        : "border-slate-300 hover:border-blue-500 bg-slate-50 hover:bg-blue-50/60 text-slate-700 hover:text-blue-700"
+                                    }`}
+                                  >
+                                    {uploadingState["tenthDoc"] ? (
+                                      <>
+                                        <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                                        <span>Uploading 10th Certificate...</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Upload className={`h-4 w-4 ${fieldState.error ? "text-red-600" : "text-blue-600"}`} />
+                                        <span>Upload 10th Marksheet (PDF, JPG, PNG)</span>
+                                      </>
+                                    )}
+                                  </Label>
+                                  <Input
+                                    id="tenth-doc-upload"
+                                    type="file"
+                                    accept=".pdf,.jpg,.jpeg,.png"
+                                    disabled={uploadingState["tenthDoc"]}
+                                    onChange={async (e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file) {
+                                        const url = await handleFileUpload(file, "tenthDoc");
+                                        if (url) field.onChange(url);
+                                      }
+                                    }}
+                                    className="hidden"
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          </FormControl>
+                          <FormMessage className="text-red-600 text-[12px] font-medium mt-1" />
+                        </FormItem>
                       )}
-                    </div>
+                    />
                   </div>
                 </div>
 
@@ -2441,63 +2766,84 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
                         </FormItem>
                       )}
                     />
-                    <div className="col-span-1 md:col-span-2 lg:col-span-3 pt-2">
-                      <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px] mb-2 block">
-                        12th Marksheet / Certificate Attachment
-                      </FormLabel>
-                      {form.watch("education.twelfth.documentUrl") ? (
-                        <div className="flex items-center justify-between p-3 border border-emerald-200 bg-emerald-50/60 rounded-[8px]">
-                          <div className="flex items-center gap-2 overflow-hidden">
-                            <FileText className="h-5 w-5 text-emerald-600 shrink-0" />
-                            <span className="text-xs font-semibold text-emerald-900 truncate">12th_Certificate_Attached</span>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <a
-                              href={form.watch("education.twelfth.documentUrl")}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-xs font-semibold text-blue-600 hover:underline flex items-center gap-1 bg-white px-2.5 py-1 rounded border border-blue-200 shadow-xs"
-                            >
-                              <Eye className="h-3.5 w-3.5" /> View
-                            </a>
-                            <button
-                              type="button"
-                              onClick={() => form.setValue("education.twelfth.documentUrl", "")}
-                              className="text-xs font-semibold text-red-600 hover:text-red-700 bg-white px-2.5 py-1 rounded border border-red-200 shadow-xs cursor-pointer"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-3">
-                          <Label
-                            htmlFor="twelfth-doc-upload"
-                            className="cursor-pointer border border-dashed border-slate-300 hover:border-blue-500 bg-slate-50 hover:bg-blue-50/50 rounded-[8px] p-3 flex items-center justify-center gap-2 w-full text-xs font-semibold text-slate-700 transition-colors"
-                          >
-                            {uploadingState["twelfthDoc"] ? (
-                              <><Loader2 className="h-4 w-4 animate-spin text-blue-600" /> Uploading 12th Certificate...</>
-                            ) : (
-                              <><Upload className="h-4 w-4 text-blue-600" /> Upload 12th Marksheet / Certificate (PDF, JPG, PNG)</>
-                            )}
-                          </Label>
-                          <Input
-                            id="twelfth-doc-upload"
-                            type="file"
-                            accept=".pdf,.jpg,.jpeg,.png"
-                            disabled={uploadingState["twelfthDoc"]}
-                            onChange={async (e) => {
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                const url = await handleFileUpload(file, "twelfthDoc");
-                                if (url) form.setValue("education.twelfth.documentUrl", url);
-                              }
-                            }}
-                            className="hidden"
-                          />
-                        </div>
+                    <FormField
+                      control={form.control}
+                      name="education.twelfth.documentUrl"
+                      render={({ field, fieldState }) => (
+                        <FormItem className="col-span-1 md:col-span-2 lg:col-span-3 pt-1 space-y-1.5">
+                          <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px] block">
+                            12th Marksheet / Certificate Attachment <span className="text-red-500">*</span>
+                          </FormLabel>
+                          <FormControl>
+                            <div>
+                              {field.value ? (
+                                <div className="flex items-center justify-between p-2.5 max-w-md border border-emerald-200 bg-emerald-50/70 rounded-[8px]">
+                                  <div className="flex items-center gap-2 overflow-hidden">
+                                    <FileCheck className="h-4 w-4 text-emerald-600 shrink-0" />
+                                    <span className="text-xs font-semibold text-emerald-900 truncate">12th_Marksheet_Attached</span>
+                                  </div>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <a
+                                      href={field.value}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-xs font-semibold text-blue-600 hover:underline flex items-center gap-1 bg-white px-2.5 py-1 rounded-[6px] border border-blue-200 shadow-2xs"
+                                    >
+                                      <Eye className="h-3.5 w-3.5" /> View
+                                    </a>
+                                    <button
+                                      type="button"
+                                      onClick={() => field.onChange("")}
+                                      className="text-xs font-semibold text-red-600 hover:text-red-700 bg-white px-2 py-1 rounded-[6px] border border-red-200 shadow-2xs cursor-pointer"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="flex flex-col items-start gap-1.5">
+                                  <Label
+                                    htmlFor="twelfth-doc-upload"
+                                    className={`cursor-pointer inline-flex items-center gap-2 h-9 px-3.5 rounded-[8px] border text-xs font-semibold transition-all shadow-2xs ${
+                                      fieldState.error
+                                        ? "border-red-500 bg-red-50/60 text-red-700 hover:bg-red-100/60 ring-1 ring-red-500/30"
+                                        : "border-slate-300 hover:border-blue-500 bg-slate-50 hover:bg-blue-50/60 text-slate-700 hover:text-blue-700"
+                                    }`}
+                                  >
+                                    {uploadingState["twelfthDoc"] ? (
+                                      <>
+                                        <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                                        <span>Uploading 12th Certificate...</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Upload className={`h-4 w-4 ${fieldState.error ? "text-red-600" : "text-blue-600"}`} />
+                                        <span>Upload 12th Marksheet (PDF, JPG, PNG)</span>
+                                      </>
+                                    )}
+                                  </Label>
+                                  <Input
+                                    id="twelfth-doc-upload"
+                                    type="file"
+                                    accept=".pdf,.jpg,.jpeg,.png"
+                                    disabled={uploadingState["twelfthDoc"]}
+                                    onChange={async (e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file) {
+                                        const url = await handleFileUpload(file, "twelfthDoc");
+                                        if (url) field.onChange(url);
+                                      }
+                                    }}
+                                    className="hidden"
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          </FormControl>
+                          <FormMessage className="text-red-600 text-[12px] font-medium mt-1" />
+                        </FormItem>
                       )}
-                    </div>
+                    />
                   </div>
                 </div>
 
@@ -2619,63 +2965,84 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
                         </FormItem>
                       )}
                     />
-                    <div className="col-span-1 md:col-span-2 lg:col-span-3 pt-2">
-                      <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px] mb-2 block">
-                        Graduation Degree / Marksheet Attachment
-                      </FormLabel>
-                      {form.watch("education.graduation.documentUrl") ? (
-                        <div className="flex items-center justify-between p-3 border border-emerald-200 bg-emerald-50/60 rounded-[8px]">
-                          <div className="flex items-center gap-2 overflow-hidden">
-                            <FileText className="h-5 w-5 text-emerald-600 shrink-0" />
-                            <span className="text-xs font-semibold text-emerald-900 truncate">Graduation_Document_Attached</span>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <a
-                              href={form.watch("education.graduation.documentUrl")}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-xs font-semibold text-blue-600 hover:underline flex items-center gap-1 bg-white px-2.5 py-1 rounded border border-blue-200 shadow-xs"
-                            >
-                              <Eye className="h-3.5 w-3.5" /> View
-                            </a>
-                            <button
-                              type="button"
-                              onClick={() => form.setValue("education.graduation.documentUrl", "")}
-                              className="text-xs font-semibold text-red-600 hover:text-red-700 bg-white px-2.5 py-1 rounded border border-red-200 shadow-xs cursor-pointer"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-3">
-                          <Label
-                            htmlFor="grad-doc-upload"
-                            className="cursor-pointer border border-dashed border-slate-300 hover:border-blue-500 bg-slate-50 hover:bg-blue-50/50 rounded-[8px] p-3 flex items-center justify-center gap-2 w-full text-xs font-semibold text-slate-700 transition-colors"
-                          >
-                            {uploadingState["gradDoc"] ? (
-                              <><Loader2 className="h-4 w-4 animate-spin text-blue-600" /> Uploading Graduation Document...</>
-                            ) : (
-                              <><Upload className="h-4 w-4 text-blue-600" /> Upload Graduation Degree / Marksheet (PDF, JPG, PNG)</>
-                            )}
-                          </Label>
-                          <Input
-                            id="grad-doc-upload"
-                            type="file"
-                            accept=".pdf,.jpg,.jpeg,.png"
-                            disabled={uploadingState["gradDoc"]}
-                            onChange={async (e) => {
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                const url = await handleFileUpload(file, "gradDoc");
-                                if (url) form.setValue("education.graduation.documentUrl", url);
-                              }
-                            }}
-                            className="hidden"
-                          />
-                        </div>
+                    <FormField
+                      control={form.control}
+                      name="education.graduation.documentUrl"
+                      render={({ field, fieldState }) => (
+                        <FormItem className="col-span-1 md:col-span-2 lg:col-span-3 pt-1 space-y-1.5">
+                          <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px] block">
+                            Graduation Degree / Marksheet Attachment
+                          </FormLabel>
+                          <FormControl>
+                            <div>
+                              {field.value ? (
+                                <div className="flex items-center justify-between p-2.5 max-w-md border border-emerald-200 bg-emerald-50/70 rounded-[8px]">
+                                  <div className="flex items-center gap-2 overflow-hidden">
+                                    <FileCheck className="h-4 w-4 text-emerald-600 shrink-0" />
+                                    <span className="text-xs font-semibold text-emerald-900 truncate">Graduation_Document_Attached</span>
+                                  </div>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <a
+                                      href={field.value}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-xs font-semibold text-blue-600 hover:underline flex items-center gap-1 bg-white px-2.5 py-1 rounded-[6px] border border-blue-200 shadow-2xs"
+                                    >
+                                      <Eye className="h-3.5 w-3.5" /> View
+                                    </a>
+                                    <button
+                                      type="button"
+                                      onClick={() => field.onChange("")}
+                                      className="text-xs font-semibold text-red-600 hover:text-red-700 bg-white px-2 py-1 rounded-[6px] border border-red-200 shadow-2xs cursor-pointer"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="flex flex-col items-start gap-1.5">
+                                  <Label
+                                    htmlFor="grad-doc-upload"
+                                    className={`cursor-pointer inline-flex items-center gap-2 h-9 px-3.5 rounded-[8px] border text-xs font-semibold transition-all shadow-2xs ${
+                                      fieldState.error
+                                        ? "border-red-500 bg-red-50/60 text-red-700 hover:bg-red-100/60 ring-1 ring-red-500/30"
+                                        : "border-slate-300 hover:border-blue-500 bg-slate-50 hover:bg-blue-50/60 text-slate-700 hover:text-blue-700"
+                                    }`}
+                                  >
+                                    {uploadingState["gradDoc"] ? (
+                                      <>
+                                        <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                                        <span>Uploading Graduation Document...</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Upload className={`h-4 w-4 ${fieldState.error ? "text-red-600" : "text-blue-600"}`} />
+                                        <span>Upload Graduation Marksheet (PDF, JPG, PNG)</span>
+                                      </>
+                                    )}
+                                  </Label>
+                                  <Input
+                                    id="grad-doc-upload"
+                                    type="file"
+                                    accept=".pdf,.jpg,.jpeg,.png"
+                                    disabled={uploadingState["gradDoc"]}
+                                    onChange={async (e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file) {
+                                        const url = await handleFileUpload(file, "gradDoc");
+                                        if (url) field.onChange(url);
+                                      }
+                                    }}
+                                    className="hidden"
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          </FormControl>
+                          <FormMessage className="text-red-600 text-[12px] font-medium mt-1" />
+                        </FormItem>
                       )}
-                    </div>
+                    />
                   </div>
                 </div>
 
@@ -3428,66 +3795,78 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
                     <FormField
                       control={form.control}
                       name="declaration.medicalConditionDocument"
-                      render={({ field }) => (
+                      render={({ field, fieldState }) => (
                         <FormItem className="space-y-1.5">
                           <FormLabel className="text-[12px] font-semibold uppercase tracking-[0.6px] text-[#64748B] leading-[16px]">
                             Medical Document Attachment (PDF, JPG, JPEG)
                           </FormLabel>
-                          {field.value ? (
-                            <div className="flex items-center justify-between p-3 border border-emerald-200 bg-emerald-50/60 rounded-[8px]">
-                              <div className="flex items-center gap-2 overflow-hidden">
-                                <FileText className="h-5 w-5 text-emerald-600 shrink-0" />
-                                <span className="text-xs font-semibold text-emerald-900 truncate">Medical_Document_Attached</span>
-                              </div>
-                              <div className="flex items-center gap-2 shrink-0">
-                                <a
-                                  href={field.value}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-xs font-semibold text-blue-600 hover:underline flex items-center gap-1 bg-white px-2.5 py-1 rounded border border-blue-200 shadow-xs"
-                                >
-                                  <Eye className="h-3.5 w-3.5" /> View
-                                </a>
-                                <button
-                                  type="button"
-                                  onClick={() => field.onChange("")}
-                                  className="text-xs font-semibold text-red-600 hover:text-red-700 bg-white px-2.5 py-1 rounded border border-red-200 shadow-xs cursor-pointer"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </button>
-                              </div>
+                          <FormControl>
+                            <div>
+                              {field.value ? (
+                                <div className="flex items-center justify-between p-2.5 max-w-md border border-emerald-200 bg-emerald-50/70 rounded-[8px]">
+                                  <div className="flex items-center gap-2 overflow-hidden">
+                                    <FileCheck className="h-4 w-4 text-emerald-600 shrink-0" />
+                                    <span className="text-xs font-semibold text-emerald-900 truncate">Medical_Document_Attached</span>
+                                  </div>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <a
+                                      href={field.value}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-xs font-semibold text-blue-600 hover:underline flex items-center gap-1 bg-white px-2.5 py-1 rounded-[6px] border border-blue-200 shadow-2xs"
+                                    >
+                                      <Eye className="h-3.5 w-3.5" /> View
+                                    </a>
+                                    <button
+                                      type="button"
+                                      onClick={() => field.onChange("")}
+                                      className="text-xs font-semibold text-red-600 hover:text-red-700 bg-white px-2 py-1 rounded-[6px] border border-red-200 shadow-2xs cursor-pointer"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="flex flex-col items-start gap-1.5">
+                                  <Label
+                                    htmlFor="medical-doc-upload"
+                                    className={`cursor-pointer inline-flex items-center gap-2 h-9 px-3.5 rounded-[8px] border text-xs font-semibold transition-all shadow-2xs ${
+                                      fieldState.error
+                                        ? "border-red-500 bg-red-50/60 text-red-700 hover:bg-red-100/60 ring-1 ring-red-500/30"
+                                        : "border-slate-300 hover:border-blue-500 bg-slate-50 hover:bg-blue-50/60 text-slate-700 hover:text-blue-700"
+                                    }`}
+                                  >
+                                    {uploadingState["medicalDoc"] ? (
+                                      <>
+                                        <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                                        <span>Uploading Medical Document...</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Upload className={`h-4 w-4 ${fieldState.error ? "text-red-600" : "text-blue-600"}`} />
+                                        <span>Upload Medical Document (PDF, JPG, PNG)</span>
+                                      </>
+                                    )}
+                                  </Label>
+                                  <Input
+                                    id="medical-doc-upload"
+                                    type="file"
+                                    accept=".pdf,.jpg,.jpeg,.png"
+                                    disabled={uploadingState["medicalDoc"]}
+                                    onChange={async (e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file) {
+                                        const url = await handleFileUpload(file, "medicalDoc");
+                                        if (url) field.onChange(url);
+                                      }
+                                    }}
+                                    className="hidden"
+                                  />
+                                </div>
+                              )}
                             </div>
-                          ) : (
-                            <FormControl>
-                              <div className="flex items-center gap-3">
-                                <Label
-                                  htmlFor="medical-doc-upload"
-                                  className="cursor-pointer border border-dashed border-slate-300 hover:border-blue-500 bg-slate-50 hover:bg-blue-50/50 rounded-[8px] p-3 flex items-center justify-center gap-2 w-full text-xs font-semibold text-slate-700 transition-colors"
-                                >
-                                  {uploadingState["medicalDoc"] ? (
-                                    <><Loader2 className="h-4 w-4 animate-spin text-blue-600" /> Uploading Medical Document...</>
-                                  ) : (
-                                    <><Upload className="h-4 w-4 text-blue-600" /> Choose & Upload Medical Document (PDF, JPG, PNG)</>
-                                  )}
-                                </Label>
-                                <Input
-                                  id="medical-doc-upload"
-                                  type="file"
-                                  accept=".pdf,.jpg,.jpeg,.png"
-                                  disabled={uploadingState["medicalDoc"]}
-                                  onChange={async (e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file) {
-                                      const url = await handleFileUpload(file, "medicalDoc");
-                                      if (url) field.onChange(url);
-                                    }
-                                  }}
-                                  className="hidden"
-                                />
-                              </div>
-                            </FormControl>
-                          )}
-                          <FormMessage />
+                          </FormControl>
+                          <FormMessage className="text-red-600 text-[12px] font-medium mt-1" />
                         </FormItem>
                       )}
                     />
@@ -3523,21 +3902,33 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
           )}
 
           {/* Stepper Navigation Buttons */}
-          <div className="flex items-center justify-end gap-3 pt-6 border-t border-input">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t border-input">
             <Button
               type="button"
-              onClick={prevStep}
-              className={`h-[44px] px-6 text-[16px] font-medium text-white rounded-[8px] cursor-pointer bg-[#2563EA] hover:bg-[#1d4ed8] border-0 shadow-sm flex items-center justify-center gap-[5px] ${step === 1 ? "hidden" : "flex"}`}
+              variant="outline"
+              onClick={handleResetForm}
+              className="w-full sm:w-auto h-[44px] px-5 text-[14px] font-semibold text-rose-600 border-rose-200 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300 rounded-[8px] cursor-pointer transition-colors flex items-center justify-center gap-2 bg-white shadow-2xs"
             >
-              <ChevronLeft className="size-4" /><span>Previous</span>
+              <RotateCcw className="size-4" />
+              <span>Reset Form</span>
             </Button>
-            <Button
-              type="button"
-              onClick={nextStep}
-              className="h-[44px] px-6 text-[16px] font-medium text-white rounded-[8px] cursor-pointer bg-[#2563EA] hover:bg-[#1d4ed8] border-0 shadow-sm flex items-center justify-center gap-[5px]"
-            >
-              <span>{step === 5 ? "Preview Application" : "Continue"}</span><ChevronRight className="size-4" />
-            </Button>
+
+            <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+              <Button
+                type="button"
+                onClick={prevStep}
+                className={`h-[44px] px-6 text-[16px] font-medium text-white rounded-[8px] cursor-pointer bg-[#2563EA] hover:bg-[#1d4ed8] border-0 shadow-sm flex items-center justify-center gap-[5px] ${step === 1 ? "hidden" : "flex"}`}
+              >
+                <ChevronLeft className="size-4" /><span>Previous</span>
+              </Button>
+              <Button
+                type="button"
+                onClick={nextStep}
+                className="h-[44px] px-6 text-[16px] font-medium text-white rounded-[8px] cursor-pointer bg-[#2563EA] hover:bg-[#1d4ed8] border-0 shadow-sm flex items-center justify-center gap-[5px]"
+              >
+                <span>{step === 5 ? "Preview Application" : "Continue"}</span><ChevronRight className="size-4" />
+              </Button>
+            </div>
           </div>
         </form>
       </Form>
