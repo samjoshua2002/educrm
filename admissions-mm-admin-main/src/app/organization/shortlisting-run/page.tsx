@@ -139,10 +139,10 @@ export default function ShortlistingRunPage() {
           <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#e2e8f0] pb-4">
             <div className="flex items-center gap-3">
               <Badge className="bg-emerald-50 text-emerald-700 hover:bg-emerald-50 border border-emerald-200/50 gap-1.5 px-3 py-1 rounded-[6px] font-semibold text-xs shadow-3xs">
-                <CheckCircle2 className="size-3.5 text-emerald-600" /> {eligibleCount} Eligible
+                <CheckCircle2 className="size-3.5 text-emerald-600" /> {eligibleCount} Eligible (Shortlisted)
               </Badge>
-              <Badge className="bg-red-50 text-red-700 hover:bg-red-50 border border-red-200/50 gap-1.5 px-3 py-1 rounded-[6px] font-semibold text-xs shadow-3xs">
-                <XCircle className="size-3.5 text-red-600" /> {notEligibleCount} Not Eligible
+              <Badge className="bg-amber-50 text-amber-700 hover:bg-amber-50 border border-amber-200/50 gap-1.5 px-3 py-1 rounded-[6px] font-semibold text-xs shadow-3xs">
+                <AlertCircle className="size-3.5 text-amber-600" /> {notEligibleCount} Review
               </Badge>
             </div>
             
@@ -185,8 +185,8 @@ export default function ShortlistingRunPage() {
                     </TableRow>
                   ) : (
                     paginatedPreview.map((row) => (
-                      <TableRow key={row.applicationId} className="border-b border-[#e2e8f0] hover:bg-muted/15 transition-colors h-[64px]">
-                        <TableCell className="py-[14px] px-[24px] align-middle font-semibold text-[#1e293b] text-[14px]">{row.name}</TableCell>
+                      <TableRow key={row.applicationId} className="hover:bg-slate-50/80 border-b border-[#f1f5f9] transition-colors">
+                        <TableCell className="py-[14px] px-[24px] align-middle font-medium text-[#1e293b] text-[14px]">{row.name}</TableCell>
                         <TableCell className="py-[14px] px-[24px] align-middle text-[#475569] text-[14px]">{row.applicationNo}</TableCell>
                         <TableCell className="py-[14px] px-[24px] align-middle text-[#475569] text-[14px]">{row.academicComponent}</TableCell>
                         <TableCell className="py-[14px] px-[24px] align-middle text-[#475569] text-[14px]">{row.testComponent}</TableCell>
@@ -198,10 +198,10 @@ export default function ShortlistingRunPage() {
                               "border-0 text-[11px] font-semibold px-2.5 py-0.5 rounded-full shadow-3xs",
                               row.shortlistStatus === "Eligible"
                                 ? "bg-emerald-100 text-emerald-700"
-                                : "bg-red-100 text-red-700"
+                                : "bg-amber-100 text-amber-700"
                             )}
                           >
-                            {row.shortlistStatus}
+                            {row.shortlistStatus === "Eligible" ? "Eligible" : "Review"}
                           </Badge>
                         </TableCell>
                       </TableRow>
@@ -237,10 +237,10 @@ export default function ShortlistingRunPage() {
                           "border-0 text-[10px] font-semibold px-2 py-0.5 rounded-full shadow-3xs",
                           row.shortlistStatus === "Eligible"
                             ? "bg-emerald-100 text-emerald-700"
-                            : "bg-red-100 text-red-700"
+                            : "bg-amber-100 text-amber-700"
                         )}
                       >
-                        {row.shortlistStatus}
+                        {row.shortlistStatus === "Eligible" ? "Eligible" : "Review"}
                       </Badge>
                     </div>
                     <div className="grid grid-cols-3 gap-2 border-t border-[#e2e8f0]/80 pt-3 text-[11px] text-slate-500">

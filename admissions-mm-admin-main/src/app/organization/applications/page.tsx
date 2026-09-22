@@ -784,6 +784,10 @@ export default function ApplicationsPage() {
                         <Badge className="bg-blue-500/10 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0">
                           Shortlisted
                         </Badge>
+                      ) : app.shortlistStatus === "Review" ? (
+                        <Badge className="bg-amber-500/15 text-amber-700 dark:bg-amber-500/25 dark:text-amber-300 font-medium px-2.5 py-0.5 rounded-full text-xs border border-amber-200/50">
+                          Review
+                        </Badge>
                       ) : app.verificationStatus === "verified" ? (
                         <Badge className="bg-green-500/10 text-green-700 dark:bg-green-500/20 dark:text-green-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0">
                           Verified
@@ -967,6 +971,10 @@ export default function ApplicationsPage() {
                       {app.shortlistStatus === "Shortlisted" ? (
                         <Badge className="bg-blue-500/10 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0">
                           Shortlisted
+                        </Badge>
+                      ) : app.shortlistStatus === "Review" ? (
+                        <Badge className="bg-amber-500/15 text-amber-700 dark:bg-amber-500/25 dark:text-amber-300 font-medium px-2.5 py-0.5 rounded-full text-xs border border-amber-200/50">
+                          Review
                         </Badge>
                       ) : app.verificationStatus === "verified" ? (
                         <Badge className="bg-green-500/10 text-green-700 dark:bg-green-500/20 dark:text-green-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0">

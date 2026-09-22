@@ -210,11 +210,11 @@ export class ScoringService {
       relations: ['educationRecords', 'entranceTests', 'workExperienceRecords'],
     });
 
-    // Applications already committed as "Shortlisted" in a previous run are
+    // Applications already committed as "Shortlisted" or "Review" in a previous run are
     // dropped from subsequent previews — a re-run only scores candidates
     // still awaiting a shortlisting decision.
     return applications
-      .filter((app) => app.shortlistStatus !== 'Shortlisted')
+      .filter((app) => app.shortlistStatus !== 'Shortlisted' && app.shortlistStatus !== 'Review')
       .map((app) => this.scoreApplicationForShortlisting(app, rule, config.bands));
   }
 
@@ -270,27 +270,29 @@ export class ScoringService {
       throw new BadRequestException('No applications matched this rule\'s program/academic year.');
     }
 
-    const newlyShortlistedIds: string[] = [];
+    const notifyCandidateIds: string[] = [];
     for (const row of preview) {
       const isShortlisted = row.shortlistStatus === 'Eligible';
+      const committedStatus = isShortlisted ? 'Shortlisted' : 'Review';
       await this.applicationRepository.update(
         { id: row.applicationId, organizationId: orgId },
         {
           shortlistScore: row.shortlistScore,
-          // Eligible candidates are promoted to "Shortlisted" on commit so
-          // they move to the interview stage and drop out of future runs.
-          shortlistStatus: isShortlisted ? 'Shortlisted' : 'Not Eligible',
+          // Eligible candidates become "Shortlisted", non-eligible become "Review".
+          // Both move to the interview stage and drop out of future shortlisting runs.
+          shortlistStatus: committedStatus,
           updatedBy: actorId,
         },
       );
-      if (isShortlisted) newlyShortlistedIds.push(row.applicationId);
+      // Both Shortlisted and Review candidates receive the interview invitation email
+      // so candidates attend the interview without knowing their preliminary status.
+      notifyCandidateIds.push(row.applicationId);
     }
 
-    // Notify each shortlisted candidate. Fire-and-forget-ish: the mailer
-    // swallows its own errors, and we don't let a slow SMTP server hold up
-    // the commit response.
-    if (newlyShortlistedIds.length > 0) {
-      void this.sendShortlistedEmails(orgId, newlyShortlistedIds);
+    // Notify each candidate (Shortlisted & Review). Fire-and-forget-ish: the mailer
+    // swallows its own errors, and we don't let a slow SMTP server hold up the commit response.
+    if (notifyCandidateIds.length > 0) {
+      void this.sendShortlistedEmails(orgId, notifyCandidateIds);
     }
 
     return { updated: preview.length };
@@ -400,8 +402,8 @@ export class ScoringService {
       throw new NotFoundException(`Application ${applicationNo} not found`);
     }
 
-    if (dto.achievementScore !== undefined) application.achievementScore = dto.achievementScore;
-    if (dto.penaltyScore !== undefined) application.penaltyScore = dto.penaltyScore;
+    if (dto.achievementScore !== undefined) application.achievementScore = Math.max(0, Math.min(5, Number(dto.achievementScore)));
+    if (dto.penaltyScore !== undefined) application.penaltyScore = Math.max(0, Math.min(5, Math.abs(Number(dto.penaltyScore))));
     if (dto.remarks !== undefined) application.scoreAdjustmentRemarks = dto.remarks;
     application.updatedBy = actorId;
     await this.applicationRepository.save(application);
@@ -483,12 +485,13 @@ export class ScoringService {
         interviewScore += (avgRaw / maxScore) * weightagePercent;
       }
 
+      const hasEvaluations = submittedEvaluations.length > 0;
       interviewBreakdowns.push({
         interviewId: interview.id,
         interviewType: interview.interviewType,
         round: interview.round,
         status: interview.status,
-        score: Number(interviewScore.toFixed(2)),
+        score: hasEvaluations ? Number(interviewScore.toFixed(2)) : null,
         evaluatorCount: submittedEvaluations.length,
       });
     }
@@ -502,8 +505,17 @@ export class ScoringService {
     const piScores = interviewBreakdowns
       .filter((i) => i.interviewType === 'PI' && i.score !== null)
       .map((i) => i.score as number);
-    const gdScore = gdScores.length ? gdScores.reduce((a, b) => a + b, 0) / gdScores.length : null;
-    const piScore = piScores.length ? piScores.reduce((a, b) => a + b, 0) / piScores.length : null;
+    let gdScore = gdScores.length ? gdScores.reduce((a, b) => a + b, 0) / gdScores.length : null;
+    let piScore = piScores.length ? piScores.reduce((a, b) => a + b, 0) / piScores.length : null;
+
+    // Fall back to application-level gdScore and piScore (evaluated on the Evaluation & Scoring card)
+    if ((gdScore === null || gdScore === 0) && application.gdScore !== null && application.gdScore !== undefined) {
+      gdScore = Number(application.gdScore);
+    }
+    if ((piScore === null || piScore === 0) && application.piScore !== null && application.piScore !== undefined) {
+      piScore = Number(application.piScore);
+    }
+
     const gdpiTotal = Number(((gdScore ?? 0) + (piScore ?? 0)).toFixed(2));
 
     const config = await this.conversionConfigService.getOrCreate(orgId);
@@ -569,7 +581,15 @@ export class ScoringService {
     const achievementScore = Number(application.achievementScore) || 0;
     const penaltyScore = Number(application.penaltyScore) || 0;
     const otherComponentsTotal = Number((achievementScore - penaltyScore).toFixed(2));
-    const compositeScore = Number((gdpiTotal + experienceComponent + otherComponentsTotal).toFixed(2));
+    const compositeScore = Number(
+      Math.max(
+        0,
+        Math.min(
+          100,
+          academicComponent + testComponent + experienceComponent + gdpiTotal + otherComponentsTotal,
+        ),
+      ).toFixed(2),
+    );
 
     return {
       applicationId: application.id,

@@ -111,17 +111,27 @@ export function DynamicHeader() {
   const orgActionButton = storeAction ? (
     storeAction.href ? (
       <Link href={storeAction.href}>
-        <Button className="hidden md:flex rounded-[8px] bg-[#ea2525] hover:bg-[#bb1e1e] justify-center">
-          <Plus className="size-4 mr-1" />
+        <Button
+          disabled={storeAction.disabled}
+          className={
+            storeAction.className ||
+            "hidden md:flex rounded-[8px] bg-[#ea2525] hover:bg-[#bb1e1e] text-white justify-center"
+          }
+        >
+          {storeAction.icon !== undefined ? storeAction.icon : <Plus className="size-4 mr-1" />}
           {storeAction.label}
         </Button>
       </Link>
     ) : (
       <Button
-        className="hidden md:flex rounded-[8px] bg-[#ea2525] hover:bg-[#bb1e1e] justify-center"
+        disabled={storeAction.disabled}
+        className={
+          storeAction.className ||
+          "hidden md:flex rounded-[8px] bg-[#ea2525] hover:bg-[#bb1e1e] text-white justify-center"
+        }
         onClick={storeAction.onClick}
       >
-        <Plus className="size-4 mr-1" />
+        {storeAction.icon !== undefined ? storeAction.icon : <Plus className="size-4 mr-1" />}
         {storeAction.label}
       </Button>
     )

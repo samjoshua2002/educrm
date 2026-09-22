@@ -155,10 +155,10 @@ export class Application {
   @Column({ name: 'experience_score', type: 'decimal', precision: 5, scale: 2, nullable: true })
   experienceScore: number;
 
-  @Column({ name: 'achievement_score', type: 'decimal', precision: 3, scale: 2, nullable: true })
+  @Column({ name: 'achievement_score', type: 'decimal', precision: 5, scale: 2, nullable: true })
   achievementScore: number;
 
-  @Column({ name: 'penalty_score', type: 'decimal', precision: 3, scale: 2, nullable: true })
+  @Column({ name: 'penalty_score', type: 'decimal', precision: 5, scale: 2, nullable: true })
   penaltyScore: number;
 
   @Column({ name: 'other_components_total', type: 'decimal', precision: 5, scale: 2, nullable: true })

@@ -24,7 +24,5 @@ export function usePageHeader({ title, description, action }: UsePageHeaderOptio
     return () => {
       clearHeader();
     };
-    // Re-register if any values change
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, description]);
+  }, [title, description, action, setHeader, clearHeader]);
 }

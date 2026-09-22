@@ -91,6 +91,7 @@ function InterviewActionItems({
   applicationId,
   applicationName,
   interview,
+  interviewStatus,
   onSchedule,
   onCancelInterview,
   onMarkNoShow,
@@ -99,11 +100,25 @@ function InterviewActionItems({
   applicationId: string;
   applicationName: string;
   interview: Interview | null;
+  interviewStatus?: string;
   onSchedule: (mode: "schedule" | "reschedule") => void;
   onCancelInterview: (interviewId: string) => void;
   onMarkNoShow: (interviewId: string) => void;
   onMarkCompleted: (interviewId: string) => void;
 }) {
+  const isCompleted = interview?.status === "Completed" || interviewStatus === "Completed";
+  if (isCompleted) {
+    return (
+      <>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem disabled className="gap-2 text-emerald-600 opacity-90 cursor-default font-medium">
+          <CheckCheck className="size-4 text-emerald-600" />
+          Completed
+        </DropdownMenuItem>
+      </>
+    );
+  }
+
   const activeStatuses = ["Scheduled", "Rescheduled"];
   const hasActiveInterview = interview && activeStatuses.includes(interview.status);
 
@@ -400,6 +415,7 @@ function formatDate(dateStr: string) {
 function exportToCSV(data: GDInterview[], filename = "gd_interviews.csv") {
   const headers = [
     "Application No",
+    "Shortlist Status",
     "Name",
     "Email",
     "Phone",
@@ -421,6 +437,7 @@ function exportToCSV(data: GDInterview[], filename = "gd_interviews.csv") {
 
   const rows = data.map((item) => [
     escape(item.applicationNo),
+    escape(item.shortlistStatus || "—"),
     escape(item.name),
     escape(item.email),
     escape(item.phone),
@@ -466,23 +483,32 @@ export default function GDInterviewPage() {
   // on whichever is most recently created, which is the common case (one
   // active interview at a time per candidate).
   const { data: allInterviews } = useInterviews();
-  const interviewsByApplicationId = React.useMemo(() => {
+  const { interviewsByApplicationId, interviewsByApplicationNo } = React.useMemo(() => {
     const map = new Map<string, Interview>();
+    const noMap = new Map<string, Interview>();
+    const priorityOrder: Record<string, number> = {
+      Completed: 3,
+      Scheduled: 2,
+      Rescheduled: 2,
+      "No Show": 1,
+      Cancelled: 0,
+    };
     for (const iv of allInterviews || []) {
       const existing = map.get(iv.applicationId);
-      if (!existing) {
+      const pIv = priorityOrder[iv.status] ?? 1;
+      const pExisting = existing ? (priorityOrder[existing.status] ?? 1) : -1;
+      if (
+        !existing ||
+        pIv > pExisting ||
+        (pIv === pExisting && new Date(iv.updatedAt || iv.createdAt) > new Date(existing.updatedAt || existing.createdAt))
+      ) {
         map.set(iv.applicationId, iv);
-      } else {
-        const isActive = ["Scheduled", "Rescheduled"].includes(iv.status);
-        const isExistingActive = ["Scheduled", "Rescheduled"].includes(existing.status);
-        if (isActive && !isExistingActive) {
-          map.set(iv.applicationId, iv);
-        } else if (isActive === isExistingActive && new Date(iv.createdAt) > new Date(existing.createdAt)) {
-          map.set(iv.applicationId, iv);
+        if (iv.application?.applicationNo) {
+          noMap.set(iv.application.applicationNo, iv);
         }
       }
     }
-    return map;
+    return { interviewsByApplicationId: map, interviewsByApplicationNo: noMap };
   }, [allInterviews]);
 
   // The table's status column reflects the INTERVIEW lifecycle, not the
@@ -496,11 +522,16 @@ export default function GDInterviewPage() {
     "Cancelled",
   ] as const;
   const getInterviewStatus = React.useCallback(
-    (applicationId?: string): string => {
-      if (!applicationId) return "Slot Available";
-      return interviewsByApplicationId.get(applicationId)?.status ?? "Slot Available";
+    (applicationId?: string, applicationNo?: string): string => {
+      if (applicationId && interviewsByApplicationId.get(applicationId)) {
+        return interviewsByApplicationId.get(applicationId)!.status;
+      }
+      if (applicationNo && interviewsByApplicationNo.get(applicationNo)) {
+        return interviewsByApplicationNo.get(applicationNo)!.status;
+      }
+      return "Slot Available";
     },
-    [interviewsByApplicationId],
+    [interviewsByApplicationId, interviewsByApplicationNo],
   );
 
   // Interview location / preferences: the assigned slot's location once scheduled,
@@ -508,44 +539,87 @@ export default function GDInterviewPage() {
   const renderLocationPreferences = React.useCallback(
     (item: {
       applicationId?: string;
-      preference1?: string | null;
-      interviewLocation: string;
       interviewPreference1?: string | null;
       interviewPreference2?: string | null;
       preferredInterviewLocations?: string[];
     }) => {
       const slotLocation = item.applicationId
-        ? interviewsByApplicationId.get(item.applicationId)?.slot?.location
+        ? interviewsByApplicationId.get(item.applicationId)?.slot?.location?.trim()
         : undefined;
 
-      const pref1 =
+      const pref1 = (
         item.interviewPreference1 ||
         (item.preferredInterviewLocations && item.preferredInterviewLocations[0]) ||
-        item.interviewLocation ||
-        item.preference1;
-      const pref2 =
+        ""
+      ).trim();
+      const pref2 = (
         item.interviewPreference2 ||
-        (item.preferredInterviewLocations && item.preferredInterviewLocations[1]);
+        (item.preferredInterviewLocations && item.preferredInterviewLocations[1]) ||
+        ""
+      ).trim();
 
+      // If an interview slot is booked/scheduled:
       if (slotLocation) {
+        const matchesP1 = Boolean(pref1 && slotLocation.toLowerCase() === pref1.toLowerCase());
+        const matchesP2 = Boolean(pref2 && slotLocation.toLowerCase() === pref2.toLowerCase());
+
+        // If slot matches P1: P1 is black (selected), P2 is dull
+        if (matchesP1) {
+          return (
+            <div className="flex flex-col gap-0.5">
+              <div className="text-sm font-semibold text-slate-900 dark:text-foreground tracking-tight whitespace-nowrap">
+                <span className="text-[10px] font-bold text-slate-500 uppercase mr-1.5">P1:</span>
+                {pref1}
+              </div>
+              {pref2 && pref2.toLowerCase() !== pref1.toLowerCase() && (
+                <div className="text-xs text-muted-foreground font-normal whitespace-nowrap">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase mr-1.5">P2:</span>
+                  {pref2}
+                </div>
+              )}
+            </div>
+          );
+        }
+
+        // If slot matches P2: P2 is black (selected), P1 is dull
+        if (matchesP2) {
+          return (
+            <div className="flex flex-col gap-0.5">
+              {pref1 && pref1.toLowerCase() !== pref2.toLowerCase() && (
+                <div className="text-xs text-muted-foreground font-normal whitespace-nowrap">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase mr-1.5">P1:</span>
+                  {pref1}
+                </div>
+              )}
+              <div className="text-sm font-semibold text-slate-900 dark:text-foreground tracking-tight whitespace-nowrap">
+                <span className="text-[10px] font-bold text-slate-500 uppercase mr-1.5">P2:</span>
+                {pref2}
+              </div>
+            </div>
+          );
+        }
+
+        // If slot location is different from both preferences:
         return (
           <div className="flex flex-col gap-0.5">
-            <span className="font-semibold text-foreground text-sm tracking-tight whitespace-nowrap">
+            <div className="text-sm font-semibold text-slate-900 dark:text-foreground tracking-tight whitespace-nowrap">
               {slotLocation}
-            </span>
-            {pref1 && (
-              <span className="text-[11px] text-muted-foreground font-normal whitespace-nowrap">
-                Pref: {pref1}{pref2 && pref2 !== pref1 ? `, ${pref2}` : ""}
-              </span>
+            </div>
+            {(pref1 || pref2) && (
+              <div className="text-xs text-muted-foreground font-normal whitespace-nowrap">
+                <span className="text-[10px] font-bold text-slate-400 uppercase mr-1.5">Pref:</span>
+                <span>{[pref1, pref2].filter(Boolean).join(", ")}</span>
+              </div>
             )}
           </div>
         );
       }
 
-      if (pref1 && pref2 && pref1 !== pref2) {
+      // If NOT scheduled yet: both are dull (like preference two)
+      if (pref1 && pref2 && pref1.toLowerCase() !== pref2.toLowerCase()) {
         return (
           <div className="flex flex-col gap-0.5">
-            <div className="text-sm font-medium text-foreground tracking-tight whitespace-nowrap">
+            <div className="text-xs text-muted-foreground font-normal whitespace-nowrap">
               <span className="text-[10px] font-bold text-slate-400 uppercase mr-1.5">P1:</span>
               {pref1}
             </div>
@@ -559,9 +633,19 @@ export default function GDInterviewPage() {
 
       if (pref1) {
         return (
-          <span className="text-sm text-foreground/85 font-medium whitespace-nowrap">
+          <div className="text-xs text-muted-foreground font-normal whitespace-nowrap">
+            <span className="text-[10px] font-bold text-slate-400 uppercase mr-1.5">P1:</span>
             {pref1}
-          </span>
+          </div>
+        );
+      }
+
+      if (pref2) {
+        return (
+          <div className="text-xs text-muted-foreground font-normal whitespace-nowrap">
+            <span className="text-[10px] font-bold text-slate-400 uppercase mr-1.5">P2:</span>
+            {pref2}
+          </div>
         );
       }
 
@@ -573,27 +657,27 @@ export default function GDInterviewPage() {
   const getInterviewLocation = React.useCallback(
     (item: {
       applicationId?: string;
-      preference1?: string | null;
-      interviewLocation: string;
       interviewPreference1?: string | null;
       interviewPreference2?: string | null;
       preferredInterviewLocations?: string[];
     }): string => {
       const slotLocation = item.applicationId
-        ? interviewsByApplicationId.get(item.applicationId)?.slot?.location
+        ? interviewsByApplicationId.get(item.applicationId)?.slot?.location?.trim()
         : undefined;
-      const pref1 =
+      const pref1 = (
         item.interviewPreference1 ||
         (item.preferredInterviewLocations && item.preferredInterviewLocations[0]) ||
-        item.interviewLocation ||
-        item.preference1;
-      const pref2 =
+        ""
+      ).trim();
+      const pref2 = (
         item.interviewPreference2 ||
-        (item.preferredInterviewLocations && item.preferredInterviewLocations[1]);
+        (item.preferredInterviewLocations && item.preferredInterviewLocations[1]) ||
+        ""
+      ).trim();
 
       if (slotLocation) return slotLocation;
       if (pref1 && pref2 && pref1 !== pref2) return `${pref1}, ${pref2}`;
-      return pref1 || "—";
+      return pref1 || pref2 || "—";
     },
     [interviewsByApplicationId],
   );
@@ -653,10 +737,8 @@ export default function GDInterviewPage() {
       const preferredInterviewLocations = explicit.length > 0 ? Array.from(new Set(explicit)) : Array.from(new Set(legacy));
 
       const primaryInterviewLoc =
-        app.interviewPreference1 ||
+        (app.interviewPreference1 || "").trim() ||
         preferredInterviewLocations[0] ||
-        app.campus ||
-        mockMatch?.interviewLocation ||
         "";
 
       return {
@@ -666,11 +748,12 @@ export default function GDInterviewPage() {
         name: app.name,
         email: app.email,
         phone: app.phone,
+        shortlistStatus: app.shortlistStatus || mockMatch?.shortlistStatus || null,
         interviewLocation: primaryInterviewLoc,
         preference1: app.preference1 || null,
         preference2: app.preference2 || null,
-        interviewPreference1: app.interviewPreference1 || null,
-        interviewPreference2: app.interviewPreference2 || null,
+        interviewPreference1: (app.interviewPreference1 || "").trim() || preferredInterviewLocations[0] || null,
+        interviewPreference2: (app.interviewPreference2 || "").trim() || preferredInterviewLocations[1] || null,
         preferredInterviewLocations,
         date: mockMatch?.date || "2026-02-07",
         time: mockMatch?.time || "14:30",
@@ -710,10 +793,12 @@ export default function GDInterviewPage() {
 
   const [searchQuery, setSearchQuery] = React.useState("");
   const [statusDraft, setStatusDraft] = React.useState("all");
+  const [shortlistDraft, setShortlistDraft] = React.useState("all");
   const [locationDraft, setLocationDraft] = React.useState("all");
 
   const [appliedSearch, setAppliedSearch] = React.useState("");
   const [appliedStatus, setAppliedStatus] = React.useState("all");
+  const [appliedShortlist, setAppliedShortlist] = React.useState("all");
   const [appliedLocation, setAppliedLocation] = React.useState("all");
 
   const [advancedOpen, setAdvancedOpen] = React.useState(false);
@@ -749,6 +834,7 @@ export default function GDInterviewPage() {
   function applyFilters() {
     setAppliedSearch(searchQuery);
     setAppliedStatus(statusDraft);
+    setAppliedShortlist(shortlistDraft);
     setAppliedLocation(locationDraft);
     setCurrentPage(1);
   }
@@ -795,8 +881,17 @@ export default function GDInterviewPage() {
           item.applicationNo.toLowerCase().includes(q);
         if (!matchesSearch) return false;
       }
-      if (appliedStatus !== "all" && getInterviewStatus(item.applicationId) !== appliedStatus)
+      if (appliedStatus !== "all" && getInterviewStatus(item.applicationId, item.applicationNo) !== appliedStatus)
         return false;
+      if (appliedShortlist !== "all") {
+        const itemShortlist = item.shortlistStatus || "";
+        if (appliedShortlist === "Shortlisted" && itemShortlist !== "Shortlisted" && itemShortlist !== "Eligible") {
+          return false;
+        }
+        if (appliedShortlist === "Review" && itemShortlist !== "Review" && itemShortlist !== "Not Eligible") {
+          return false;
+        }
+      }
       if (
         appliedLocation !== "all" &&
         getInterviewLocation(item) !== appliedLocation
@@ -833,6 +928,7 @@ export default function GDInterviewPage() {
   }, [
     appliedSearch,
     appliedStatus,
+    appliedShortlist,
     appliedLocation,
     appliedAdvanced,
     interviewsState,
@@ -848,7 +944,7 @@ export default function GDInterviewPage() {
 
   React.useEffect(() => {
     setMobileVisibleCount(5);
-  }, [appliedSearch, appliedStatus, appliedLocation, appliedAdvanced]);
+  }, [appliedSearch, appliedStatus, appliedShortlist, appliedLocation, appliedAdvanced]);
 
   const mobileInterviews = React.useMemo(() => {
     return filteredInterviews.slice(0, mobileVisibleCount);
@@ -934,6 +1030,27 @@ export default function GDInterviewPage() {
                         {s}
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Shortlist Status Select */}
+              <div className="flex-1 min-w-0 sm:w-[150px]">
+                <Select
+                  value={shortlistDraft}
+                  onValueChange={(val) => {
+                    setShortlistDraft(val);
+                    setAppliedShortlist(val);
+                    setCurrentPage(1);
+                  }}
+                >
+                  <SelectTrigger className="w-full h-10" size="lg">
+                    <SelectValue placeholder="All Shortlist" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Shortlist</SelectItem>
+                    <SelectItem value="Shortlisted">Shortlisted</SelectItem>
+                    <SelectItem value="Review">Review</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1176,130 +1293,160 @@ export default function GDInterviewPage() {
         </Dialog>
 
         {/* Desktop View Table */}
-        <div className="hidden lg:block w-full overflow-hidden rounded-[12px] border border-border bg-card shadow-[0_1px_3px_0_rgba(0,0,0,0.05),0_1px_2px_-1px_rgba(0,0,0,0.05)]">
-          <div className="w-full overflow-x-auto">
-            <Table className="w-full">
-              <TableHeader className="bg-zinc-100 dark:bg-muted/5 border-b border-border/80">
-                <TableRow className="hover:bg-transparent border-b border-border/80">
-                  <TableHead className="py-4 px-5 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto whitespace-nowrap min-w-[200px]">
-                    APPLICANT DETAIL
-                  </TableHead>
-                  <TableHead className="py-4 px-4 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto whitespace-nowrap min-w-[140px]">
-                    APPLICATION NO.
-                  </TableHead>
-                  <TableHead className="py-4 px-4 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto whitespace-nowrap min-w-[150px]">
-                    PREFERENCES
-                  </TableHead>
-                  <TableHead className="py-4 px-4 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto whitespace-nowrap min-w-[130px]">
-                    COURSE
-                  </TableHead>
-                  <TableHead className="py-4 px-4 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto whitespace-nowrap min-w-[140px]">
-                    INTERVIEW STATUS
-                  </TableHead>
-                  <TableHead className="py-4 px-4 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto whitespace-nowrap min-w-[150px]">
-                    DATE & TIME
-                  </TableHead>
-                  <TableHead className="py-4 px-4 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto text-right w-[70px] whitespace-nowrap">
-                    ACTION
-                  </TableHead>
+        <div className="hidden lg:block overflow-hidden rounded-[12px] border border-border bg-card shadow-[0_1px_3px_0_rgba(0,0,0,0.05),0_1px_2px_-1px_rgba(0,0,0,0.05)]">
+          <Table className="w-full" containerClassName="overflow-x-hidden">
+            <TableHeader className="bg-zinc-100 dark:bg-muted/5 border-b border-border/80">
+              <TableRow className="hover:bg-transparent border-b border-border/80">
+                <TableHead className="py-4 px-5 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto whitespace-nowrap">
+                  APPLICANT DETAIL
+                </TableHead>
+                <TableHead className="py-4 px-4 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto whitespace-nowrap">
+                  APPLICATION NO.
+                </TableHead>
+                <TableHead className="py-4 px-4 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto whitespace-nowrap">
+                  SHORTLIST STATUS
+                </TableHead>
+                <TableHead className="py-4 px-4 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto whitespace-nowrap">
+                  PREFERENCES
+                </TableHead>
+                <TableHead className="py-4 px-5 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto whitespace-nowrap">
+                  COURSE
+                </TableHead>
+                <TableHead className="py-4 px-4 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto whitespace-nowrap">
+                  INTERVIEW STATUS
+                </TableHead>
+                <TableHead className="py-4 px-4 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto whitespace-nowrap">
+                  DATE & TIME
+                </TableHead>
+                <TableHead className="py-4 px-3 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto text-right w-[60px] whitespace-nowrap">
+                  ACTION
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredInterviews.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="h-64 text-center">
+                    <div className="flex flex-col items-center justify-center gap-3">
+                      <div className="flex size-12 items-center justify-center rounded-full bg-muted/40">
+                        <SearchX className="size-6 text-muted-foreground/80" />
+                      </div>
+                      <div className="flex flex-col gap-0.5 text-center">
+                        <p className="text-sm font-semibold text-foreground">
+                          No results found
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Try adjusting your filters or search query.
+                        </p>
+                      </div>
+                    </div>
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredInterviews.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="h-64 text-center">
-                      <div className="flex flex-col items-center justify-center gap-3">
-                        <div className="flex size-12 items-center justify-center rounded-full bg-muted/40">
-                          <SearchX className="size-6 text-muted-foreground/80" />
-                        </div>
-                        <div className="flex flex-col gap-0.5 text-center">
-                          <p className="text-sm font-semibold text-foreground">
-                            No results found
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Try adjusting your filters or search query.
-                          </p>
+              ) : (
+                paginatedInterviews.map((item) => (
+                  <TableRow
+                    key={item.id}
+                    className="border-b border-border/80 hover:bg-muted/15 dark:hover:bg-muted/5 transition-colors"
+                  >
+                    <TableCell className="py-4.5 px-5 align-middle whitespace-nowrap">
+                      <div className="flex flex-col gap-0.5">
+                        <Link href={`/organization/gd-interview/${encodeURIComponent(item.applicationNo)}`} className="font-semibold text-foreground hover:underline text-sm tracking-tight cursor-pointer">
+                          {item.name}
+                        </Link>
+                        <div className="text-xs text-muted-foreground font-normal">
+                          {item.email}
                         </div>
                       </div>
                     </TableCell>
-                  </TableRow>
-                ) : (
-                  paginatedInterviews.map((item) => (
-                    <TableRow
-                      key={item.id}
-                      className="border-b border-border/80 hover:bg-muted/15 dark:hover:bg-muted/5 transition-colors"
-                    >
-                      <TableCell className="py-4 px-5 align-middle">
-                        <div className="flex flex-col gap-0.5">
-                          <div className="font-semibold text-foreground text-sm tracking-tight whitespace-nowrap">
-                            {item.name}
-                          </div>
-                          <div className="text-xs text-muted-foreground font-normal whitespace-nowrap">
-                            {item.email}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="py-4 px-4 align-middle text-sm text-foreground/80 font-normal whitespace-nowrap">
+                    <TableCell className="py-4.5 px-4 align-middle text-sm text-foreground/80 font-normal whitespace-nowrap">
+                      <Link href={`/organization/gd-interview/${encodeURIComponent(item.applicationNo)}`} className="text-foreground hover:underline font-medium cursor-pointer">
                         {item.applicationNo}
-                      </TableCell>
-                      <TableCell className="py-4 px-4 align-middle">
-                        {renderLocationPreferences(item)}
-                      </TableCell>
+                      </Link>
+                    </TableCell>
+                    <TableCell className="py-4.5 px-4 align-middle whitespace-nowrap">
+                      {item.shortlistStatus === "Shortlisted" || item.shortlistStatus === "Eligible" ? (
+                        <Badge
+                          variant="secondary"
+                          className="bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20 font-medium text-xs px-2.5 py-0.5 rounded-full"
+                        >
+                          Shortlisted
+                        </Badge>
+                      ) : item.shortlistStatus === "Review" || item.shortlistStatus === "Not Eligible" ? (
+                        <Badge
+                          variant="secondary"
+                          className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-medium text-xs px-2.5 py-0.5 rounded-full"
+                        >
+                          Review
+                        </Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground font-normal">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="py-4.5 px-4 align-middle whitespace-nowrap">
+                      {renderLocationPreferences(item)}
+                    </TableCell>
 
-                      <TableCell className="py-4 px-4 align-middle text-sm text-foreground/80 font-normal whitespace-nowrap">
-                        {item.course}
-                      </TableCell>
-                      <TableCell className="py-4 px-4 align-middle whitespace-nowrap">
-                        <StatusBadge status={getInterviewStatus(item.applicationId)} />
-                      </TableCell>
-                      <TableCell className="py-4 px-4 align-middle whitespace-nowrap">
-                        {(() => {
-                          const sched = getInterviewSchedule(item.applicationId, item.date, item.time);
-                          return sched.scheduled ? (
-                            <div className="flex flex-col gap-0.5">
-                              <div className="font-medium text-foreground text-sm tracking-tight whitespace-nowrap">
-                                {formatDate(sched.date)}
-                              </div>
-                              <div className="text-xs text-muted-foreground font-normal whitespace-nowrap">
-                                {sched.time}
-                              </div>
+                    <TableCell className="py-4.5 px-5 align-middle text-sm text-foreground/80 font-normal whitespace-nowrap">
+                      {item.course}
+                    </TableCell>
+                    <TableCell className="py-4.5 px-4 align-middle whitespace-nowrap">
+                      <StatusBadge status={getInterviewStatus(item.applicationId, item.applicationNo)} />
+                    </TableCell>
+                    <TableCell className="py-4.5 px-4 align-middle whitespace-nowrap">
+                      {(() => {
+                        const sched = getInterviewSchedule(item.applicationId, item.date, item.time);
+                        return sched.scheduled ? (
+                          <div className="flex flex-col gap-0.5">
+                            <div className="font-medium text-foreground text-sm tracking-tight">
+                              {formatDate(sched.date)}
                             </div>
-                          ) : (
-                            <span className="text-xs text-muted-foreground font-normal whitespace-nowrap">Not scheduled</span>
-                          );
-                        })()}
-                      </TableCell>
-                      <TableCell className="py-4 px-4 align-middle text-right">
-                        <div className="flex justify-end">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                className="data-[state=open]:bg-muted text-muted-foreground flex size-8 rounded-md hover:bg-muted"
-                                size="icon"
-                              >
-                                <EllipsisVertical className="size-4" />
-                                <span className="sr-only">Open menu</span>
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-48">
-                              <DropdownMenuItem className="gap-2" asChild>
-                                <Link href={`/organization/gd-interview/${item.applicationNo}`}>
-                                  <Eye className="size-4" />
-                                  View
-                                </Link>
-                              </DropdownMenuItem>
-                              {item.applicationId && (
+                            <div className="text-xs text-muted-foreground font-normal">
+                              {sched.time}
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground font-normal">- -</span>
+                        );
+                      })()}
+                    </TableCell>
+                    <TableCell className="py-4.5 px-3 align-middle text-right w-[60px]">
+                      <div className="flex justify-end">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              className="data-[state=open]:bg-muted text-muted-foreground flex size-8 rounded-md hover:bg-muted"
+                              size="icon"
+                            >
+                              <EllipsisVertical className="size-4" />
+                              <span className="sr-only">Open menu</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuItem className="gap-2" asChild>
+                              <Link href={`/organization/gd-interview/${item.applicationNo}`}>
+                                <Eye className="size-4" />
+                                View
+                              </Link>
+                            </DropdownMenuItem>
+                            {item.applicationId && (() => {
+                              const currentInterview =
+                                interviewsByApplicationId.get(item.applicationId) ||
+                                (item.applicationNo ? interviewsByApplicationNo.get(item.applicationNo) : null) ||
+                                null;
+                              const status = getInterviewStatus(item.applicationId, item.applicationNo);
+                              return (
                                 <InterviewActionItems
                                   applicationId={item.applicationId}
                                   applicationName={item.name}
-                                  interview={interviewsByApplicationId.get(item.applicationId) || null}
+                                  interview={currentInterview}
+                                  interviewStatus={status}
                                   onSchedule={(mode) =>
                                     setScheduleTarget({
                                       applicationId: item.applicationId!,
                                       applicationName: item.name,
                                       mode,
-                                      existingInterview: interviewsByApplicationId.get(item.applicationId!) || null,
+                                      existingInterview: currentInterview,
                                       preferredLocations: item.preferredInterviewLocations || [],
                                     })
                                   }
@@ -1307,17 +1454,17 @@ export default function GDInterviewPage() {
                                   onMarkNoShow={(id) => markNoShow.mutate(id)}
                                   onMarkCompleted={(id) => markCompleted.mutate({ id })}
                                 />
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                              );
+                            })()}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
 
           {/* Desktop Pagination Footer */}
           <div className="flex flex-col sm:flex-row items-center justify-between border-t border-border/80 bg-zinc-100 dark:bg-muted/5 py-4 px-6 gap-4">
@@ -1433,7 +1580,22 @@ export default function GDInterviewPage() {
                     </div>
 
                     <div className="flex items-center gap-1.5 shrink-0 self-center">
-                      <StatusBadge status={getInterviewStatus(item.applicationId)} />
+                      {item.shortlistStatus === "Shortlisted" || item.shortlistStatus === "Eligible" ? (
+                        <Badge
+                          variant="secondary"
+                          className="bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20 font-medium text-[11px] px-2 py-0.5 rounded-full"
+                        >
+                          Shortlisted
+                        </Badge>
+                      ) : item.shortlistStatus === "Review" || item.shortlistStatus === "Not Eligible" ? (
+                        <Badge
+                          variant="secondary"
+                          className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-medium text-[11px] px-2 py-0.5 rounded-full"
+                        >
+                          Review
+                        </Badge>
+                      ) : null}
+                      <StatusBadge status={getInterviewStatus(item.applicationId, item.applicationNo)} />
 
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -1454,25 +1616,33 @@ export default function GDInterviewPage() {
                               View
                             </Link>
                           </DropdownMenuItem>
-                          {item.applicationId && (
-                            <InterviewActionItems
-                              applicationId={item.applicationId}
-                              applicationName={item.name}
-                              interview={interviewsByApplicationId.get(item.applicationId) || null}
-                              onSchedule={(mode) =>
-                                setScheduleTarget({
-                                  applicationId: item.applicationId!,
-                                  applicationName: item.name,
-                                  mode,
-                                  existingInterview: interviewsByApplicationId.get(item.applicationId!) || null,
-                                  preferredLocations: item.preferredInterviewLocations || [],
-                                })
-                              }
-                              onCancelInterview={(id) => cancelInterview.mutate(id)}
-                              onMarkNoShow={(id) => markNoShow.mutate(id)}
-                              onMarkCompleted={(id) => markCompleted.mutate({ id })}
-                            />
-                          )}
+                          {item.applicationId && (() => {
+                            const currentInterview =
+                              interviewsByApplicationId.get(item.applicationId) ||
+                              (item.applicationNo ? interviewsByApplicationNo.get(item.applicationNo) : null) ||
+                              null;
+                            const status = getInterviewStatus(item.applicationId, item.applicationNo);
+                            return (
+                              <InterviewActionItems
+                                applicationId={item.applicationId}
+                                applicationName={item.name}
+                                interview={currentInterview}
+                                interviewStatus={status}
+                                onSchedule={(mode) =>
+                                  setScheduleTarget({
+                                    applicationId: item.applicationId!,
+                                    applicationName: item.name,
+                                    mode,
+                                    existingInterview: currentInterview,
+                                    preferredLocations: item.preferredInterviewLocations || [],
+                                  })
+                                }
+                                onCancelInterview={(id) => cancelInterview.mutate(id)}
+                                onMarkNoShow={(id) => markNoShow.mutate(id)}
+                                onMarkCompleted={(id) => markCompleted.mutate({ id })}
+                              />
+                            );
+                          })()}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -1515,7 +1685,7 @@ export default function GDInterviewPage() {
                         const sched = getInterviewSchedule(item.applicationId, item.date, item.time);
                         return (
                           <span className="text-foreground/95 font-medium truncate">
-                            {sched.scheduled ? `${formatDate(sched.date)} (${sched.time})` : "Not scheduled"}
+                            {sched.scheduled ? `${formatDate(sched.date)} (${sched.time})` : "- -"}
                           </span>
                         );
                       })()}

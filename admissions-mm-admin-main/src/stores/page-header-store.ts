@@ -5,6 +5,8 @@ export interface PageHeaderAction {
   href?: string;
   onClick?: () => void;
   icon?: React.ReactNode;
+  disabled?: boolean;
+  className?: string;
 }
 
 interface PageHeaderState {

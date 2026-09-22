@@ -404,7 +404,7 @@ export default function FeesSettingsPage() {
                         <Input
                           id="discountStartDate"
                           type="date"
-                          className="h-10 text-sm border-slate-300 rounded-[8px] focus-visible:ring-emerald-600"
+                          className="relative h-10 text-sm border-slate-300 rounded-[8px] focus-visible:ring-emerald-600 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-3 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100"
                           value={discountStartDate}
                           onChange={(e) => setDiscountStartDate(e.target.value)}
                         />
@@ -417,7 +417,7 @@ export default function FeesSettingsPage() {
                         <Input
                           id="discountEndDate"
                           type="date"
-                          className="h-10 text-sm border-slate-300 rounded-[8px] focus-visible:ring-emerald-600"
+                          className="relative h-10 text-sm border-slate-300 rounded-[8px] focus-visible:ring-emerald-600 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-3 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100"
                           value={discountEndDate}
                           onChange={(e) => setDiscountEndDate(e.target.value)}
                         />

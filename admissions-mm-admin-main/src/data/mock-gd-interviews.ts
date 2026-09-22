@@ -22,6 +22,7 @@ export type GDInterview = {
   course: string;
   selectionStatus: "Accepted" | "Rejected" | "In Progress";
   confirmedCampus: string;
+  shortlistStatus?: "Shortlisted" | "Review" | string | null;
 };
 
 

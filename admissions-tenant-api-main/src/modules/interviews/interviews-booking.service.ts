@@ -65,8 +65,8 @@ export class InterviewsBookingService {
       if (!application) {
         throw new NotFoundException(`Application #${dto.applicationId} not found`);
       }
-      if (!['Shortlisted', 'Eligible'].includes(application.shortlistStatus)) {
-        throw new BadRequestException('Only shortlisted applications can be scheduled for interview.');
+      if (!['Shortlisted', 'Eligible', 'Review', 'Not Eligible'].includes(application.shortlistStatus)) {
+        throw new BadRequestException('Only shortlisted or review applications can be scheduled for interview.');
       }
 
       const slot = await manager.findOne(InterviewSlot, { where: { id: dto.slotId, organizationId: orgId } });

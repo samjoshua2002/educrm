@@ -271,13 +271,24 @@ export default function ApplicationDetailsPage() {
             {applicationData.applicant.name}
           </h2>
           {(() => {
-            const isShortlisted =
+            const rawShortlisted =
               applicationData.shortlistStatus === "Shortlisted" ||
               applicationData.shortlistStatus === "Eligible" ||
               applicationData.status?.toLowerCase() === "shortlisted";
 
+            const rawReview =
+              applicationData.shortlistStatus === "Review" ||
+              applicationData.shortlistStatus === "Not Eligible";
+
+            // For students, never show "Review" status — show "Shortlisted" instead.
+            // For staff / everyone else, show "Review".
+            const isShortlisted = isStudent ? (rawShortlisted || rawReview) : rawShortlisted;
+            const isReview = !isStudent && rawReview;
+
             const displayStatus = isShortlisted
               ? "Shortlisted"
+              : isReview
+              ? "Review"
               : applicationData.verificationStatus === "verified"
               ? "Verified"
               : applicationData.verificationStatus === "rejected"
@@ -286,6 +297,8 @@ export default function ApplicationDetailsPage() {
 
             const statusBg = isShortlisted
               ? "rgba(37, 99, 235, 0.1)"
+              : isReview
+              ? "rgba(245, 158, 11, 0.15)"
               : applicationData.verificationStatus === "verified"
               ? "rgb(220 252 231)"
               : applicationData.verificationStatus === "rejected"
@@ -294,6 +307,8 @@ export default function ApplicationDetailsPage() {
 
             const statusColor = isShortlisted
               ? "#1D4ED8"
+              : isReview
+              ? "#B45309"
               : applicationData.verificationStatus === "verified"
               ? "rgb(21 128 61)"
               : applicationData.verificationStatus === "rejected"
@@ -302,7 +317,7 @@ export default function ApplicationDetailsPage() {
 
             return (
               <div className="flex">
-                {!isStudent && !isShortlisted ? (
+                {!isStudent && !isShortlisted && !isReview ? (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Badge

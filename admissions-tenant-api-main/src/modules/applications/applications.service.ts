@@ -237,6 +237,9 @@ export class ApplicationsService {
       campus: app.preference1Branch?.name || null,
       preference1: app.preference1Branch?.name || null,
       preference2: app.preference2Branch?.name || null,
+      interviewPreference1: app.interviewPreference1 || null,
+      interviewPreference2: app.interviewPreference2 || null,
+      interviewLocation: app.interviewLocation || null,
       formStatus: this.mapStatusToFrontend(app.formStatus),
       shortlistStatus: app.shortlistStatus ?? null,
       paymentStatus:

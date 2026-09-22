@@ -9,13 +9,13 @@ export class ScoreAdjustmentDto {
   @IsOptional()
   @IsNumber()
   @Min(0)
-  @Max(9.99)
+  @Max(5)
   achievementScore?: number;
 
   @IsOptional()
   @IsNumber()
-  @Min(0)
-  @Max(9.99)
+  @Min(-5)
+  @Max(5)
   penaltyScore?: number;
 
   @IsOptional()

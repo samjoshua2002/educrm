@@ -72,10 +72,14 @@ export class ApplicationsController {
 
   @Get('my/active')
   @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.APPLICATION_MANAGER, Role.COUNSELOR, Role.STUDENT)
-  findActiveApplication(@Req() req: any) {
+  async findActiveApplication(@Req() req: any) {
     const email = req.user.email;
     const orgId = req.user.organizationId;
-    return this.applicationsService.findActiveByEmail(email, orgId);
+    const application = await this.applicationsService.findActiveByEmail(email, orgId);
+    if (req.user.role === Role.STUDENT && (application?.shortlistStatus === 'Review' || application?.shortlistStatus === 'Not Eligible')) {
+      return { ...application, shortlistStatus: 'Shortlisted' };
+    }
+    return application;
   }
 
   @Get(':id')
@@ -86,6 +90,9 @@ export class ApplicationsController {
 
     if (req.user.role === Role.STUDENT && application.email !== req.user.email) {
       throw new ForbiddenException('You are not authorized to view this application');
+    }
+    if (req.user.role === Role.STUDENT && (application?.shortlistStatus === 'Review' || application?.shortlistStatus === 'Not Eligible')) {
+      return { ...application, shortlistStatus: 'Shortlisted' };
     }
     return application;
   }
