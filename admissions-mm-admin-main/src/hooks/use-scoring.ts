@@ -45,6 +45,8 @@ export interface CompositeScoreBreakdown {
   penaltyScore: number;
   otherComponentsTotal: number;
   compositeScore: number;
+  qualifyingScore?: number;
+  isQualified?: boolean;
 }
 
 export interface ScoreAdjustmentInput {

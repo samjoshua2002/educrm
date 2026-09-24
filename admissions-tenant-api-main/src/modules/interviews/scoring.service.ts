@@ -54,6 +54,8 @@ export interface CompositeScoreBreakdown {
   penaltyScore: number;
   otherComponentsTotal: number;
   compositeScore: number;
+  qualifyingScore: number;
+  isQualified: boolean;
 }
 
 export interface ShortlistPreviewRow {
@@ -591,6 +593,11 @@ export class ScoringService {
       ).toFixed(2),
     );
 
+    const qualifyingScore = config.qualifyingScore !== null && config.qualifyingScore !== undefined
+      ? Number(config.qualifyingScore)
+      : 50;
+    const isQualified = compositeScore >= qualifyingScore;
+
     return {
       applicationId: application.id,
       applicationNo: application.applicationNo,
@@ -615,6 +622,8 @@ export class ScoringService {
       penaltyScore,
       otherComponentsTotal,
       compositeScore,
+      qualifyingScore,
+      isQualified,
     };
   }
 }

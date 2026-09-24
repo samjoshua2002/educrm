@@ -9,4 +9,9 @@ export class UpdateScoreConversionConfigDto {
   @IsNumber()
   @Min(0)
   discrepancyThreshold?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  qualifyingScore?: number;
 }

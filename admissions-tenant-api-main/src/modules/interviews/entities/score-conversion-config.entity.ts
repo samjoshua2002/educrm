@@ -35,6 +35,9 @@ export class ScoreConversionConfig {
   @Column({ name: 'discrepancy_threshold', type: 'decimal', precision: 5, scale: 2, default: 10 })
   discrepancyThreshold: number;
 
+  @Column({ name: 'qualifying_score', type: 'decimal', precision: 5, scale: 2, default: 50, nullable: true })
+  qualifyingScore: number;
+
   @Column({ name: 'updated_by', type: 'uuid', nullable: true })
   updatedBy: string;
 

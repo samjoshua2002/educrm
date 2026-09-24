@@ -212,6 +212,7 @@ export interface ScoreConversionConfig {
     experienceMonths: ScoreBand[];
   };
   discrepancyThreshold: number;
+  qualifyingScore?: number;
 }
 
 export function useScoreConversionConfig() {
@@ -227,7 +228,7 @@ export function useUpdateScoreConversionConfig() {
   const queryClient = useQueryClient();
   const orgId = useAuthStore((s) => s.user?.organizationId);
   return useMutation({
-    mutationFn: (data: Partial<Pick<ScoreConversionConfig, "bands" | "discrepancyThreshold">>) =>
+    mutationFn: (data: Partial<Pick<ScoreConversionConfig, "bands" | "discrepancyThreshold" | "qualifyingScore">>) =>
       apiPatch<ScoreConversionConfig>(`/organizations/${orgId}/score-conversion-config`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["score-conversion-config"] });

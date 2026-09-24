@@ -59,6 +59,7 @@ export class ScoreConversionConfigService {
         // back to the module-level default.
         bands: JSON.parse(JSON.stringify(DEFAULT_BANDS)),
         discrepancyThreshold: 10,
+        qualifyingScore: 50,
       });
       config = await this.configRepository.save(config);
     } else if (!config.bands?.experienceMonths && (config.bands as any)?.experienceYears) {

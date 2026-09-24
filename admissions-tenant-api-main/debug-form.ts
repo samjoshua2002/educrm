@@ -11,7 +11,7 @@ async function checkForm() {
     console.log('FORM SLUG:', form.slug);
     console.log('FIELDS:', JSON.stringify(form.fields, null, 2));
   } catch (e) {
-    console.error('Error:', e.message);
+    console.error('Error:', e instanceof Error ? e.message : e);
   }
   await app.close();
 }
