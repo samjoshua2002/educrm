@@ -9,11 +9,10 @@ import {
   useCommunications,
   useSendCommunication,
   useResendCommunication,
-  useDeleteCommunication,
 } from "@/hooks/use-communications";
 import { useEmailTemplates, renderTemplate } from "@/hooks/use-email-templates";
 import { useAuthStore } from "@/stores/auth-store";
-import { CommunicationLog, mockCommunications } from "@/data/mock-communications";
+import { CommunicationLog } from "@/data/mock-communications";
 
 import {
   Search,
@@ -217,8 +216,11 @@ export default function CommunicationsPage() {
   const { data: commsResponse, isLoading: isCommsLoading } = useCommunications();
   const { data: appsResponse, isLoading: isAppsLoading } = useApplications(1, 100);
 
-  const appsList = React.useMemo(() => {
-    return (appsResponse as any)?.data || appsResponse || null;
+  const appsList: any[] = React.useMemo(() => {
+    if (!appsResponse) return [];
+    if (Array.isArray((appsResponse as any).data)) return (appsResponse as any).data;
+    if (Array.isArray(appsResponse)) return appsResponse;
+    return [];
   }, [appsResponse]);
 
   const [localHistory, setLocalHistory] = React.useState<CommunicationLog[]>([]);
@@ -260,47 +262,88 @@ export default function CommunicationsPage() {
     };
   }, [reloadHistory]);
 
+  // Clean up any orphaned local storage communications when appsList updates
+  React.useEffect(() => {
+    if (Array.isArray(appsList) && appsList.length > 0) {
+      try {
+        const saved = localStorage.getItem("educrm_communications_history");
+        if (saved) {
+          const list = JSON.parse(saved);
+          const validAppNos = new Set(appsList.map((a: any) => (a.applicationNo || "").toLowerCase().trim()).filter(Boolean));
+          const validIds = new Set(appsList.map((a: any) => (a.id || "").toLowerCase().trim()).filter(Boolean));
+          const cleaned = list.filter((item: any) => {
+            const no = (item.applicationNo || "").toLowerCase().trim();
+            const id = (item.id || "").toLowerCase().trim();
+            return validAppNos.has(no) || validIds.has(id);
+          });
+          if (cleaned.length !== list.length) {
+            localStorage.setItem("educrm_communications_history", JSON.stringify(cleaned));
+            setLocalHistory(cleaned);
+          }
+        }
+      } catch {
+        // Ignore
+      }
+    }
+  }, [appsList]);
+
   // All individual messages (not yet grouped)
   const allMessages: CommunicationLog[] = React.useMemo(() => {
-    let baseList: CommunicationLog[] = [];
-    const nowIso = new Date().toISOString();
-    if (Array.isArray(appsList) && appsList.length > 0) {
-      baseList = appsList.map((app: any, idx: number) => {
-        const appNo = app.applicationNo || `APP202600${idx + 1}`;
-        const appName = app.name || app.applicant?.name || "Applicant";
-        const appEmail = app.email || app.applicant?.email || `applicant${idx + 1}@example.com`;
-        const appPhone = app.phone || app.applicant?.primaryMobile || "+91 98765 43210";
-        const category: "Interview Schedule" | "Admission Offer" | "Document Request" | "Payment Reminder" =
-          idx % 4 === 0 ? "Interview Schedule"
-          : idx % 4 === 1 ? "Admission Offer"
-          : idx % 4 === 2 ? "Document Request"
-          : "Payment Reminder";
-        const status: "Sent" | "Scheduled" = "Sent";
-        const sentAt = app.submittedAt || new Date(new Date(nowIso).getTime() - (idx + 1) * 86400000).toISOString();
-        return {
-          id: `COMM-2026-00${idx + 1}`,
-          applicationNo: appNo,
-          applicantName: appName,
-          recipientEmail: appEmail,
-          recipientPhone: appPhone,
-          channel: "Email" as const,
-          category,
-          subject: `${category} - ${app.program || "PGDM 2026-28"} (${appNo})`,
-          content: `Dear ${appName},\n\nThis is an official communication regarding your application (${appNo}) for ${app.program || "PGDM 2026-28"}.\n\nBest regards,\nAdmissions Office`,
-          sender: "Admissions Directorate",
-          sentAt,
-          status,
-          openCount: 1,
-          timeline: [{ status: "Sent", timestamp: formatDate(app.submittedAt || nowIso), description: "Dispatched to gateway" }],
-        };
-      });
-    } else {
-      baseList = (commsResponse as any)?.data || commsResponse || mockCommunications;
+    const rawApi = (commsResponse as any)?.data || (Array.isArray(commsResponse) ? commsResponse : []);
+    const apiComms: CommunicationLog[] = Array.isArray(rawApi) ? rawApi : [];
+
+    // Map existing applications by applicationNo and id
+    const appMap = new Map<string, any>();
+    if (Array.isArray(appsList)) {
+      for (const app of appsList) {
+        if (app.applicationNo) appMap.set(app.applicationNo.toLowerCase().trim(), app);
+        if (app.id) appMap.set(app.id.toLowerCase().trim(), app);
+      }
     }
-    // localHistory takes priority (dedup by unique id)
-    const combined = [...localHistory, ...baseList];
+
+    // Filter localHistory to only valid existing applications if appsList has loaded
+    const filteredLocal = localHistory.filter((item) => {
+      if (!Array.isArray(appsList)) return true;
+      if (appsList.length === 0) return false;
+      const no = (item.applicationNo || "").toLowerCase().trim();
+      const id = (item.id || "").toLowerCase().trim();
+      return appMap.has(no) || appMap.has(id);
+    });
+
+    // Combine localHistory + apiComms
+    const combined = [...filteredLocal, ...apiComms];
+
+    // Filter strictly by applications that exist in the organization
+    const filteredByExistingApps = combined.filter((c) => {
+      if (!Array.isArray(appsList)) return true;
+      if (appsList.length === 0) return false;
+      const no = (c.applicationNo || "").toLowerCase().trim();
+      const id = (c.id || "").toLowerCase().trim();
+      return appMap.has(no) || appMap.has(id);
+    });
+
+    // Enrich logs with real application applicantName and contact details if available
+    const enriched = filteredByExistingApps.map((c) => {
+      const app =
+        appMap.get((c.applicationNo || "").toLowerCase().trim()) ||
+        appMap.get((c.id || "").toLowerCase().trim());
+      if (app) {
+        const realName = app.name || app.fullName || app.applicant?.name;
+        const realEmail = app.email || app.applicant?.email;
+        const realPhone = app.phone || app.applicant?.primaryMobile;
+        return {
+          ...c,
+          applicantName: realName && realName !== "Applicant" ? realName : c.applicantName,
+          recipientEmail: realEmail || c.recipientEmail,
+          recipientPhone: realPhone || c.recipientPhone,
+        };
+      }
+      return c;
+    });
+
+    // Deduplicate by unique id or key
     const seen = new Set<string>();
-    return combined.filter((c) => {
+    return enriched.filter((c) => {
       const key = c.id || `${c.applicationNo}-${c.sentAt}-${c.subject}`;
       if (seen.has(key)) return false;
       seen.add(key);
@@ -308,23 +351,73 @@ export default function CommunicationsPage() {
     });
   }, [appsList, commsResponse, localHistory]);
 
-  // Group all messages by applicationNo → one row per applicant
+  // Group all messages by applicationNo → exactly one row per applicant in appsList
   // The representative entry = active Scheduled (if any) else the most recent by sentAt
   const commsList: (CommunicationLog & { totalMessages: number })[] = React.useMemo(() => {
+    if (!Array.isArray(appsList) || appsList.length === 0) {
+      return [];
+    }
+
     const groups = new Map<string, CommunicationLog[]>();
     for (const msg of allMessages) {
-      const key = msg.applicationNo;
+      const key = (msg.applicationNo || "").toLowerCase().trim();
+      if (!key) continue;
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key)!.push(msg);
     }
 
     const rows: (CommunicationLog & { totalMessages: number })[] = [];
-    for (const [, msgs] of groups) {
-      const sorted = [...msgs].sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime());
-      // Prefer a Scheduled entry if it exists, otherwise the latest
-      const scheduled = sorted.find((m) => m.status === "Scheduled");
-      const representative = scheduled || sorted[0];
-      rows.push({ ...representative, totalMessages: msgs.length });
+    for (const app of appsList) {
+      const key = (app.applicationNo || "").toLowerCase().trim();
+      const idKey = (app.id || "").toLowerCase().trim();
+      const msgs = groups.get(key) || groups.get(idKey) || [];
+      const realName = app.name || app.fullName || app.applicant?.name || "Applicant";
+      const realEmail = app.email || app.applicant?.email || "applicant@example.com";
+      const realPhone = app.phone || app.applicant?.primaryMobile || "+91 98765 43210";
+
+      if (msgs.length > 0) {
+        const sorted = [...msgs].sort(
+          (a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime()
+        );
+        // Prefer a Scheduled entry if it exists, otherwise the latest
+        const scheduled = sorted.find((m) => m.status === "Scheduled");
+        const representative = scheduled || sorted[0];
+        rows.push({
+          ...representative,
+          applicantName:
+            representative.applicantName && representative.applicantName !== "Applicant"
+              ? representative.applicantName
+              : realName,
+          recipientEmail: representative.recipientEmail || realEmail,
+          recipientPhone: representative.recipientPhone || realPhone,
+          totalMessages: msgs.length,
+        });
+      } else {
+        // Initial communication channel entry for active application
+        rows.push({
+          id: `COMM-${app.id || app.applicationNo}`,
+          applicationNo: app.applicationNo || "APP2026001",
+          applicantName: realName,
+          recipientEmail: realEmail,
+          recipientPhone: realPhone,
+          channel: "Email",
+          category: "General Notice",
+          subject: `Admission Communication - ${app.program || "Admissions"} (${app.applicationNo})`,
+          content: `Official communication thread for application ${app.applicationNo}.`,
+          sender: "Admissions Directorate",
+          sentAt: app.submittedAt || app.createdAt || new Date().toISOString(),
+          status: "Sent",
+          openCount: 1,
+          totalMessages: 1,
+          timeline: [
+            {
+              status: "Sent",
+              timestamp: formatDate(app.submittedAt || new Date().toISOString()),
+              description: "Application thread initiated",
+            },
+          ],
+        });
+      }
     }
 
     return rows.sort((a, b) => {
@@ -332,7 +425,7 @@ export default function CommunicationsPage() {
       const timeB = new Date(b.sentAt).getTime();
       return (isNaN(timeB) ? 0 : timeB) - (isNaN(timeA) ? 0 : timeA);
     });
-  }, [allMessages]);
+  }, [allMessages, appsList]);
 
   const isLoading = isCommsLoading || isAppsLoading;
 
@@ -342,7 +435,6 @@ export default function CommunicationsPage() {
 
   const sendMutation = useSendCommunication();
   const resendMutation = useResendCommunication();
-  const deleteMutation = useDeleteCommunication();
 
   // Search and Filter states
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -711,9 +803,12 @@ export default function CommunicationsPage() {
                   >
                     <TableCell className="py-[20px] px-[24px] align-middle">
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold text-[#1e293b] text-[14px]">
+                        <Link
+                          href={`/organization/communications/${item.applicationNo || item.id}`}
+                          className="font-semibold text-[#1e293b] text-[14px] hover:text-[#2563EB] hover:underline cursor-pointer transition-colors"
+                        >
                           {item.applicantName}
-                        </span>
+                        </Link>
                         {(item as any).totalMessages > 0 && (
                           <span className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-[#EFF6FF] text-[#2563EB] text-[10px] font-bold border border-[#BFDBFE]">
                             {(item as any).totalMessages}
@@ -775,27 +870,12 @@ export default function CommunicationsPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-44 z-50">
-                            <DropdownMenuItem className="gap-2" asChild>
-                              <Link href={`/organization/communications/${item.applicationNo || item.id}`}>
-                                <Eye className="size-4 text-muted-foreground" />
-                                View Details
-                              </Link>
-                            </DropdownMenuItem>
                             <DropdownMenuItem
-                              className="gap-2"
+                              className="gap-2 cursor-pointer"
                               onClick={() => resendMutation.mutate(item.id)}
                             >
                               <RotateCcw className="size-4 text-blue-600" />
                               Resend Message
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              variant="destructive"
-                              className="gap-2"
-                              onClick={() => deleteMutation.mutate(item.id)}
-                            >
-                              <Trash2 className="size-4" />
-                              Delete Log
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -878,12 +958,22 @@ export default function CommunicationsPage() {
             <Card key={item.id} className="p-4 border border-border rounded-[12px] bg-card shadow-xs">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex flex-col">
-                  <span className="font-semibold text-foreground text-sm">{item.applicantName}</span>
+                  <Link
+                    href={`/organization/communications/${item.applicationNo || item.id}`}
+                    className="font-semibold text-foreground text-sm hover:text-[#2563EB] hover:underline cursor-pointer transition-colors"
+                  >
+                    {item.applicantName}
+                  </Link>
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
                     <Mail className="size-3 text-[#2563EB]" />
                     <span>{item.recipientEmail}</span>
                   </div>
-                  <span className="text-xs text-primary font-medium mt-0.5">App: {item.applicationNo}</span>
+                  <Link
+                    href={`/organization/communications/${item.applicationNo || item.id}`}
+                    className="text-xs text-primary font-medium mt-0.5 hover:underline"
+                  >
+                    App: {item.applicationNo}
+                  </Link>
                 </div>
                 {(() => {
                   const displayStatus = item.status === "Scheduled" ? "Scheduled" : "Sent";
@@ -911,8 +1001,14 @@ export default function CommunicationsPage() {
                     </span>
                   );
                 })()}
-                <Button asChild size="sm" variant="outline" className="text-xs h-8">
-                  <Link href={`/organization/communications/${item.applicationNo || item.id}`}>View Details</Link>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-xs h-8 gap-1.5"
+                  onClick={() => resendMutation.mutate(item.id)}
+                >
+                  <RotateCcw className="size-3.5 text-blue-600" />
+                  Resend
                 </Button>
               </div>
             </Card>

@@ -82,11 +82,13 @@ export class ApplicationsController {
     return application;
   }
 
-  @Get(':id')
+  @Get('*id')
   @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.APPLICATION_MANAGER, Role.COUNSELOR, Role.STUDENT)
-  async findOne(@Req() req: any, @Param('id') id: string) {
+  async findOne(@Req() req: any, @Param('id') id: string | string[]) {
     const orgId = req.user.organizationId;
-    const application = await this.applicationsService.findOne(id, orgId);
+    const raw = Array.isArray(id) ? id.join('/') : id;
+    const cleanId = decodeURIComponent(raw);
+    const application = await this.applicationsService.findOne(cleanId, orgId);
 
     if (req.user.role === Role.STUDENT && application.email !== req.user.email) {
       throw new ForbiddenException('You are not authorized to view this application');
@@ -97,11 +99,12 @@ export class ApplicationsController {
     return application;
   }
 
-  @Delete(':id')
+  @Delete('*id')
   @Roles(Role.SUPERADMIN, Role.ORG_ADMIN)
-  async remove(@Req() req: any, @Param('id') id: string) {
+  async remove(@Req() req: any, @Param('id') id: string | string[]) {
     const orgId = req.user.organizationId;
-    return this.applicationsService.remove(id, orgId);
+    const raw = Array.isArray(id) ? id.join('/') : id;
+    return this.applicationsService.remove(decodeURIComponent(raw), orgId);
   }
 
   // =========================================================================
@@ -228,6 +231,18 @@ export class ApplicationsController {
     const orgId = req.user.organizationId;
     const actorId = req.user.sub;
     return this.applicationsService.updateStatus(appNo, orgId, updateDto.status, actorId);
+  }
+
+  @Patch(':applicationNo/shortlist-status')
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.APPLICATION_MANAGER, Role.EXAM_MANAGER)
+  updateShortlistStatus(
+    @Req() req: any,
+    @Param('applicationNo') appNo: string,
+    @Body() dto: { shortlistStatus: string },
+  ) {
+    const orgId = req.user.organizationId;
+    const actorId = req.user.sub;
+    return this.applicationsService.updateShortlistStatus(appNo, orgId, dto.shortlistStatus, actorId);
   }
 
   @Patch(':applicationNo/verify')

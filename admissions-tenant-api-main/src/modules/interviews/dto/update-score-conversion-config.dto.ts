@@ -14,4 +14,14 @@ export class UpdateScoreConversionConfigDto {
   @IsNumber()
   @Min(0)
   qualifyingScore?: number;
+
+  @IsOptional()
+  resultsAnnounced?: boolean;
+
+  @IsOptional()
+  resultsDeclarationDate?: Date | string;
+
+  @IsOptional()
+  autoAnnounceResults?: boolean;
 }
+

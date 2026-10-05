@@ -90,19 +90,33 @@ export class EmailTemplatesService implements OnModuleInit {
     }
 
     const template = await this.findTemplateForCategory(category.id, organizationId);
-    if (!template) {
-      this.logger.warn(`No active template configured for category "${categorySlug}" — skipping send.`);
-      return null;
-    }
 
     const normalizedVars: Record<string, string | null | undefined> = {};
     Object.entries(variables).forEach(([k, v]) => {
       normalizedVars[k.toLowerCase()] = v;
     });
 
-    const subject = this.renderText(template.subject, normalizedVars);
-    const body = this.renderText(template.body, normalizedVars);
-    const footer = template.footer ? this.renderText(template.footer, normalizedVars) : undefined;
+    let subject = '';
+    let body = '';
+    let footer: string | undefined = undefined;
+    let templateId: string | undefined = undefined;
+
+    if (template) {
+      subject = this.renderText(template.subject, normalizedVars);
+      body = this.renderText(template.body, normalizedVars);
+      footer = template.footer ? this.renderText(template.footer, normalizedVars) : undefined;
+      templateId = template.id;
+    } else {
+      const def = this.seedTemplateDefinitions[categorySlug];
+      if (def) {
+        subject = this.renderText(def.subject, normalizedVars);
+        body = this.renderText(def.body, normalizedVars);
+        footer = def.footer ? this.renderText(def.footer, normalizedVars) : undefined;
+      } else {
+        this.logger.warn(`No active template configured for category "${categorySlug}" — skipping send.`);
+        return null;
+      }
+    }
 
     let result: { success: boolean; messageId?: string };
     try {
@@ -113,9 +127,10 @@ export class EmailTemplatesService implements OnModuleInit {
         footer,
         senderName,
         category: category.name,
-        templateId: template.id,
+        templateId,
         applicationNo,
         applicantName,
+        organizationId: organizationId || undefined,
       });
     } catch (err: any) {
       this.logger.error(`Failed to send transactional email "${categorySlug}": ${err?.message || err}`);
@@ -131,7 +146,7 @@ export class EmailTemplatesService implements OnModuleInit {
         channel: 'Email',
         category: category.name,
         categoryId: category.id,
-        templateId: template.id,
+        templateId: templateId || undefined,
         subject,
         content: body,
         footer,
@@ -188,7 +203,7 @@ Your application is now complete on the payment step.`,
       subject: "You've Been Shortlisted - {course} ({application_no})",
       body: `Dear {name},
 
-Congratulations! Your application {application_no} for {course} has been shortlisted for the next stage of the admissions process, with a shortlist score of {shortlist_score}.
+Congratulations! Your application {application_no} for {course} has been shortlisted for the next stage of the admissions process.
 
 Our team will schedule your interview shortly. You will receive a separate email with the date, time, and venue once it is confirmed.`,
       footer: `Application Number: {application_no}`,
@@ -243,18 +258,18 @@ Our team will be in touch if it needs to be rescheduled.`,
     },
     results_scores_updated: {
       name: 'Results/Scores Updated',
-      subject: 'Evaluation Results Available - {course} ({application_no})',
+      subject: 'GD & Interview Results Published - {course} ({application_no})',
       body: `Dear {name},
 
-Your evaluation for {course} has been finalized.
+The GD & Personal Interview evaluation results for your application {application_no} ({course}) have been officially published.
 
-Composite Score: {composite_score}
-GD + PI Total: {gdpi_total}
-Panel Recommendation: {recommendation}
+Please log in to your Student Portal to view your complete evaluation breakdown, composite score, and admission decision.
+
+Portal Login: {login_url}
 
 Application Number: {application_no}`,
-      footer: `Application Number: {application_no}`,
-      description: 'Sent when interview/GD evaluation results are finalized for a candidate.',
+      footer: `Application Number: {application_no} • EduCRM Admissions`,
+      description: 'Sent when interview/GD evaluation results are published for a candidate.',
     },
     offer_letter_sent: {
       name: 'Offer Letter Sent',
@@ -322,16 +337,18 @@ Welcome aboard!`,
 
   private async seedDefaultTemplates() {
     try {
-      const count = await this.templateRepo.count();
-      if (count > 0) return;
-
       const categories = await this.categoriesService.findAll();
 
       for (const category of categories) {
         const def = this.seedTemplateDefinitions[category.slug];
         if (!def) continue;
 
-        const allowedKeys = new Set(category.variables.map((v) => v.key));
+        const existing = await this.templateRepo.findOne({
+          where: { categoryId: category.id, organizationId: IsNull() },
+        });
+        if (existing) continue;
+
+        const allowedKeys = new Set((category.variables || []).map((v) => v.key));
         const variables = Array.from(
           new Set([
             ...this.extractVariables(def.subject),
@@ -469,7 +486,9 @@ Welcome aboard!`,
     return this.templateRepo.save(copy);
   }
 
-  async sendEmail(dto: SendEmailTemplateDto): Promise<{ success: boolean; messageId?: string }> {
+  async sendEmail(
+    dto: SendEmailTemplateDto & { organizationId?: string },
+  ): Promise<{ success: boolean; messageId?: string }> {
     if (dto.templateId) {
       try {
         const tmpl = await this.templateRepo.findOne({ where: { id: dto.templateId } });
@@ -512,6 +531,7 @@ Welcome aboard!`,
       text: dto.body,
       html: htmlBody,
       fromName: dto.senderName,
+      organizationId: dto.organizationId,
     });
 
     return {

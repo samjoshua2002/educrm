@@ -213,6 +213,8 @@ export interface ScoreConversionConfig {
   };
   discrepancyThreshold: number;
   qualifyingScore?: number;
+  resultsAnnounced?: boolean;
+  resultsDeclarationDate?: string | null;
 }
 
 export function useScoreConversionConfig() {
@@ -228,13 +230,73 @@ export function useUpdateScoreConversionConfig() {
   const queryClient = useQueryClient();
   const orgId = useAuthStore((s) => s.user?.organizationId);
   return useMutation({
-    mutationFn: (data: Partial<Pick<ScoreConversionConfig, "bands" | "discrepancyThreshold" | "qualifyingScore">>) =>
+    mutationFn: (data: Partial<Pick<ScoreConversionConfig, "bands" | "discrepancyThreshold" | "qualifyingScore" | "resultsAnnounced" | "resultsDeclarationDate">>) =>
       apiPatch<ScoreConversionConfig>(`/organizations/${orgId}/score-conversion-config`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["score-conversion-config"] });
       toast.success("Score conversion settings saved");
     },
     onError: (err: any) => toast.error(err.response?.data?.message || "Failed to save settings"),
+  });
+}
+
+export function useAnnounceResults() {
+  const queryClient = useQueryClient();
+  const orgId = useAuthStore((s) => s.user?.organizationId);
+  return useMutation({
+    mutationFn: (dto: { declarationDate?: string }) =>
+      apiPost<{ success: boolean; totalUpdated: number; selectedCount: number; notSelectedCount: number }>(
+        `/organizations/${orgId}/announce-results`,
+        dto
+      ),
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ["applications"] });
+      queryClient.invalidateQueries({ queryKey: ["score-conversion-config"] });
+      queryClient.invalidateQueries({ queryKey: ["announced-results-status"] });
+      toast.success(`Results announced successfully: ${res.selectedCount} Selected, ${res.notSelectedCount} Not Selected`);
+    },
+    onError: (err: any) => toast.error(err.response?.data?.message || "Failed to announce results"),
+  });
+}
+
+export function useSetDeclarationDate() {
+  const queryClient = useQueryClient();
+  const orgId = useAuthStore((s) => s.user?.organizationId);
+  return useMutation({
+    mutationFn: (payload: { declarationDate: string; autoAnnounce?: boolean } | string) => {
+      const body = typeof payload === "string" ? { declarationDate: payload } : payload;
+      return apiPost<{ success: boolean; studentsNotified?: number }>(
+        `/organizations/${orgId}/set-declaration-date`,
+        body
+      );
+    },
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ["score-conversion-config"] });
+      queryClient.invalidateQueries({ queryKey: ["announced-results-status"] });
+      queryClient.invalidateQueries({ queryKey: ["communications"] });
+      queryClient.invalidateQueries({ queryKey: ["applications"] });
+      if (res?.studentsNotified) {
+        toast.success(`Declaration date set & notification sent to ${res.studentsNotified} candidates`);
+      } else {
+        toast.success("Results declaration date updated");
+      }
+    },
+    onError: (err: any) => toast.error(err.response?.data?.message || "Failed to set declaration date"),
+  });
+}
+
+export function useAnnouncedResultsStatus() {
+  const orgId = useAuthStore((s) => s.user?.organizationId);
+  return useQuery({
+    queryKey: ["announced-results-status", orgId],
+    queryFn: () =>
+      apiGet<{
+        resultsAnnounced: boolean;
+        resultsDeclarationDate: string | null;
+        autoAnnounceResults?: boolean;
+        qualifyingScore: number;
+      }>(`/organizations/${orgId}/announced-results-status`),
+    enabled: !!orgId,
   });
 }
 

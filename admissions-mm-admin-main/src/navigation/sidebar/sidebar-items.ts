@@ -8,6 +8,7 @@ import {
   FileText,
   Settings,
   Mail,
+  Award,
 } from "lucide-react";
 import { LeadManagerIcon } from "@/components/icons/lead-manager-icon";
 import { ApplicationsIcon } from "@/components/icons/applications-icon";
@@ -156,6 +157,11 @@ export const sidebarItems: NavGroup[] = [
         title: "My Application",
         url: "/my-application",
         icon: NotepadText,
+      },
+      {
+        title: "Evaluation Results",
+        url: "/results",
+        icon: Award,
       },
     ],
   },

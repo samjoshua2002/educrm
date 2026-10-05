@@ -17,6 +17,7 @@ import { ApplicationsController } from './applications.controller.js';
 import { LeadsModule } from '../leads/leads.module.js';
 import { CoursesModule } from '../courses/courses.module.js';
 import { EmailTemplatesModule } from '../email-templates/email-templates.module.js';
+import { NotificationsModule } from '../notifications/notifications.module.js';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { EmailTemplatesModule } from '../email-templates/email-templates.module.
     LeadsModule,
     CoursesModule,
     EmailTemplatesModule,
+    NotificationsModule,
   ],
   controllers: [ApplicationsController],
   providers: [ApplicationsService],

@@ -22,9 +22,11 @@ import { SubmitApplicationDto } from './dto/submit-application.dto.js';
 import { PaginationDto } from '../../common/dto/pagination.dto.js';
 import { Role } from '../../common/enums/roles.enum.js';
 import { LeadStatus } from '../leads/entities/lead.entity.js';
+import { MailerService } from '../notifications/mailer.service.js';
 import { ApplicationActivity } from './entities/application-activity.entity.js';
 import { Interview } from '../interviews/entities/interview.entity.js';
 import { InterviewSlot } from '../interviews/entities/interview-slot.entity.js';
+import { CommunicationLog } from '../communications/entities/communication-log.entity.js';
 import {
   UpdatePersonalDto,
   UpdatePreferencesDto,
@@ -69,6 +71,7 @@ export class ApplicationsService {
     private readonly coursesService: CoursesService,
     private readonly emailTemplatesService: EmailTemplatesService,
     private readonly dataSource: DataSource,
+    private readonly mailerService: MailerService,
   ) {}
 
   // =========================================================================
@@ -242,6 +245,9 @@ export class ApplicationsService {
       interviewLocation: app.interviewLocation || null,
       formStatus: this.mapStatusToFrontend(app.formStatus),
       shortlistStatus: app.shortlistStatus ?? null,
+      compositeScore: app.compositeScore !== null && app.compositeScore !== undefined ? Number(app.compositeScore) : null,
+      gdpiTotal: app.gdpiTotal !== null && app.gdpiTotal !== undefined ? Number(app.gdpiTotal) : null,
+      academicScore: app.academicScore !== null && app.academicScore !== undefined ? Number(app.academicScore) : null,
       paymentStatus:
         app.paymentStatus === 'success' || app.paymentStatus === 'paid'
           ? 'Paid'
@@ -310,9 +316,23 @@ export class ApplicationsService {
           { status: 'Available' }
         );
       }
+      await manager.delete(Interview, { applicationId: app.id, organizationId: orgId });
     } catch (e) {
       // Continue removing application even if interview slot release encounters an issue
     }
+
+    // Cascade delete any communication logs associated with this application
+    try {
+      if (app.applicationNo) {
+        await manager.delete(CommunicationLog, { applicationNo: app.applicationNo });
+      }
+      if (app.email) {
+        await manager.delete(CommunicationLog, { recipientEmail: app.email, organizationId: orgId });
+      }
+    } catch (e) {
+      // Continue
+    }
+
     await this.applicationRepository.remove(app);
     return { success: true };
   }
@@ -651,6 +671,35 @@ export class ApplicationsService {
       }
 
       await queryRunner.commitTransaction();
+
+      // Trigger Application Received email and communication log
+      try {
+        await this.mailerService.sendMail({
+          to: savedApp.email,
+          subject: `Application Submitted Successfully — ${savedApp.applicationNo}`,
+          html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1f2937;">
+            <h2 style="color: #111827;">Application Received</h2>
+            <p>Dear ${savedApp.name || 'Applicant'},</p>
+            <p>Thank you for submitting your application <strong>${savedApp.applicationNo}</strong> for ${savedApp.program || 'Admissions 2026'}.</p>
+            <p>Your application is currently under review by our admissions team.</p>
+          </div>`,
+          organizationId: orgId,
+        });
+        await this.dataSource.getRepository(CommunicationLog).save({
+          organizationId: orgId,
+          applicationNo: savedApp.applicationNo,
+          applicantName: savedApp.name,
+          recipientEmail: savedApp.email,
+          recipientPhone: savedApp.primaryMobile,
+          channel: 'Email',
+          category: 'Application Received',
+          subject: `Application Submitted Successfully — ${savedApp.applicationNo}`,
+          content: `Thank you for submitting your application ${savedApp.applicationNo}. Your application is currently under review.`,
+          sender: 'Admissions Office',
+          status: 'Sent',
+        });
+      } catch (e) {}
+
       return savedApp;
     } catch (err) {
       await queryRunner.rollbackTransaction();
@@ -976,6 +1025,36 @@ export class ApplicationsService {
     return saved;
   }
 
+  async updateShortlistStatus(idOrAppNo: string, orgId: string, shortlistStatus: string, actorId: string) {
+    const isUuid = (val?: string) => val ? /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val) : false;
+    const app = await this.applicationRepository.findOne({
+      where: isUuid(idOrAppNo)
+        ? [
+            { id: idOrAppNo, organizationId: orgId },
+            { applicationNo: idOrAppNo, organizationId: orgId },
+          ]
+        : { applicationNo: idOrAppNo, organizationId: orgId },
+    });
+
+    if (!app) {
+      throw new NotFoundException(`Application ${idOrAppNo} not found`);
+    }
+
+    const prev = app.shortlistStatus;
+    app.shortlistStatus = shortlistStatus;
+    app.updatedBy = actorId;
+    app.lastActivityAt = new Date();
+
+    const saved = await this.applicationRepository.save(app);
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await this.logActivity(queryRunner.manager, saved.id, orgId, actorId, 'shortlist_status_changed', `Shortlist status updated to ${shortlistStatus}`, prev, shortlistStatus);
+    await queryRunner.release();
+
+    return saved;
+  }
+
   async updateGdEvaluation(idOrAppNo: string, orgId: string, dto: UpdateGdEvaluationDto, actorId: string) {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrAppNo);
     const app = await this.applicationRepository.findOne({
@@ -1041,6 +1120,13 @@ export class ApplicationsService {
     );
     await queryRunner.release();
 
+    // Send document verification email via organization SMTP and record communication log
+    try {
+      await this.mailerService.sendApplicationVerifiedEmail(saved, dto.status, dto.remarks);
+    } catch (e) {
+      // Best effort
+    }
+
     return saved;
   }
 
@@ -1056,3 +1142,5 @@ export class ApplicationsService {
     return mapping[(status || '').toLowerCase()] || status;
   }
 }
+
+

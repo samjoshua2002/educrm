@@ -22,11 +22,11 @@ export function useCommunications(page = 1, limit = 50, filters?: Record<string,
           return { data: (raw as any).data as CommunicationLog[], total };
         }
       } catch {
-        // Fallback to local mock data if API endpoint is not yet connected
+        // Fallback to empty list if endpoint fails
       }
       return {
-        data: mockCommunications,
-        total: mockCommunications.length,
+        data: [],
+        total: 0,
       };
     },
   });
@@ -41,6 +41,14 @@ export function useCommunication(id: string) {
       try {
         const response = await apiGet<CommunicationLog>(`/communications/${encodeURIComponent(id)}`);
         if (response) return response;
+      } catch {
+        // Fallback to applicationNo query
+      }
+      try {
+        const listRes = await apiGet<{ data: CommunicationLog[] }>("/communications", { applicationNo: id });
+        if (listRes && Array.isArray((listRes as any).data) && (listRes as any).data.length > 0) {
+          return (listRes as any).data[0];
+        }
       } catch {
         // Fallback to local search
       }

@@ -189,6 +189,9 @@ export default function CommunicationDetailsPage() {
 
   const item = React.useMemo(() => {
     if (commData) return commData;
+    if (backendCommsData?.data && backendCommsData.data.length > 0) {
+      return backendCommsData.data[0];
+    }
     const foundMock = mockCommunications.find(
       (c) => c.id === logId || c.applicationNo === logId || c.applicationNo === cleanAppNo
     );
@@ -274,12 +277,12 @@ export default function CommunicationDetailsPage() {
   // currently loaded item. Backend rows are the source of truth for
   // anything triggered by the system itself.
   const auditHistoryMsgs = React.useMemo(() => {
-    const appNo = item?.applicationNo;
+    const appNo = item?.applicationNo || cleanAppNo;
     if (!appNo || typeof window === "undefined") return [];
     const msgs: any[] = [];
 
     (backendCommsData?.data || [])
-      .filter((m: any) => m.applicationNo === appNo)
+      .filter((m: any) => (m.applicationNo || "").toLowerCase() === appNo.toLowerCase())
       .forEach((m: any) =>
         msgs.push({
           id: m.id,
@@ -299,7 +302,11 @@ export default function CommunicationDetailsPage() {
       if (raw) {
         const hist = JSON.parse(raw) as Array<any>;
         hist
-          .filter((m) => m.applicationNo === appNo && !msgs.find((x) => x.id === m.id))
+          .filter(
+            (m) =>
+              (m.applicationNo || "").toLowerCase() === appNo.toLowerCase() &&
+              !msgs.find((x) => x.id === m.id)
+          )
           .forEach((m) => msgs.push(m));
       }
     } catch { /* ignore */ }
@@ -308,7 +315,7 @@ export default function CommunicationDetailsPage() {
       msgs.push({ id: item.id, subject: item.subject, category: item.category, channel: item.channel, content: (item as any).content, sender: item.sender || "Admissions Desk", sentAt: item.sentAt, status: item.status });
     }
     return msgs.sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime());
-  }, [item, latestSentMessage, backendCommsData]);
+  }, [item, latestSentMessage, backendCommsData, cleanAppNo]);
 
   // Context for resolving shortcuts with this specific candidate
   const candidateContext = React.useMemo(() => {
@@ -1157,8 +1164,20 @@ export default function CommunicationDetailsPage() {
                     </div>
                     <h3 className="text-[18px] font-bold text-[#0F172A]">Message Content</h3>
                   </div>
-                  <div className="text-sm text-[#1E293B] leading-relaxed whitespace-pre-wrap bg-[#F8FAFC] rounded-lg p-4 border border-[#E2E8F0] min-h-[80px]">
-                    {(selectedHistoryMsg as any).content || "(No message body stored)"}
+                  <div className="text-sm text-[#1E293B] leading-relaxed bg-[#F8FAFC] rounded-lg p-4 border border-[#E2E8F0] min-h-[80px] overflow-auto">
+                    {(() => {
+                      const rawContent = (selectedHistoryMsg as any).content || "(No message body stored)";
+                      const isHtml = /<[a-z][\s\S]*>/i.test(rawContent);
+                      if (isHtml) {
+                        return (
+                          <div
+                            className="prose prose-sm max-w-none text-sm text-[#1E293B] leading-relaxed [&_table]:w-full [&_table]:border-collapse [&_td]:py-1.5 [&_td]:px-2 [&_h2]:text-base [&_h2]:font-bold [&_h2]:mb-2 [&_p]:mb-2"
+                            dangerouslySetInnerHTML={{ __html: rawContent }}
+                          />
+                        );
+                      }
+                      return <div className="whitespace-pre-wrap">{rawContent}</div>;
+                    })()}
                   </div>
                 </div>
 
@@ -1300,9 +1319,16 @@ export default function CommunicationDetailsPage() {
                       <h4 className="text-base font-bold text-[#312E81]">
                         {previewData.subject}
                       </h4>
-                      <div className="whitespace-pre-line text-sm text-[#334155] leading-relaxed font-sans">
-                        {previewData.content}
-                      </div>
+                      {/<[a-z][\s\S]*>/i.test(previewData.content) ? (
+                        <div
+                          className="prose prose-sm max-w-none text-sm text-[#334155] leading-relaxed font-sans [&_table]:w-full [&_table]:border-collapse [&_td]:py-1.5 [&_td]:px-2 [&_h2]:text-base [&_h2]:font-bold [&_h2]:mb-2 [&_p]:mb-2"
+                          dangerouslySetInnerHTML={{ __html: previewData.content }}
+                        />
+                      ) : (
+                        <div className="whitespace-pre-line text-sm text-[#334155] leading-relaxed font-sans">
+                          {previewData.content}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </>
@@ -1315,7 +1341,7 @@ export default function CommunicationDetailsPage() {
                     Attached Files ({item.attachments.length})
                   </span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {item.attachments.map((att, i) => (
+                    {(item.attachments || []).map((att: any, i: number) => (
                       <div
                         key={i}
                         className="flex items-center justify-between p-3 rounded-md border border-[#E2E8F0] bg-white hover:bg-slate-50 transition-colors"

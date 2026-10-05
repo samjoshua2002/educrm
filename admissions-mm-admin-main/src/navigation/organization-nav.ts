@@ -48,8 +48,9 @@ export const organizationNavItems: NavGroup[] = [
         url: "/organization/gd-interview",
         icon: GdInterviewIcon,
         subItems: [
+                    { title: "Run Shortlisting", url: "/organization/shortlisting-run" },
           { title: "Candidates", url: "/organization/gd-interview" },
-          { title: "Run Shortlisting", url: "/organization/shortlisting-run" },
+
           { title: "Interview Slots", url: "/organization/interview-slots" },
           { title: "My Evaluations", url: "/organization/gd-interview/evaluate" },
         ],

@@ -473,7 +473,7 @@ export default function GDInterviewPage() {
   const [interviewsState, setInterviewsState] =
     React.useState<GDInterview[]>([]);
 
-  const { data: appsResponse } = useApplications(1, 100);
+  const { data: appsResponse } = useApplications(1, 1000);
   const appsList = React.useMemo(() => {
     return (appsResponse as any)?.data || appsResponse || null;
   }, [appsResponse]);
@@ -766,6 +766,32 @@ export default function GDInterviewPage() {
     setInterviewsState(mapped);
   }, [appsList]);
 
+  // Sync published results decisions from evaluate page
+  const [publishedMap, setPublishedMap] = React.useState<Record<string, "Selected" | "Not Selected">>({});
+  React.useEffect(() => {
+    const loadPublished = () => {
+      if (typeof window !== "undefined") {
+        const raw = localStorage.getItem("educrm_published_results_map");
+        if (raw) {
+          try {
+            setPublishedMap(JSON.parse(raw));
+          } catch {}
+        } else if (localStorage.getItem("educrm_results_published") === "true") {
+          setPublishedMap({
+            "CITY/2026/1003": "Selected",
+            "APP/2026/1003": "Selected",
+            "APP/2026/1002": "Selected",
+          });
+        } else {
+          setPublishedMap({});
+        }
+      }
+    };
+    loadPublished();
+    window.addEventListener("storage", loadPublished);
+    return () => window.removeEventListener("storage", loadPublished);
+  }, []);
+
   const activeAppNos = React.useMemo(() => {
     if (!Array.isArray(appsList)) return [];
     return appsList.map((app: any) => app.applicationNo);
@@ -884,11 +910,14 @@ export default function GDInterviewPage() {
       if (appliedStatus !== "all" && getInterviewStatus(item.applicationId, item.applicationNo) !== appliedStatus)
         return false;
       if (appliedShortlist !== "all") {
-        const itemShortlist = item.shortlistStatus || "";
-        if (appliedShortlist === "Shortlisted" && itemShortlist !== "Shortlisted" && itemShortlist !== "Eligible") {
-          return false;
-        }
-        if (appliedShortlist === "Review" && itemShortlist !== "Review" && itemShortlist !== "Not Eligible") {
+        const itemShortlist: string = (publishedMap[item.applicationNo] as string) || (item.shortlistStatus as string) || "";
+        if (appliedShortlist === itemShortlist) {
+          // match
+        } else if (appliedShortlist === "Shortlisted" && (itemShortlist === "Shortlisted" || itemShortlist === "Eligible")) {
+          // match
+        } else if (appliedShortlist === "Review" && (itemShortlist === "Review" || itemShortlist === "Not Eligible")) {
+          // match
+        } else {
           return false;
         }
       }
@@ -1049,6 +1078,8 @@ export default function GDInterviewPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Shortlist</SelectItem>
+                    <SelectItem value="Selected">Selected</SelectItem>
+                    <SelectItem value="Not Selected">Not Selected</SelectItem>
                     <SelectItem value="Shortlisted">Shortlisted</SelectItem>
                     <SelectItem value="Review">Review</SelectItem>
                   </SelectContent>
@@ -1364,23 +1395,50 @@ export default function GDInterviewPage() {
                       </Link>
                     </TableCell>
                     <TableCell className="py-4.5 px-4 align-middle whitespace-nowrap">
-                      {item.shortlistStatus === "Shortlisted" || item.shortlistStatus === "Eligible" ? (
-                        <Badge
-                          variant="secondary"
-                          className="bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20 font-medium text-xs px-2.5 py-0.5 rounded-full"
-                        >
-                          Shortlisted
-                        </Badge>
-                      ) : item.shortlistStatus === "Review" || item.shortlistStatus === "Not Eligible" ? (
-                        <Badge
-                          variant="secondary"
-                          className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-medium text-xs px-2.5 py-0.5 rounded-full"
-                        >
-                          Review
-                        </Badge>
-                      ) : (
-                        <span className="text-xs text-muted-foreground font-normal">—</span>
-                      )}
+                      {(() => {
+                        const status = publishedMap[item.applicationNo] || item.shortlistStatus;
+                        if (status === "Selected") {
+                          return (
+                            <Badge
+                              variant="secondary"
+                              className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 font-medium text-xs px-2.5 py-0.5 rounded-full"
+                            >
+                              Selected
+                            </Badge>
+                          );
+                        }
+                        if (status === "Not Selected") {
+                          return (
+                            <Badge
+                              variant="secondary"
+                              className="bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20 font-medium text-xs px-2.5 py-0.5 rounded-full"
+                            >
+                              Not Selected
+                            </Badge>
+                          );
+                        }
+                        if (status === "Shortlisted" || status === "Eligible") {
+                          return (
+                            <Badge
+                              variant="secondary"
+                              className="bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20 font-medium text-xs px-2.5 py-0.5 rounded-full"
+                            >
+                              Shortlisted
+                            </Badge>
+                          );
+                        }
+                        if (status === "Review" || status === "Not Eligible") {
+                          return (
+                            <Badge
+                              variant="secondary"
+                              className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-medium text-xs px-2.5 py-0.5 rounded-full"
+                            >
+                              Review
+                            </Badge>
+                          );
+                        }
+                        return <span className="text-xs text-muted-foreground font-normal">—</span>;
+                      })()}
                     </TableCell>
                     <TableCell className="py-4.5 px-4 align-middle whitespace-nowrap">
                       {renderLocationPreferences(item)}
@@ -1580,21 +1638,50 @@ export default function GDInterviewPage() {
                     </div>
 
                     <div className="flex items-center gap-1.5 shrink-0 self-center">
-                      {item.shortlistStatus === "Shortlisted" || item.shortlistStatus === "Eligible" ? (
-                        <Badge
-                          variant="secondary"
-                          className="bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20 font-medium text-[11px] px-2 py-0.5 rounded-full"
-                        >
-                          Shortlisted
-                        </Badge>
-                      ) : item.shortlistStatus === "Review" || item.shortlistStatus === "Not Eligible" ? (
-                        <Badge
-                          variant="secondary"
-                          className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-medium text-[11px] px-2 py-0.5 rounded-full"
-                        >
-                          Review
-                        </Badge>
-                      ) : null}
+                      {(() => {
+                        const status = publishedMap[item.applicationNo] || item.shortlistStatus;
+                        if (status === "Selected") {
+                          return (
+                            <Badge
+                              variant="secondary"
+                              className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 font-medium text-[11px] px-2 py-0.5 rounded-full"
+                            >
+                              Selected
+                            </Badge>
+                          );
+                        }
+                        if (status === "Not Selected") {
+                          return (
+                            <Badge
+                              variant="secondary"
+                              className="bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20 font-medium text-[11px] px-2 py-0.5 rounded-full"
+                            >
+                              Not Selected
+                            </Badge>
+                          );
+                        }
+                        if (status === "Shortlisted" || status === "Eligible") {
+                          return (
+                            <Badge
+                              variant="secondary"
+                              className="bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20 font-medium text-[11px] px-2 py-0.5 rounded-full"
+                            >
+                              Shortlisted
+                            </Badge>
+                          );
+                        }
+                        if (status === "Review" || status === "Not Eligible") {
+                          return (
+                            <Badge
+                              variant="secondary"
+                              className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-medium text-[11px] px-2 py-0.5 rounded-full"
+                            >
+                              Review
+                            </Badge>
+                          );
+                        }
+                        return null;
+                      })()}
                       <StatusBadge status={getInterviewStatus(item.applicationId, item.applicationNo)} />
 
                       <DropdownMenu>

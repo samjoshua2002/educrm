@@ -9,22 +9,83 @@ import { WaitlistEntry } from '../admissions-decisions/entities/waitlist-entry.e
 import { Rejection } from '../admissions-decisions/entities/rejection.entity.js';
 import { Interview } from '../interviews/entities/interview.entity.js';
 import { InterviewSlot } from '../interviews/entities/interview-slot.entity.js';
+import { CommunicationsService } from '../communications/communications.service.js';
+import { DataSource } from 'typeorm';
+import { OrganizationIntegrationSettings } from '../organization-settings/entities/organization-integration-settings.entity.js';
 
 @Injectable()
 export class MailerService {
   private readonly logger = new Logger(MailerService.name);
   private readonly transporter: nodemailer.Transporter;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly communicationsService: CommunicationsService,
+    private readonly dataSource: DataSource,
+  ) {
     this.transporter = nodemailer.createTransport({
-      host: this.configService.get<string>('SMTP_HOST'),
+      host: this.configService.get<string>('SMTP_HOST') || 'smtp-relay.brevo.com',
       port: Number(this.configService.get<string>('SMTP_PORT')) || 587,
       secure: false,
       auth: {
-        user: this.configService.get<string>('SMTP_USER'),
-        pass: this.configService.get<string>('SMTP_PASS'),
+        user: this.configService.get<string>('SMTP_USER') || '',
+        pass: this.configService.get<string>('SMTP_PASS') || '',
       },
     });
+  }
+
+  async getTransporterForOrg(orgId?: string): Promise<{ transporter: nodemailer.Transporter; fromEmail: string; fromName: string }> {
+    if (orgId) {
+      try {
+        const settings = await this.dataSource.getRepository(OrganizationIntegrationSettings).findOne({
+          where: { organizationId: orgId },
+        });
+        if (settings && settings.smtpHost && settings.smtpUser) {
+          const port = Number(settings.smtpPort) || 587;
+          const t = nodemailer.createTransport({
+            host: settings.smtpHost,
+            port,
+            secure: port === 465,
+            auth: {
+              user: settings.smtpUser,
+              pass: settings.smtpPass || '',
+            },
+          });
+          return {
+            transporter: t,
+            fromEmail: settings.smtpFromEmail || settings.smtpUser,
+            fromName: settings.smtpFromName || 'Admissions Directorate',
+          };
+        }
+      } catch (err) {
+        this.logger.warn(`Could not load org integration settings for org ${orgId}: ${err}`);
+      }
+    }
+
+    const fromEmail = this.configService.get<string>('SMTP_FROM_EMAIL') || 'admissions@educrm.com';
+    const fromName = this.configService.get<string>('SMTP_FROM_NAME') || 'Admissions Directorate';
+    return {
+      transporter: this.transporter,
+      fromEmail,
+      fromName,
+    };
+  }
+
+  async sendMail(options: { to: string; subject: string; html: string; text?: string; organizationId?: string }): Promise<boolean> {
+    const { transporter, fromEmail, fromName } = await this.getTransporterForOrg(options.organizationId);
+    try {
+      await transporter.sendMail({
+        from: `"${fromName}" <${fromEmail}>`,
+        to: options.to,
+        subject: options.subject,
+        html: options.html,
+        text: options.text,
+      });
+      return true;
+    } catch (err: any) {
+      this.logger.error(`Failed to send email to ${options.to}: ${err?.message || err}`);
+      return false;
+    }
   }
 
   // Phase 6a — Admission Decisions. Generic "your application status has
@@ -33,8 +94,7 @@ export class MailerService {
   // send, catch/log without throwing so a mail-provider hiccup never blocks
   // the decision workflow itself.
   async sendDecisionEmail(application: Application, decision: AdmissionDecision): Promise<void> {
-    const fromEmail = this.configService.get<string>('SMTP_FROM_EMAIL');
-    const fromName = this.configService.get<string>('SMTP_FROM_NAME');
+    const { transporter, fromEmail, fromName } = await this.getTransporterForOrg(application.organizationId);
     const portalUrl = this.configService.get<string>('STUDENT_PORTAL_URL') || '#';
     const firstName = (application.name || '').trim().split(' ')[0] || 'Applicant';
 
@@ -75,18 +135,38 @@ export class MailerService {
       </div>
     `;
 
+    let sentSuccess = false;
     try {
-      await this.transporter.sendMail({
+      await transporter.sendMail({
         from: `"${fromName}" <${fromEmail}>`,
         to: application.email,
         subject: content.subject,
         html,
       });
+      sentSuccess = true;
       this.logger.log(`Decision email sent to ${application.email} for ${application.applicationNo}`);
     } catch (error: any) {
       this.logger.error(
         `Failed to send decision email to ${application.email}: ${error?.message || error}`,
       );
+    }
+
+    try {
+      await this.communicationsService.create({
+        organizationId: application.organizationId || undefined,
+        applicationNo: application.applicationNo,
+        applicantName: application.name,
+        recipientEmail: application.email,
+        recipientPhone: application.primaryMobile,
+        channel: 'Email',
+        category: 'Admission Decision',
+        subject: content.subject,
+        content: html,
+        sender: fromName || 'Admissions Desk',
+        status: sentSuccess ? 'Sent' : 'Failed',
+      });
+    } catch (e: any) {
+      this.logger.warn(`Failed to log decision communication: ${e?.message}`);
     }
   }
 
@@ -241,8 +321,7 @@ export class MailerService {
     slot: InterviewSlot | null,
     event: 'Scheduled' | 'Rescheduled' | 'Cancelled' | 'No Show' | 'Completed',
   ): Promise<void> {
-    const fromEmail = this.configService.get<string>('SMTP_FROM_EMAIL');
-    const fromName = this.configService.get<string>('SMTP_FROM_NAME');
+    const { transporter, fromEmail, fromName } = await this.getTransporterForOrg(application.organizationId);
     const portalUrl = this.configService.get<string>('STUDENT_PORTAL_URL') || '#';
     const firstName = (application.name || '').trim().split(' ')[0] || 'Applicant';
     const typeLabel = interview.interviewType === 'GD' ? 'Group Discussion' : 'Personal Interview';
@@ -315,13 +394,15 @@ export class MailerService {
       </div>
     `;
 
+    let sentSuccess = false;
     try {
-      await this.transporter.sendMail({
+      await transporter.sendMail({
         from: `"${fromName}" <${fromEmail}>`,
         to: application.email,
         subject: content.subject,
         html,
       });
+      sentSuccess = true;
       this.logger.log(
         `Interview ${event} email sent to ${application.email} for ${application.applicationNo}`,
       );
@@ -329,6 +410,78 @@ export class MailerService {
       this.logger.error(
         `Failed to send interview ${event} email to ${application.email}: ${error?.message || error}`,
       );
+    }
+
+    try {
+      await this.communicationsService.create({
+        organizationId: application.organizationId || undefined,
+        applicationNo: application.applicationNo,
+        applicantName: application.name,
+        recipientEmail: application.email,
+        recipientPhone: application.primaryMobile,
+        channel: 'Email',
+        category: `Interview ${event}`,
+        subject: content.subject,
+        content: html,
+        sender: fromName || 'Admissions Desk',
+        status: sentSuccess ? 'Sent' : 'Failed',
+      });
+    } catch (e: any) {
+      this.logger.warn(`Failed to create communication log for interview ${event}: ${e?.message}`);
+    }
+  }
+
+  async sendApplicationVerifiedEmail(application: Application, status: string, remarks?: string): Promise<void> {
+    const { transporter, fromEmail, fromName } = await this.getTransporterForOrg(application.organizationId);
+    const firstName = (application.name || '').trim().split(' ')[0] || 'Applicant';
+    const isVerified = status === 'verified';
+    const subject = isVerified
+      ? `Application Documents Verified Successfully — ${application.applicationNo}`
+      : `Application Document Verification Update — ${application.applicationNo}`;
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1f2937;">
+        <h2 style="color: #111827;">${isVerified ? 'Documents Verified Successfully' : 'Document Verification Update'}</h2>
+        <p>Dear ${firstName},</p>
+        <p>${
+          isVerified
+            ? `We are pleased to inform you that your application documents for <strong>${application.applicationNo}</strong> have been verified successfully.`
+            : `There is an update on your document verification for application <strong>${application.applicationNo}</strong>.`
+        }</p>
+        ${remarks ? `<p><strong>Remarks:</strong> ${remarks}</p>` : ''}
+        <p>Please log in to your student portal to track your upcoming interview rounds.</p>
+      </div>
+    `;
+
+    let sentSuccess = false;
+    try {
+      await transporter.sendMail({
+        from: `"${fromName}" <${fromEmail}>`,
+        to: application.email,
+        subject,
+        html,
+      });
+      sentSuccess = true;
+    } catch (err: any) {
+      this.logger.error(`Failed to send verification email to ${application.email}: ${err?.message || err}`);
+    }
+
+    try {
+      await this.communicationsService.create({
+        organizationId: application.organizationId || undefined,
+        applicationNo: application.applicationNo,
+        applicantName: application.name,
+        recipientEmail: application.email,
+        recipientPhone: application.primaryMobile,
+        channel: 'Email',
+        category: 'Document Verification',
+        subject,
+        content: html,
+        sender: fromName || 'Verification Desk',
+        status: sentSuccess ? 'Sent' : 'Failed',
+      });
+    } catch (e: any) {
+      this.logger.warn(`Failed to log verification communication: ${e?.message}`);
     }
   }
 
@@ -375,19 +528,20 @@ export class MailerService {
     html: string;
     text?: string;
     fromName?: string;
+    organizationId?: string;
   }): Promise<boolean> {
-    const fromEmail = this.configService.get<string>('SMTP_FROM_EMAIL') || 'admissions@educrm.com';
-    const fromName = options.fromName || this.configService.get<string>('SMTP_FROM_NAME') || 'Admissions Desk';
+    const { transporter, fromEmail, fromName } = await this.getTransporterForOrg(options.organizationId);
+    const resolvedFromName = options.fromName || fromName || 'Admissions Desk';
 
     try {
-      await this.transporter.sendMail({
-        from: `"${fromName}" <${fromEmail}>`,
+      await transporter.sendMail({
+        from: `"${resolvedFromName}" <${fromEmail}>`,
         to: options.to,
         subject: options.subject,
         text: options.text,
         html: options.html,
       });
-      this.logger.log(`Custom email sent to ${options.to} (subject: "${options.subject}")`);
+      this.logger.log(`Custom email sent to ${options.to} via organization SMTP (subject: "${options.subject}")`);
       return true;
     } catch (error: any) {
       this.logger.error(`Failed to send custom email to ${options.to}: ${error?.message || error}`);

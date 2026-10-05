@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, OnApplicationBootstrap, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
+import { ConfigService } from '@nestjs/config';
 import { Application } from '../applications/entities/application.entity.js';
 import { ShortlistingRule } from './entities/shortlisting-rule.entity.js';
 import { ScoreConversionConfigService } from './score-conversion-config.service.js';
@@ -10,6 +11,8 @@ import { EvaluationScore } from './entities/evaluation-score.entity.js';
 import { EvaluationRubric } from './entities/evaluation-rubric.entity.js';
 import { ScoreAdjustmentDto } from './dto/score-adjustment.dto.js';
 import { EmailTemplatesService } from '../email-templates/email-templates.service.js';
+import { MailerService } from '../notifications/mailer.service.js';
+import { CommunicationsService } from '../communications/communications.service.js';
 
 export interface InterviewScoreBreakdown {
   interviewId: string;
@@ -169,7 +172,9 @@ function bestEntrancePercentile(
 }
 
 @Injectable()
-export class ScoringService {
+export class ScoringService implements OnApplicationBootstrap {
+  private readonly logger = new Logger(ScoringService.name);
+
   constructor(
     @InjectRepository(Application)
     private readonly applicationRepository: Repository<Application>,
@@ -183,7 +188,39 @@ export class ScoringService {
     private readonly evaluationScoreRepository: Repository<EvaluationScore>,
     private readonly conversionConfigService: ScoreConversionConfigService,
     private readonly emailTemplatesService: EmailTemplatesService,
+    private readonly mailerService: MailerService,
+    private readonly communicationsService: CommunicationsService,
+    private readonly configService: ConfigService,
   ) {}
+
+  onApplicationBootstrap() {
+    // Check immediately on startup, then every 30 seconds
+    void this.checkAndTriggerAutoAnnounce();
+    setInterval(() => {
+      void this.checkAndTriggerAutoAnnounce();
+    }, 30000);
+  }
+
+  private async checkAndTriggerAutoAnnounce() {
+    try {
+      const now = new Date();
+      const configs = await this.conversionConfigService.findPendingAutoAnnouncements(now);
+      for (const cfg of configs) {
+        try {
+          this.logger.log(`Auto-announcing results for org ${cfg.organizationId} at scheduled declaration date ${cfg.resultsDeclarationDate}`);
+          await this.announceResults(
+            cfg.organizationId,
+            cfg.resultsDeclarationDate ? new Date(cfg.resultsDeclarationDate).toISOString() : undefined,
+            undefined,
+          );
+        } catch (err: any) {
+          this.logger.error(`Error during auto-announce for org ${cfg.organizationId}: ${err?.message || err}`);
+        }
+      }
+    } catch {
+      // background sweep error caught
+    }
+  }
 
   // Stage 1 — pre-interview shortlisting score, computed per Application
   // against the org's ShortlistingRule (weightages + cutoff) and the
@@ -626,4 +663,217 @@ export class ScoringService {
       isQualified,
     };
   }
+
+  async setDeclarationDate(
+    orgId: string,
+    declarationDate: string,
+    autoAnnounce?: boolean,
+    actorId?: string,
+  ) {
+    const config = await this.conversionConfigService.getOrCreate(orgId);
+    const dateObj = new Date(declarationDate);
+    const autoAnnounceVal = autoAnnounce !== undefined ? Boolean(autoAnnounce) : Boolean(config.autoAnnounceResults);
+
+    await this.conversionConfigService.update(
+      orgId,
+      {
+        resultsDeclarationDate: dateObj,
+        autoAnnounceResults: autoAnnounceVal,
+      } as any,
+      actorId || '',
+    );
+
+    // If autoAnnounce is toggled and date is already in past or now, immediately announce
+    if (autoAnnounceVal && dateObj <= new Date() && !config.resultsAnnounced) {
+      this.logger.log(`Auto-announce date reached immediately upon setting date for org ${orgId}`);
+      await this.announceResults(orgId, declarationDate, actorId);
+    }
+
+    // Format human-friendly declaration date for the email and logs
+    const formattedDate = dateObj.toLocaleDateString('en-IN', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+
+    const portalUrl = this.configService?.get<string>('STUDENT_PORTAL_URL') || 'http://localhost:3001';
+
+    // Send email to every applicant in this organization and record in communication history
+    const applications = await this.applicationRepository.find({
+      where: { organizationId: orgId },
+    });
+
+    let sentCount = 0;
+    for (const app of applications) {
+      if (!app.email) continue;
+      const firstName = (app.name || '').trim().split(' ')[0] || 'Applicant';
+      const subject = `Results Declaration Date Announced — ${app.applicationNo}`;
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1f2937; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+          <h2 style="color: #111827; margin-top: 0;">GD & Personal Interview Results Announcement</h2>
+          <p>Dear ${firstName},</p>
+          <p>We are pleased to inform you that the evaluation results for your application <strong>${app.applicationNo}</strong> (${app.program || 'Admissions 2026'}) will be officially announced on:</p>
+          <div style="background: #f0fdf4; border-left: 4px solid #16a34a; padding: 14px 18px; margin: 18px 0; border-radius: 4px;">
+            <p style="margin: 0; color: #166534; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Scheduled Declaration Date & Time</p>
+            <p style="margin: 4px 0 0 0; color: #14532d; font-size: 17px; font-weight: 700;">${formattedDate}</p>
+          </div>
+          <p>Your composite scores, section evaluations, and selection status will be available on your student portal at the scheduled time.</p>
+          <p style="margin: 24px 0;">
+            <a href="${portalUrl}" style="display:inline-block;padding:11px 22px;background:#2563eb;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:600;font-size:14px;">
+              Access Student Portal
+            </a>
+          </p>
+          <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
+          <p style="font-size: 12px; color: #64748b; margin: 0;">This is an automated notification from the Admissions Office. Application No: ${app.applicationNo}</p>
+        </div>
+      `;
+
+      let sentSuccess = false;
+      try {
+        await this.mailerService.sendMail({
+          to: app.email,
+          subject,
+          html,
+        });
+        sentSuccess = true;
+        sentCount++;
+      } catch (err: any) {
+        this.logger.warn(`Failed to send declaration date email to ${app.email}: ${err?.message || err}`);
+      }
+
+      try {
+        await this.communicationsService.create({
+          organizationId: orgId,
+          applicationNo: app.applicationNo,
+          applicantName: app.name,
+          recipientEmail: app.email,
+          recipientPhone: app.primaryMobile,
+          channel: 'Email',
+          category: 'Results Declaration',
+          subject,
+          content: html,
+          sender: 'Admissions Desk',
+          status: sentSuccess ? 'Sent' : 'Failed',
+        });
+      } catch (e: any) {
+        this.logger.warn(`Failed to create communication log for declaration date to ${app.applicationNo}: ${e?.message}`);
+      }
+    }
+
+    return {
+      success: true,
+      declarationDate: dateObj,
+      autoAnnounceResults: autoAnnounceVal,
+      studentsNotified: sentCount,
+      totalApplications: applications.length,
+    };
+  }
+
+  async getAnnouncedResultsStatus(orgId: string) {
+    const config = await this.conversionConfigService.getOrCreate(orgId);
+    return {
+      resultsAnnounced: Boolean(config.resultsAnnounced),
+      resultsDeclarationDate: config.resultsDeclarationDate ?? null,
+      autoAnnounceResults: Boolean(config.autoAnnounceResults),
+      qualifyingScore: config.qualifyingScore !== null && config.qualifyingScore !== undefined ? Number(config.qualifyingScore) : 50,
+    };
+  }
+
+  async announceResults(orgId: string, declarationDate?: string, actorId?: string) {
+    const config = await this.conversionConfigService.getOrCreate(orgId);
+    const qualifyingScore = config.qualifyingScore !== null && config.qualifyingScore !== undefined
+      ? Number(config.qualifyingScore)
+      : 50;
+
+    const applications = await this.applicationRepository.find({
+      where: { organizationId: orgId },
+    });
+
+    let selectedCount = 0;
+    let notSelectedCount = 0;
+
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const validActorId = actorId && UUID_REGEX.test(actorId) ? actorId : undefined;
+
+    for (const app of applications) {
+      let isQualified = false;
+      let compScore = 0;
+      let gdpiTotal = 0;
+
+      try {
+        const breakdown = await this.computeCompositeScore(orgId, app.id);
+        isQualified = breakdown.isQualified;
+        compScore = Number(breakdown.compositeScore || 0);
+        gdpiTotal = Number(breakdown.gdpiTotal || 0);
+      } catch (e) {
+        compScore = app.compositeScore !== null && app.compositeScore !== undefined ? Number(app.compositeScore) : 0;
+        isQualified = compScore >= qualifyingScore;
+        gdpiTotal = Number(app.gdpiTotal || (Number(app.gdScore || 0) + Number(app.piScore || 0)));
+      }
+
+      const newStatus = isQualified ? 'Selected' : 'Not Selected';
+      app.shortlistStatus = newStatus;
+      if (validActorId) app.updatedBy = validActorId;
+      await this.applicationRepository.save(app);
+
+      if (isQualified) selectedCount++;
+      else notSelectedCount++;
+
+      // Dispatch results announcement email to applicant
+      if (app.email) {
+        try {
+          const baseUrl = this.configService?.get<string>('STUDENT_PORTAL_URL') ||
+                          this.configService?.get<string>('FRONTEND_URL') ||
+                          'http://localhost:3001';
+          const loginUrl = `${baseUrl.replace(/\/$/, '')}/login`;
+
+          await this.emailTemplatesService.sendTransactional({
+            organizationId: orgId,
+            categorySlug: 'results_scores_updated',
+            to: app.email,
+            applicationNo: app.applicationNo,
+            applicantName: app.name,
+            variables: {
+              name: app.name,
+              email: app.email,
+              phone: app.primaryMobile,
+              application_no: app.applicationNo,
+              academic_session: app.academicSession,
+              course: app.program,
+              composite_score: String(compScore),
+              gdpi_total: String(gdpiTotal),
+              recommendation: isQualified ? 'Selected / Recommended for Admission' : 'Not Selected',
+              status: newStatus,
+              login_url: loginUrl,
+            },
+          });
+        } catch (mailErr: any) {
+          this.logger.warn(`Failed to send results announcement email to ${app.email}: ${mailErr?.message || mailErr}`);
+        }
+      }
+    }
+
+    await this.conversionConfigService.update(
+      orgId,
+      {
+        resultsAnnounced: true,
+        ...(declarationDate ? { resultsDeclarationDate: new Date(declarationDate) } : {}),
+      } as any,
+      validActorId,
+    );
+
+    return {
+      success: true,
+      totalUpdated: applications.length,
+      selectedCount,
+      notSelectedCount,
+      resultsAnnounced: true,
+      resultsDeclarationDate: declarationDate ? new Date(declarationDate) : config.resultsDeclarationDate,
+    };
+  }
 }
+

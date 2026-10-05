@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
 import { ScoringService } from './scoring.service.js';
 import { ScoreAdjustmentDto } from './dto/score-adjustment.dto.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
@@ -19,7 +19,7 @@ export class CompositeScoreController {
   // achievement/penalty, gdpiTotal, compositeScore, discrepancyFlag) —
   // always compute-and-return, never just the raw Application columns.
   @Get('composite-score')
-  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.APPLICATION_MANAGER, Role.EXAM_MANAGER, Role.COUNSELOR)
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.APPLICATION_MANAGER, Role.EXAM_MANAGER, Role.COUNSELOR, Role.STUDENT)
   getCompositeScore(
     @Param('orgId') orgId: string,
     @Query('applicationNo') applicationNo: string,
@@ -37,4 +37,33 @@ export class CompositeScoreController {
   ) {
     return this.scoringService.applyScoreAdjustment(orgId, applicationNo, dto, req.user.sub);
   }
+
+  @Post('announce-results')
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.APPLICATION_MANAGER, Role.EXAM_MANAGER)
+  announceResults(
+    @Param('orgId') orgId: string,
+    @Body() dto: { declarationDate?: string },
+    @Request() req,
+  ) {
+    return this.scoringService.announceResults(orgId, dto?.declarationDate, req.user.sub);
+  }
+
+  @Post('set-declaration-date')
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.APPLICATION_MANAGER, Role.EXAM_MANAGER)
+  setDeclarationDate(
+    @Param('orgId') orgId: string,
+    @Body() dto: { declarationDate: string; autoAnnounce?: boolean },
+    @Request() req,
+  ) {
+    return this.scoringService.setDeclarationDate(orgId, dto.declarationDate, dto.autoAnnounce, req.user.sub);
+  }
+
+  @Get('announced-results-status')
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.APPLICATION_MANAGER, Role.EXAM_MANAGER, Role.COUNSELOR, Role.STUDENT)
+  getAnnouncedResultsStatus(
+    @Param('orgId') orgId: string,
+  ) {
+    return this.scoringService.getAnnouncedResultsStatus(orgId);
+  }
 }
+

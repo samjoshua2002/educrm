@@ -38,6 +38,15 @@ export class ScoreConversionConfig {
   @Column({ name: 'qualifying_score', type: 'decimal', precision: 5, scale: 2, default: 50, nullable: true })
   qualifyingScore: number;
 
+  @Column({ name: 'results_announced', type: 'boolean', default: false })
+  resultsAnnounced: boolean;
+
+  @Column({ name: 'results_declaration_date', type: 'timestamptz', nullable: true })
+  resultsDeclarationDate: Date;
+
+  @Column({ name: 'auto_announce_results', type: 'boolean', default: false })
+  autoAnnounceResults: boolean;
+
   @Column({ name: 'updated_by', type: 'uuid', nullable: true })
   updatedBy: string;
 

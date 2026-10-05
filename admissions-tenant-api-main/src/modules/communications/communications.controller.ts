@@ -45,7 +45,7 @@ export class CommunicationsController {
     );
   }
 
-  @Get(':id')
+  @Get('*id')
   @Roles(
     Role.SUPERADMIN,
     Role.ORG_ADMIN,
@@ -54,8 +54,9 @@ export class CommunicationsController {
     Role.LEAD_MANAGER,
   )
   @ResponseMessage('Communication log fetched successfully')
-  findOne(@Param('id') id: string) {
-    return this.service.findOne(id);
+  findOne(@Param('id') id: string | string[]) {
+    const raw = Array.isArray(id) ? id.join('/') : id;
+    return this.service.findOne(decodeURIComponent(raw));
   }
 
   @Post()

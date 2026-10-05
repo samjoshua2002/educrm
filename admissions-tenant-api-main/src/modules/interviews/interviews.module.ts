@@ -25,11 +25,13 @@ import { EvaluationsController } from './evaluations.controller.js';
 import { CompositeScoreController } from './composite-score.controller.js';
 import { NotificationsModule } from '../notifications/notifications.module.js';
 import { EmailTemplatesModule } from '../email-templates/email-templates.module.js';
+import { CommunicationsModule } from '../communications/communications.module.js';
 
 @Module({
   imports: [
     NotificationsModule,
     EmailTemplatesModule,
+    CommunicationsModule,
     TypeOrmModule.forFeature([
       EvaluationRubric,
       ShortlistingRule,

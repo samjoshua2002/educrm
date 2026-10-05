@@ -32,13 +32,17 @@ async function bootstrap() {
   );
 
   // CORS
-  app.enableCors({
-    origin:  [
+  const configuredOrigins = [
+    process.env.FRONTEND_URL,
+    process.env.STUDENT_PORTAL_URL,
+    ...(process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim()) : []),
     'http://localhost:3001',
     'http://127.0.0.1:3001',
     'http://192.168.0.101:3001',
-    
-  ],
+  ].filter(Boolean) as string[];
+
+  app.enableCors({
+    origin: Array.from(new Set(configuredOrigins)),
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],

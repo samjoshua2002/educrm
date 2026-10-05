@@ -12,7 +12,7 @@ export class ScoreConversionConfigController {
   constructor(private readonly configService: ScoreConversionConfigService) {}
 
   @Get()
-  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.EXAM_MANAGER)
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.EXAM_MANAGER, Role.STUDENT)
   get(@Param('orgId') orgId: string) {
     return this.configService.getOrCreate(orgId);
   }

@@ -722,9 +722,6 @@ export function useSubmitApplication() {
   });
 }
 
-// Legacy compatibility alias (used by applications list page for delete action)
-// Since the backend does not have a delete endpoint in this module, we keep
-// this as a no-op and disable the button or show a not-supported message.
 export function useDeleteApplication() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -732,8 +729,27 @@ export function useDeleteApplication() {
       const encodedId = encodeURIComponent(id);
       return apiDelete<any>(`/applications/${encodedId}`);
     },
-    onSuccess: () => {
+    onSuccess: (_, deletedId) => {
       queryClient.invalidateQueries({ queryKey: ["applications"] });
+      queryClient.invalidateQueries({ queryKey: ["communications"] });
+      queryClient.invalidateQueries({ queryKey: ["communication"] });
+      // Clean up localStorage educrm_communications_history
+      try {
+        const raw = localStorage.getItem("educrm_communications_history");
+        if (raw) {
+          const list = JSON.parse(raw);
+          const cleanDeletedId = (deletedId || "").toLowerCase();
+          const filtered = list.filter((item: any) => {
+            const appNo = (item.applicationNo || "").toLowerCase();
+            const id = (item.id || "").toLowerCase();
+            return appNo !== cleanDeletedId && id !== cleanDeletedId;
+          });
+          localStorage.setItem("educrm_communications_history", JSON.stringify(filtered));
+          window.dispatchEvent(new Event("educrm_communications_updated"));
+        }
+      } catch {
+        // ignore
+      }
       toast.success("Application deleted successfully");
     },
     onError: (err: any) => {
@@ -742,6 +758,7 @@ export function useDeleteApplication() {
     },
   });
 }
+
 
 // 6. Create application
 export function useCreateApplication() {

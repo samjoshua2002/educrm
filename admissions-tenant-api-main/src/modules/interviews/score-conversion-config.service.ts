@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, LessThanOrEqual } from 'typeorm';
 import { ScoreConversionConfig } from './entities/score-conversion-config.entity.js';
 import { UpdateScoreConversionConfigDto } from './dto/update-score-conversion-config.dto.js';
 
@@ -77,10 +77,22 @@ export class ScoreConversionConfigService {
     return config;
   }
 
-  async update(orgId: string, dto: UpdateScoreConversionConfigDto, actorId: string) {
+  async update(orgId: string, dto: UpdateScoreConversionConfigDto, actorId?: string) {
     const config = await this.getOrCreate(orgId);
     Object.assign(config, dto);
-    config.updatedBy = actorId;
+    if (actorId && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(actorId)) {
+      config.updatedBy = actorId;
+    }
     return this.configRepository.save(config);
+  }
+
+  async findPendingAutoAnnouncements(now: Date): Promise<ScoreConversionConfig[]> {
+    return this.configRepository.find({
+      where: {
+        autoAnnounceResults: true,
+        resultsAnnounced: false,
+        resultsDeclarationDate: LessThanOrEqual(now),
+      },
+    });
   }
 }
