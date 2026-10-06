@@ -136,6 +136,8 @@ function exportToCSV(data: any[], isResultsAnnounced: boolean, filename = "gd_in
     "Course",
     "Interview Status",
     "Composite Score",
+    "Admission Decision",
+    "Waitlist Status",
     "Qualifying Result",
   ];
 
@@ -153,6 +155,8 @@ function exportToCSV(data: any[], isResultsAnnounced: boolean, filename = "gd_in
     const resultDisplay = !isCompleted || !isResultsAnnounced
       ? "--"
       : (item.isQualified ? "Qualified" : "Not Qualified");
+    const admissionDecision = item.admissionDecision || "--";
+    const waitlistStatus = item.isWaitlisted ? item.waitlistTag : "Not Applicable";
 
     return [
       escape(item.applicationNo),
@@ -161,6 +165,8 @@ function exportToCSV(data: any[], isResultsAnnounced: boolean, filename = "gd_in
       escape(item.course),
       escape(item.interviewStatus),
       escape(compScoreDisplay),
+      escape(admissionDecision),
+      escape(waitlistStatus),
       escape(resultDisplay),
     ];
   });
@@ -328,6 +334,37 @@ export default function MyEvaluationsPage() {
     return appsList.map((app: any, index: number) => {
       const interviewStatus = getInterviewStatus(app.id, app.applicationNo);
       const scores = getCandidateScores(app);
+
+      const rawWl =
+        app.waitlistStatus ||
+        (app.shortlistStatus?.toLowerCase().includes("waitlist") || app.shortlistStatus?.toLowerCase().startsWith("wl")
+          ? app.shortlistStatus
+          : "");
+      const isWaitlisted = Boolean(rawWl && rawWl !== "Not Applicable" && rawWl.trim() !== "");
+      const waitlistTag = isWaitlisted ? (rawWl.startsWith("WL") ? rawWl : `WL-${rawWl}`) : "";
+
+      let admissionDecision: "Selected" | "Waitlisted" | "Not Selected" | "Qualified" | "Not Qualified" = "Not Qualified";
+      if (isWaitlisted) {
+        admissionDecision = "Waitlisted";
+      } else if (
+        app.shortlistStatus === "Selected" ||
+        app.formStatus === "accepted" ||
+        app.status === "accepted" ||
+        app.formStatus === "admitted"
+      ) {
+        admissionDecision = "Selected";
+      } else if (
+        app.shortlistStatus === "Not Selected" ||
+        app.formStatus === "rejected" ||
+        app.status === "rejected"
+      ) {
+        admissionDecision = "Not Selected";
+      } else if (scores.isQualified) {
+        admissionDecision = "Qualified";
+      } else {
+        admissionDecision = "Not Qualified";
+      }
+
       return {
         id: app.id || index + 1,
         applicationId: app.id || undefined,
@@ -340,6 +377,11 @@ export default function MyEvaluationsPage() {
         compositeScore: scores.compositeScore,
         isQualified: scores.isQualified,
         shortlistStatus: app.shortlistStatus,
+        waitlistStatus: app.waitlistStatus,
+        waitlistTag,
+        isWaitlisted,
+        admissionDecision,
+        rawApp: app,
       };
     });
   }, [appsList, getInterviewStatus, getCandidateScores]);
@@ -356,12 +398,37 @@ export default function MyEvaluationsPage() {
   // Check if all candidates have completed interview
   const isAllCompleted = totalCandidates > 0 && pendingCandidates === 0;
 
-  // Results Declaration Date state (active ONLY if all candidates completed interview and date is set)
+  // Rule: Decisions must be saved in Seat Allocation & Merit List before date declaration & results announcement
+  const areDecisionsSaved = React.useMemo(() => {
+    if (!isAllCompleted || totalCandidates === 0) return false;
+    const haveDecisions = candidatesData.every((c: any) => {
+      const raw = c.rawApp;
+      const s = c.shortlistStatus || raw?.shortlistStatus;
+      const wl = c.waitlistStatus || raw?.waitlistStatus;
+      const formStatus = raw?.formStatus;
+      return Boolean(
+        s === "Selected" ||
+        s === "Not Selected" ||
+        (s && typeof s === "string" && s.startsWith("WL-")) ||
+        (wl && wl !== "Not Applicable") ||
+        formStatus === "accepted" ||
+        formStatus === "rejected"
+      );
+    });
+    const localFlag =
+      typeof window !== "undefined" &&
+      Boolean(localStorage.getItem("educrm_decisions_saved_at"));
+    return haveDecisions || localFlag;
+  }, [isAllCompleted, totalCandidates, candidatesData]);
+
+  const isDeclarationAllowed = isAllCompleted && areDecisionsSaved;
+
+  // Results Declaration Date state (active ONLY if all candidates completed interview, decisions saved, and date is set)
   const [resultsDateStr, setResultsDateStr] = React.useState<string | null>(null);
 
   // Sync with backend declaration date if available and all interviews completed
   React.useEffect(() => {
-    if (!isAllCompleted) {
+    if (!isDeclarationAllowed) {
       setResultsDateStr(null);
       if (typeof window !== "undefined") {
         localStorage.removeItem("educrm_evaluate_results_date");
@@ -380,9 +447,9 @@ export default function MyEvaluationsPage() {
     if (announcedStatus?.autoAnnounceResults !== undefined) {
       setAutoAnnounce(Boolean(announcedStatus.autoAnnounceResults));
     }
-  }, [announcedStatus, scoringConfig, isAllCompleted]);
+  }, [announcedStatus, scoringConfig, isDeclarationAllowed]);
 
-  // Live countdown timer calculations (ONLY runs when all interviews are completed and declaration date is set)
+  // Live countdown timer calculations (ONLY runs when declaration is allowed and date is set)
   const [timeLeft, setTimeLeft] = React.useState({
     days: 0,
     hours: 0,
@@ -391,7 +458,7 @@ export default function MyEvaluationsPage() {
   });
 
   React.useEffect(() => {
-    if (!isAllCompleted || !resultsDateStr) {
+    if (!isDeclarationAllowed || !resultsDateStr) {
       setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
       return;
     }
@@ -415,26 +482,26 @@ export default function MyEvaluationsPage() {
     calculateCountdown();
     const interval = setInterval(calculateCountdown, 1000);
     return () => clearInterval(interval);
-  }, [resultsDateStr, isAllCompleted]);
+  }, [resultsDateStr, isDeclarationAllowed]);
 
   // Move "Set Declaration Date" and "Announce Results" buttons to the layout header
   React.useEffect(() => {
     setHeader({
-      title: "GD & PI Evaluation",
+      title: "Results Announcement",
       description: "Review candidate scores and announce admission results.",
       customRightNode: (
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
-            disabled={!isAllCompleted}
+            disabled={!isDeclarationAllowed}
             className={cn(
               "h-9 px-4 font-semibold rounded-[8px] transition-colors",
-              isAllCompleted
+              isDeclarationAllowed
                 ? "text-slate-700 border-slate-300 hover:bg-slate-50 cursor-pointer"
                 : "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-60 shadow-none hover:bg-slate-100"
             )}
             onClick={() => {
-              if (isAllCompleted) {
+              if (isDeclarationAllowed) {
                 const current = resultsDateStr
                   ? new Date(resultsDateStr)
                   : (() => {
@@ -456,21 +523,23 @@ export default function MyEvaluationsPage() {
                 ? totalCandidates === 0
                   ? "No candidates available"
                   : `${pendingCandidates} candidate(s) still pending interview. All candidates must complete interview first.`
+                : !areDecisionsSaved
+                ? "Seat allocation decisions must be saved in Seat Allocation & Merit List before date declaration can be enabled."
                 : "Set declaration date"
             }
           >
             Set Declaration Date
           </Button>
           <Button
-            disabled={!isAllCompleted}
+            disabled={!isDeclarationAllowed}
             className={cn(
               "h-9 px-4 font-semibold rounded-[8px] transition-colors",
-              isAllCompleted
+              isDeclarationAllowed
                 ? "text-white bg-[#2563EB] hover:bg-[#1D4ED8] cursor-pointer shadow-xs"
                 : "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-60 shadow-none hover:bg-slate-100"
             )}
             onClick={() => {
-              if (isAllCompleted) {
+              if (isDeclarationAllowed) {
                 setAnnounceDialogOpen(true);
               }
             }}
@@ -479,6 +548,8 @@ export default function MyEvaluationsPage() {
                 ? totalCandidates === 0
                   ? "No candidates available"
                   : `${pendingCandidates} candidate(s) still pending interview. All candidates must complete interview first.`
+                : !areDecisionsSaved
+                ? "Seat allocation decisions must be saved in Seat Allocation & Merit List before results can be announced."
                 : "Announce results"
             }
           >
@@ -489,7 +560,7 @@ export default function MyEvaluationsPage() {
     });
 
     return () => clearHeader();
-  }, [setHeader, clearHeader, resultsDateStr, isAllCompleted, totalCandidates, pendingCandidates, announcedStatus]);
+  }, [setHeader, clearHeader, resultsDateStr, isDeclarationAllowed, isAllCompleted, areDecisionsSaved, totalCandidates, pendingCandidates, announcedStatus]);
 
   // Handle Save Declaration Date
   const handleSaveDate = async () => {
@@ -565,16 +636,21 @@ export default function MyEvaluationsPage() {
       if (courseFilter !== "all" && candidate.course !== courseFilter) return false;
 
       // Result filter
-      if (resultFilter === "qualified") {
-        if (!isResultsAnnounced || candidate.interviewStatus !== "Completed" || !candidate.isQualified) return false;
-      }
-      if (resultFilter === "not_qualified") {
-        if (!isResultsAnnounced || candidate.interviewStatus !== "Completed" || candidate.isQualified) return false;
+      if (resultFilter === "selected") {
+        if (candidate.admissionDecision !== "Selected" && candidate.shortlistStatus !== "Selected") return false;
+      } else if (resultFilter === "waitlisted") {
+        if (!candidate.isWaitlisted) return false;
+      } else if (resultFilter === "not_selected") {
+        if (candidate.admissionDecision !== "Not Selected" && candidate.shortlistStatus !== "Not Selected") return false;
+      } else if (resultFilter === "qualified") {
+        if (!candidate.isQualified && candidate.admissionDecision !== "Selected" && !candidate.isWaitlisted) return false;
+      } else if (resultFilter === "not_qualified") {
+        if (candidate.isQualified || candidate.admissionDecision === "Selected" || candidate.isWaitlisted) return false;
       }
 
       return true;
     });
-  }, [candidatesData, activeTab, searchQuery, courseFilter, resultFilter, isResultsAnnounced]);
+  }, [candidatesData, activeTab, searchQuery, courseFilter, resultFilter]);
 
   // Pagination
   const [currentPage, setCurrentPage] = React.useState(1);
@@ -603,6 +679,42 @@ export default function MyEvaluationsPage() {
 
   return (
     <div className="flex flex-col gap-4 p-4 md:p-6 w-full max-w-full min-w-0">
+      {/* Pending Interviews Alert Banner */}
+      {!isAllCompleted && totalCandidates > 0 && (
+        <div className="flex items-center gap-3 p-4 rounded-xl border border-amber-200 bg-amber-50/70 text-amber-900 text-sm shadow-2xs">
+          <Clock className="size-5 text-amber-600 shrink-0" />
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 w-full">
+            <div>
+              <span className="font-bold">Interviews In Progress: </span>
+              <span>
+                {completedCandidates} of {totalCandidates} candidate(s) have completed interviews ({pendingCandidates} pending). All candidates must complete interviews before results can be announced.
+              </span>
+            </div>
+            <Button asChild size="sm" variant="outline" className="border-amber-300 bg-white hover:bg-amber-50 text-amber-900 text-xs shrink-0 font-semibold shadow-2xs">
+              <Link href="/organization/gd-interview">View Candidates</Link>
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Decisions Pending Alert Banner */}
+      {isAllCompleted && !areDecisionsSaved && totalCandidates > 0 && (
+        <div className="flex items-center gap-3 p-4 rounded-xl border border-amber-200 bg-amber-50 text-amber-900 text-sm shadow-2xs">
+          <Clock className="size-5 text-amber-600 shrink-0" />
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 w-full">
+            <div>
+              <span className="font-bold">Seat Allocation Decisions Pending: </span>
+              <span>
+                All candidates have completed interviews, but merit allocations and admission decisions have not been saved yet.
+              </span>
+            </div>
+            <Button asChild size="sm" className="bg-[#EA2525] hover:bg-[#D61F1F] text-white text-xs font-semibold shrink-0 shadow-2xs">
+              <Link href="/organization/gd-interview/resultsevalutaion">Go to Seat Allocation &amp; Merit</Link>
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* ========================================================================= */}
       {/* 4 STAT CARDS (Exact match to http://localhost:3001/organization/interview-slots) */}
       {/* ========================================================================= */}
@@ -748,13 +860,16 @@ export default function MyEvaluationsPage() {
 
             {/* Result Filter */}
             <Select value={resultFilter} onValueChange={setResultFilter}>
-              <SelectTrigger className="w-full sm:w-[140px] h-10 text-xs sm:text-sm bg-white border-[#e2e8f0] rounded-[8px] text-slate-700 shadow-2xs">
+              <SelectTrigger className="w-full sm:w-[150px] h-10 text-xs sm:text-sm bg-white border-[#e2e8f0] rounded-[8px] text-slate-700 shadow-2xs">
                 <SelectValue placeholder="All Results" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Results</SelectItem>
-                <SelectItem value="qualified">Qualified</SelectItem>
-                <SelectItem value="not_qualified">Not Qualified</SelectItem>
+                <SelectItem value="selected">Selected / Offered</SelectItem>
+                <SelectItem value="waitlisted">Waitlisted</SelectItem>
+                <SelectItem value="not_selected">Not Selected</SelectItem>
+                <SelectItem value="qualified">Cutoff Qualified</SelectItem>
+                <SelectItem value="not_qualified">Below Cutoff</SelectItem>
               </SelectContent>
             </Select>
 
@@ -792,7 +907,7 @@ export default function MyEvaluationsPage() {
                   Composite Score
                 </TableHead>
                 <TableHead className="font-bold text-slate-700 text-xs uppercase tracking-wider py-3.5 px-4">
-                  Qualifying Result
+                  Admission &amp; Result
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -883,9 +998,21 @@ export default function MyEvaluationsPage() {
                       )}
                     </TableCell>
 
-                    {/* Qualifying Result (Only shown after announcement of results and for completed interviews) */}
+                    {/* Admission & Result (Syncing Waitlist, Selected, Not Selected) */}
                     <TableCell className="py-3.5 px-4">
-                      {candidate.interviewStatus === "Completed" && isResultsAnnounced ? (
+                      {candidate.isWaitlisted ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-300">
+                          Waitlisted ({candidate.waitlistTag || "WL"})
+                        </span>
+                      ) : candidate.admissionDecision === "Selected" || candidate.shortlistStatus === "Selected" ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          Selected
+                        </span>
+                      ) : candidate.admissionDecision === "Not Selected" || candidate.shortlistStatus === "Not Selected" ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+                          Not Selected
+                        </span>
+                      ) : candidate.interviewStatus === "Completed" && isResultsAnnounced ? (
                         candidate.isQualified ? (
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                             Qualified
@@ -893,6 +1020,16 @@ export default function MyEvaluationsPage() {
                         ) : (
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
                             Not Qualified
+                          </span>
+                        )
+                      ) : candidate.interviewStatus === "Completed" ? (
+                        candidate.isQualified ? (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                            Qualified
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500 border border-slate-200">
+                            Below Cutoff
                           </span>
                         )
                       ) : (

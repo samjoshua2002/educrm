@@ -20,7 +20,7 @@ export class InterviewsBookingController {
   }
 
   @Get()
-  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.EXAM_MANAGER)
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.EXAM_MANAGER, Role.STUDENT)
   findAll(
     @Param('orgId') orgId: string,
     @Query('applicationId') applicationId?: string,

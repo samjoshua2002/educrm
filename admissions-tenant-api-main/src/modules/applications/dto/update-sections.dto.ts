@@ -182,4 +182,6 @@ export class UpdateGdEvaluationDto {
   @IsString() @IsOptional() status?: string;
   @IsString() @IsOptional() claimedMonths?: string;
   @IsString() @IsOptional() validatedMonths?: string;
+  @IsString() @IsOptional() waitlistStatus?: string;
+  @IsString() @IsOptional() shortlistStatus?: string;
 }

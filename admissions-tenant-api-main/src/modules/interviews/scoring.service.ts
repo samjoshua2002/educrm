@@ -815,13 +815,27 @@ export class ScoringService implements OnApplicationBootstrap {
         gdpiTotal = Number(app.gdpiTotal || (Number(app.gdScore || 0) + Number(app.piScore || 0)));
       }
 
-      const newStatus = isQualified ? 'Selected' : 'Not Selected';
+      const hasWaitlist = Boolean(
+        app.waitlistStatus &&
+        app.waitlistStatus !== 'Not Applicable' &&
+        app.waitlistStatus.trim() !== ''
+      );
+
+      let newStatus = app.shortlistStatus;
+      if (hasWaitlist) {
+        newStatus = app.waitlistStatus.toLowerCase().startsWith('wl') || app.waitlistStatus.toLowerCase().startsWith('waitlist')
+          ? app.waitlistStatus
+          : `Waitlist ${app.waitlistStatus}`;
+      } else if (!newStatus || ['Shortlisted', 'Under Review', 'Review', 'pending'].includes(newStatus)) {
+        newStatus = isQualified ? 'Selected' : 'Not Selected';
+      }
+
       app.shortlistStatus = newStatus;
       if (validActorId) app.updatedBy = validActorId;
       await this.applicationRepository.save(app);
 
-      if (isQualified) selectedCount++;
-      else notSelectedCount++;
+      if (newStatus === 'Selected') selectedCount++;
+      else if (!hasWaitlist && !newStatus.toLowerCase().includes('waitlist')) notSelectedCount++;
 
       // Dispatch results announcement email to applicant
       if (app.email) {
@@ -846,7 +860,9 @@ export class ScoringService implements OnApplicationBootstrap {
               course: app.program,
               composite_score: String(compScore),
               gdpi_total: String(gdpiTotal),
-              recommendation: isQualified ? 'Selected / Recommended for Admission' : 'Not Selected',
+              recommendation: hasWaitlist
+                ? `Waitlisted (${app.waitlistStatus})`
+                : (newStatus === 'Selected' ? 'Selected / Recommended for Admission' : 'Not Selected'),
               status: newStatus,
               login_url: loginUrl,
             },

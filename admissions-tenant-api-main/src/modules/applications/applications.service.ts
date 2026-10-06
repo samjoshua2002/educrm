@@ -245,6 +245,9 @@ export class ApplicationsService {
       interviewLocation: app.interviewLocation || null,
       formStatus: this.mapStatusToFrontend(app.formStatus),
       shortlistStatus: app.shortlistStatus ?? null,
+      waitlistStatus: app.waitlistStatus ?? null,
+      confirmedCampus: app.confirmedCampus ?? null,
+      evaluationRemarks: app.evaluationRemarks ?? null,
       compositeScore: app.compositeScore !== null && app.compositeScore !== undefined ? Number(app.compositeScore) : null,
       gdpiTotal: app.gdpiTotal !== null && app.gdpiTotal !== undefined ? Number(app.gdpiTotal) : null,
       academicScore: app.academicScore !== null && app.academicScore !== undefined ? Number(app.academicScore) : null,
@@ -298,6 +301,26 @@ export class ApplicationsService {
       throw new NotFoundException(`Application ${idOrAppNo} not found`);
     }
 
+    const isUuidBranch = (val?: string) => val ? /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val) : false;
+    let pref1Name = (app as any).preference_1 || (app as any).preference1;
+    let pref2Name = (app as any).preference_2 || (app as any).preference2;
+
+    if (isUuidBranch(pref1Name)) {
+      const b1 = await this.branchRepository.findOne({ where: { id: pref1Name, organizationId: orgId } });
+      if (b1) pref1Name = b1.name || b1.city;
+    }
+    if (isUuidBranch(pref2Name)) {
+      const b2 = await this.branchRepository.findOne({ where: { id: pref2Name, organizationId: orgId } });
+      if (b2) pref2Name = b2.name || b2.city;
+    }
+
+    (app as any).preference1 = pref1Name;
+    (app as any).preference2 = pref2Name;
+    (app as any).preferences = {
+      preference1: pref1Name,
+      preference2: pref2Name,
+    };
+
     return app;
   }
 
@@ -341,7 +364,7 @@ export class ApplicationsService {
     const trimmedEmail = (email || '').trim();
     const whereCondition: any = {
       email: ILike(trimmedEmail),
-      formStatus: Not(In(['draft', 'incomplete', 'rejected'])),
+      formStatus: Not(In(['draft', 'incomplete'])),
     };
     if (orgId) {
       whereCondition.organizationId = orgId;
@@ -366,8 +389,26 @@ export class ApplicationsService {
       app = await this.applicationRepository.findOne({
         where: {
           email: ILike(trimmedEmail),
-          formStatus: Not(In(['draft', 'incomplete', 'rejected'])),
+          formStatus: Not(In(['draft', 'incomplete'])),
         },
+        relations: [
+          'student',
+          'educationRecords',
+          'entranceTests',
+          'workExperienceRecords',
+          'parentRecords',
+          'addressRecords',
+          'extraCurricularRecords',
+          'otherQualificationRecords',
+        ],
+        order: { createdAt: 'DESC' },
+      });
+    }
+
+    // Fallback: if no non-draft application found, find ANY application for this email
+    if (!app) {
+      app = await this.applicationRepository.findOne({
+        where: orgId ? { email: ILike(trimmedEmail), organizationId: orgId } : { email: ILike(trimmedEmail) },
         relations: [
           'student',
           'educationRecords',
@@ -385,6 +426,18 @@ export class ApplicationsService {
     if (!app) {
       throw new NotFoundException(`No active application found for email ${email}`);
     }
+
+    try {
+      const interview = await this.dataSource.getRepository(Interview).findOne({
+        where: { applicationId: app.id },
+        relations: ['slot'],
+        order: { createdAt: 'DESC' },
+      });
+      if (interview) {
+        (app as any).activeInterview = interview;
+        (app as any).interviewStatus = interview.status;
+      }
+    } catch (_) {}
 
     return app;
   }
@@ -1077,6 +1130,8 @@ export class ApplicationsService {
     if (dto.status !== undefined) app.formStatus = dto.status.toLowerCase();
     if (dto.claimedMonths !== undefined) app.claimedExperienceMonths = dto.claimedMonths;
     if (dto.validatedMonths !== undefined) app.validatedExperienceMonths = dto.validatedMonths;
+    if (dto.waitlistStatus !== undefined) app.waitlistStatus = dto.waitlistStatus;
+    if (dto.shortlistStatus !== undefined) app.shortlistStatus = dto.shortlistStatus;
 
     app.updatedBy = actorId;
     app.lastActivityAt = new Date();

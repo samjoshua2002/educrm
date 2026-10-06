@@ -90,6 +90,7 @@ import {
   useCreateCourseSession,
   useUpdateCourseSession,
   useDeleteCourseSession,
+  useHardDeleteCourseSession,
   CourseSession,
 } from "@/hooks/use-course-sessions";
 
@@ -311,6 +312,7 @@ export default function CoursesSettingsPage() {
   const createCourseSession = useCreateCourseSession();
   const updateCourseSession = useUpdateCourseSession();
   const deleteCourseSession = useDeleteCourseSession();
+  const hardDeleteCourseSession = useHardDeleteCourseSession();
 
   // Dialog Forms State
   const [courseDialogOpen, setCourseDialogOpen] = React.useState(false);
@@ -353,8 +355,9 @@ export default function CoursesSettingsPage() {
     id: string;
   } | null>(null);
 
-  // Separate state for permanent hard-delete (courses only)
+  // Separate state for permanent hard-delete
   const [hardDeleteCourseId, setHardDeleteCourseId] = React.useState<string | null>(null);
+  const [hardDeleteCourseSessionId, setHardDeleteCourseSessionId] = React.useState<string | null>(null);
 
   // Dynamic Header Action registration
   React.useEffect(() => {
@@ -478,15 +481,24 @@ export default function CoursesSettingsPage() {
     if (!courseSessionForm.courseId || !courseSessionForm.academicSessionId)
       return;
 
+    const totalSeatsNum =
+      courseSessionForm.totalSeats !== "" &&
+      courseSessionForm.totalSeats !== undefined &&
+      !isNaN(Number(courseSessionForm.totalSeats))
+        ? parseInt(courseSessionForm.totalSeats, 10)
+        : undefined;
+    const feeAmountNum =
+      courseSessionForm.feeAmount !== "" &&
+      courseSessionForm.feeAmount !== undefined &&
+      !isNaN(Number(courseSessionForm.feeAmount))
+        ? parseFloat(courseSessionForm.feeAmount)
+        : undefined;
+
     const payload = {
       courseId: courseSessionForm.courseId,
       academicSessionId: courseSessionForm.academicSessionId,
-      totalSeats: courseSessionForm.totalSeats
-        ? parseInt(courseSessionForm.totalSeats, 10)
-        : undefined,
-      feeAmount: courseSessionForm.feeAmount
-        ? parseFloat(courseSessionForm.feeAmount)
-        : undefined,
+      totalSeats: totalSeatsNum,
+      feeAmount: feeAmountNum,
       isActive: courseSessionForm.isActive,
     };
 
@@ -1623,19 +1635,32 @@ export default function CoursesSettingsPage() {
                                   <Pencil className="size-4" />
                                   Edit Session
                                 </DropdownMenuItem>
-                                {cs.isActive && (
-                                  <>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem
-                                      variant="destructive"
-                                      className="gap-2"
-                                      onClick={() => triggerDelete("course-session", cs.id)}
-                                    >
-                                      <Trash2 className="size-4" />
-                                      Deactivate
-                                    </DropdownMenuItem>
-                                  </>
+                                {cs.isActive ? (
+                                  <DropdownMenuItem
+                                    className="gap-2 text-amber-600"
+                                    onClick={() => triggerDelete("course-session", cs.id)}
+                                  >
+                                    <Trash2 className="size-4" />
+                                    Deactivate
+                                  </DropdownMenuItem>
+                                ) : (
+                                  <DropdownMenuItem
+                                    className="gap-2 text-emerald-600"
+                                    onClick={() => updateCourseSession.mutate({ id: cs.id, data: { isActive: true } })}
+                                  >
+                                    <Check className="size-4" />
+                                    Activate
+                                  </DropdownMenuItem>
                                 )}
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  variant="destructive"
+                                  className="gap-2 text-red-600 font-medium"
+                                  onClick={() => setHardDeleteCourseSessionId(cs.id)}
+                                >
+                                  <Trash2 className="size-4" />
+                                  Delete
+                                </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </div>
@@ -1765,18 +1790,34 @@ export default function CoursesSettingsPage() {
                             <DropdownMenuContent align="end" className="w-32">
                               <DropdownMenuItem className="gap-2" onClick={() => triggerEditCourseSession(cs)}>
                                 <Pencil className="size-4" />
-                                Edit
+                                Edit Session
                               </DropdownMenuItem>
-                              {cs.isActive && (
+                              {cs.isActive ? (
                                 <DropdownMenuItem
-                                  variant="destructive"
-                                  className="gap-2"
+                                  className="gap-2 text-amber-600"
                                   onClick={() => triggerDelete("course-session", cs.id)}
                                 >
                                   <Trash2 className="size-4" />
                                   Deactivate
                                 </DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuItem
+                                  className="gap-2 text-emerald-600"
+                                  onClick={() => updateCourseSession.mutate({ id: cs.id, data: { isActive: true } })}
+                                >
+                                  <Check className="size-4" />
+                                  Activate
+                                </DropdownMenuItem>
                               )}
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                variant="destructive"
+                                className="gap-2 text-red-600 font-medium"
+                                onClick={() => setHardDeleteCourseSessionId(cs.id)}
+                              >
+                                <Trash2 className="size-4" />
+                                Delete
+                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
@@ -2395,6 +2436,43 @@ export default function CoursesSettingsPage() {
               }}
             >
               Yes, Delete Forever
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* F. HARD DELETE COURSE SESSION CONFIRM DIALOG */}
+      <AlertDialog
+        open={hardDeleteCourseSessionId !== null}
+        onOpenChange={(open) => {
+          if (!open) setHardDeleteCourseSessionId(null);
+        }}
+      >
+        <AlertDialogContent className="w-[92%] sm:w-full sm:max-w-[400px] rounded-[12px] p-5 sm:p-6 gap-4 bg-white border border-red-200">
+          <AlertDialogHeader className="text-left">
+            <AlertDialogTitle className="text-base font-semibold text-red-700">
+              Permanently delete course session?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs text-muted-foreground leading-relaxed mt-1">
+              This will <strong>permanently delete</strong> this course session and its seat allocation quota from the database. This action{" "}
+              <strong>cannot be undone</strong>.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-5 gap-2 sm:gap-3 flex flex-col-reverse sm:flex-row sm:justify-end">
+            <AlertDialogCancel className="mt-0 sm:mt-0 h-10 px-4 text-sm font-medium border border-border/80 hover:bg-muted/50 rounded-[8px]">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="h-10 px-4 text-sm font-medium bg-red-600 hover:bg-red-700 text-white rounded-[8px]"
+              onClick={() => {
+                if (hardDeleteCourseSessionId) {
+                  hardDeleteCourseSession.mutate(hardDeleteCourseSessionId, {
+                    onSuccess: () => setHardDeleteCourseSessionId(null),
+                  });
+                }
+              }}
+            >
+              Yes, Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -48,19 +48,14 @@ export const organizationNavItems: NavGroup[] = [
         url: "/organization/gd-interview",
         icon: GdInterviewIcon,
         subItems: [
-                    { title: "Run Shortlisting", url: "/organization/shortlisting-run" },
+          { title: "Run Shortlisting", url: "/organization/shortlisting-run" },
           { title: "Candidates", url: "/organization/gd-interview" },
-
           { title: "Interview Slots", url: "/organization/interview-slots" },
-          { title: "My Evaluations", url: "/organization/gd-interview/evaluate" },
+          { title: "Seat Allocation & Merit", url: "/organization/gd-interview/resultsevalutaion" },
+          { title: "Results Announcement", url: "/organization/gd-interview/evaluate" },
         ],
       },
-      {
-        title: "Admission Decisions",
-        url: "/organization/decisions",
-        icon: Gavel,
-        roles: ["org_admin", "application_manager", "superadmin"],
-      },
+    
       {
         title: "Communications",
         url: "/organization/communications",

@@ -17,10 +17,13 @@ export interface EntranceTest {
 }
 
 export interface ApplicationDetail {
+  id?: string;
   applicationNo: string;
   status: string;
   shortlistStatus?: string | null;
   verificationStatus?: string;
+  interviewStatus?: string | null;
+  activeInterview?: any;
   appliedFor: string;
   courseId: string;
   interviewLocation?: string;
@@ -116,15 +119,21 @@ export interface ApplicationDetail {
     months: string;
     salaryCtc: string;
   }>;
-  gdEvaluation?: {
-    gdScore?: number;
-    piScore?: number;
-    interviewLocation?: string;
-    interviewDate?: string;
-    interviewTime?: string;
-    confirmedCampus?: string;
-    remarks?: string;
-  };
+    gdEvaluation?: {
+      gdScore?: number;
+      piScore?: number;
+      interviewLocation?: string;
+      interviewDate?: string;
+      interviewTime?: string;
+      confirmedCampus?: string;
+      remarks?: string;
+    };
+  waitlistStatus?: string | null;
+  confirmedCampus?: string | null;
+  compositeScore?: number | null;
+  gdScore?: number | null;
+  piScore?: number | null;
+  evaluationRemarks?: string | null;
 }
 
 export interface Application {
@@ -135,6 +144,12 @@ export interface Application {
   phone: string;
   formStatus: string;
   shortlistStatus?: string | null;
+  waitlistStatus?: string | null;
+  confirmedCampus?: string | null;
+  compositeScore?: number | null;
+  gdScore?: number | null;
+  piScore?: number | null;
+  evaluationRemarks?: string | null;
   paymentStatus: string;
   paymentMode: string;
   paymentAmount: number;
@@ -212,10 +227,13 @@ function mapApiToApplicationDetail(apiData: any): ApplicationDetail {
   const student = apiData.student || {};
 
   return {
+    id: apiData.id,
     applicationNo: apiData.applicationNo,
     status: apiData.formStatus,
     shortlistStatus: apiData.shortlistStatus ?? null,
     verificationStatus: apiData.verificationStatus || "pending",
+    interviewStatus: apiData.interviewStatus ?? null,
+    activeInterview: apiData.activeInterview ?? null,
     appliedFor: apiData.program || "",
     courseId: apiData.courseId || "",
     applicant: {
@@ -328,6 +346,17 @@ function mapApiToApplicationDetail(apiData: any): ApplicationDetail {
       remarks: apiData.evaluationRemarks || "",
     },
     interviewLocation: apiData.interviewLocation || "",
+    waitlistStatus: apiData.waitlistStatus ?? null,
+    confirmedCampus: apiData.confirmedCampus ?? null,
+    compositeScore:
+      apiData.compositeScore != null
+        ? Number(apiData.compositeScore)
+        : apiData.gdScore != null && apiData.piScore != null
+        ? Number(apiData.gdScore) + Number(apiData.piScore)
+        : null,
+    gdScore: apiData.gdScore != null ? Number(apiData.gdScore) : null,
+    piScore: apiData.piScore != null ? Number(apiData.piScore) : null,
+    evaluationRemarks: apiData.evaluationRemarks ?? null,
   };
 }
 
@@ -811,6 +840,8 @@ export function useUpdateGdEvaluation() {
         status?: string;
         claimedMonths?: string;
         validatedMonths?: string;
+        waitlistStatus?: string;
+        shortlistStatus?: string;
       };
     }) => {
       const encodedNo = encodeURIComponent(applicationNo);
@@ -819,6 +850,8 @@ export function useUpdateGdEvaluation() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["application", variables.applicationNo] });
       queryClient.invalidateQueries({ queryKey: ["applications"] });
+      queryClient.invalidateQueries({ queryKey: ["active-application"] });
+      queryClient.invalidateQueries({ queryKey: ["composite-score"] });
       toast.success("Evaluation saved to database!");
     },
     onError: (err: any) => {

@@ -280,11 +280,14 @@ body {
   }
 
   #printable-application-receipt,
-  #printable-application-receipt * {
+  #printable-application-receipt *,
+  #printable-admission-result,
+  #printable-admission-result * {
     visibility: visible;
   }
 
-  #printable-application-receipt {
+  #printable-application-receipt,
+  #printable-admission-result {
     position: absolute;
     left: 0;
     top: 0;

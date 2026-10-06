@@ -137,3 +137,23 @@ export function useDeleteCourseSession() {
     },
   });
 }
+
+export function useHardDeleteCourseSession() {
+  const queryClient = useQueryClient();
+  const user = useAuthStore((state) => state.user);
+  const orgId = user?.organizationId;
+
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiDelete(`/organizations/${orgId}/course-sessions/${id}/hard-delete`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["course-sessions"] });
+      toast.success("Course session deleted permanently");
+    },
+    onError: (error: any) => {
+      toast.error(
+        error.response?.data?.message || "Failed to delete course session",
+      );
+    },
+  });
+}

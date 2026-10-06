@@ -343,6 +343,20 @@ export default function GDInterviewDetailsPage() {
 
       const payload: any = { status: apiStatus };
       if (updatedFields.campus) payload.confirmedCampus = updatedFields.campus;
+      if (updatedFields.waitlist !== undefined) {
+        payload.waitlistStatus = updatedFields.waitlist;
+        if (updatedFields.waitlist && updatedFields.waitlist !== "Not Applicable") {
+          payload.shortlistStatus =
+            updatedFields.waitlist.toLowerCase().startsWith("wl") ||
+            updatedFields.waitlist.toLowerCase().startsWith("waitlist")
+              ? updatedFields.waitlist
+              : `Waitlist ${updatedFields.waitlist}`;
+        } else if (apiStatus === "accepted") {
+          payload.shortlistStatus = "Selected";
+        } else if (apiStatus === "rejected") {
+          payload.shortlistStatus = "Not Selected";
+        }
+      }
       if (updatedFields.remarks !== undefined) payload.remarks = updatedFields.remarks;
 
       updateGdEvalMutation.mutate({
@@ -352,6 +366,8 @@ export default function GDInterviewDetailsPage() {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: ["application", applicationNumber] });
           queryClient.invalidateQueries({ queryKey: ["composite-score"] });
+          queryClient.invalidateQueries({ queryKey: ["active-application"] });
+          queryClient.invalidateQueries({ queryKey: ["applications"] });
         }
       });
     }
@@ -538,16 +554,28 @@ export default function GDInterviewDetailsPage() {
         ? "Entrance Score Awaited"
         : null,
       decision: {
-        campus: localInterviewEdits.decision?.campus ?? fetchedAppData?.gdEvaluation?.confirmedCampus ?? listMatch?.confirmedCampus ?? "Awaited Scores",
-        waitlist: localInterviewEdits.decision?.waitlist ?? "Not Applicable",
+        campus:
+          localInterviewEdits.decision?.campus ??
+          fetchedAppData?.confirmedCampus ??
+          (fetchedAppData as any)?.confirmed_campus ??
+          fetchedAppData?.gdEvaluation?.confirmedCampus ??
+          listMatch?.confirmedCampus ??
+          "Awaited Scores",
+        waitlist:
+          localInterviewEdits.decision?.waitlist ??
+          fetchedAppData?.waitlistStatus ??
+          (fetchedAppData as any)?.waitlist_status ??
+          "Not Applicable",
         remarks:
           localInterviewEdits.decision?.remarks ??
+          fetchedAppData?.evaluationRemarks ??
+          (fetchedAppData as any)?.evaluation_remarks ??
           fetchedAppData?.gdEvaluation?.remarks ??
           (listMatch?.selectionStatus === "Accepted"
             ? "Strong performance in GD and PI. Recommended for selection."
             : listMatch?.selectionStatus === "Rejected"
               ? "Does not meet the cut-off requirements."
-              : "Evaluation in progress."),
+              : ""),
       },
     };
 
@@ -1800,9 +1828,18 @@ export default function GDInterviewDetailsPage() {
                       <SelectItem value="Not Applicable">
                         Not Applicable
                       </SelectItem>
-                      <SelectItem value="WL-1">Waitlist 1</SelectItem>
-                      <SelectItem value="WL-2">Waitlist 2</SelectItem>
-                      <SelectItem value="WL-3">Waitlist 3</SelectItem>
+                      {["WL-1", "WL-2", "WL-3", "WL-4", "WL-5", "WL-6", "WL-7", "WL-8", "WL-9", "WL-10"].map((wl) => (
+                        <SelectItem key={wl} value={wl}>
+                          Waitlist {wl.replace("WL-", "")} ({wl})
+                        </SelectItem>
+                      ))}
+                      {interviewData.decision.waitlist &&
+                        interviewData.decision.waitlist !== "Not Applicable" &&
+                        !["WL-1", "WL-2", "WL-3", "WL-4", "WL-5", "WL-6", "WL-7", "WL-8", "WL-9", "WL-10"].includes(interviewData.decision.waitlist) && (
+                          <SelectItem value={interviewData.decision.waitlist}>
+                            {interviewData.decision.waitlist}
+                          </SelectItem>
+                        )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -2811,9 +2848,18 @@ function EditDecisionForm({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="Not Applicable">Not Applicable</SelectItem>
-            <SelectItem value="WL-1">Waitlist 1</SelectItem>
-            <SelectItem value="WL-2">Waitlist 2</SelectItem>
-            <SelectItem value="WL-3">Waitlist 3</SelectItem>
+            {["WL-1", "WL-2", "WL-3", "WL-4", "WL-5", "WL-6", "WL-7", "WL-8", "WL-9", "WL-10"].map((wl) => (
+              <SelectItem key={wl} value={wl}>
+                Waitlist {wl.replace("WL-", "")} ({wl})
+              </SelectItem>
+            ))}
+            {formData.waitlist &&
+              formData.waitlist !== "Not Applicable" &&
+              !["WL-1", "WL-2", "WL-3", "WL-4", "WL-5", "WL-6", "WL-7", "WL-8", "WL-9", "WL-10"].includes(formData.waitlist) && (
+                <SelectItem value={formData.waitlist}>
+                  {formData.waitlist}
+                </SelectItem>
+              )}
           </SelectContent>
         </Select>
       </div>

@@ -96,4 +96,10 @@ export class CourseSessionsService {
     cs.updatedBy = actorId;
     return this.courseSessionRepository.save(cs);
   }
+
+  async hardDelete(id: string, orgId: string) {
+    const cs = await this.findOne(id, orgId);
+    await this.courseSessionRepository.remove(cs);
+    return { message: 'Course session permanently deleted.' };
+  }
 }

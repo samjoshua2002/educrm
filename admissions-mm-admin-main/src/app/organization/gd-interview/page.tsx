@@ -748,7 +748,13 @@ export default function GDInterviewPage() {
         name: app.name,
         email: app.email,
         phone: app.phone,
-        shortlistStatus: app.shortlistStatus || mockMatch?.shortlistStatus || null,
+        shortlistStatus:
+          app.shortlistStatus ||
+          app.waitlistStatus ||
+          (app.formStatus === "accepted" ? "Selected" : app.formStatus === "rejected" ? "Not Selected" : null) ||
+          mockMatch?.shortlistStatus ||
+          null,
+        waitlistStatus: app.waitlistStatus || null,
         interviewLocation: primaryInterviewLoc,
         preference1: app.preference1 || null,
         preference2: app.preference2 || null,
@@ -759,7 +765,7 @@ export default function GDInterviewPage() {
         time: mockMatch?.time || "14:30",
         course: app.program || mockMatch?.course || "PGDM 2026-28",
         selectionStatus: expectedStatus,
-        confirmedCampus: expectedCampus,
+        confirmedCampus: app.confirmedCampus || expectedCampus,
       };
     });
 
@@ -1325,31 +1331,31 @@ export default function GDInterviewPage() {
 
         {/* Desktop View Table */}
         <div className="hidden lg:block overflow-hidden rounded-[12px] border border-border bg-card shadow-[0_1px_3px_0_rgba(0,0,0,0.05),0_1px_2px_-1px_rgba(0,0,0,0.05)]">
-          <Table className="w-full" containerClassName="overflow-x-hidden">
+          <Table className="w-full" containerClassName="overflow-x-auto">
             <TableHeader className="bg-zinc-100 dark:bg-muted/5 border-b border-border/80">
               <TableRow className="hover:bg-transparent border-b border-border/80">
-                <TableHead className="py-4 px-5 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto whitespace-nowrap">
+                <TableHead className="py-4 px-4 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto whitespace-nowrap">
                   APPLICANT DETAIL
                 </TableHead>
-                <TableHead className="py-4 px-4 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto whitespace-nowrap">
+                <TableHead className="py-4 px-3 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto whitespace-nowrap">
                   APPLICATION NO.
                 </TableHead>
-                <TableHead className="py-4 px-4 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto whitespace-nowrap">
+                <TableHead className="py-4 px-3 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto whitespace-nowrap">
                   SHORTLIST STATUS
                 </TableHead>
-                <TableHead className="py-4 px-4 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto whitespace-nowrap">
+                <TableHead className="py-4 px-3 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto whitespace-nowrap">
                   PREFERENCES
                 </TableHead>
-                <TableHead className="py-4 px-5 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto whitespace-nowrap">
+                <TableHead className="py-4 px-3 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto whitespace-nowrap max-w-[130px]">
                   COURSE
                 </TableHead>
-                <TableHead className="py-4 px-4 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto whitespace-nowrap">
+                <TableHead className="py-4 px-3 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto whitespace-nowrap">
                   INTERVIEW STATUS
                 </TableHead>
-                <TableHead className="py-4 px-4 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto whitespace-nowrap">
+                <TableHead className="py-4 px-3 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto whitespace-nowrap">
                   DATE & TIME
                 </TableHead>
-                <TableHead className="py-4 px-3 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto text-right w-[60px] whitespace-nowrap">
+                <TableHead className="py-4 px-3 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto text-right w-[64px] min-w-[64px] whitespace-nowrap">
                   ACTION
                 </TableHead>
               </TableRow>
@@ -1379,7 +1385,7 @@ export default function GDInterviewPage() {
                     key={item.id}
                     className="border-b border-border/80 hover:bg-muted/15 dark:hover:bg-muted/5 transition-colors"
                   >
-                    <TableCell className="py-4.5 px-5 align-middle whitespace-nowrap">
+                    <TableCell className="py-4.5 px-4 align-middle whitespace-nowrap">
                       <div className="flex flex-col gap-0.5">
                         <Link href={`/organization/gd-interview/${encodeURIComponent(item.applicationNo)}`} className="font-semibold text-foreground hover:underline text-sm tracking-tight cursor-pointer">
                           {item.name}
@@ -1389,15 +1395,23 @@ export default function GDInterviewPage() {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="py-4.5 px-4 align-middle text-sm text-foreground/80 font-normal whitespace-nowrap">
+                    <TableCell className="py-4.5 px-3 align-middle text-sm text-foreground/80 font-normal whitespace-nowrap">
                       <Link href={`/organization/gd-interview/${encodeURIComponent(item.applicationNo)}`} className="text-foreground hover:underline font-medium cursor-pointer">
                         {item.applicationNo}
                       </Link>
                     </TableCell>
-                    <TableCell className="py-4.5 px-4 align-middle whitespace-nowrap">
+                    <TableCell className="py-4.5 px-3 align-middle whitespace-nowrap">
                       {(() => {
-                        const status = publishedMap[item.applicationNo] || item.shortlistStatus;
-                        if (status === "Selected") {
+                        const status = (
+                          publishedMap[item.applicationNo] ||
+                          item.shortlistStatus ||
+                          (item as any).waitlistStatus ||
+                          item.selectionStatus ||
+                          ""
+                        ).trim();
+                        const sLower = status.toLowerCase();
+
+                        if (sLower === "selected" || sLower === "accepted" || sLower === "admitted" || sLower === "offer made") {
                           return (
                             <Badge
                               variant="secondary"
@@ -1407,7 +1421,7 @@ export default function GDInterviewPage() {
                             </Badge>
                           );
                         }
-                        if (status === "Not Selected") {
+                        if (sLower === "not selected" || sLower === "rejected") {
                           return (
                             <Badge
                               variant="secondary"
@@ -1417,7 +1431,17 @@ export default function GDInterviewPage() {
                             </Badge>
                           );
                         }
-                        if (status === "Shortlisted" || status === "Eligible") {
+                        if (sLower.startsWith("wl") || sLower.includes("waitlist")) {
+                          return (
+                            <Badge
+                              variant="secondary"
+                              className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-medium text-xs px-2.5 py-0.5 rounded-full"
+                            >
+                              {status.toUpperCase().startsWith("WL") ? status : `WL: ${status}`}
+                            </Badge>
+                          );
+                        }
+                        if (sLower === "shortlisted" || sLower === "eligible") {
                           return (
                             <Badge
                               variant="secondary"
@@ -1427,7 +1451,7 @@ export default function GDInterviewPage() {
                             </Badge>
                           );
                         }
-                        if (status === "Review" || status === "Not Eligible") {
+                        if (sLower === "review" || sLower === "not eligible" || sLower === "under review" || sLower === "under_review") {
                           return (
                             <Badge
                               variant="secondary"
@@ -1440,17 +1464,17 @@ export default function GDInterviewPage() {
                         return <span className="text-xs text-muted-foreground font-normal">—</span>;
                       })()}
                     </TableCell>
-                    <TableCell className="py-4.5 px-4 align-middle whitespace-nowrap">
+                    <TableCell className="py-4.5 px-3 align-middle whitespace-nowrap">
                       {renderLocationPreferences(item)}
                     </TableCell>
 
-                    <TableCell className="py-4.5 px-5 align-middle text-sm text-foreground/80 font-normal whitespace-nowrap">
+                    <TableCell className="py-4.5 px-3 align-middle text-sm text-foreground/80 font-normal max-w-[130px] truncate" title={item.course}>
                       {item.course}
                     </TableCell>
-                    <TableCell className="py-4.5 px-4 align-middle whitespace-nowrap">
+                    <TableCell className="py-4.5 px-3 align-middle whitespace-nowrap">
                       <StatusBadge status={getInterviewStatus(item.applicationId, item.applicationNo)} />
                     </TableCell>
-                    <TableCell className="py-4.5 px-4 align-middle whitespace-nowrap">
+                    <TableCell className="py-4.5 px-3 align-middle whitespace-nowrap">
                       {(() => {
                         const sched = getInterviewSchedule(item.applicationId, item.date, item.time);
                         return sched.scheduled ? (
@@ -1467,7 +1491,7 @@ export default function GDInterviewPage() {
                         );
                       })()}
                     </TableCell>
-                    <TableCell className="py-4.5 px-3 align-middle text-right w-[60px]">
+                    <TableCell className="py-4.5 px-3 align-middle text-right w-[64px] min-w-[64px]">
                       <div className="flex justify-end">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -1639,8 +1663,16 @@ export default function GDInterviewPage() {
 
                     <div className="flex items-center gap-1.5 shrink-0 self-center">
                       {(() => {
-                        const status = publishedMap[item.applicationNo] || item.shortlistStatus;
-                        if (status === "Selected") {
+                        const status = (
+                          publishedMap[item.applicationNo] ||
+                          item.shortlistStatus ||
+                          (item as any).waitlistStatus ||
+                          item.selectionStatus ||
+                          ""
+                        ).trim();
+                        const sLower = status.toLowerCase();
+
+                        if (sLower === "selected" || sLower === "accepted" || sLower === "admitted" || sLower === "offer made") {
                           return (
                             <Badge
                               variant="secondary"
@@ -1650,7 +1682,7 @@ export default function GDInterviewPage() {
                             </Badge>
                           );
                         }
-                        if (status === "Not Selected") {
+                        if (sLower === "not selected" || sLower === "rejected") {
                           return (
                             <Badge
                               variant="secondary"
@@ -1660,7 +1692,17 @@ export default function GDInterviewPage() {
                             </Badge>
                           );
                         }
-                        if (status === "Shortlisted" || status === "Eligible") {
+                        if (sLower.startsWith("wl") || sLower.includes("waitlist")) {
+                          return (
+                            <Badge
+                              variant="secondary"
+                              className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-medium text-[11px] px-2 py-0.5 rounded-full"
+                            >
+                              {status.toUpperCase().startsWith("WL") ? status : `WL: ${status}`}
+                            </Badge>
+                          );
+                        }
+                        if (sLower === "shortlisted" || sLower === "eligible") {
                           return (
                             <Badge
                               variant="secondary"
@@ -1670,7 +1712,7 @@ export default function GDInterviewPage() {
                             </Badge>
                           );
                         }
-                        if (status === "Review" || status === "Not Eligible") {
+                        if (sLower === "review" || sLower === "not eligible" || sLower === "under review" || sLower === "under_review") {
                           return (
                             <Badge
                               variant="secondary"
