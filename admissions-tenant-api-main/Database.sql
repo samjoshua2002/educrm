@@ -1214,5 +1214,50 @@ CREATE INDEX IF NOT EXISTS idx_communication_logs_application_no ON communicatio
 
 
 -- ============================================================
+-- TABLE: announcement_events
+-- Records all organization announcements, circulars, and events
+-- with Cloudflare R2 poster/PDF attachments and broadcast channels.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS announcement_events (
+    id                      UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    organization_id         UUID REFERENCES organizations(id) ON DELETE CASCADE,
+    title                   VARCHAR(255) NOT NULL,
+    type                    VARCHAR(50) NOT NULL DEFAULT 'announcement',
+    category                VARCHAR(100) NOT NULL DEFAULT 'General Notice',
+    priority                VARCHAR(50) NOT NULL DEFAULT 'Medium',
+    status                  VARCHAR(50) NOT NULL DEFAULT 'Published',
+    target_audience         JSONB NOT NULL DEFAULT '[]',
+    target_course_id        VARCHAR(100),
+    target_lead_stages      JSONB NOT NULL DEFAULT '[]',
+    event_start_date        VARCHAR(50),
+    event_end_date          VARCHAR(50),
+    event_start_time        VARCHAR(50),
+    event_end_time          VARCHAR(50),
+    venue_type              VARCHAR(50) NOT NULL DEFAULT 'in_person',
+    venue_location          TEXT,
+    scheduled_publish_date  VARCHAR(50),
+    scheduled_publish_time  VARCHAR(50),
+    description             TEXT,
+    poster_url              TEXT,
+    attachment_url          TEXT,
+    attachment_name         VARCHAR(255),
+    attachment_type         VARCHAR(50) NOT NULL DEFAULT 'other',
+    send_in_app_notification BOOLEAN NOT NULL DEFAULT TRUE,
+    send_email_broadcast    BOOLEAN NOT NULL DEFAULT FALSE,
+    send_whatsapp           BOOLEAN NOT NULL DEFAULT FALSE,
+    email_template_id       VARCHAR(100),
+    created_by_id           UUID,
+    created_by_name         VARCHAR(150),
+    created_at              TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at              TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_announcement_events_org ON announcement_events (organization_id);
+CREATE INDEX IF NOT EXISTS idx_announcement_events_status ON announcement_events (status);
+CREATE INDEX IF NOT EXISTS idx_announcement_events_type ON announcement_events (type);
+
+
+-- ============================================================
 -- END OF SCHEMA
 -- ============================================================
+

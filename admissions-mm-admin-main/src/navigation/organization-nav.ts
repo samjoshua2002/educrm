@@ -12,6 +12,7 @@ import {
   Settings,
   Gavel,
   Mail,
+  Megaphone,
 } from "lucide-react";
 import { LeadManagerIcon } from "@/components/icons/lead-manager-icon";
 import { ApplicationsIcon } from "@/components/icons/applications-icon";
@@ -72,9 +73,9 @@ export const organizationNavItems: NavGroup[] = [
         icon: PaymentsIcon,
       },
       {
-        title: "Events",
+        title: "Announcements & Events",
         url: "/organization/events",
-        icon: Calendar,
+        icon: Megaphone,
       },
     ],
   },

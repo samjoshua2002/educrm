@@ -22,6 +22,7 @@ import { EmailTemplatesModule } from './modules/email-templates/email-templates.
 import { EmailTemplateCategoriesModule } from './modules/email-template-categories/email-template-categories.module.js';
 import { OrganizationSettingsModule } from './modules/organization-settings/organization-settings.module.js';
 import { CommunicationsModule } from './modules/communications/communications.module.js';
+import { EventsModule } from './modules/events/events.module.js';
 
 @Module({
   imports: [
@@ -70,6 +71,7 @@ import { CommunicationsModule } from './modules/communications/communications.mo
     EmailTemplateCategoriesModule,
     OrganizationSettingsModule,
     CommunicationsModule,
+    EventsModule,
   ],
   providers: [
     {
