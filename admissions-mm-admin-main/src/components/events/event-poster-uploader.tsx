@@ -33,17 +33,36 @@ export function EventPosterUploader({
   onChange,
 }: EventPosterUploaderProps) {
   const [isUploading, setIsUploading] = React.useState(false);
+  const [localPreview, setLocalPreview] = React.useState<string | null>(null);
+  const [imageError, setImageError] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  const currentPreview = posterUrl || (attachmentType === "image" ? attachmentUrl : undefined);
+  const displayPreview = localPreview || (!imageError ? posterUrl || (attachmentType === "image" ? attachmentUrl : undefined) : undefined);
   const isPdf = attachmentType === "pdf" || attachmentName?.toLowerCase().endsWith(".pdf") || attachmentUrl?.toLowerCase().includes(".pdf");
+
+  React.useEffect(() => {
+    setImageError(false);
+  }, [posterUrl, attachmentUrl]);
 
   async function handleFile(file: File) {
     if (!file) return;
 
     const isImageFile = file.type.startsWith("image/");
     const isPdfFile = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
-    const localUrl = URL.createObjectURL(file);
+
+    // Local instant preview via FileReader
+    if (isImageFile) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (typeof reader.result === "string") {
+          setLocalPreview(reader.result);
+          setImageError(false);
+        }
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setLocalPreview(null);
+    }
 
     try {
       setIsUploading(true);
@@ -58,40 +77,31 @@ export function EventPosterUploader({
 
       const data = await res.json();
 
-      if (data.url || data.signedUrl || data.publicUrl) {
-        const finalUrl = data.publicUrl || data.signedUrl || data.url;
-        onChange({
-          posterUrl: isImageFile ? finalUrl : undefined,
-          attachmentUrl: finalUrl,
-          attachmentName: file.name,
-          attachmentType: isImageFile ? "image" : isPdfFile ? "pdf" : "other",
-        });
-
-        toast.success(`Uploaded ${file.name} to R2 storage!`);
-      } else {
-        onChange({
-          posterUrl: isImageFile ? localUrl : undefined,
-          attachmentUrl: localUrl,
-          attachmentName: file.name,
-          attachmentType: isImageFile ? "image" : isPdfFile ? "pdf" : "other",
-        });
-        toast.info(`Attachment ready: ${file.name}`);
+      if (!res.ok || !data.url) {
+        throw new Error(data.error || "Upload failed");
       }
-    } catch (err: any) {
-      console.error("Upload error:", err);
+
+      // Exact match with applications/new: use data.url
+      const finalUrl = data.url as string;
       onChange({
-        posterUrl: isImageFile ? localUrl : undefined,
-        attachmentUrl: localUrl,
+        posterUrl: isImageFile ? finalUrl : undefined,
+        attachmentUrl: finalUrl,
         attachmentName: file.name,
         attachmentType: isImageFile ? "image" : isPdfFile ? "pdf" : "other",
       });
-      toast.info(`Attachment ready: ${file.name}`);
+
+      toast.success(`Uploaded ${file.name} to R2 Cloud!`);
+    } catch (err: any) {
+      console.error("Upload error:", err);
+      toast.error(`Upload failed: ${err.message || "Could not upload file to storage"}`);
     } finally {
       setIsUploading(false);
     }
   }
 
   function handleClear() {
+    setLocalPreview(null);
+    setImageError(false);
     onChange({
       posterUrl: "",
       attachmentUrl: "",
@@ -119,20 +129,21 @@ export function EventPosterUploader({
         }}
       />
 
-      {Boolean(currentPreview || attachmentUrl) ? (
+      {Boolean(displayPreview || attachmentUrl || localPreview) ? (
         <div className="flex items-center justify-between p-2.5 rounded-[8px] border border-input bg-muted/20 gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            {currentPreview ? (
+            {displayPreview ? (
               <a
-                href={currentPreview}
+                href={attachmentUrl || posterUrl || displayPreview}
                 target="_blank"
                 rel="noreferrer"
                 className="relative size-10 rounded-[6px] overflow-hidden border border-border shrink-0 bg-muted/40 hover:opacity-85 transition-opacity"
                 title="View full poster"
               >
                 <img
-                  src={currentPreview}
-                  alt="Poster preview"
+                  src={displayPreview}
+                  alt=""
+                  onError={() => setImageError(true)}
                   className="w-full h-full object-cover"
                 />
               </a>

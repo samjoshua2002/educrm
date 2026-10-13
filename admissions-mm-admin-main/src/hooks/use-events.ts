@@ -29,13 +29,49 @@ export function useEvents(filters?: {
       try {
         const url = orgId ? `/organizations/${orgId}/events` : "/events";
         const res = await apiGet<any>(url, filters);
-        if (res && Array.isArray(res.data)) {
-          return res.data as AnnouncementEventItem[];
-        }
+        
+        let list: any[] = [];
         if (Array.isArray(res)) {
-          return res as AnnouncementEventItem[];
+          list = res;
+        } else if (res && Array.isArray(res.data)) {
+          list = res.data;
+        } else if (res && Array.isArray(res.items)) {
+          list = res.items;
         }
-        return [] as AnnouncementEventItem[];
+
+        return list.map((item: any): AnnouncementEventItem => ({
+          id: item.id,
+          organizationId: item.organizationId || item.organization_id,
+          title: item.title,
+          type: item.type || "announcement",
+          category: item.category || "General Notice",
+          priority: item.priority || "Medium",
+          status: item.status || "Published",
+          targetAudience: Array.isArray(item.targetAudience) ? item.targetAudience : (Array.isArray(item.target_audience) ? item.target_audience : []),
+          targetLeadStages: Array.isArray(item.targetLeadStages) ? item.targetLeadStages : (Array.isArray(item.target_lead_stages) ? item.target_lead_stages : []),
+          targetCourseId: item.targetCourseId || item.target_course_id,
+          targetCourseName: item.targetCourseName || item.target_course_name,
+          eventStartDate: item.eventStartDate || item.event_start_date,
+          eventEndDate: item.eventEndDate || item.event_end_date,
+          eventStartTime: item.eventStartTime || item.event_start_time,
+          eventEndTime: item.eventEndTime || item.event_end_time,
+          venueType: item.venueType || item.venue_type || "in_person",
+          venueLocation: item.venueLocation || item.venue_location,
+          scheduledPublishDate: item.scheduledPublishDate || item.scheduled_publish_date,
+          scheduledPublishTime: item.scheduledPublishTime || item.scheduled_publish_time,
+          description: item.description,
+          posterUrl: item.posterUrl || item.poster_url,
+          attachmentUrl: item.attachmentUrl || item.attachment_url,
+          attachmentName: item.attachmentName || item.attachment_name,
+          attachmentType: item.attachmentType || item.attachment_type || "other",
+          sendInAppNotification: item.sendInAppNotification ?? item.send_in_app_notification ?? true,
+          sendEmailBroadcast: item.sendEmailBroadcast ?? item.send_email_broadcast ?? false,
+          sendWhatsapp: item.sendWhatsapp ?? item.send_whatsapp ?? false,
+          emailTemplateId: item.emailTemplateId || item.email_template_id,
+          createdByName: item.createdByName || item.created_by_name || "Admissions Team",
+          createdAt: item.createdAt || item.created_at || new Date().toISOString(),
+          updatedAt: item.updatedAt || item.updated_at || new Date().toISOString(),
+        }));
       } catch (err) {
         console.error("Failed to fetch events from DB:", err);
         return [] as AnnouncementEventItem[];
@@ -59,8 +95,41 @@ export function useEvent(id: string) {
           ? `/organizations/${orgId}/events/${encodeURIComponent(id)}`
           : `/events/${encodeURIComponent(id)}`;
         const res = await apiGet<any>(url);
-        if (res && (res.id || res.data?.id)) {
-          return (res.data || res) as AnnouncementEventItem;
+        const raw = res?.data || res;
+        if (raw && (raw.id || raw.title)) {
+          return {
+            id: raw.id,
+            organizationId: raw.organizationId || raw.organization_id,
+            title: raw.title,
+            type: raw.type || "announcement",
+            category: raw.category || "General Notice",
+            priority: raw.priority || "Medium",
+            status: raw.status || "Published",
+            targetAudience: Array.isArray(raw.targetAudience) ? raw.targetAudience : (Array.isArray(raw.target_audience) ? raw.target_audience : []),
+            targetLeadStages: Array.isArray(raw.targetLeadStages) ? raw.targetLeadStages : (Array.isArray(raw.target_lead_stages) ? raw.target_lead_stages : []),
+            targetCourseId: raw.targetCourseId || raw.target_course_id,
+            targetCourseName: raw.targetCourseName || raw.target_course_name,
+            eventStartDate: raw.eventStartDate || raw.event_start_date,
+            eventEndDate: raw.eventEndDate || raw.event_end_date,
+            eventStartTime: raw.eventStartTime || raw.event_start_time,
+            eventEndTime: raw.eventEndTime || raw.event_end_time,
+            venueType: raw.venueType || raw.venue_type || "in_person",
+            venueLocation: raw.venueLocation || raw.venue_location,
+            scheduledPublishDate: raw.scheduledPublishDate || raw.scheduled_publish_date,
+            scheduledPublishTime: raw.scheduledPublishTime || raw.scheduled_publish_time,
+            description: raw.description,
+            posterUrl: raw.posterUrl || raw.poster_url,
+            attachmentUrl: raw.attachmentUrl || raw.attachment_url,
+            attachmentName: raw.attachmentName || raw.attachment_name,
+            attachmentType: raw.attachmentType || raw.attachment_type || "other",
+            sendInAppNotification: raw.sendInAppNotification ?? raw.send_in_app_notification ?? true,
+            sendEmailBroadcast: raw.sendEmailBroadcast ?? raw.send_email_broadcast ?? false,
+            sendWhatsapp: raw.sendWhatsapp ?? raw.send_whatsapp ?? false,
+            emailTemplateId: raw.emailTemplateId || raw.email_template_id,
+            createdByName: raw.createdByName || raw.created_by_name || "Admissions Team",
+            createdAt: raw.createdAt || raw.created_at || new Date().toISOString(),
+            updatedAt: raw.updatedAt || raw.updated_at || new Date().toISOString(),
+          } as AnnouncementEventItem;
         }
       } catch (err) {
         console.error(`Failed to fetch event ${id} from DB:`, err);

@@ -687,7 +687,7 @@ export default function AnnouncementsEventsPage() {
                       {events.length === 0 && (
                         <Link href="/organization/events/create" className="mt-1">
                           <Button size="sm" className="bg-primary text-primary-foreground gap-1.5 h-8 text-xs cursor-pointer">
-                            <Plus className="size-3.5" /> Create Announcement / Event
+                            <Plus className="size-3.5" /> Create
                           </Button>
                         </Link>
                       )}

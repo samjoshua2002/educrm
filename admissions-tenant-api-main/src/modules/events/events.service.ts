@@ -18,14 +18,13 @@ export class EventsService {
     userId?: string,
     userName?: string,
   ): Promise<AnnouncementEvent> {
-    const item = this.repo.create({
-      ...dto,
-      organizationId: orgId,
-      createdById: userId || null,
-      createdByName: userName || 'Admissions Team',
-      targetAudience: dto.targetAudience || ['student', 'lead'],
-      targetLeadStages: dto.targetLeadStages || [],
-    });
+    const { targetCourseName, publishMode, ...cleanDto } = dto as any;
+    const item = this.repo.create(cleanDto as Partial<AnnouncementEvent>);
+    item.organizationId = orgId;
+    item.createdById = userId || null;
+    item.createdByName = dto.createdByName || userName || 'Admissions Team';
+    item.targetAudience = dto.targetAudience || ['student', 'lead'];
+    item.targetLeadStages = dto.targetLeadStages || [];
     return this.repo.save(item);
   }
 
@@ -115,7 +114,8 @@ export class EventsService {
     dto: UpdateEventDto,
   ): Promise<AnnouncementEvent> {
     const item = await this.findOne(id, orgId);
-    Object.assign(item, dto);
+    const { targetCourseName, publishMode, ...cleanDto } = dto as any;
+    Object.assign(item, cleanDto);
     return this.repo.save(item);
   }
 

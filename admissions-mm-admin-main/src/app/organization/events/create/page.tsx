@@ -391,13 +391,19 @@ export default function CreateAnnouncementEventPage() {
                     >
                       Start Date
                     </Label>
-                    <Input
-                      id="startDate"
-                      type="date"
-                      value={form.eventStartDate}
-                      onChange={(e) => setField("eventStartDate", e.target.value)}
-                      className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground"
-                    />
+                    <div className="relative">
+                      <Input
+                        id="startDate"
+                        type="date"
+                        value={form.eventStartDate}
+                        onChange={(e) => setField("eventStartDate", e.target.value)}
+                        onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
+                        className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground pr-10 cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-10 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:z-10"
+                      />
+                      <span className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-muted-foreground">
+                        <Calendar className="size-4 text-muted-foreground" />
+                      </span>
+                    </div>
                   </div>
 
                   <div className="flex flex-col gap-2">
@@ -407,13 +413,19 @@ export default function CreateAnnouncementEventPage() {
                     >
                       End Date (Optional)
                     </Label>
-                    <Input
-                      id="endDate"
-                      type="date"
-                      value={form.eventEndDate}
-                      onChange={(e) => setField("eventEndDate", e.target.value)}
-                      className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground"
-                    />
+                    <div className="relative">
+                      <Input
+                        id="endDate"
+                        type="date"
+                        value={form.eventEndDate}
+                        onChange={(e) => setField("eventEndDate", e.target.value)}
+                        onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
+                        className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground pr-10 cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-10 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:z-10"
+                      />
+                      <span className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-muted-foreground">
+                        <Calendar className="size-4 text-muted-foreground" />
+                      </span>
+                    </div>
                   </div>
 
                   <div className="flex flex-col gap-2">
@@ -423,13 +435,19 @@ export default function CreateAnnouncementEventPage() {
                     >
                       Start Time
                     </Label>
-                    <Input
-                      id="startTime"
-                      type="time"
-                      value={form.eventStartTime}
-                      onChange={(e) => setField("eventStartTime", e.target.value)}
-                      className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground"
-                    />
+                    <div className="relative">
+                      <Input
+                        id="startTime"
+                        type="time"
+                        value={form.eventStartTime}
+                        onChange={(e) => setField("eventStartTime", e.target.value)}
+                        onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
+                        className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground pr-10 cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-10 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:z-10"
+                      />
+                      <span className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-muted-foreground">
+                        <Clock className="size-4 text-muted-foreground" />
+                      </span>
+                    </div>
                   </div>
 
                   <div className="flex flex-col gap-2">
@@ -439,13 +457,19 @@ export default function CreateAnnouncementEventPage() {
                     >
                       End Time
                     </Label>
-                    <Input
-                      id="endTime"
-                      type="time"
-                      value={form.eventEndTime}
-                      onChange={(e) => setField("eventEndTime", e.target.value)}
-                      className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground"
-                    />
+                    <div className="relative">
+                      <Input
+                        id="endTime"
+                        type="time"
+                        value={form.eventEndTime}
+                        onChange={(e) => setField("eventEndTime", e.target.value)}
+                        onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
+                        className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground pr-10 cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-10 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:z-10"
+                      />
+                      <span className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-muted-foreground">
+                        <Clock className="size-4 text-muted-foreground" />
+                      </span>
+                    </div>
                   </div>
 
                   <div className="flex flex-col gap-2">
@@ -645,23 +669,35 @@ export default function CreateAnnouncementEventPage() {
                       <Label className="text-[11px] font-semibold text-muted-foreground uppercase">
                         Scheduled Release Date
                       </Label>
-                      <Input
-                        type="date"
-                        value={form.scheduledPublishDate}
-                        onChange={(e) => setField("scheduledPublishDate", e.target.value)}
-                        className="border border-input h-[38px] rounded-[8px] text-[12px]"
-                      />
+                      <div className="relative">
+                        <Input
+                          type="date"
+                          value={form.scheduledPublishDate}
+                          onChange={(e) => setField("scheduledPublishDate", e.target.value)}
+                          onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
+                          className="border border-input h-[38px] rounded-[8px] text-[12px] pr-9 cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-9 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:z-10"
+                        />
+                        <span className="absolute inset-y-0 right-2.5 flex items-center pointer-events-none text-muted-foreground">
+                          <Calendar className="size-3.5 text-muted-foreground" />
+                        </span>
+                      </div>
                     </div>
                     <div className="flex flex-col gap-1.5">
                       <Label className="text-[11px] font-semibold text-muted-foreground uppercase">
                         Scheduled Release Time
                       </Label>
-                      <Input
-                        type="time"
-                        value={form.scheduledPublishTime}
-                        onChange={(e) => setField("scheduledPublishTime", e.target.value)}
-                        className="border border-input h-[38px] rounded-[8px] text-[12px]"
-                      />
+                      <div className="relative">
+                        <Input
+                          type="time"
+                          value={form.scheduledPublishTime}
+                          onChange={(e) => setField("scheduledPublishTime", e.target.value)}
+                          onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
+                          className="border border-input h-[38px] rounded-[8px] text-[12px] pr-9 cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-0 [&::-webkit-calendar-picker-indicator]:w-9 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:z-10"
+                        />
+                        <span className="absolute inset-y-0 right-2.5 flex items-center pointer-events-none text-muted-foreground">
+                          <Clock className="size-3.5 text-muted-foreground" />
+                        </span>
+                      </div>
                     </div>
                   </div>
                 )}

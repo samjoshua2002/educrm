@@ -28,6 +28,7 @@ export type VenueType = "in_person" | "virtual" | "hybrid";
 
 export interface AnnouncementEventItem {
   id: string;
+  organizationId?: string;
   title: string;
   type: EventType;
   category: EventCategory;

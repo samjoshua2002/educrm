@@ -108,4 +108,16 @@ export class CreateEventDto {
   @IsOptional()
   @IsString()
   emailTemplateId?: string;
+
+  @IsOptional()
+  @IsString()
+  targetCourseName?: string;
+
+  @IsOptional()
+  @IsString()
+  createdByName?: string;
+
+  @IsOptional()
+  @IsString()
+  publishMode?: string;
 }
