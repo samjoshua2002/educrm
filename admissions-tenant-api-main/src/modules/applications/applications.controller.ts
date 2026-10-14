@@ -76,7 +76,12 @@ export class ApplicationsController {
     const email = req.user.email;
     const orgId = req.user.organizationId;
     const application = await this.applicationsService.findActiveByEmail(email, orgId);
-    if (req.user.role === Role.STUDENT && (application?.shortlistStatus === 'Review' || application?.shortlistStatus === 'Not Eligible')) {
+    if (
+      req.user.role === Role.STUDENT &&
+      application?.formStatus !== 'draft' &&
+      application?.formStatus !== 'incomplete' &&
+      (application?.shortlistStatus === 'Review' || application?.shortlistStatus === 'Not Eligible')
+    ) {
       return { ...application, shortlistStatus: 'Shortlisted' };
     }
     return application;
@@ -93,7 +98,12 @@ export class ApplicationsController {
     if (req.user.role === Role.STUDENT && application.email !== req.user.email) {
       throw new ForbiddenException('You are not authorized to view this application');
     }
-    if (req.user.role === Role.STUDENT && (application?.shortlistStatus === 'Review' || application?.shortlistStatus === 'Not Eligible')) {
+    if (
+      req.user.role === Role.STUDENT &&
+      application?.formStatus !== 'draft' &&
+      application?.formStatus !== 'incomplete' &&
+      (application?.shortlistStatus === 'Review' || application?.shortlistStatus === 'Not Eligible')
+    ) {
       return { ...application, shortlistStatus: 'Shortlisted' };
     }
     return application;

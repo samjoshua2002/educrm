@@ -20,6 +20,7 @@ export interface ApplicationDetail {
   id?: string;
   applicationNo: string;
   status: string;
+  paymentStatus?: string;
   shortlistStatus?: string | null;
   verificationStatus?: string;
   interviewStatus?: string | null;
@@ -230,6 +231,7 @@ function mapApiToApplicationDetail(apiData: any): ApplicationDetail {
     id: apiData.id,
     applicationNo: apiData.applicationNo,
     status: apiData.formStatus,
+    paymentStatus: apiData.paymentStatus,
     shortlistStatus: apiData.shortlistStatus ?? null,
     verificationStatus: apiData.verificationStatus || "pending",
     interviewStatus: apiData.interviewStatus ?? null,

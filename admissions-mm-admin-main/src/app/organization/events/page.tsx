@@ -176,7 +176,7 @@ export default function AnnouncementsEventsPage() {
     description:
       "Publish notices, schedule webinars, exams, and campus events for students, staff, and leads.",
     action: {
-      label: "Create Announcement / Event",
+      label: "Create",
       href: "/organization/events/create",
     },
   });

@@ -396,7 +396,15 @@ export default function MyApplicationPage() {
     );
   }
 
-  if (isStudent && activeApp) {
+  const isSubmittedApp =
+    isStudent &&
+    Boolean(activeApp) &&
+    activeApp?.status?.toLowerCase() !== "draft" &&
+    activeApp?.status?.toLowerCase() !== "incomplete" &&
+    activeApp?.paymentStatus?.toLowerCase() !== "pending" &&
+    activeApp?.paymentStatus?.toLowerCase() !== "failed";
+
+  if (isSubmittedApp) {
     return <ApplicationDetailsPage />;
   }
 

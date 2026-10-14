@@ -365,6 +365,7 @@ export class ApplicationsService {
     const whereCondition: any = {
       email: ILike(trimmedEmail),
       formStatus: Not(In(['draft', 'incomplete'])),
+      paymentStatus: In(['success', 'paid']),
     };
     if (orgId) {
       whereCondition.organizationId = orgId;
@@ -390,25 +391,8 @@ export class ApplicationsService {
         where: {
           email: ILike(trimmedEmail),
           formStatus: Not(In(['draft', 'incomplete'])),
+          paymentStatus: In(['success', 'paid']),
         },
-        relations: [
-          'student',
-          'educationRecords',
-          'entranceTests',
-          'workExperienceRecords',
-          'parentRecords',
-          'addressRecords',
-          'extraCurricularRecords',
-          'otherQualificationRecords',
-        ],
-        order: { createdAt: 'DESC' },
-      });
-    }
-
-    // Fallback: if no non-draft application found, find ANY application for this email
-    if (!app) {
-      app = await this.applicationRepository.findOne({
-        where: orgId ? { email: ILike(trimmedEmail), organizationId: orgId } : { email: ILike(trimmedEmail) },
         relations: [
           'student',
           'educationRecords',
@@ -724,34 +708,6 @@ export class ApplicationsService {
       }
 
       await queryRunner.commitTransaction();
-
-      // Trigger Application Received email and communication log
-      try {
-        await this.mailerService.sendMail({
-          to: savedApp.email,
-          subject: `Application Submitted Successfully — ${savedApp.applicationNo}`,
-          html: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #1f2937;">
-            <h2 style="color: #111827;">Application Received</h2>
-            <p>Dear ${savedApp.name || 'Applicant'},</p>
-            <p>Thank you for submitting your application <strong>${savedApp.applicationNo}</strong> for ${savedApp.program || 'Admissions 2026'}.</p>
-            <p>Your application is currently under review by our admissions team.</p>
-          </div>`,
-          organizationId: orgId,
-        });
-        await this.dataSource.getRepository(CommunicationLog).save({
-          organizationId: orgId,
-          applicationNo: savedApp.applicationNo,
-          applicantName: savedApp.name,
-          recipientEmail: savedApp.email,
-          recipientPhone: savedApp.primaryMobile,
-          channel: 'Email',
-          category: 'Application Received',
-          subject: `Application Submitted Successfully — ${savedApp.applicationNo}`,
-          content: `Thank you for submitting your application ${savedApp.applicationNo}. Your application is currently under review.`,
-          sender: 'Admissions Office',
-          status: 'Sent',
-        });
-      } catch (e) {}
 
       return savedApp;
     } catch (err) {

@@ -280,12 +280,19 @@ export default function ApplicationDetailsPage() {
               applicationData.shortlistStatus === "Review" ||
               applicationData.shortlistStatus === "Not Eligible";
 
-            // For students, never show "Review" status — show "Shortlisted" instead.
-            // For staff / everyone else, show "Review".
-            const isShortlisted = isStudent ? (rawShortlisted || rawReview) : rawShortlisted;
-            const isReview = !isStudent && rawReview;
+            const isDraft =
+              applicationData.status?.toLowerCase() === "draft" ||
+              applicationData.status?.toLowerCase() === "incomplete" ||
+              applicationData.paymentStatus?.toLowerCase() === "pending";
 
-            const displayStatus = isShortlisted
+            // For students, never show "Review" status — show "Shortlisted" instead (unless draft).
+            // For staff / everyone else, show "Review".
+            const isShortlisted = !isDraft && (isStudent ? (rawShortlisted || rawReview) : rawShortlisted);
+            const isReview = !isDraft && (!isStudent && rawReview);
+
+            const displayStatus = isDraft
+              ? "Draft (Pending Payment)"
+              : isShortlisted
               ? "Shortlisted"
               : isReview
               ? "Review"
@@ -295,7 +302,9 @@ export default function ApplicationDetailsPage() {
               ? "Rejected"
               : applicationData.status || "Submitted";
 
-            const statusBg = isShortlisted
+            const statusBg = isDraft
+              ? "#FEF3C7"
+              : isShortlisted
               ? "rgba(37, 99, 235, 0.1)"
               : isReview
               ? "rgba(245, 158, 11, 0.15)"
@@ -305,7 +314,9 @@ export default function ApplicationDetailsPage() {
               ? "rgb(254 226 226)"
               : "#EFF6FF";
 
-            const statusColor = isShortlisted
+            const statusColor = isDraft
+              ? "#92400E"
+              : isShortlisted
               ? "#1D4ED8"
               : isReview
               ? "#B45309"
