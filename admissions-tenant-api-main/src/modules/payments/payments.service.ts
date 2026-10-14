@@ -1000,7 +1000,7 @@ export class PaymentsService {
     if (from) qb.andWhere('po.created_at >= :from', { from });
     if (to) qb.andWhere('po.created_at <= :to', { to });
     if (dto.gateway) qb.andWhere('po.gateway = :gateway', { gateway: dto.gateway });
-    const orders = await qb.orderBy('po.created_at', 'DESC').take(500).getMany();
+    const orders = await qb.orderBy('po.createdAt', 'DESC').take(500).getMany();
 
     let matched = 0;
     let unmatched = 0;

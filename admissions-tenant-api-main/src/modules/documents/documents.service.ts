@@ -334,7 +334,7 @@ export class DocumentsService {
       });
     }
     const [rows, total] = await qb
-      .orderBy('d.upload_date', 'DESC')
+      .orderBy('d.uploadDate', 'DESC')
       .skip((page - 1) * limit)
       .take(limit)
       .getManyAndCount();

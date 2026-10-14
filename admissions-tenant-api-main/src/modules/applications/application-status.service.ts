@@ -625,7 +625,7 @@ export class ApplicationStatusService {
     }
 
     const [rows, total] = await qb
-      .orderBy('app.updated_at', 'DESC')
+      .orderBy('app.updatedAt', 'DESC')
       .skip((page - 1) * limit)
       .take(limit)
       .getManyAndCount();

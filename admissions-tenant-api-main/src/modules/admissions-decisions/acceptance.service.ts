@@ -330,14 +330,14 @@ export class AcceptanceService {
     const rows = await this.acceptanceRepository
       .createQueryBuilder('a')
       .innerJoin('a.offerLetter', 'o')
-      .select(['a.id'])
+      .select(['a.id', 'a.updatedAt'])
       .where('a.fee_payment_status IN (:...paid)', { paid: ['paid', 'waived'] })
       .andWhere('a.acceptance_status IN (:...st)', { st: [AcceptanceStatus.PENDING, AcceptanceStatus.ACCEPTED] })
       .andWhere("a.enrollment_status != 'confirmed'")
       .andWhere("NOT (a.fee_payment_status = 'waived' AND a.acceptance_status = :pending)", { pending: AcceptanceStatus.PENDING })
       .andWhere("o.offer_status = 'sent'")
-      .orderBy('a.updated_at', 'ASC')
-      .take(BATCH_SIZE)
+      .orderBy('a.updatedAt', 'ASC')
+      .limit(BATCH_SIZE)
       .getMany();
     for (const r of rows) {
       try {

@@ -526,7 +526,7 @@ export class RemindersService {
     if (q.state === 'open') qb.andWhere('r.is_closed = false');
     if (q.state === 'closed') qb.andWhere('r.is_closed = true');
     if (q.search) qb.andWhere('(app.name ILIKE :s OR app.application_no ILIKE :s)', { s: `%${q.search}%` });
-    const [rows, total] = await qb.orderBy('r.updated_at', 'DESC').skip((page - 1) * limit).take(limit).getManyAndCount();
+    const [rows, total] = await qb.orderBy('r.updatedAt', 'DESC').skip((page - 1) * limit).take(limit).getManyAndCount();
 
     const stats = await this.reminderRepo
       .createQueryBuilder('r')

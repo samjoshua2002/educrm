@@ -32,6 +32,7 @@ import { DocumentsModule } from './modules/documents/documents.module.js';
 import { RemindersModule } from './modules/reminders/reminders.module.js';
 import { EmailCampaignsModule } from './modules/email-campaigns/email-campaigns.module.js';
 import { CallsModule } from './modules/calls/calls.module.js';
+import { AnalyticsModule } from './modules/analytics/analytics.module.js';
 
 @Module({
   imports: [
@@ -92,6 +93,7 @@ import { CallsModule } from './modules/calls/calls.module.js';
     RemindersModule,
     EmailCampaignsModule,
     CallsModule,
+    AnalyticsModule,
   ],
   providers: [
     {

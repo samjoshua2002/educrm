@@ -245,15 +245,17 @@ export class ApplicationsController {
    * so redirect gateways (Stripe / PayU / Paytm) never need the plaintext kept in the browser.
    */
   @Patch(':applicationNo/account-password')
-  @Roles(Role.STUDENT)
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.APPLICATION_MANAGER, Role.COUNSELOR, Role.STUDENT)
   async setAccountPassword(
     @Req() req: any,
     @Param('applicationNo') appNo: string,
     @Body() dto: SubmitApplicationDto,
   ) {
-    const app = await this.applicationsService.findOne(appNo, req.user.organizationId);
-    if (app.email !== req.user.email) {
-      throw new ForbiddenException('You are not authorized to update this application');
+    if (req.user.role === Role.STUDENT) {
+      const app = await this.applicationsService.findOne(appNo, req.user.organizationId);
+      if (app.email !== req.user.email) {
+        throw new ForbiddenException('You are not authorized to update this application');
+      }
     }
     return this.applicationsService.setAccountPassword(appNo, req.user.organizationId, dto?.password);
   }
