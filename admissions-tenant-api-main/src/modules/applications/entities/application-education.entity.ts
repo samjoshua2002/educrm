@@ -26,7 +26,7 @@ export class ApplicationEducation {
   @JoinColumn({ name: 'application_id' })
   application: Application;
 
-  @Column({ type: 'enum', enum: EducationLevel })
+  @Column({ length: 50 })
   level: EducationLevel;
 
   @Column({ name: 'degree_name', nullable: true })
