@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, IsNull, Repository } from 'typeorm';
 import { User } from '../users/entities/user.entity.js';
 import { Lead, LeadStatus } from './entities/lead.entity.js';
 import { Role } from '../../common/enums/roles.enum.js';
@@ -25,6 +25,9 @@ const ROLE_LABEL: Record<string, string> = {
   counselor: 'counselors',
   org_admin: 'organization admins',
 };
+
+/** Same roles LeadsService.assertAssignable accepts for a lead owner. */
+const ASSIGNABLE_ROLES = [Role.COUNSELOR, Role.LEAD_MANAGER, Role.ORG_ADMIN];
 
 const OPEN_STATUSES_EXCLUDED = [
   LeadStatus.CLOSED,
@@ -139,9 +142,11 @@ export class LeadAssignmentService {
 
   private async validateAssignees(orgId: string, ids?: string[]) {
     if (!ids || ids.length === 0) return;
-    const users = await this.userRepository.find({ where: { id: In(ids), organizationId: orgId } });
+    const users = await this.userRepository.find({
+      where: { id: In(ids), organizationId: orgId, role: In(ASSIGNABLE_ROLES) },
+    });
     if (users.length !== new Set(ids).size) {
-      throw new BadRequestException('All assignees must be users of this organization');
+      throw new BadRequestException('All assignees must be counselors, lead managers or admins of this organization');
     }
   }
 
@@ -207,7 +212,7 @@ export class LeadAssignmentService {
   private async poolFor(orgId: string, assigneeIds: string[] | null | undefined, role: string | null | undefined) {
     if (assigneeIds && assigneeIds.length > 0) {
       const users = await this.userRepository.find({
-        where: { id: In(assigneeIds), organizationId: orgId, isActive: true },
+        where: { id: In(assigneeIds), organizationId: orgId, isActive: true, role: In(ASSIGNABLE_ROLES) },
       });
       // keep the configured order for a stable round robin
       return assigneeIds.map((id) => users.find((u) => u.id === id)).filter(Boolean) as User[];
@@ -253,8 +258,21 @@ export class LeadAssignmentService {
       if (!this.ruleMatches(rule, lead)) continue;
       const pool = await this.poolFor(orgId, rule.assigneeIds, rule.assigneeRole);
       if (pool.length === 0) continue;
-      const user = await this.pick(pool, rule.distribution, rule.lastAssignedUserId, orgId);
-      await this.ruleRepository.update(rule.id, { lastAssignedUserId: user.id });
+      // Advance the round-robin cursor only if nobody moved it meanwhile; otherwise
+      // two leads routed at the same time would both go to the same person.
+      let cursor = rule.lastAssignedUserId ?? null;
+      let user = await this.pick(pool, rule.distribution, cursor, orgId);
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const res = await this.ruleRepository.update(
+          { id: rule.id, lastAssignedUserId: cursor === null ? IsNull() : cursor },
+          { lastAssignedUserId: user.id },
+        );
+        if (res.affected) break;
+        const fresh = await this.ruleRepository.findOne({ where: { id: rule.id } });
+        if (!fresh) break;
+        cursor = fresh.lastAssignedUserId ?? null;
+        user = await this.pick(pool, rule.distribution, cursor, orgId);
+      }
       return {
         userId: user.id,
         userName: user.name,

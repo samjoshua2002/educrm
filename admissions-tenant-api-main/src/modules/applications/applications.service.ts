@@ -382,7 +382,7 @@ export class ApplicationsService {
     // Cascade delete any communication logs associated with this application
     try {
       if (app.applicationNo) {
-        await manager.delete(CommunicationLog, { applicationNo: app.applicationNo });
+        await manager.delete(CommunicationLog, { applicationNo: app.applicationNo, organizationId: orgId });
       }
       if (app.email) {
         await manager.delete(CommunicationLog, { recipientEmail: app.email, organizationId: orgId });
@@ -869,7 +869,7 @@ export class ApplicationsService {
     // Synchronize to users table
     if (originalEmail) {
       const user = await this.dataSource.manager.findOne(User, {
-        where: { email: originalEmail },
+        where: { email: originalEmail, role: Role.STUDENT },
       });
       if (user) {
         if (dto.name) user.name = dto.name;
@@ -885,7 +885,10 @@ export class ApplicationsService {
 
   async updatePreferences(id: string, orgId: string, dto: UpdatePreferencesDto, actorId: string) {
     const app = await this.getAppAndAssertEditable(id, orgId);
-    await this.validatePreferences(orgId, dto.preference1, dto.preference2);
+    const { p1Id, p2Id } = await this.validatePreferences(orgId, dto.preference1, dto.preference2);
+    if ((dto.preference1 && !p1Id) || (dto.preference2 && !p2Id)) {
+      throw new BadRequestException('Preferred campus not found in this organization');
+    }
     if (dto.courseId) {
       const course = await this.coursesService.validateCourseExists(dto.courseId, orgId);
       app.courseId = course.id;
@@ -1019,44 +1022,74 @@ export class ApplicationsService {
   // WORKFLOW
   // =========================================================================
 
+  /** Stores the hashed account password chosen on the form (Student row + login User). */
+  private async applyAccountPassword(studentId: string | null | undefined, orgId: string, password: string) {
+    if (!studentId) return;
+    const student = await this.studentRepository.findOne({ where: { id: studentId } });
+    if (!student) return;
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Save to Student entity (backward compatibility)
+    if (!student.password) {
+      student.password = hashedPassword;
+      await this.studentRepository.save(student);
+    }
+
+    // Save to User entity so the student can log in
+    const user = await this.dataSource.getRepository(User).findOne({
+      where: { email: student.email, organizationId: orgId, role: Role.STUDENT },
+    });
+    if (user) {
+      user.password = hashedPassword;
+      await this.dataSource.getRepository(User).save(user);
+    }
+  }
+
+  /**
+   * Saves the account password before the fee is paid, so the browser never has to keep the
+   * plaintext while the student is away on a redirect gateway. Only while the form is still editable.
+   */
+  async setAccountPassword(id: string, orgId: string, password?: string) {
+    if (!password) throw new BadRequestException('password is required');
+    const app = await this.getAppAndAssertEditable(id, orgId);
+    if (!['draft', 'incomplete'].includes((app.formStatus || '').toLowerCase())) {
+      throw new BadRequestException('Application is already submitted');
+    }
+    await this.applyAccountPassword(app.studentId, orgId, password);
+    return { success: true };
+  }
+
   async submitApplication(id: string, orgId: string, actorId: string, dto?: SubmitApplicationDto) {
     const app = await this.getAppAndAssertEditable(id, orgId);
 
-    if (app.paymentStatus !== 'success') {
+    if (!['success', 'paid'].includes((app.paymentStatus || '').toLowerCase())) {
       throw new BadRequestException('Payment required before submission');
     }
 
+    // Submit only once, and never move a reviewed/decided application back to "submitted".
+    const prevStatus = app.formStatus;
+    const now = new Date();
+    const claimed = await this.applicationRepository.update(
+      { id: app.id, formStatus: In(['draft', 'incomplete']) },
+      { formStatus: 'submitted', submittedAt: now, lastActivityAt: now, updatedBy: actorId },
+    );
+    if (!claimed.affected) {
+      throw new BadRequestException('Application is already submitted');
+    }
     app.formStatus = 'submitted';
-    app.submittedAt = new Date();
-    app.lastActivityAt = new Date();
+    app.submittedAt = now;
+    app.lastActivityAt = now;
     app.updatedBy = actorId;
 
-    let saved = await this.applicationRepository.save(app);
+    let saved = app;
 
     // "Creates" the student account by persisting a hashed credential on the
     // linked Student row (no separate login flow yet — see project notes).
     if (dto?.password) {
-      const student = await this.studentRepository.findOne({ where: { id: saved.studentId } });
-      if (student) {
-        const hashedPassword = await bcrypt.hash(dto.password, 10);
-        
-        // Save to Student entity (backward compatibility)
-        if (!student.password) {
-          student.password = hashedPassword;
-          await this.studentRepository.save(student);
-        }
-
-        // Save to User entity so the student can log in
-        const user = await this.dataSource.getRepository(User).findOne({
-          where: { email: student.email, organizationId: orgId },
-        });
-        if (user) {
-          user.password = hashedPassword;
-          await this.dataSource.getRepository(User).save(user);
-        }
-      }
+      await this.applyAccountPassword(saved.studentId, orgId, dto.password);
     }
 
+    try {
     await this.emailTemplatesService.sendTransactional({
       organizationId: orgId,
       categorySlug: 'application_submitted',
@@ -1080,11 +1113,11 @@ export class ApplicationsService {
     });
     saved.confirmationEmailSentAt = new Date();
     saved = await this.applicationRepository.save(saved);
+    } catch (e) {
+      // The submission is already recorded; the confirmation e-mail is best effort.
+    }
 
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await this.logActivity(queryRunner.manager, saved.id, orgId, actorId, 'status_changed', 'Application submitted', 'incomplete', 'submitted');
-    await queryRunner.release();
+    await this.logActivity(this.dataSource.manager, saved.id, orgId, actorId, 'status_changed', 'Application submitted', prevStatus, 'submitted');
 
     await this.statusService.evaluate(saved.id, actorId);
 
@@ -1113,10 +1146,7 @@ export class ApplicationsService {
     
     const saved = await this.applicationRepository.save(app);
 
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await this.logActivity(queryRunner.manager, saved.id, orgId, actorId, 'status_changed', `Status updated to ${status}`, prev, status);
-    await queryRunner.release();
+    await this.logActivity(this.dataSource.manager, saved.id, orgId, actorId, 'status_changed', `Status updated to ${status}`, prev, status);
 
     // Final decisions are mirrored on the status tracker; other changes go through the rules engine.
     if (saved.formStatus === 'accepted' && saved.currentStage !== 'Approved') {
@@ -1152,10 +1182,7 @@ export class ApplicationsService {
 
     const saved = await this.applicationRepository.save(app);
 
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await this.logActivity(queryRunner.manager, saved.id, orgId, actorId, 'shortlist_status_changed', `Shortlist status updated to ${shortlistStatus}`, prev, shortlistStatus);
-    await queryRunner.release();
+    await this.logActivity(this.dataSource.manager, saved.id, orgId, actorId, 'shortlist_status_changed', `Shortlist status updated to ${shortlistStatus}`, prev, shortlistStatus);
     await this.statusService.evaluate(saved.id, actorId);
 
     return saved;
@@ -1214,10 +1241,8 @@ export class ApplicationsService {
 
     const saved = await this.applicationRepository.save(app);
 
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
     await this.logActivity(
-      queryRunner.manager,
+      this.dataSource.manager,
       saved.id,
       orgId,
       actorId,
@@ -1226,7 +1251,6 @@ export class ApplicationsService {
       prev,
       dto.status,
     );
-    await queryRunner.release();
 
     await this.statusService.evaluate(saved.id, actorId);
 

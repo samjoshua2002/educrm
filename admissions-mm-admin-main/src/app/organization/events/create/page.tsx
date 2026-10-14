@@ -158,7 +158,6 @@ export default function CreateAnnouncementEventPage() {
       attachmentUrl: form.attachmentUrl || undefined,
       attachmentType: form.attachmentType,
       posterUrl: form.posterUrl || undefined,
-      createdByName: "Admissions Team",
     };
 
     createEvent.mutate(payload, {

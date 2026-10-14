@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BookOpen, MapPin, ClipboardList, IndianRupee, Gauge, Plug, Target, Route, Webhook, Scale, CalendarDays, FileText, CreditCard, BellRing } from "lucide-react";
+import { BookOpen, MapPin, ClipboardList, IndianRupee, Gauge, Plug, Target, Route, Webhook, Scale, CalendarDays, FileText, CreditCard, BellRing, MessageCircle, PhoneCall } from "lucide-react";
 
 const settingsLinks = [
   {
@@ -85,6 +85,18 @@ const settingsLinks = [
     description: "Automatic reminders, status SLA alerts and document rules.",
     href: "/organization/settings/reminders",
     icon: BellRing,
+  },
+  {
+    title: "SMS & WhatsApp",
+    description: "Connect SMS and WhatsApp providers and manage message settings.",
+    href: "/organization/settings/messaging",
+    icon: MessageCircle,
+  },
+  {
+    title: "Telephony",
+    description: "Connect Exotel or Twilio for click-to-call and call logging.",
+    href: "/organization/settings/telephony",
+    icon: PhoneCall,
   },
 ];
 

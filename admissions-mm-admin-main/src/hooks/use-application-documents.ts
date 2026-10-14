@@ -48,7 +48,13 @@ export function useDocumentLogs(applicationIdOrNo?: string) {
   const orgId = useOrgId();
   return useQuery({
     queryKey: ["document-logs", orgId, applicationIdOrNo],
-    queryFn: () => apiGet<DocumentLogEntry[]>(`/organizations/${orgId}/application-documents/${enc(applicationIdOrNo!)}/logs`),
+    queryFn: async () => {
+      // Array endpoints arrive as {data, pagination}.
+      const res = await apiGet<DocumentLogEntry[] | { data: DocumentLogEntry[] }>(
+        `/organizations/${orgId}/application-documents/${enc(applicationIdOrNo!)}/logs`,
+      );
+      return Array.isArray(res) ? res : res?.data || [];
+    },
     enabled: !!orgId && !!applicationIdOrNo,
   });
 }

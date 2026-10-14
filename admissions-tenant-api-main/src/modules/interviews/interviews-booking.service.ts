@@ -235,7 +235,11 @@ export class InterviewsBookingService {
         throw new BadRequestException('Only shortlisted or review applications can be scheduled for interview.');
       }
 
-      const slot = await manager.findOne(InterviewSlot, { where: { id: dto.slotId, organizationId: orgId } });
+      // Row lock so two concurrent bookings cannot both see the slot as Available.
+      const slot = await manager.findOne(InterviewSlot, {
+        where: { id: dto.slotId, organizationId: orgId },
+        lock: { mode: 'pessimistic_write' },
+      });
       if (!slot) {
         throw new NotFoundException(`Interview slot #${dto.slotId} not found`);
       }
@@ -302,7 +306,10 @@ export class InterviewsBookingService {
         throw new BadRequestException(`Cannot reschedule an interview with status "${interview.status}".`);
       }
 
-      const newSlot = await manager.findOne(InterviewSlot, { where: { id: dto.newSlotId, organizationId: orgId } });
+      const newSlot = await manager.findOne(InterviewSlot, {
+        where: { id: dto.newSlotId, organizationId: orgId },
+        lock: { mode: 'pessimistic_write' },
+      });
       if (!newSlot) {
         throw new NotFoundException(`Interview slot #${dto.newSlotId} not found`);
       }

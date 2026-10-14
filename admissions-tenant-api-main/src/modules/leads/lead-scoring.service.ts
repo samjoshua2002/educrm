@@ -209,7 +209,8 @@ export class LeadScoringService {
       case 'eq':
         return raw !== '' && actualList.includes(raw.toLowerCase());
       case 'neq':
-        return raw !== '' && !actualList.includes(raw.toLowerCase());
+        // like not_in: a missing value is unknown, not "different" (otherwise empty leads earn points)
+        return raw !== '' && actualList.length > 0 && !actualList.includes(raw.toLowerCase());
       case 'in':
         return list.length > 0 && actualList.some((v) => list.includes(v));
       case 'not_in':
@@ -290,7 +291,9 @@ export class LeadScoringService {
     for (;;) {
       const leads = await this.leadRepo.find({
         where: { organizationId: orgId, status: Not(In([LeadStatus.MERGED])) },
-        order: { createdAt: 'ASC' },
+        // id tie-breaker: leads created in the same instant (bulk import) would otherwise be
+        // skipped or rescored twice between pages
+        order: { createdAt: 'ASC', id: 'ASC' },
         skip: offset,
         take: batchSize,
       });

@@ -3,10 +3,11 @@ import { ScoreConversionConfigService } from './score-conversion-config.service.
 import { UpdateScoreConversionConfigDto } from './dto/update-score-conversion-config.dto.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
+import { TenantGuard } from '../../common/guards/tenant.guard.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { Role } from '../../common/enums/roles.enum.js';
 
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, TenantGuard)
 @Controller('organizations/:orgId/score-conversion-config')
 export class ScoreConversionConfigController {
   constructor(private readonly configService: ScoreConversionConfigService) {}

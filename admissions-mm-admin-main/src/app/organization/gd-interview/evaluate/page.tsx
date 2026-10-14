@@ -319,10 +319,9 @@ export default function MyEvaluationsPage() {
         formStatus === "rejected"
       );
     });
-    const localFlag =
-      typeof window !== "undefined" &&
-      Boolean(localStorage.getItem("educrm_decisions_saved_at"));
-    return haveDecisions || localFlag;
+    // Decided only from the saved application data; a browser flag left by an
+    // earlier save must not unlock announcing for candidates without a decision.
+    return haveDecisions;
   }, [isAllCompleted, totalCandidates, candidatesData]);
 
   const isDeclarationAllowed = isAllCompleted && areDecisionsSaved;

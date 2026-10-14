@@ -30,12 +30,10 @@ export interface PaymentStats {
   unmatchedCount: number;
 }
 
+/** GET /payments returns {data,total,...}; the response interceptors turn it into {data, pagination}. */
 export interface PaymentsResponse {
   data: PaymentRecord[];
-  total: number;
-  totalPages: number;
-  page: number;
-  limit: number;
+  pagination: { page: number; limit: number; total: number; totalPages: number };
 }
 
 export function usePayments(params?: {
@@ -126,10 +124,20 @@ export function useReconciliation(filters: ReconciliationFilters) {
   const orgId = useOrgId();
   return useQuery({
     queryKey: ["payment-reconciliation", orgId, filters],
-    queryFn: () => {
+    queryFn: async (): Promise<ReconciliationResponse> => {
       const q: Record<string, any> = {};
       for (const [k, v] of Object.entries(filters)) if (v !== undefined && v !== "" && v !== "all") q[k] = v;
-      return apiGet<ReconciliationResponse>(`/organizations/${orgId}/payments/reconciliation`, q);
+      // Rows arrive under items so the summary survives the response wrapper.
+      const res = await apiGet<any>(`/organizations/${orgId}/payments/reconciliation`, q);
+      const p = res?.pagination;
+      return {
+        data: Array.isArray(res?.items) ? res.items : Array.isArray(res?.data) ? res.data : [],
+        total: p?.total ?? res?.total ?? 0,
+        totalPages: p?.totalPages ?? res?.totalPages ?? 1,
+        page: p?.page ?? res?.page ?? 1,
+        limit: p?.limit ?? res?.limit ?? 20,
+        summary: res?.summary,
+      };
     },
     enabled: !!orgId,
   });
@@ -261,7 +269,13 @@ export function useAvailableGateways(applicationIdOrNo?: string, opts?: { purpos
 export function useApplicationPayments(applicationIdOrNo?: string) {
   return useQuery({
     queryKey: ["application-payments", applicationIdOrNo],
-    queryFn: () => apiGet<PaymentPublicView[]>(`/payments/application/${encodeURIComponent(applicationIdOrNo!)}`),
+    queryFn: async () => {
+      // Array endpoints arrive as {data, pagination}.
+      const res = await apiGet<PaymentPublicView[] | { data: PaymentPublicView[] }>(
+        `/payments/application/${encodeURIComponent(applicationIdOrNo!)}`,
+      );
+      return Array.isArray(res) ? res : res?.data || [];
+    },
     enabled: !!applicationIdOrNo,
   });
 }
@@ -285,7 +299,6 @@ export interface PendingPaymentContext {
   applicationNo?: string;
   /** When set, the payment-status page submits the application after a successful payment. */
   submitAfterPayment?: boolean;
-  password?: string;
   returnTo?: string;
 }
 
@@ -389,7 +402,9 @@ export async function startGatewayCheckout(opts: {
   }
 
   try {
-    sessionStorage.setItem(PENDING_KEY, JSON.stringify({ paymentId: res.paymentId, ...(opts.context || {}) }));
+    // Never persist secrets here: only ids and navigation hints survive the gateway redirect.
+    const { applicationNo, submitAfterPayment, returnTo } = opts.context || {};
+    sessionStorage.setItem(PENDING_KEY, JSON.stringify({ paymentId: res.paymentId, applicationNo, submitAfterPayment, returnTo }));
   } catch {
     /* ignore */
   }

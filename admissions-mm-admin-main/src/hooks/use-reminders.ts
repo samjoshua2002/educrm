@@ -13,6 +13,8 @@ import type {
 
 const base = (orgId: string) => `/organizations/${orgId}/reminders`;
 const enc = (v: string) => encodeURIComponent(v);
+// Array endpoints arrive as { data, pagination } after the API interceptor.
+const unwrap = <T,>(res: any): T[] => (Array.isArray(res) ? res : res?.data ?? []);
 
 export function useReminderMeta() {
   const orgId = useOrgId();
@@ -28,7 +30,7 @@ export function useReminderRules() {
   const orgId = useOrgId();
   return useQuery({
     queryKey: ["reminders", "rules", orgId],
-    queryFn: () => apiGet<ReminderRule[]>(`${base(orgId)}/rules`),
+    queryFn: async () => unwrap<ReminderRule>(await apiGet<any>(`${base(orgId)}/rules`)),
     enabled: !!orgId,
   });
 }
@@ -50,7 +52,7 @@ export function useReminderTemplates() {
   const orgId = useOrgId();
   return useQuery({
     queryKey: ["reminders", "templates", orgId],
-    queryFn: () => apiGet<ReminderTemplateOption[]>(`${base(orgId)}/templates`),
+    queryFn: async () => unwrap<ReminderTemplateOption>(await apiGet<any>(`${base(orgId)}/templates`)),
     enabled: !!orgId,
   });
 }

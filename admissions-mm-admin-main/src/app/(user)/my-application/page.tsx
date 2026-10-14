@@ -84,7 +84,7 @@ import {
 } from "@/components/ui/table";
 import { useRouter } from "next/navigation";
 import { usePageHeader } from "@/hooks/use-page-header";
-import { useCreateApplication, useActiveApplication, useSubmitApplication } from "@/hooks/use-applications";
+import { useCreateApplication, useActiveApplication, useSubmitApplication, setApplicationAccountPassword } from "@/hooks/use-applications";
 import { apiPost } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth-store";
 import ApplicationDetailsPage from "@/app/organization/applications/[...application_number]/page";
@@ -92,6 +92,7 @@ import { useCourses } from "@/hooks/use-courses";
 import { useAcademicSessions } from "@/hooks/use-academic-sessions";
 import { useCourseSessions } from "@/hooks/use-course-sessions";
 import { useBranches } from "@/hooks/use-branches";
+import { useLocations } from "@/hooks/use-locations";
 import { useOrganizationSettings } from "@/hooks/use-organizations";
 import { GatewayPayPanel } from "@/app/organization/applications/_components/gateway-pay-panel";
 
@@ -703,7 +704,13 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
   const branchesList = branchesData?.data || [];
   const courseSessionsList = courseSessionsResponse?.data || [];
 
+  const { data: serverLocations } = useLocations({ isActive: true });
+
   const interviewLocations = React.useMemo(() => {
+    // Real locations from the API (Settings > Locations); the browser cache is only a fallback.
+    if (Array.isArray(serverLocations) && serverLocations.length > 0) {
+      return serverLocations.filter((loc) => loc.type === "Interview" || loc.type === "Center");
+    }
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("educrm_locations");
       if (saved) {
@@ -718,11 +725,8 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
         }
       }
     }
-    return [
-      { id: 1, name: "New Delhi Center", city: "New Delhi", type: "Center" },
-      { id: 2, name: "Chennai Marriot Hotel", city: "Chennai", type: "Interview" },
-    ];
-  }, []);
+    return [];
+  }, [serverLocations]);
 
   const getBranchName = React.useCallback((val?: string) => {
     if (!val) return "Not selected";
@@ -1455,8 +1459,13 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
                           context={{
                             applicationNo: createdApplication?.applicationNo,
                             submitAfterPayment: true,
-                            password: (form.getValues() as any)?.personal?.password || undefined,
                             returnTo: "/my-application",
+                          }}
+                          beforeCheckout={async () => {
+                            const pwd = (form.getValues() as any)?.personal?.password;
+                            if (pwd && createdApplication?.applicationNo) {
+                              await setApplicationAccountPassword(createdApplication.applicationNo, pwd);
+                            }
                           }}
                           onSuccess={async () => {
                             setPaymentState("success");

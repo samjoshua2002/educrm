@@ -54,7 +54,7 @@ export class ApplicationsController {
   }
 
   @Get()
-  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.APPLICATION_MANAGER, Role.COUNSELOR)
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.APPLICATION_MANAGER, Role.COUNSELOR, Role.EXAM_MANAGER)
   findAll(
     @Req() req: any,
     @Query('page') page?: string,
@@ -197,10 +197,10 @@ export class ApplicationsController {
     return this.applicationsService.updateDeclaration(appNo, req.user.organizationId, dto, req.user.sub);
   }
 
+  // Staff only: a student must not be able to mark their own fee as paid.
   @Patch(':applicationNo/payment')
-  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.APPLICATION_MANAGER, Role.COUNSELOR, Role.STUDENT)
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.APPLICATION_MANAGER, Role.COUNSELOR)
   async updatePayment(@Req() req: any, @Param('applicationNo') appNo: string, @Body() dto: UpdatePaymentDto) {
-    await this.validateStudentEditPermission(appNo, req.user.organizationId, req.user);
     return this.applicationsService.updatePayment(appNo, req.user.organizationId, dto, req.user.sub);
   }
 
@@ -228,6 +228,24 @@ export class ApplicationsController {
       }
     }
     return this.applicationsService.submitApplication(appNo, req.user.organizationId, req.user.sub, dto);
+  }
+
+  /**
+   * Saves the applicant's chosen account password (hashed) before the fee is paid,
+   * so redirect gateways (Stripe / PayU / Paytm) never need the plaintext kept in the browser.
+   */
+  @Patch(':applicationNo/account-password')
+  @Roles(Role.STUDENT)
+  async setAccountPassword(
+    @Req() req: any,
+    @Param('applicationNo') appNo: string,
+    @Body() dto: SubmitApplicationDto,
+  ) {
+    const app = await this.applicationsService.findOne(appNo, req.user.organizationId);
+    if (app.email !== req.user.email) {
+      throw new ForbiddenException('You are not authorized to update this application');
+    }
+    return this.applicationsService.setAccountPassword(appNo, req.user.organizationId, dto?.password);
   }
 
   @Patch(':applicationNo/status')
@@ -272,6 +290,10 @@ export class ApplicationsController {
       console.log(`[validateStudentEditPermission] App email: "${app.email}", User email: "${reqUser.email}"`);
       if (!app.email || !reqUser.email || app.email.toLowerCase().trim() !== reqUser.email.toLowerCase().trim()) {
         throw new ForbiddenException('You are not authorized to edit this application');
+      }
+      // Once the admissions team is reviewing or has decided, the applicant can no longer edit.
+      if (['under_review', 'in_progress', 'accepted', 'approved', 'rejected'].includes((app.formStatus || '').toLowerCase())) {
+        throw new ForbiddenException('This application is under review and can no longer be edited');
       }
       if (app.formStatus === 'submitted' && app.submittedAt) {
         const timeDiff = new Date().getTime() - new Date(app.submittedAt).getTime();

@@ -11,7 +11,7 @@ export interface CreateUserInput {
   password?: string;
   role: Role | string;
   phone: string;
-  branchId?: string;
+  branchId?: string | null;
 }
 
 export function useTeam(orgIdOrPage?: string | number, pageParam?: number, limitParam: number = 10) {

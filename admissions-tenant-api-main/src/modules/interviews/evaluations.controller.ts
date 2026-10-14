@@ -3,8 +3,9 @@ import { EvaluationsService } from './evaluations.service.js';
 import { SubmitEvaluationDto } from './dto/submit-evaluation.dto.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
+import { TenantGuard } from '../../common/guards/tenant.guard.js';
 
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, TenantGuard)
 @Controller('organizations/:orgId/interviews')
 export class EvaluationsController {
   constructor(private readonly evaluationsService: EvaluationsService) {}

@@ -41,6 +41,13 @@ function useOrgId() {
   return useAuthStore((s) => s.user?.organizationId);
 }
 
+// List endpoints return a plain array, which the API wraps as
+// { data: [...], pagination } — unwrap to the array.
+async function getList<T>(url: string, params?: object): Promise<T[]> {
+  const res = await apiGet<T[] | { data?: T[] }>(url, params);
+  return Array.isArray(res) ? res : (res?.data ?? []);
+}
+
 // A missing record comes back as 404; show "nothing yet" instead of an error.
 async function getOrNull<T>(url: string): Promise<T | null> {
   try {
@@ -101,7 +108,7 @@ export function useAcceptanceList(status?: string) {
   return useQuery({
     queryKey: ["acceptances-list", orgId, status ?? ""],
     queryFn: () =>
-      apiGet<AcceptanceListRow[]>(
+      getList<AcceptanceListRow>(
         `/organizations/${orgId}/acceptances`,
         status ? { status } : undefined,
       ),
@@ -187,7 +194,7 @@ export function useWaitlist(
   return useQuery({
     queryKey: ["waitlist-list", orgId, params],
     queryFn: () =>
-      apiGet<WaitlistListRow[]>(`/organizations/${orgId}/waitlist`, params),
+      getList<WaitlistListRow>(`/organizations/${orgId}/waitlist`, params),
     enabled: !!orgId,
   });
 }
@@ -281,7 +288,7 @@ export function useRejectionList() {
   return useQuery({
     queryKey: ["rejections-list", orgId],
     queryFn: () =>
-      apiGet<RejectionListRow[]>(`/organizations/${orgId}/rejections`),
+      getList<RejectionListRow>(`/organizations/${orgId}/rejections`),
     enabled: !!orgId,
   });
 }

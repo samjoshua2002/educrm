@@ -68,7 +68,6 @@ import {
 } from "@/components/ui/select";
 
 import { useApplication, useUpdateApplication, ApplicationDetail } from "@/hooks/use-applications";
-import { gdInterviews } from "@/data/mock-gd-interviews";
 import { toast } from "sonner";
 
 export default function ApplicationDetailsPage() {
@@ -82,11 +81,10 @@ export default function ApplicationDetailsPage() {
   const { data: appData, isLoading } = useApplication(applicationNumber);
   const updateMutation = useUpdateApplication();
 
+  // Same rule as the organization application page (was checked against mock interview data).
   const hasGDInterview = React.useMemo(() => {
-    return gdInterviews.some(
-      (item) => item.applicationNo === applicationNumber,
-    );
-  }, [applicationNumber]);
+    return !!appData && appData.status !== "incomplete";
+  }, [appData]);
 
   const [activeEditSection, setActiveEditSection] = React.useState<
     | "personal"
@@ -239,7 +237,7 @@ export default function ApplicationDetailsPage() {
                 asChild
                 className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs px-4 py-2.5 rounded-md flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer shrink-0 w-full sm:w-auto"
               >
-                <Link href={`/gd-interview/${applicationData.applicationNo}`}>
+                <Link href={`/organization/gd-interview/${applicationData.applicationNo}`}>
                   GD AND INTERVIEWS
                   <ExternalLink className="h-3.5 w-3.5" />
                 </Link>

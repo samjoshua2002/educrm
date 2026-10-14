@@ -69,6 +69,8 @@ export default function CalendarIntegrationSettingsPage() {
 
   const role = useAuthStore((s) => s.user?.role);
   const isAdmin = !!role && ADMIN_ROLES.includes(role);
+  // POST calendar-sync/run also allows exam_manager.
+  const canRunSync = isAdmin || role === "exam_manager";
 
   const { data: settings, isLoading: settingsLoading } = useCalendarSettings();
   const updateSettings = useUpdateCalendarSettings();
@@ -246,7 +248,7 @@ export default function CalendarIntegrationSettingsPage() {
               <div className="font-sans text-[15px] sm:text-[16px] font-bold leading-[24px] text-[#1E293B] flex items-center gap-2">
                 <CalendarCheck className="h-4 w-4" /> Interviewer Calendars
               </div>
-              {isAdmin && (
+              {canRunSync && (
                 <Button
                   size="sm"
                   variant="outline"

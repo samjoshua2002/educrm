@@ -242,7 +242,11 @@ export function useLeadActivities(leadId?: string | null) {
   const orgId = useAuthStore((state) => state.user?.organizationId);
   return useQuery({
     queryKey: ["lead-activities", orgId, leadId],
-    queryFn: () => apiGet<LeadActivity[]>(`/organizations/${orgId}/leads/${leadId}/activities`),
+    // The API returns an array, which the response interceptor turns into { data, pagination }.
+    queryFn: async () => {
+      const res: any = await apiGet<LeadActivity[]>(`/organizations/${orgId}/leads/${leadId}/activities`);
+      return (Array.isArray(res) ? res : res?.data ?? []) as LeadActivity[];
+    },
     enabled: !!orgId && !!leadId,
   });
 }

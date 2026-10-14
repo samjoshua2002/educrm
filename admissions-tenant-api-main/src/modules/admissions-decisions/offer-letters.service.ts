@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ModuleRef } from '@nestjs/core';
-import { In, LessThan, Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { OfferLetter } from './entities/offer-letter.entity.js';
 import { AdmissionDecision } from './entities/admission-decision.entity.js';
 import { AcceptanceStatus, OfferAcceptance } from './entities/offer-acceptance.entity.js';
@@ -17,6 +17,9 @@ const OFFER_TYPE_LABELS: Record<string, string> = {
   conditional: 'Conditional',
   scholarship: 'Scholarship',
 };
+
+// Rows handled per scheduler run.
+const BATCH_SIZE = 200;
 
 function todayStr(): string {
   return new Date().toISOString().slice(0, 10);
@@ -248,6 +251,10 @@ export class OfferLettersService {
     if (offer.offerStatus !== 'generated') {
       throw new BadRequestException(`Offer letter is ${offer.offerStatus} and cannot be sent.`);
     }
+    const validTill = dateOnly(offer.offerValidTill);
+    if (validTill && validTill < todayStr()) {
+      throw new BadRequestException('This offer is past its Offer Valid Till date. Generate it again with a new date.');
+    }
     const application = await this.support.findApplicationById(offer.applicationId);
     if (!application) throw new NotFoundException('Application not found');
 
@@ -287,13 +294,20 @@ export class OfferLettersService {
     offer.sentAt = new Date();
     offer.statusChangedAt = new Date();
     offer.updatedBy = actorId as string;
-    await this.offerLetterRepository.update(offer.id, {
-      offerStatus: 'sent',
-      sentToCandidate: emailed,
-      sentAt: offer.sentAt,
-      statusChangedAt: offer.statusChangedAt,
-      updatedBy: actorId as string,
-    });
+    // Conditional update: a concurrent send / withdraw must not be overwritten.
+    const marked = await this.offerLetterRepository.update(
+      { id: offer.id, offerStatus: 'generated' },
+      {
+        offerStatus: 'sent',
+        sentToCandidate: emailed,
+        sentAt: offer.sentAt,
+        statusChangedAt: offer.statusChangedAt,
+        updatedBy: actorId as string,
+      },
+    );
+    if (!marked.affected) {
+      throw new BadRequestException('This offer letter was changed by someone else (already sent or withdrawn).');
+    }
 
     await this.acceptanceService.createAcceptanceRecord(offer.id, actorId ?? undefined);
 
@@ -323,6 +337,11 @@ export class OfferLettersService {
     await this.offerLetterRepository.save(offer);
 
     const acceptance = await this.acceptanceService.findForOffer(offer.id);
+    // A declined / expired offer already freed its seat (and moved the waitlist).
+    const seatHeld =
+      !acceptance ||
+      acceptance.acceptanceStatus === AcceptanceStatus.PENDING ||
+      acceptance.acceptanceStatus === AcceptanceStatus.ACCEPTED;
     if (acceptance && acceptance.acceptanceStatus === AcceptanceStatus.PENDING) {
       await this.acceptanceRepository.update(acceptance.id, {
         acceptanceStatus: AcceptanceStatus.EXPIRED,
@@ -332,7 +351,7 @@ export class OfferLettersService {
       await this.acceptanceRepository.update(acceptance.id, { enrollmentStatus: 'cancelled' });
     }
 
-    if (wasSent) {
+    if (wasSent && seatHeld) {
       await this.support.notifyApplicant(application, {
         type: 'offer_withdrawn',
         severity: 'warning',
@@ -351,49 +370,73 @@ export class OfferLettersService {
 
   // Cron: offers past Offer Valid Till expire (unless already accepted).
   async expireOffers(): Promise<number> {
-    const overdue = await this.offerLetterRepository.find({
-      where: { offerStatus: In(['generated', 'sent']), offerValidTill: LessThan(todayStr()) as any },
-    });
+    // Accepted offers are left as they are; excluding them here keeps the
+    // job from picking the same rows again every hour.
+    const overdue = await this.offerLetterRepository
+      .createQueryBuilder('o')
+      .where('o.offer_status IN (:...st)', { st: ['generated', 'sent'] })
+      .andWhere('o.offer_valid_till < :today', { today: todayStr() })
+      .andWhere(
+        `NOT EXISTS (SELECT 1 FROM offer_acceptances a WHERE a.offer_letter_id = o.id AND a.acceptance_status = :accepted)`,
+        { accepted: AcceptanceStatus.ACCEPTED },
+      )
+      .orderBy('o.offer_valid_till', 'ASC')
+      .take(BATCH_SIZE)
+      .getMany();
     let count = 0;
     for (const offer of overdue) {
-      const acceptance = await this.acceptanceService.findForOffer(offer.id);
-      if (acceptance && acceptance.acceptanceStatus === AcceptanceStatus.ACCEPTED) continue;
-      const wasSent = offer.offerStatus === 'sent';
-      await this.offerLetterRepository.update(offer.id, { offerStatus: 'expired', statusChangedAt: new Date() });
-      if (acceptance && acceptance.acceptanceStatus === AcceptanceStatus.PENDING) {
-        await this.acceptanceRepository.update(acceptance.id, {
-          acceptanceStatus: AcceptanceStatus.EXPIRED,
-          enrollmentStatus: 'cancelled',
-        });
-      }
-      count++;
-      const application = await this.support.findApplicationById(offer.applicationId);
-      if (!application) continue;
-      await this.support.notifyStaff({
-        organizationId: offer.organizationId,
-        type: 'offer_expired',
-        severity: 'warning',
-        title: `Offer expired: ${application.name} (${application.applicationNo})`,
-        body: `The offer for ${offer.programOffered || application.program} passed its valid-till date (${formatLetterDate(offer.offerValidTill)}).`,
-        link: `/organization/decisions/${encodeURIComponent(application.applicationNo)}`,
-        relatedEntityId: offer.id,
-      });
-      if (wasSent) {
-        await this.support.notifyApplicant(application, {
-          type: 'offer_expired',
-          severity: 'warning',
-          title: 'Your offer has expired',
-          body: 'The offer passed its valid-till date.',
-        });
-        try {
-          const waitlist = await this.waitlist();
-          await waitlist.onSeatVacated(offer.organizationId, offer.programOffered || application.program, 'offer_expired', application.id);
-        } catch (err) {
-          this.logger.error(`Waitlist movement after offer expiry failed: ${(err as Error).message}`);
-        }
+      try {
+        if (await this.expireOne(offer)) count++;
+      } catch (err) {
+        this.logger.error(`Expiring offer ${offer.id} failed: ${(err as Error).message}`);
       }
     }
     return count;
+  }
+
+  private async expireOne(offer: OfferLetter): Promise<boolean> {
+    const acceptance = await this.acceptanceService.findForOffer(offer.id);
+    if (acceptance && acceptance.acceptanceStatus === AcceptanceStatus.ACCEPTED) return false;
+    const marked = await this.offerLetterRepository.update(
+      { id: offer.id, offerStatus: offer.offerStatus },
+      { offerStatus: 'expired', statusChangedAt: new Date() },
+    );
+    if (!marked.affected) return false;
+    // Declined / already expired answers freed the seat earlier: just close the offer.
+    if (acceptance && acceptance.acceptanceStatus !== AcceptanceStatus.PENDING) return true;
+    const wasSent = offer.offerStatus === 'sent';
+    if (acceptance) {
+      await this.acceptanceRepository.update(
+        { id: acceptance.id, acceptanceStatus: AcceptanceStatus.PENDING },
+        { acceptanceStatus: AcceptanceStatus.EXPIRED, enrollmentStatus: 'cancelled' },
+      );
+    }
+    const application = await this.support.findApplicationById(offer.applicationId);
+    if (!application) return true;
+    await this.support.notifyStaff({
+      organizationId: offer.organizationId,
+      type: 'offer_expired',
+      severity: 'warning',
+      title: `Offer expired: ${application.name} (${application.applicationNo})`,
+      body: `The offer for ${offer.programOffered || application.program} passed its valid-till date (${formatLetterDate(offer.offerValidTill)}).`,
+      link: `/organization/decisions/${encodeURIComponent(application.applicationNo)}`,
+      relatedEntityId: offer.id,
+    });
+    if (wasSent) {
+      await this.support.notifyApplicant(application, {
+        type: 'offer_expired',
+        severity: 'warning',
+        title: 'Your offer has expired',
+        body: 'The offer passed its valid-till date.',
+      });
+      try {
+        const waitlist = await this.waitlist();
+        await waitlist.onSeatVacated(offer.organizationId, offer.programOffered || application.program, 'offer_expired', application.id);
+      } catch (err) {
+        this.logger.error(`Waitlist movement after offer expiry failed: ${(err as Error).message}`);
+      }
+    }
+    return true;
   }
 
   // ---------------------------------------------------------------------------

@@ -148,6 +148,8 @@ export class EventDeliveryService {
       } else {
         cond.push(`l.status NOT IN ('disqualified', 'closed')`);
       }
+      // records folded into a master lead are history, not recipients
+      cond.push(`l.status <> 'merged'`);
       const sources = (t.targetLeadSources || []).map((s) => String(s).trim().toLowerCase()).filter(Boolean);
       if (sources.length) {
         params.push(sources);

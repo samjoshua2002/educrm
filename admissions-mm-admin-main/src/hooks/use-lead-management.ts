@@ -20,6 +20,9 @@ function useOrgId() {
 
 const errMsg = (e: any, fallback: string) => e?.response?.data?.message || fallback;
 
+/** List endpoints return arrays, which the response interceptor turns into { data, pagination }. */
+const asList = <T,>(res: any): T[] => (Array.isArray(res) ? res : res?.data ?? []);
+
 // ---- settings --------------------------------------------------------------
 
 export function useLeadManagementSettings() {
@@ -61,7 +64,7 @@ export function useScoringRules() {
   const orgId = useOrgId();
   return useQuery({
     queryKey: ["lead-management", "scoring-rules", orgId],
-    queryFn: () => apiGet<ScoringRule[]>(`/organizations/${orgId}/lead-management/scoring/rules`),
+    queryFn: async () => asList<ScoringRule>(await apiGet(`/organizations/${orgId}/lead-management/scoring/rules`)),
     enabled: !!orgId,
   });
 }
@@ -124,7 +127,7 @@ export function useRoutingRules() {
   const orgId = useOrgId();
   return useQuery({
     queryKey: ["lead-management", "routing-rules", orgId],
-    queryFn: () => apiGet<RoutingRule[]>(`/organizations/${orgId}/lead-management/routing/rules`),
+    queryFn: async () => asList<RoutingRule>(await apiGet(`/organizations/${orgId}/lead-management/routing/rules`)),
     enabled: !!orgId,
   });
 }
@@ -170,12 +173,13 @@ export function useReorderRoutingRules() {
 
 // ---- duplicates ------------------------------------------------------------
 
-export function useDuplicateLeads() {
+/** `enabled` lets callers skip the request for roles the API rejects (counselors get 403). */
+export function useDuplicateLeads(enabled = true) {
   const orgId = useOrgId();
   return useQuery({
     queryKey: ["lead-management", "duplicates", orgId],
-    queryFn: () => apiGet<DuplicatePair[]>(`/organizations/${orgId}/lead-management/duplicates`),
-    enabled: !!orgId,
+    queryFn: async () => asList<DuplicatePair>(await apiGet(`/organizations/${orgId}/lead-management/duplicates`)),
+    enabled: !!orgId && enabled,
   });
 }
 
@@ -216,6 +220,8 @@ export function useMergeLeads() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["lead-management"] });
       qc.invalidateQueries({ queryKey: ["leads"] });
+      // the duplicate's activity history is moved onto the master lead
+      qc.invalidateQueries({ queryKey: ["lead-activities"] });
       toast.success("Leads merged successfully");
     },
     onError: (e: any) => toast.error(errMsg(e, "Failed to merge leads")),

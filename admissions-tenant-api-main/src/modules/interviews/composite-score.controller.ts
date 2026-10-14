@@ -3,6 +3,7 @@ import { ScoringService } from './scoring.service.js';
 import { ScoreAdjustmentDto } from './dto/score-adjustment.dto.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
+import { TenantGuard } from '../../common/guards/tenant.guard.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { Role } from '../../common/enums/roles.enum.js';
 
@@ -10,7 +11,7 @@ import { Role } from '../../common/enums/roles.enum.js';
 // applicationNo is passed as a QUERY parameter (?applicationNo=CITY/2026/1012)
 // instead of a path segment to avoid Express route-matching issues with
 // slash-containing application numbers like CITY/2026/1012.
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, TenantGuard)
 @Controller('organizations/:orgId')
 export class CompositeScoreController {
   constructor(private readonly scoringService: ScoringService) {}
@@ -23,8 +24,9 @@ export class CompositeScoreController {
   getCompositeScore(
     @Param('orgId') orgId: string,
     @Query('applicationNo') applicationNo: string,
+    @Request() req,
   ) {
-    return this.scoringService.getCompositeScoreBreakdown(orgId, applicationNo);
+    return this.scoringService.getCompositeScoreBreakdown(orgId, applicationNo, req.user);
   }
 
   @Patch('score-adjustment')

@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ModuleRef } from '@nestjs/core';
-import { In, LessThan, Repository } from 'typeorm';
+import { LessThan, Not, Repository } from 'typeorm';
 import { OfferAcceptance, AcceptanceStatus } from './entities/offer-acceptance.entity.js';
 import { OfferLetter } from './entities/offer-letter.entity.js';
 import { WaitlistEntry, WaitlistStatus } from './entities/waitlist-entry.entity.js';
@@ -10,6 +10,9 @@ import { MailerService } from '../notifications/mailer.service.js';
 import { RecordAcceptanceDto, SendOnboardingDto, UpdateAcceptanceDto } from './dto/acceptance.dto.js';
 import { DecisionSupportService } from './decision-support.service.js';
 import { escapeHtml, formatLetterDate, formatMoney } from './letter-templates.service.js';
+
+// Rows handled per scheduler run.
+const BATCH_SIZE = 200;
 
 function todayStr(): string {
   return new Date().toISOString().slice(0, 10);
@@ -172,9 +175,13 @@ export class AcceptanceService {
     if (deadline && deadline < todayStr()) {
       throw new BadRequestException('The acceptance deadline has passed.');
     }
+    const validTill = dateOnly(offer.offerValidTill);
+    if (validTill && validTill < todayStr()) {
+      throw new BadRequestException('This offer has expired.');
+    }
 
     acceptance.candidateConfirmationDate = new Date();
-    acceptance.updatedBy = actorId as string;
+    if (actorId) acceptance.updatedBy = actorId;
 
     if (dto.accept) {
       acceptance.acceptanceStatus = AcceptanceStatus.ACCEPTED;
@@ -185,7 +192,22 @@ export class AcceptanceService {
       acceptance.enrollmentStatus = 'cancelled';
       acceptance.declineReason = dto.declineReason ?? null;
     }
-    await this.acceptanceRepository.save(acceptance);
+    // Conditional update: the answer is recorded only once, even when two
+    // requests (or the fee payment) arrive at the same time.
+    const changes: Partial<OfferAcceptance> = {
+      acceptanceStatus: acceptance.acceptanceStatus,
+      enrollmentStatus: acceptance.enrollmentStatus,
+      candidateConfirmationDate: acceptance.candidateConfirmationDate,
+    };
+    if (!dto.accept) changes.declineReason = acceptance.declineReason;
+    if (actorId) changes.updatedBy = actorId;
+    const result = await this.acceptanceRepository.update(
+      { id: acceptance.id, acceptanceStatus: AcceptanceStatus.PENDING },
+      changes,
+    );
+    if (!result.affected) {
+      throw new BadRequestException('This offer has already been answered.');
+    }
 
     await this.mailerService.sendAcceptanceConfirmationEmail(application, acceptance);
 
@@ -250,18 +272,27 @@ export class AcceptanceService {
     const paid = acceptance.feePaymentStatus === 'paid' || acceptance.feePaymentStatus === 'waived';
     if (!paid || acceptance.enrollmentStatus === 'confirmed') return;
     if (acceptance.acceptanceStatus !== AcceptanceStatus.PENDING && acceptance.acceptanceStatus !== AcceptanceStatus.ACCEPTED) return;
+    // A withdrawn / expired offer is not confirmed by a late payment.
+    if (acceptance.offerLetter?.offerStatus !== 'sent') return;
 
-    const wasPending = acceptance.acceptanceStatus === AcceptanceStatus.PENDING;
+    const previousStatus = acceptance.acceptanceStatus;
+    const wasPending = previousStatus === AcceptanceStatus.PENDING;
+    // Only a real payment counts as accepting; a waived fee still needs the candidate's answer.
+    if (wasPending && acceptance.feePaymentStatus !== 'paid') return;
     if (wasPending) {
       acceptance.acceptanceStatus = AcceptanceStatus.ACCEPTED;
       acceptance.candidateConfirmationDate = new Date();
     }
     acceptance.enrollmentStatus = 'confirmed';
-    await this.acceptanceRepository.update(acceptance.id, {
-      acceptanceStatus: acceptance.acceptanceStatus,
-      candidateConfirmationDate: acceptance.candidateConfirmationDate,
-      enrollmentStatus: 'confirmed',
-    });
+    const result = await this.acceptanceRepository.update(
+      { id: acceptance.id, acceptanceStatus: previousStatus, enrollmentStatus: Not('confirmed') },
+      {
+        acceptanceStatus: acceptance.acceptanceStatus,
+        candidateConfirmationDate: acceptance.candidateConfirmationDate,
+        enrollmentStatus: 'confirmed',
+      },
+    );
+    if (!result.affected) return;
 
     const application = acceptance.offerLetter ? await this.support.findApplicationById(acceptance.offerLetter.applicationId) : null;
     if (!application) return;
@@ -296,15 +327,24 @@ export class AcceptanceService {
 
   // Safety net for payments recorded without the entity listener firing.
   async reconcilePaidFees() {
-    const rows = await this.acceptanceRepository.find({
-      where: {
-        feePaymentStatus: In(['paid', 'waived']),
-        acceptanceStatus: In([AcceptanceStatus.PENDING, AcceptanceStatus.ACCEPTED]),
-      },
-      select: ['id', 'enrollmentStatus'],
-    });
+    const rows = await this.acceptanceRepository
+      .createQueryBuilder('a')
+      .innerJoin('a.offerLetter', 'o')
+      .select(['a.id'])
+      .where('a.fee_payment_status IN (:...paid)', { paid: ['paid', 'waived'] })
+      .andWhere('a.acceptance_status IN (:...st)', { st: [AcceptanceStatus.PENDING, AcceptanceStatus.ACCEPTED] })
+      .andWhere("a.enrollment_status != 'confirmed'")
+      .andWhere("NOT (a.fee_payment_status = 'waived' AND a.acceptance_status = :pending)", { pending: AcceptanceStatus.PENDING })
+      .andWhere("o.offer_status = 'sent'")
+      .orderBy('a.updated_at', 'ASC')
+      .take(BATCH_SIZE)
+      .getMany();
     for (const r of rows) {
-      if (r.enrollmentStatus !== 'confirmed') await this.onFeePaid(r.id);
+      try {
+        await this.onFeePaid(r.id);
+      } catch (err) {
+        this.logger.error(`Enrollment confirmation for acceptance ${r.id} failed: ${(err as Error).message}`);
+      }
     }
   }
 
@@ -357,48 +397,65 @@ export class AcceptanceService {
     const overdue = await this.acceptanceRepository.find({
       where: { acceptanceStatus: AcceptanceStatus.PENDING, acceptanceDeadline: LessThan(todayStr()) as any },
       relations: ['offerLetter'],
+      order: { acceptanceDeadline: 'ASC' },
+      take: BATCH_SIZE,
     });
+    let count = 0;
     for (const acceptance of overdue) {
-      acceptance.acceptanceStatus = AcceptanceStatus.EXPIRED;
-      acceptance.enrollmentStatus = 'cancelled';
-      await this.acceptanceRepository.save(acceptance);
-      const offer = acceptance.offerLetter;
-      if (!offer) continue;
-      if (offer.offerStatus === 'sent' || offer.offerStatus === 'generated') {
-        await this.offerLetterRepository.update(offer.id, { offerStatus: 'expired', statusChangedAt: new Date() });
-      }
-      const application = await this.support.findApplicationById(offer.applicationId);
-      if (!application) continue;
-      const entry = await this.waitlistRepository.findOne({
-        where: { applicationId: application.id, waitlistStatus: WaitlistStatus.OFFER_RELEASED },
-      });
-      if (entry) {
-        entry.waitlistStatus = WaitlistStatus.CLOSED;
-        entry.lastReviewDate = todayStr();
-        await this.waitlistRepository.save(entry);
-      }
-      await this.support.notifyStaff({
-        organizationId: application.organizationId,
-        type: 'acceptance_expired',
-        severity: 'warning',
-        title: `Acceptance deadline passed: ${application.name} (${application.applicationNo})`,
-        body: `The offer for ${offer.programOffered || application.program} expired without a response (deadline ${formatLetterDate(acceptance.acceptanceDeadline)}).`,
-        link: `/organization/decisions/${encodeURIComponent(application.applicationNo)}`,
-        relatedEntityId: acceptance.id,
-      });
-      await this.support.notifyApplicant(application, {
-        type: 'acceptance_expired',
-        severity: 'warning',
-        title: 'Your offer has expired',
-        body: 'The deadline to accept your offer has passed.',
-      });
       try {
-        const waitlist = await this.waitlist();
-        await waitlist.onSeatVacated(application.organizationId, offer.programOffered || application.program, 'acceptance_expired', application.id);
+        if (await this.expireOne(acceptance)) count++;
       } catch (err) {
-        this.logger.error(`Waitlist movement after expiry failed: ${(err as Error).message}`);
+        this.logger.error(`Expiring acceptance ${acceptance.id} failed: ${(err as Error).message}`);
       }
     }
-    return overdue.length;
+    return count;
+  }
+
+  private async expireOne(acceptance: OfferAcceptance): Promise<boolean> {
+    // Conditional update: skip if the candidate answered in the meantime.
+    const result = await this.acceptanceRepository.update(
+      { id: acceptance.id, acceptanceStatus: AcceptanceStatus.PENDING },
+      { acceptanceStatus: AcceptanceStatus.EXPIRED, enrollmentStatus: 'cancelled' },
+    );
+    if (!result.affected) return false;
+    acceptance.acceptanceStatus = AcceptanceStatus.EXPIRED;
+    acceptance.enrollmentStatus = 'cancelled';
+    const offer = acceptance.offerLetter;
+    if (!offer) return true;
+    if (offer.offerStatus === 'sent' || offer.offerStatus === 'generated') {
+      await this.offerLetterRepository.update(offer.id, { offerStatus: 'expired', statusChangedAt: new Date() });
+    }
+    const application = await this.support.findApplicationById(offer.applicationId);
+    if (!application) return true;
+    const entry = await this.waitlistRepository.findOne({
+      where: { applicationId: application.id, waitlistStatus: WaitlistStatus.OFFER_RELEASED },
+    });
+    if (entry) {
+      entry.waitlistStatus = WaitlistStatus.CLOSED;
+      entry.lastReviewDate = todayStr();
+      await this.waitlistRepository.save(entry);
+    }
+    await this.support.notifyStaff({
+      organizationId: application.organizationId,
+      type: 'acceptance_expired',
+      severity: 'warning',
+      title: `Acceptance deadline passed: ${application.name} (${application.applicationNo})`,
+      body: `The offer for ${offer.programOffered || application.program} expired without a response (deadline ${formatLetterDate(acceptance.acceptanceDeadline)}).`,
+      link: `/organization/decisions/${encodeURIComponent(application.applicationNo)}`,
+      relatedEntityId: acceptance.id,
+    });
+    await this.support.notifyApplicant(application, {
+      type: 'acceptance_expired',
+      severity: 'warning',
+      title: 'Your offer has expired',
+      body: 'The deadline to accept your offer has passed.',
+    });
+    try {
+      const waitlist = await this.waitlist();
+      await waitlist.onSeatVacated(application.organizationId, offer.programOffered || application.program, 'acceptance_expired', application.id);
+    } catch (err) {
+      this.logger.error(`Waitlist movement after expiry failed: ${(err as Error).message}`);
+    }
+    return true;
   }
 }

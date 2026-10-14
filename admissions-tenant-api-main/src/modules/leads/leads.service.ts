@@ -78,6 +78,11 @@ export class LeadsService {
     if (rest.followUpStatus && !(FOLLOW_UP_STATUSES as readonly string[]).includes(rest.followUpStatus)) {
       throw new BadRequestException(`Follow-up status must be one of ${FOLLOW_UP_STATUSES.join(', ')}`);
     }
+    if (rest.status !== undefined && rest.status !== lead.status) this.assertSettableStatus(rest.status);
+    if (rest.branchId) {
+      await this.pipeline.resolveBranch(orgId, rest);
+      if (!rest.branchId) throw new BadRequestException('Branch not found in this organization');
+    }
 
     const changedScoring = SCORING_FIELDS.some(
       (k) => rest[k] !== undefined && String(rest[k] ?? '') !== String((lead as any)[k] ?? ''),
@@ -174,6 +179,14 @@ export class LeadsService {
   private async manualRuleText(actorId: string, reason?: string | null) {
     const actor = actorId ? await this.userRepository.findOne({ where: { id: actorId } }) : null;
     return `Manual reassignment${actor ? ` by ${actor.name}` : ''}${reason ? `: ${reason}` : ''}`;
+  }
+
+  /** A real lead status; "merged" is only set by the duplicate merge. */
+  private assertSettableStatus(status: any) {
+    const allowed = (Object.values(LeadStatus) as string[]).filter((s) => s !== LeadStatus.MERGED);
+    if (typeof status !== 'string' || !allowed.includes(status)) {
+      throw new BadRequestException(`Status must be one of ${allowed.join(', ')}`);
+    }
   }
 
   private async assertAssignable(orgId: string, userId: string) {
@@ -315,6 +328,7 @@ export class LeadsService {
   }
 
   async updateStatus(id: string, orgId: string, status: string, actorId?: string): Promise<Lead> {
+    this.assertSettableStatus(status);
     const lead = await this.findOne(id, orgId);
     const previousStatus = lead.status;
     lead.status = status as LeadStatus;
@@ -414,6 +428,10 @@ export class LeadsService {
           oneTimePassword: otp,
           isActive: true,
         });
+      } else if (user.role !== Role.STUDENT) {
+        // The email belongs to a staff / admin account (possibly of another organization):
+        // never overwrite that account's one-time password from a lead.
+        return;
       } else {
         user.oneTimePassword = otp;
       }
@@ -516,6 +534,7 @@ export class LeadsService {
   }
 
   async updateLeadStatus(id: string, orgId: string, actorId: string, dto: UpdateLeadStatusDto, role?: Role): Promise<Lead> {
+    this.assertSettableStatus(dto.status);
     const lead = await this.findOne(id, orgId, actorId, role);
     const previousStatus = lead.status;
     lead.status = dto.status as LeadStatus;

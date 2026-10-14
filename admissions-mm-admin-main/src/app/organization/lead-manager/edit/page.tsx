@@ -5,6 +5,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
+  useAssignLead,
   useLead,
   useLeadActivities,
   useRecordEngagement,
@@ -116,7 +117,14 @@ function EditLeadForm() {
   const { data: teamData } = useTeam(1, 100);
   const teamMembers = teamData?.data || [];
   const currentUser = useAuthStore((s) => s.user);
-  const canEditAssignedTo = currentUser?.role !== Role.LEAD_MANAGER;
+  // Backend: org admins/superadmins reassign through PATCH /leads/:id; lead managers only through
+  // PATCH /leads/:id/assign (PATCH /leads/:id ignores assignedTo for them); counselors cannot reassign.
+  // Rescore, re-route and merge are allowed for superadmin, org_admin and lead_manager only.
+  const isLeadManager = currentUser?.role === Role.LEAD_MANAGER;
+  const canManageLead =
+    currentUser?.role === Role.SUPERADMIN || currentUser?.role === Role.ORG_ADMIN || isLeadManager;
+  const canEditAssignedTo = canManageLead;
+  const assignLead = useAssignLead();
 
   const [form, setForm] = React.useState({
     name: "",
@@ -343,8 +351,14 @@ function EditLeadForm() {
         rawPayload: { ...lead?.rawPayload, ...extraPayload, notes: form.notes, stage: form.stage }
       }
     }, {
-      onSuccess: () => {
-        toast.success("Lead updated successfully");
+      onSuccess: async () => {
+        if (isLeadManager && form.assignedTo && form.assignedTo !== (lead?.assignedTo || "")) {
+          try {
+            await assignLead.mutateAsync({ leadId, assignedTo: form.assignedTo });
+          } catch {
+            return;
+          }
+        }
         router.push("/organization/lead-manager");
       }
     });

@@ -30,6 +30,8 @@ import { CampaignsModule } from './modules/campaigns/campaigns.module.js';
 import { LeadCaptureModule } from './modules/lead-capture/lead-capture.module.js';
 import { DocumentsModule } from './modules/documents/documents.module.js';
 import { RemindersModule } from './modules/reminders/reminders.module.js';
+import { EmailCampaignsModule } from './modules/email-campaigns/email-campaigns.module.js';
+import { CallsModule } from './modules/calls/calls.module.js';
 
 @Module({
   imports: [
@@ -88,6 +90,8 @@ import { RemindersModule } from './modules/reminders/reminders.module.js';
     LeadCaptureModule,
     DocumentsModule,
     RemindersModule,
+    EmailCampaignsModule,
+    CallsModule,
   ],
   providers: [
     {

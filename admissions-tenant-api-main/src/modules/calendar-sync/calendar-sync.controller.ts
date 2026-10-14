@@ -26,7 +26,7 @@ export class CalendarSyncController {
 
   // ---- Settings > Calendar Integration (OAuth app credentials) ----
   @Get('calendar-settings')
-  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.EXAM_MANAGER)
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.EXAM_MANAGER, Role.APPLICATION_MANAGER, Role.COUNSELOR, Role.LEAD_MANAGER)
   getSettings(@Param('orgId') orgId: string) {
     return this.calendarSyncService.getSettings(orgId);
   }

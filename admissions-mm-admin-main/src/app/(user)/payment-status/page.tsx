@@ -44,7 +44,8 @@ function PaymentStatusInner() {
         if (p.status === "Success" && pending?.submitAfterPayment && pending.applicationNo) {
           setFinalizing(true);
           try {
-            await apiPatch(`/applications/${encodeURIComponent(pending.applicationNo)}/submit`, pending.password ? { password: pending.password } : undefined);
+            // The account password was saved server-side before the gateway redirect.
+            await apiPatch(`/applications/${encodeURIComponent(pending.applicationNo)}/submit`);
           } catch (e: any) {
             setFinalError(e?.response?.data?.message || "Your payment was received but the application could not be submitted. Please contact support.");
           } finally {

@@ -77,6 +77,8 @@ import { useTeam } from "@/hooks/use-team";
 import { toast } from "sonner";
 import { usePageHeader } from "@/hooks/use-page-header";
 import { useDuplicateLeads } from "@/hooks/use-lead-management";
+import { useAuthStore } from "@/stores/auth-store";
+import { Role } from "@/types/auth";
 import { CHANNEL_SOURCES, FOLLOW_UP_STATUSES, SOURCE_TYPES } from "@/types/lead-management";
 import { BandBadge, followUpStyles, pillStyles } from "./_components/lm-ui";
 
@@ -193,7 +195,16 @@ export default function LeadManagerPage() {
     followUpStatus: "all",
   });
 
-  const { data: duplicatePairs } = useDuplicateLeads();
+  // Backend roles: duplicates / CSV import / campaigns / verify / disqualify = superadmin, org_admin, lead_manager;
+  // delete = superadmin, org_admin. Counselors only see and edit their own leads.
+  const currentRole = useAuthStore((s) => s.user?.role);
+  const canManageLeads =
+    currentRole === Role.SUPERADMIN || currentRole === Role.ORG_ADMIN || currentRole === Role.LEAD_MANAGER;
+  const canDeleteLeads = currentRole === Role.SUPERADMIN || currentRole === Role.ORG_ADMIN;
+  // Counselors cannot open /organization/lead-manager/* (middleware), their detail page is /organization/leads/edit.
+  const leadEditBase = currentRole === Role.COUNSELOR ? "/organization/leads/edit" : "/organization/lead-manager/edit";
+
+  const { data: duplicatePairs } = useDuplicateLeads(canManageLeads);
   const duplicateCount = duplicatePairs?.length || 0;
 
   const { data: formsData } = useForms(1, 100);
@@ -437,6 +448,7 @@ export default function LeadManagerPage() {
     <>
       <div className="flex flex-col gap-4 p-4 md:p-6">
         <div className="flex flex-wrap items-center gap-2">
+          {canManageLeads && (<>
           <Link href="/organization/lead-manager/duplicates">
             <Button variant="outline" className="h-9 text-xs font-semibold gap-1.5">
               <Copy className="size-4" />
@@ -454,6 +466,7 @@ export default function LeadManagerPage() {
               <Megaphone className="size-4" /> Campaigns
             </Button>
           </Link>
+          </>)}
           {campaignIdFilter && (
             <Button
               variant="ghost"
@@ -943,7 +956,7 @@ export default function LeadManagerPage() {
                   >
                     <TableCell className="py-5 px-6 align-middle">
                       <Link
-                        href={`/organization/lead-manager/edit?id=${item.id}`}
+                        href={`${leadEditBase}?id=${item.id}`}
                         className="font-semibold text-foreground hover:underline text-sm tracking-tight inline-block whitespace-nowrap"
                       >
                         {item.name}
@@ -1028,11 +1041,12 @@ export default function LeadManagerPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-32">
                             <DropdownMenuItem className="gap-2" asChild>
-                              <Link href={`/organization/lead-manager/edit?id=${item.id}`}>
+                              <Link href={`${leadEditBase}?id=${item.id}`}>
                                 <Pencil className="size-4" />
                                 Edit
                               </Link>
                             </DropdownMenuItem>
+                            {canManageLeads && (<>
                             <DropdownMenuItem
                               className="gap-2 text-emerald-600 focus:text-emerald-600 cursor-pointer font-medium"
                               onClick={() => updateStatus({ leadId: String(item.id), status: "verified" })}
@@ -1047,6 +1061,8 @@ export default function LeadManagerPage() {
                               <Trash2 className="size-4 text-rose-600" />
                               Disqualify
                             </DropdownMenuItem>
+                            </>)}
+                            {canDeleteLeads && (<>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               variant="destructive"
@@ -1056,6 +1072,7 @@ export default function LeadManagerPage() {
                               <Trash2 className="size-4" />
                               Delete
                             </DropdownMenuItem>
+                            </>)}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -1176,7 +1193,7 @@ export default function LeadManagerPage() {
 
                       <div className="min-w-0">
                         <Link
-                          href={`/organization/lead-manager/edit?id=${item.id}`}
+                          href={`${leadEditBase}?id=${item.id}`}
                           className="font-semibold text-foreground hover:underline text-sm tracking-tight truncate block"
                         >
                           {item.name}
@@ -1207,11 +1224,12 @@ export default function LeadManagerPage() {
 
                         <DropdownMenuContent align="end" className="w-32">
                           <DropdownMenuItem className="gap-2" asChild>
-                            <Link href={`/organization/lead-manager/edit?id=${item.id}`}>
+                            <Link href={`${leadEditBase}?id=${item.id}`}>
                               <Pencil className="size-4" />
                               Edit
                             </Link>
                           </DropdownMenuItem>
+                          {canManageLeads && (<>
                           <DropdownMenuItem
                             className="gap-2 text-emerald-600 focus:text-emerald-600 cursor-pointer font-medium"
                             onClick={() =>
@@ -1236,6 +1254,8 @@ export default function LeadManagerPage() {
                             <Trash2 className="size-4 text-rose-600" />
                             Disqualify
                           </DropdownMenuItem>
+                          </>)}
+                          {canDeleteLeads && (<>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
                             variant="destructive"
@@ -1245,6 +1265,7 @@ export default function LeadManagerPage() {
                             <Trash2 className="size-4" />
                             Delete
                           </DropdownMenuItem>
+                          </>)}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>

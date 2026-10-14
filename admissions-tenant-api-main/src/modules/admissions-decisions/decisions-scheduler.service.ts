@@ -49,8 +49,15 @@ export class DecisionsSchedulerService implements EntitySubscriberInterface<Offe
     if (this.running) return;
     this.running = true;
     try {
-      const offers = await this.offerLetters.expireOffers();
-      const acceptances = await this.acceptances.expireOverdue();
+      // Each job is guarded on its own so a failure in one does not skip the other.
+      const offers = await this.offerLetters.expireOffers().catch((err) => {
+        this.logger.error(`Offer expiry failed: ${(err as Error).message}`);
+        return 0;
+      });
+      const acceptances = await this.acceptances.expireOverdue().catch((err) => {
+        this.logger.error(`Acceptance expiry failed: ${(err as Error).message}`);
+        return 0;
+      });
       if (offers || acceptances) {
         this.logger.log(`Expired ${offers} offer(s) and ${acceptances} acceptance(s).`);
       }
@@ -61,12 +68,18 @@ export class DecisionsSchedulerService implements EntitySubscriberInterface<Offe
     }
   }
 
+  private reconciling = false;
+
   @Interval(5 * 60 * 1000)
   async reconcilePayments() {
+    if (this.reconciling) return;
+    this.reconciling = true;
     try {
       await this.acceptances.reconcilePaidFees();
     } catch (err) {
       this.logger.error(`Seat booking fee reconciliation failed: ${(err as Error).message}`);
+    } finally {
+      this.reconciling = false;
     }
   }
 }

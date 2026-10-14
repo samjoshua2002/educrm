@@ -7,10 +7,11 @@ import { CreateInterviewDto, UpdateInterviewDto } from './dto/interview.dto.js';
 import * as Picklists from './constants/interview-picklists.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
+import { TenantGuard } from '../../common/guards/tenant.guard.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { Role } from '../../common/enums/roles.enum.js';
 
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, TenantGuard)
 @Controller('organizations/:orgId/interviews')
 export class InterviewsBookingController {
   constructor(private readonly bookingService: InterviewsBookingService) {}
@@ -48,7 +49,7 @@ export class InterviewsBookingController {
   }
 
   @Get()
-  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.EXAM_MANAGER, Role.STUDENT)
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.EXAM_MANAGER, Role.APPLICATION_MANAGER, Role.COUNSELOR, Role.STUDENT)
   findAll(
     @Param('orgId') orgId: string,
     @Query('applicationId') applicationId?: string,
@@ -59,7 +60,7 @@ export class InterviewsBookingController {
   }
 
   @Get(':id')
-  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.EXAM_MANAGER)
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.EXAM_MANAGER, Role.APPLICATION_MANAGER, Role.COUNSELOR)
   findOne(@Param('id') id: string, @Param('orgId') orgId: string) {
     return this.bookingService.findOneOrThrow(id, orgId);
   }

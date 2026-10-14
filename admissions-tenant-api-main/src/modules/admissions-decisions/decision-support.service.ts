@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Not, Repository, ILike } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -15,6 +15,11 @@ import { CommitteeTeamDto, UpdateDecisionSettingsDto } from './dto/decision.dto.
 
 const DEFAULT_SEAT_BOOKING_FEE = 5000;
 export const NOTIFY_MODULE = 'admissions_decisions';
+
+// Escapes LIKE wildcards so an email such as "a_b@x.com" only matches itself.
+export function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, (c) => `\\${c}`);
+}
 
 export interface Actor {
   sub: string;
@@ -90,6 +95,7 @@ export class DecisionSupportService {
   }
 
   async updateSettings(orgId: string, dto: UpdateDecisionSettingsDto) {
+    await this.assertOrgUsers(orgId, dto.approverUserIds);
     const s = await this.getSettings(orgId);
     Object.assign(s, dto);
     return this.settingsRepo.save(s);
@@ -118,6 +124,7 @@ export class DecisionSupportService {
   }
 
   async createTeam(orgId: string, dto: CommitteeTeamDto) {
+    await this.assertOrgUsers(orgId, dto.memberIds);
     return this.teamRepo.save(
       this.teamRepo.create({
         organizationId: orgId,
@@ -134,7 +141,10 @@ export class DecisionSupportService {
     if (!team) throw new NotFoundException('Committee team not found');
     if (dto.name !== undefined) team.name = dto.name;
     if (dto.description !== undefined) team.description = dto.description;
-    if (dto.memberIds !== undefined) team.memberIds = dto.memberIds;
+    if (dto.memberIds !== undefined) {
+      await this.assertOrgUsers(orgId, dto.memberIds);
+      team.memberIds = dto.memberIds;
+    }
     if (dto.isActive !== undefined) team.isActive = dto.isActive;
     return this.teamRepo.save(team);
   }
@@ -154,6 +164,21 @@ export class DecisionSupportService {
       teams.forEach((t) => (t.memberIds || []).forEach((m) => ids.add(m)));
     }
     return [...ids];
+  }
+
+  // Users / teams given in a request body must belong to this organization.
+  async assertOrgUsers(orgId: string, userIds?: string[] | null) {
+    const ids = [...new Set(userIds || [])];
+    if (!ids.length) return;
+    const count = await this.userRepo.count({ where: { id: In(ids), organizationId: orgId } });
+    if (count !== ids.length) throw new BadRequestException('One or more users do not belong to this organization.');
+  }
+
+  async assertOrgTeams(orgId: string, teamIds?: string[] | null) {
+    const ids = [...new Set(teamIds || [])];
+    if (!ids.length) return;
+    const count = await this.teamRepo.count({ where: { id: In(ids), organizationId: orgId } });
+    if (count !== ids.length) throw new BadRequestException('One or more committee teams do not belong to this organization.');
   }
 
   async userNames(ids: string[]): Promise<Record<string, string>> {
@@ -230,7 +255,7 @@ export class DecisionSupportService {
     try {
       if (!application.email) return;
       const student = await this.userRepo.findOne({
-        where: { email: ILike(application.email.trim()), role: Role.STUDENT },
+        where: { email: ILike(escapeLike(application.email.trim())), role: Role.STUDENT },
       });
       if (!student) return;
       await this.notifications.notify({

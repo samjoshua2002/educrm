@@ -54,6 +54,7 @@ import {
 } from "@/hooks/use-events";
 import { useEmailTemplates } from "@/hooks/use-email-templates";
 import { useCourses } from "@/hooks/use-courses";
+import { useAuthStore } from "@/stores/auth-store";
 import { EventPosterUploader } from "@/components/events/event-poster-uploader";
 import {
   EventType,
@@ -87,6 +88,9 @@ function EditEventForm() {
   const { data: eventItem, isLoading } = useEvent(id);
   const updateEvent = useUpdateEvent();
   const deleteEvent = useDeleteEvent();
+  // Backend DELETE allows only superadmin / org_admin / application_manager.
+  const currentRole = useAuthStore((s) => s.user?.role) || "";
+  const canDelete = ["superadmin", "org_admin", "application_manager"].includes(currentRole);
   const { data: templates = [] } = useEmailTemplates();
   const { data: coursesData } = useCourses(1, 50);
   const coursesList = coursesData?.data || [];
@@ -202,7 +206,9 @@ function EditEventForm() {
           description: form.description.trim(),
           priority: form.priority,
           ...targetingPayload(targeting),
-          targetCourseId: form.targetCourseId !== "all" ? form.targetCourseId : undefined,
+          // Empty / "all" values clear the stored target on the backend (undefined would keep the old one).
+          targetAcademicSession: targeting.targetAcademicSession || "",
+          targetCourseId: form.targetCourseId || "all",
           targetCourseName:
             form.targetCourseId !== "all"
               ? coursesList.find((c: any) => c.id === form.targetCourseId)?.name || form.targetCourseName
@@ -280,6 +286,7 @@ function EditEventForm() {
           </h1>
         </div>
 
+        {canDelete && (
         <Button
           variant="ghost"
           size="sm"
@@ -289,6 +296,7 @@ function EditEventForm() {
           <Trash2 className="size-4 mr-1.5" />
           Delete
         </Button>
+        )}
       </div>
 
       <div className="px-4 md:px-6 py-2 md:py-4">

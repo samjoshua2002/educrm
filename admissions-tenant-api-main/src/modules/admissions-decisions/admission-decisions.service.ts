@@ -23,7 +23,7 @@ import {
 import { WaitlistService } from './waitlist.service.js';
 import { RejectionService } from './rejection.service.js';
 import { OfferLettersService } from './offer-letters.service.js';
-import { Actor, DecisionSupportService } from './decision-support.service.js';
+import { Actor, DecisionSupportService, escapeLike } from './decision-support.service.js';
 
 const STAGE_ORDER: string[] = [...DECISION_STAGES];
 const STAGE_LABELS: Record<string, string> = {
@@ -202,6 +202,8 @@ export class AdmissionDecisionsService {
     if (decision.decisionStage === 'decision_released' && (dto.decisionCommittee || dto.decisionCommitteeTeamIds || dto.decisionScore !== undefined)) {
       throw new BadRequestException('The committee and score cannot change after the decision is released.');
     }
+    await this.support.assertOrgUsers(orgId, dto.decisionCommittee);
+    await this.support.assertOrgTeams(orgId, dto.decisionCommitteeTeamIds);
     if (dto.decisionCommittee !== undefined) decision.decisionCommittee = dto.decisionCommittee;
     if (dto.decisionCommitteeTeamIds !== undefined) decision.decisionCommitteeTeamIds = dto.decisionCommitteeTeamIds;
     if (dto.decisionScore !== undefined) decision.decisionScore = dto.decisionScore;
@@ -333,7 +335,22 @@ export class AdmissionDecisionsService {
     decision.decisionLocked = dto.lock ?? true;
     decision.applicantVisible = dto.applicantVisible ?? true;
     decision.updatedBy = actor.sub;
-    await this.decisionRepository.save(decision);
+    // Conditional update: two concurrent releases must not both apply the outcome.
+    const released = await this.decisionRepository.update(
+      { id: decision.id, decisionStage: 'final_approval', approvalStatus: 'approved', decisionLocked: false },
+      {
+        decisionStage: decision.decisionStage,
+        releasedAt: decision.releasedAt,
+        releasedBy: decision.releasedBy,
+        decisionDate: decision.decisionDate,
+        decisionLocked: decision.decisionLocked,
+        applicantVisible: decision.applicantVisible,
+        updatedBy: decision.updatedBy,
+      },
+    );
+    if (!released.affected) {
+      throw new BadRequestException('This decision was changed by someone else. Reload and try again.');
+    }
 
     // Outcome on the application and downstream records.
     if (decision.finalDecision === 'offer_made') {
@@ -494,7 +511,7 @@ export class AdmissionDecisionsService {
   // ---------------------------------------------------------------------------
 
   async findStudentApplication(email: string, orgId?: string | null, applicationNo?: string) {
-    const where: any = { email: ILike((email || '').trim()), formStatus: Not(In(['draft', 'incomplete'])) };
+    const where: any = { email: ILike(escapeLike((email || '').trim())), formStatus: Not(In(['draft', 'incomplete'])) };
     if (orgId) where.organizationId = orgId;
     if (applicationNo) where.applicationNo = applicationNo;
     const application = await this.applicationRepository.findOne({ where, order: { createdAt: 'DESC' } });

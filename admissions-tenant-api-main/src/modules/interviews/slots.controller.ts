@@ -5,10 +5,11 @@ import { BulkCreateSlotsDto } from './dto/bulk-create-slots.dto.js';
 import { UpdateSlotDto } from './dto/update-slot.dto.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
+import { TenantGuard } from '../../common/guards/tenant.guard.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { Role } from '../../common/enums/roles.enum.js';
 
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, TenantGuard)
 @Controller('organizations/:orgId/interview-slots')
 export class SlotsController {
   constructor(private readonly slotsService: SlotsService) {}

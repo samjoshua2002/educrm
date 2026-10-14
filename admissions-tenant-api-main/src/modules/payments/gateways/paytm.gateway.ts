@@ -55,7 +55,9 @@ export const PaytmChecksum = {
       const hashWithSalt = this.decrypt(checksum, key);
       const salt = hashWithSalt.slice(-4);
       const expected = crypto.createHash('sha256').update(`${str}|${salt}`).digest('hex') + salt;
-      return expected === hashWithSalt;
+      const a = Buffer.from(expected);
+      const b = Buffer.from(String(hashWithSalt));
+      return a.length === b.length && crypto.timingSafeEqual(a, b);
     } catch {
       return false;
     }

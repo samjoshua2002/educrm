@@ -3,10 +3,11 @@ import { ScoringService } from './scoring.service.js';
 import { RunShortlistingDto } from './dto/run-shortlisting.dto.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
+import { TenantGuard } from '../../common/guards/tenant.guard.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { Role } from '../../common/enums/roles.enum.js';
 
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, TenantGuard)
 @Controller('organizations/:orgId/shortlisting')
 export class ShortlistingController {
   constructor(private readonly scoringService: ScoringService) {}

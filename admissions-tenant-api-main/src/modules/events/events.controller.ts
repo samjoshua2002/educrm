@@ -96,8 +96,8 @@ export class OrgEventsController {
     Role.STUDENT,
   )
   @ResponseMessage('Announcement or Event fetched successfully')
-  findOne(@Param('id') id: string, @Param('orgId') orgId: string) {
-    return this.service.findOne(id, orgId);
+  findOne(@Param('id') id: string, @Param('orgId') orgId: string, @Request() req: any) {
+    return this.service.findOne(id, orgId, { sub: req.user?.sub, role: req.user?.role });
   }
 
   @Patch(':id')

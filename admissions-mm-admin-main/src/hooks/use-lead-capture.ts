@@ -19,6 +19,9 @@ function useOrgId() {
 
 const errMsg = (e: any, fallback: string) => e?.response?.data?.message || fallback;
 
+/** List endpoints return arrays, which the response interceptor turns into { data, pagination }. */
+const asList = <T,>(res: any): T[] => (Array.isArray(res) ? res : res?.data ?? []);
+
 /** Absolute URL of a public API path (e.g. "/public/lead-capture/...") */
 export function apiUrl(path: string) {
   const base = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api").replace(/\/+$/, "");
@@ -106,7 +109,7 @@ export function useImportBatches() {
   const orgId = useOrgId();
   return useQuery({
     queryKey: ["lead-capture", "imports", orgId],
-    queryFn: () => apiGet<ImportBatch[]>(`/organizations/${orgId}/lead-capture/imports`),
+    queryFn: async () => asList<ImportBatch>(await apiGet(`/organizations/${orgId}/lead-capture/imports`)),
     enabled: !!orgId,
   });
 }
@@ -133,7 +136,7 @@ export function useCaptureEvents() {
   const orgId = useOrgId();
   return useQuery({
     queryKey: ["lead-capture", "events", orgId],
-    queryFn: () => apiGet<CaptureEvent[]>(`/organizations/${orgId}/lead-capture/events`),
+    queryFn: async () => asList<CaptureEvent>(await apiGet(`/organizations/${orgId}/lead-capture/events`)),
     enabled: !!orgId,
   });
 }
@@ -173,7 +176,7 @@ export function useChatbotConversations() {
   const orgId = useOrgId();
   return useQuery({
     queryKey: ["lead-capture", "chatbot", orgId],
-    queryFn: () => apiGet<ChatbotConversation[]>(`/organizations/${orgId}/lead-capture/chatbot/conversations`),
+    queryFn: async () => asList<ChatbotConversation>(await apiGet(`/organizations/${orgId}/lead-capture/chatbot/conversations`)),
     enabled: !!orgId,
   });
 }

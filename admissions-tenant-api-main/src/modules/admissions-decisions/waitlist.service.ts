@@ -207,18 +207,21 @@ export class WaitlistService {
     const application = await this.support.findApplicationById(entry.applicationId);
     if (!application) throw new NotFoundException('Application not found');
 
+    // Claim the entry first: two seats freed at the same time must not both
+    // release an offer to the same applicant.
+    const claim = await this.waitlistRepository.update(
+      { id: entry.id, waitlistStatus: WaitlistStatus.ACTIVE },
+      { waitlistStatus: WaitlistStatus.OFFER_RELEASED },
+    );
+    if (!claim.affected) {
+      if (actorId) throw new BadRequestException('This waitlist entry is no longer active.');
+      return null;
+    }
+
     const decision = await this.decisionRepository.findOne({
       where: { organizationId: entry.organizationId, applicationId: application.id },
       order: { createdAt: 'DESC' },
     });
-    if (decision) {
-      decision.finalDecision = 'offer_made';
-      decision.approvalStatus = 'approved';
-      decision.decisionDate = new Date();
-      decision.internalRemarks = `${decision.internalRemarks ? decision.internalRemarks + '\n' : ''}[Waitlist] Offer released on ${formatLetterDate(new Date())} (${TRIGGER_LABELS[trigger] || trigger}).`;
-      decision.updatedBy = actorId as string;
-      await this.decisionRepository.save(decision);
-    }
 
     if (alternateProgram) entry.alternateProgramOffered = alternateProgram;
     const program = entry.alternateProgramOffered || entry.program || application.program;
@@ -232,7 +235,31 @@ export class WaitlistService {
       offerSent = !!sent?.sentToCandidate;
     } catch (err) {
       this.logger.error(`Offer for waitlisted ${application.applicationNo} could not be issued: ${(err as Error).message}`);
+      // No offer went out: the applicant stays on the active waitlist.
+      await this.waitlistRepository.update(
+        { id: entry.id, waitlistStatus: WaitlistStatus.OFFER_RELEASED },
+        { waitlistStatus: WaitlistStatus.ACTIVE },
+      );
       if (actorId) throw err;
+      await this.support.notifyStaff({
+        organizationId: entry.organizationId,
+        type: 'waitlist_movement',
+        severity: 'warning',
+        title: `Waitlist offer could not be issued: ${application.name} (${application.applicationNo})`,
+        body: `${(err as Error).message}. Release the offer manually.`,
+        link: `/organization/decisions/${encodeURIComponent(application.applicationNo)}`,
+        relatedEntityId: entry.id,
+      });
+      return null;
+    }
+
+    if (decision) {
+      decision.finalDecision = 'offer_made';
+      decision.approvalStatus = 'approved';
+      decision.decisionDate = new Date();
+      decision.internalRemarks = `${decision.internalRemarks ? decision.internalRemarks + '\n' : ''}[Waitlist] Offer released on ${formatLetterDate(new Date())} (${TRIGGER_LABELS[trigger] || trigger}).`;
+      decision.updatedBy = actorId as string;
+      await this.decisionRepository.save(decision);
     }
 
     const previousRank = entry.waitlistRank;
@@ -285,15 +312,18 @@ export class WaitlistService {
 
   // A seat for `program` became free.
   async onSeatVacated(orgId: string, program: string | null, trigger: string, vacatedApplicationId?: string) {
-    const next = await this.waitlistRepository
-      .createQueryBuilder('e')
-      .where('e.organization_id = :orgId AND e.waitlist_status = :st', { orgId, st: WaitlistStatus.ACTIVE })
-      .andWhere(program ? 'e.program = :program' : 'e.program IS NULL', { program })
-      .andWhere(vacatedApplicationId ? 'e.application_id != :vac' : '1=1', { vac: vacatedApplicationId })
-      .orderBy('e.waitlist_rank IS NULL', 'ASC')
-      .addOrderBy('e.waitlist_rank', 'ASC')
-      .addOrderBy('e.created_at', 'ASC')
-      .getOne();
+    const findNext = (skip: string[]) =>
+      this.waitlistRepository
+        .createQueryBuilder('e')
+        .where('e.organization_id = :orgId AND e.waitlist_status = :st', { orgId, st: WaitlistStatus.ACTIVE })
+        .andWhere(program ? 'e.program = :program' : 'e.program IS NULL', { program })
+        .andWhere(vacatedApplicationId ? 'e.application_id != :vac' : '1=1', { vac: vacatedApplicationId })
+        .andWhere(skip.length ? 'e.id NOT IN (:...skip)' : '1=1', { skip })
+        .orderBy('e.waitlist_rank IS NULL', 'ASC')
+        .addOrderBy('e.waitlist_rank', 'ASC')
+        .addOrderBy('e.created_at', 'ASC')
+        .getOne();
+    let next = await findNext([]);
 
     if (!next) {
       await this.support.notifyStaff({
@@ -308,7 +338,16 @@ export class WaitlistService {
 
     const settings = await this.support.getSettings(orgId);
     if (settings.waitlistMovementMode === 'auto') {
-      return this.releaseEntry(next, trigger, null, null);
+      // If the next entry was taken concurrently or its offer failed, try the
+      // following ranks (bounded) so the freed seat is not silently lost.
+      const tried: string[] = [];
+      while (next && tried.length < 5) {
+        const released = await this.releaseEntry(next, trigger, null, null);
+        if (released) return released;
+        tried.push(next.id);
+        next = await findNext(tried);
+      }
+      return null;
     }
 
     const app = await this.support.findApplicationById(next.applicationId);

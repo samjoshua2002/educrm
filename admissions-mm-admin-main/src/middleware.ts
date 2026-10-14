@@ -23,6 +23,8 @@ export function middleware(request: NextRequest) {
       return NextResponse.redirect(
         new URL("/superadmin/dashboard", request.url),
       );
+    } else if (userRole === "student") {
+      return NextResponse.redirect(new URL("/my-application", request.url));
     } else {
       return NextResponse.redirect(
         new URL("/organization/dashboard", request.url),
@@ -50,14 +52,24 @@ export function middleware(request: NextRequest) {
   // 4. Leads vs Lead Manager: org_admin can use both; lead_manager only works the
   // unverified queue (/organization/lead-manager), counselor only works verified
   // leads (/organization/leads) once handed off.
+  // The detail pages keep their ?id= so links from dashboards and alerts still open the lead.
   if (userRole === "lead_manager" && pathname.startsWith("/organization/leads")) {
-    return NextResponse.redirect(
-      new URL("/organization/lead-manager", request.url),
-    );
+    const target = pathname.startsWith("/organization/leads/edit")
+      ? "/organization/lead-manager/edit"
+      : "/organization/lead-manager";
+    return NextResponse.redirect(new URL(target + request.nextUrl.search, request.url));
   }
 
-  if (userRole === "counselor" && pathname.startsWith("/organization/lead-manager")) {
-    return NextResponse.redirect(new URL("/organization/leads", request.url));
+  // Counselors may still create leads through the shared create page.
+  if (
+    userRole === "counselor" &&
+    pathname.startsWith("/organization/lead-manager") &&
+    !pathname.startsWith("/organization/lead-manager/create")
+  ) {
+    const target = pathname.startsWith("/organization/lead-manager/edit")
+      ? "/organization/leads/edit"
+      : "/organization/leads";
+    return NextResponse.redirect(new URL(target + request.nextUrl.search, request.url));
   }
 
   // 5. Application verification is restricted to org_admin and application_manager

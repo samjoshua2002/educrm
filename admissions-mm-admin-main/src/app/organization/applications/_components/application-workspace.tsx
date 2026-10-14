@@ -27,6 +27,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { apiGet } from "@/lib/api";
+import { useAuthStore } from "@/stores/auth-store";
 import {
   useApplicationProgress,
   useApplicationTimeline,
@@ -240,6 +241,9 @@ function MasterFields({ applicationNo }: { applicationNo: string }) {
   });
   const { data: counsellorList } = useTrackerCounsellors();
   const update = useUpdateApplicationMaster();
+  // Backend: POST .../stage allows superadmin/org_admin/application_manager only (not counselors).
+  const role = useAuthStore((s) => s.user?.role);
+  const canChangeStage = role === "superadmin" || role === "org_admin" || role === "application_manager";
   const counsellors = counsellorList || [];
 
   if (!app) return <Loader2 className="size-5 animate-spin text-[#2563EB] mx-auto" />;
@@ -295,7 +299,7 @@ function MasterFields({ applicationNo }: { applicationNo: string }) {
           </Select>
         </div>
       </div>
-      <StageChanger applicationId={app.id} currentStage={app.currentStage || "Application Started"} />
+      {canChangeStage && <StageChanger applicationId={app.id} currentStage={app.currentStage || "Application Started"} />}
     </div>
   );
 }

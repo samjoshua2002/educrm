@@ -338,6 +338,15 @@ export class LeadDuplicateService {
     if (master.isDuplicate && master.masterLeadId === null) master.isDuplicate = false;
 
     await this.dataSource.transaction(async (manager) => {
+      // Claim the duplicate first: a concurrent merge of the same record (double click,
+      // two reviewers) must not fold it twice or into two different masters.
+      const claim = await manager.update(
+        Lead,
+        { id: duplicate.id, organizationId: orgId, status: Not(LeadStatus.MERGED) },
+        { status: LeadStatus.MERGED },
+      );
+      if (!claim.affected) throw new BadRequestException('One of these leads has already been merged');
+
       delete (master as any).assignedToUser;
       await manager.save(Lead, master);
 

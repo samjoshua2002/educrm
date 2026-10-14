@@ -52,6 +52,13 @@ function useOrgId() {
   return useAuthStore((s) => s.user?.organizationId);
 }
 
+// List endpoints return a plain array, which the API wraps as
+// { data: [...], pagination } — unwrap to the array.
+async function getList<T>(url: string, params?: object): Promise<T[]> {
+  const res = await apiGet<T[] | { data?: T[] }>(url, params);
+  return Array.isArray(res) ? res : (res?.data ?? []);
+}
+
 // ============================================================================
 // PDF download (authenticated) â€” the API streams application/pdf.
 // ============================================================================
@@ -124,7 +131,7 @@ export function useDecisionList(filters: DecisionListFilters = {}) {
   return useQuery({
     queryKey: ["admission-decisions-list", orgId, params],
     queryFn: () =>
-      apiGet<DecisionListRow[]>(`/organizations/${orgId}/decisions`, params),
+      getList<DecisionListRow>(`/organizations/${orgId}/decisions`, params),
     enabled: !!orgId,
   });
 }
@@ -321,7 +328,7 @@ export function useCommitteeTeams() {
   return useQuery({
     queryKey: ["decision-committee-teams", orgId],
     queryFn: () =>
-      apiGet<CommitteeTeam[]>(`/organizations/${orgId}/decisions/teams`),
+      getList<CommitteeTeam>(`/organizations/${orgId}/decisions/teams`),
     enabled: !!orgId,
   });
 }
@@ -393,7 +400,7 @@ export function useOfferHistory(applicationNo?: string) {
   return useQuery({
     queryKey: ["offer-letter", orgId, applicationNo, "history"],
     queryFn: () =>
-      apiGet<OfferLetter[]>(
+      getList<OfferLetter>(
         `/organizations/${orgId}/applications/${encodeURIComponent(applicationNo!)}/offer-letter/history`,
       ),
     enabled: !!orgId && !!applicationNo,
@@ -410,7 +417,7 @@ export function useOfferList(
   return useQuery({
     queryKey: ["offer-letters-list", orgId, params],
     queryFn: () =>
-      apiGet<OfferListRow[]>(`/organizations/${orgId}/offer-letters`, params),
+      getList<OfferListRow>(`/organizations/${orgId}/offer-letters`, params),
     enabled: !!orgId,
   });
 }
@@ -538,7 +545,7 @@ export function useLetterTemplates(
   return useQuery({
     queryKey: ["letter-templates", orgId, params],
     queryFn: () =>
-      apiGet<LetterTemplate[]>(
+      getList<LetterTemplate>(
         `/organizations/${orgId}/letter-templates`,
         params,
       ),
@@ -551,7 +558,7 @@ export function useLetterMergeFields() {
   return useQuery({
     queryKey: ["letter-merge-fields", orgId],
     queryFn: () =>
-      apiGet<MergeField[]>(
+      getList<MergeField>(
         `/organizations/${orgId}/letter-templates/merge-fields`,
       ),
     enabled: !!orgId,

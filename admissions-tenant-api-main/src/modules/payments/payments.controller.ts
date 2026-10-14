@@ -80,10 +80,11 @@ export class PaymentsController {
   @ResponseMessage('Payment options fetched successfully')
   gateways(
     @Param('applicationId') applicationId: string,
-    @Query('purpose') purpose?: string,
-    @Query('offerAcceptanceId') offerAcceptanceId?: string,
+    @Query('purpose') purpose: string | undefined,
+    @Query('offerAcceptanceId') offerAcceptanceId: string | undefined,
+    @Req() req: any,
   ) {
-    return this.paymentsService.availableGateways(applicationId, purpose, offerAcceptanceId);
+    return this.paymentsService.availableGateways(applicationId, purpose, offerAcceptanceId, req.user);
   }
 
   @Get('application/:applicationId')
@@ -131,8 +132,8 @@ export class PaymentsController {
   @Post('razorpay/fail')
   @UseGuards(JwtAuthGuard)
   @ResponseMessage('Payment failure recorded')
-  recordFailure(@Body() body: { orderId: string; reason?: string }) {
-    return this.paymentsService.recordFailure(body.orderId, body.reason);
+  recordFailure(@Body() body: { orderId: string; reason?: string }, @Req() req: any) {
+    return this.paymentsService.recordFailure(body?.orderId, body?.reason, req.user);
   }
 
   // ---------------------------------------------------------------------------

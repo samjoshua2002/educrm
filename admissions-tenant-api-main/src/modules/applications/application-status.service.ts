@@ -161,6 +161,7 @@ export class ApplicationStatusService {
     const user = await this.userRepo
       .createQueryBuilder('u')
       .where('LOWER(u.email) = LOWER(:email)', { email: app.email.trim() })
+      .andWhere('u.role = :role', { role: Role.STUDENT })
       .getOne();
     return user?.id ?? null;
   }
@@ -219,6 +220,11 @@ export class ApplicationStatusService {
       if (stage === 'Approved') patch.formStatus = 'accepted';
       if (stage === 'Rejected') patch.formStatus = 'rejected';
       if (stage === 'Under Review' && app.formStatus === 'submitted') patch.formStatus = 'under_review';
+      // Moving a decided application back to a non-decision stage must clear the
+      // decision, otherwise the rules engine immediately moves it back.
+      if (stage !== 'Approved' && stage !== 'Rejected' && ['accepted', 'approved', 'rejected'].includes((app.formStatus || '').toLowerCase())) {
+        patch.formStatus = app.submittedAt ? 'under_review' : 'incomplete';
+      }
       if (stage === 'Verified') {
         patch.verificationStatus = 'verified';
         if (opts.actorId) {
@@ -297,8 +303,10 @@ export class ApplicationStatusService {
   async initialize(app: Application, actorId?: string | null) {
     const existing = await this.logRepo.count({ where: { applicationId: app.id } });
     if (existing > 0) return;
+    // Record the stage the application is already in instead of resetting it.
+    const start = (TRACKER_STAGES as readonly string[]).includes(app.currentStage) ? app.currentStage : 'Application Started';
     app.currentStage = '';
-    await this.changeStage(app, 'Application Started', {
+    await this.changeStage(app, start, {
       actorId: actorId ?? null,
       source: 'rule',
       internalRemarks: 'Application initiated',
@@ -772,6 +780,7 @@ export class ApplicationStatusService {
         take: 500,
       });
       for (const log of overdue) {
+        try {
         if (FINAL_STAGES.includes(log.currentStatus)) continue;
         log.slaBreached = true;
         await this.logRepo.save(log);
@@ -792,6 +801,9 @@ export class ApplicationStatusService {
         await this.inApp.notify({ ...payload, recipientRole: Role.ORG_ADMIN });
         if (app.assignedCounselorId) {
           await this.inApp.notify({ ...payload, recipientUserId: app.assignedCounselorId });
+        }
+        } catch (e) {
+          this.logger.error(`SLA check failed for log ${log.id}: ${(e as Error).message}`);
         }
       }
     } catch (e) {

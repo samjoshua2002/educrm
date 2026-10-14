@@ -161,13 +161,30 @@ export class EventsService {
     };
   }
 
-  async findOne(id: string, orgId?: string): Promise<AnnouncementEvent> {
+  async findOne(id: string, orgId?: string, viewer?: EventViewer): Promise<AnnouncementEvent> {
     const qb = this.repo.createQueryBuilder('e').where('e.id = :id', { id });
     if (orgId) {
       qb.andWhere('(e.organization_id = :orgId OR e.organization_id IS NULL)', { orgId });
     }
     const item = await qb.getOne();
     if (!item) {
+      throw new NotFoundException(`Announcement / Event with ID "${id}" not found`);
+    }
+    // Students only see what the list shows them: published items.
+    if (viewer?.role === 'student' && item.status !== 'Published') {
+      throw new NotFoundException(`Announcement / Event with ID "${id}" not found`);
+    }
+    return item;
+  }
+
+  /**
+   * For changes: the item must belong to this organization. Platform-wide rows
+   * (organization_id NULL) are readable by every organization but must not be
+   * edited, deleted or re-broadcast through one organization's route.
+   */
+  private async findOwned(id: string, orgId: string): Promise<AnnouncementEvent> {
+    const item = await this.findOne(id, orgId);
+    if (item.organizationId !== orgId) {
       throw new NotFoundException(`Announcement / Event with ID "${id}" not found`);
     }
     return item;
@@ -178,7 +195,7 @@ export class EventsService {
     orgId: string,
     dto: UpdateEventDto,
   ): Promise<AnnouncementEvent & { delivery?: any }> {
-    const item = await this.findOne(id, orgId);
+    const item = await this.findOwned(id, orgId);
     const wasPublished = item.status === 'Published';
     Object.assign(item, this.clean(dto));
     if (dto.targetCourseId !== undefined) {
@@ -204,14 +221,14 @@ export class EventsService {
   }
 
   async remove(id: string, orgId: string): Promise<{ success: boolean; id: string }> {
-    const item = await this.findOne(id, orgId);
+    const item = await this.findOwned(id, orgId);
     await this.repo.remove(item);
     return { success: true, id };
   }
 
   /** Publish (if needed) and (re)send through the selected channels. */
   async broadcast(id: string, orgId: string) {
-    const item = await this.findOne(id, orgId);
+    const item = await this.findOwned(id, orgId);
     if (item.status !== 'Published') {
       item.status = 'Published';
       item.publishedAt = new Date();
@@ -264,18 +281,23 @@ export class EventsService {
         .getMany();
 
       for (const item of due) {
-        // Claim the row so a second instance does not publish it twice.
-        const claim = await this.repo
-          .createQueryBuilder()
-          .update(AnnouncementEvent)
-          .set({ status: 'Published', publishedAt: () => 'now()' })
-          .where('id = :id AND status = :status', { id: item.id, status: 'Scheduled' })
-          .execute();
-        if (!claim.affected) continue;
-        item.status = 'Published';
-        item.publishedAt = new Date();
-        this.logger.log(`Publishing scheduled ${item.type} "${item.title}"`);
-        await this.safeDeliver(item, 'schedule');
+        try {
+          // Claim the row so a second instance does not publish it twice.
+          const claim = await this.repo
+            .createQueryBuilder()
+            .update(AnnouncementEvent)
+            .set({ status: 'Published', publishedAt: () => 'now()' })
+            .where('id = :id AND status = :status', { id: item.id, status: 'Scheduled' })
+            .execute();
+          if (!claim.affected) continue;
+          item.status = 'Published';
+          item.publishedAt = new Date();
+          this.logger.log(`Publishing scheduled ${item.type} "${item.title}"`);
+          await this.safeDeliver(item, 'schedule');
+        } catch (err) {
+          // one bad row must not stop the others in this run
+          this.logger.error(`Scheduled publish of "${item.title}" failed: ${(err as Error).message}`);
+        }
       }
     } catch (err) {
       this.logger.error(`Scheduled publish run failed: ${(err as Error).message}`);

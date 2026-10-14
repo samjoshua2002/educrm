@@ -62,7 +62,7 @@ export default function StudentResultsPage() {
 
   const resolveCampusName = React.useCallback(
     (val?: string) => {
-      if (!val) return "Main Campus";
+      if (!val) return "—";
       const match = branches.find(
         (b: any) => b.id === val || b.name === val || b.city === val,
       );
@@ -72,7 +72,7 @@ export default function StudentResultsPage() {
           val,
         )
       ) {
-        return "Main Campus";
+        return "—";
       }
       return val;
     },
@@ -233,7 +233,6 @@ export default function StudentResultsPage() {
   const campusAllotted = resolveCampusName(
     activeApp?.confirmedCampus ||
       (activeApp as any)?.confirmedCampus ||
-      (activeApp as any)?.interviewLocation ||
       activeApp?.preferences?.preference1,
   );
 
@@ -1480,6 +1479,7 @@ function SeatFeePayButton({
         gateway: gateway.gateway,
         purpose: "seat_booking_fee",
         offerAcceptanceId,
+        context: { returnTo: "/results" },
       });
       if (res.status === "success") {
         toast.success("Seat booking fee paid. Your enrollment will be confirmed shortly.");

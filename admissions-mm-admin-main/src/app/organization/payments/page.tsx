@@ -39,6 +39,7 @@ import {
 
 import { usePayments, usePaymentStats, type PaymentRecord } from "@/hooks/use-payments";
 import { usePageHeader } from "@/hooks/use-page-header";
+import { useAuthStore } from "@/stores/auth-store";
 import { PaymentDetailDialog, formatMoney, reconciliationClass, refundClass } from "./_components/payment-detail-dialog";
 
 const paymentStatusStyles: Record<string, string> = {
@@ -151,14 +152,19 @@ export default function PaymentsPage() {
   const [currentPage, setCurrentPage] = React.useState(1);
   const [copiedId, setCopiedId] = React.useState<string | null>(null);
   const itemsPerPage = 10;
+  // Reconciliation endpoints allow superadmin/org_admin/application_manager only (not counselors).
+  const role = useAuthStore((s) => s.user?.role);
+  const isFinance = role === "superadmin" || role === "org_admin" || role === "application_manager";
 
   usePageHeader({
     title: "Payments & Collections",
     description: "Track fee payments across Razorpay, Stripe, PayU and Paytm, refunds and real-time revenue collection.",
-    action: {
-      label: "Reconciliation",
-      href: "/organization/payments/reconciliation",
-    },
+    action: isFinance
+      ? {
+          label: "Reconciliation",
+          href: "/organization/payments/reconciliation",
+        }
+      : null,
   });
 
   // Debounce search input

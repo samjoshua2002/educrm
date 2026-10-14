@@ -78,6 +78,7 @@ import {
   useBroadcastEvent,
 } from "@/hooks/use-events";
 import { AnnouncementEventItem } from "@/types/events";
+import { useAuthStore } from "@/stores/auth-store";
 
 const CATEGORIES = [
   "Exam",
@@ -231,6 +232,10 @@ export default function AnnouncementsEventsPage() {
   const { data: events = [] } = useEvents();
   const deleteEvent = useDeleteEvent();
   const broadcastEvent = useBroadcastEvent();
+  // Backend: broadcast needs superadmin/org_admin/application_manager/lead_manager; delete drops lead_manager.
+  const currentRole = useAuthStore((s) => s.user?.role) || "";
+  const canBroadcast = ["superadmin", "org_admin", "application_manager", "lead_manager"].includes(currentRole);
+  const canDelete = ["superadmin", "org_admin", "application_manager"].includes(currentRole);
 
   // Filtered Items
   const filteredItems = React.useMemo(() => {
@@ -911,6 +916,7 @@ export default function AnnouncementsEventsPage() {
                                   Edit Details
                                 </Link>
                               </DropdownMenuItem>
+                              {canBroadcast && (
                               <DropdownMenuItem
                                 className="gap-2 text-blue-600 focus:text-blue-600 cursor-pointer font-medium"
                                 onClick={() => broadcastEvent.mutate(item)}
@@ -918,7 +924,9 @@ export default function AnnouncementsEventsPage() {
                                 <Send className="size-4 text-blue-600" />
                                 Broadcast Now
                               </DropdownMenuItem>
-                              <DropdownMenuSeparator />
+                              )}
+                              {canDelete && <DropdownMenuSeparator />}
+                              {canDelete && (
                               <DropdownMenuItem
                                 variant="destructive"
                                 className="gap-2 cursor-pointer"
@@ -927,6 +935,7 @@ export default function AnnouncementsEventsPage() {
                                 <Trash2 className="size-4" />
                                 Delete
                               </DropdownMenuItem>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
@@ -1081,12 +1090,14 @@ export default function AnnouncementsEventsPage() {
                             <Pencil className="size-4 mr-2" /> Edit Details
                           </Link>
                         </DropdownMenuItem>
+                        {canDelete && (
                         <DropdownMenuItem
                           variant="destructive"
                           onClick={() => setDeleteId(item.id)}
                         >
                           <Trash2 className="size-4 mr-2" /> Delete
                         </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>

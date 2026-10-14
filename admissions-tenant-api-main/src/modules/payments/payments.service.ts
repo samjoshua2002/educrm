@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { Between, IsNull, Not, Repository } from 'typeorm';
+import { Between, In, IsNull, Not, Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { PaymentOrder, PaymentOrderStatus, PaymentOrderPurpose } from './entities/payment-order.entity.js';
 import { PaymentRefund } from './entities/payment-refund.entity.js';
@@ -192,8 +192,9 @@ export class PaymentsService {
   // ===========================================================================
 
   /** Gateways the student can choose from for this application. */
-  async availableGateways(applicationIdOrNo: string, purpose = 'application_fee', offerAcceptanceId?: string) {
+  async availableGateways(applicationIdOrNo: string, purpose = 'application_fee', offerAcceptanceId?: string, user?: RequestUser) {
     const app = await this.findApplication(applicationIdOrNo);
+    this.assertOwner(app, user);
     const org = await this.orgFor(app);
     const enabled = await this.gateways.enabled(org?.id || null);
     const inrAmount =
@@ -238,6 +239,9 @@ export class PaymentsService {
       const letter = await this.offerLetterRepo.findOne({ where: { id: offerAcceptance.offerLetterId } });
       if (!letter) throw new NotFoundException('Offer letter for this acceptance not found');
       application = await this.findApplication(letter.applicationId);
+      if ((offerAcceptance.feePaymentStatus || '').toLowerCase() === 'paid') {
+        throw new BadRequestException('The seat booking fee has already been paid');
+      }
       inrAmount = Number(offerAcceptance.seatBookingFee ?? DEFAULT_SEAT_BOOKING_FEE);
     } else {
       application = await this.findApplication(dto.applicationId);
@@ -493,6 +497,17 @@ export class PaymentsService {
       await this.paymentOrderRepo.save(order);
       return;
     }
+    // Atomic claim: the browser callback, the webhook and the reconciliation
+    // job can all report the same payment at once — only one may apply the
+    // side effects (application update, notifications, email).
+    const claim = await this.paymentOrderRepo.update(
+      { id: order.id, status: Not(In([PaymentOrderStatus.PAID, PaymentOrderStatus.REFUNDED])) },
+      { status: PaymentOrderStatus.PAID },
+    );
+    if (!claim.affected) {
+      order.status = PaymentOrderStatus.PAID;
+      return;
+    }
     order.status = PaymentOrderStatus.PAID;
     order.transactionId = st.transactionId || order.transactionId;
     if (order.gateway === 'razorpay' && st.transactionId) order.razorpayPaymentId = st.transactionId;
@@ -581,10 +596,20 @@ export class PaymentsService {
 
   private async markFailed(order: PaymentOrder, reason: string, transactionId?: string | null) {
     if (order.status === PaymentOrderStatus.PAID || order.status === PaymentOrderStatus.REFUNDED) return;
+    // Conditional write so a late "failed" never overwrites a concurrent success.
+    const res = await this.paymentOrderRepo.update(
+      { id: order.id, status: Not(In([PaymentOrderStatus.PAID, PaymentOrderStatus.REFUNDED])) },
+      {
+        status: PaymentOrderStatus.FAILED,
+        failureReason: reason,
+        ...(transactionId ? { transactionId } : {}),
+        ...(order.gatewayCheckedAt ? { gatewayStatus: order.gatewayStatus, gatewayCheckedAt: order.gatewayCheckedAt } : {}),
+      },
+    );
+    if (!res.affected) return;
     order.status = PaymentOrderStatus.FAILED;
     order.failureReason = reason;
     if (transactionId) order.transactionId = transactionId;
-    await this.paymentOrderRepo.save(order);
     if (order.purpose !== PaymentOrderPurpose.SEAT_BOOKING_FEE && order.applicationId) {
       const app = await this.applicationRepo.findOne({ where: { id: order.applicationId } });
       if (app && !['success', 'paid'].includes((app.paymentStatus || '').toLowerCase())) {
@@ -593,12 +618,14 @@ export class PaymentsService {
     }
   }
 
-  async recordFailure(orderId: string, reason?: string) {
+  async recordFailure(orderId: string, reason?: string, user?: RequestUser) {
+    if (!orderId) return { success: false };
     const order =
-      (UUID_RE.test(orderId) ? await this.paymentOrderRepo.findOne({ where: { id: orderId } }) : null) ||
-      (await this.paymentOrderRepo.findOne({ where: { gatewayOrderId: orderId } })) ||
-      (await this.paymentOrderRepo.findOne({ where: { razorpayOrderId: orderId } }));
+      (UUID_RE.test(orderId) ? await this.paymentOrderRepo.findOne({ where: { id: orderId }, relations: ['application'] }) : null) ||
+      (await this.paymentOrderRepo.findOne({ where: { gatewayOrderId: orderId }, relations: ['application'] })) ||
+      (await this.paymentOrderRepo.findOne({ where: { razorpayOrderId: orderId }, relations: ['application'] }));
     if (!order) return { success: false };
+    if (order.application) this.assertOwner(order.application, user);
     await this.markFailed(order, reason || 'Payment cancelled or failed at checkout');
     return { success: true };
   }
@@ -645,16 +672,32 @@ export class PaymentsService {
         throw new BadRequestException('Unknown gateway');
     }
     if (!valid) throw new BadRequestException('Invalid webhook signature');
-    await this.processEvent(gateway, event);
+    await this.processEvent(gateway, event, orgId, config);
     return { received: true };
   }
 
-  private async processEvent(gateway: string, event: WebhookEvent) {
+  /**
+   * A webhook verified with one organization's credentials may only touch orders of
+   * organizations that use those same credentials (e.g. the shared server Razorpay keys).
+   */
+  private async sameCredentials(orgId: string | null, verifiedWith: ResolvedGateway | null, owner: string | null, gateway: string) {
+    if (!orgId || !owner || owner === orgId) return true;
+    if (!verifiedWith) return false;
+    const ownerCfg = await this.gateways.resolve(owner, gateway).catch(() => null);
+    return !!ownerCfg && JSON.stringify(ownerCfg.config.credentials) === JSON.stringify(verifiedWith.config.credentials);
+  }
+
+  private async processEvent(gateway: string, event: WebhookEvent, orgId: string | null = null, verifiedWith: ResolvedGateway | null = null) {
     if (event.kind === 'ignore') return;
     if (event.kind === 'payment_success' || event.kind === 'payment_failed') {
       const order = await this.findByGatewayOrder(gateway, event.gatewayOrderId);
       if (!order) {
         this.logger.warn(`${gateway} webhook for unknown order ${event.gatewayOrderId}`);
+        return;
+      }
+      // A webhook signed with one organization's secret may only touch that organization's orders.
+      if (!(await this.sameCredentials(orgId, verifiedWith, order.organizationId, gateway))) {
+        this.logger.warn(`${gateway} webhook for org ${orgId} referenced order ${order.id} of another organization; ignored`);
         return;
       }
       if (event.kind === 'payment_success') {
@@ -677,6 +720,7 @@ export class PaymentsService {
     // Refund events
     const refund = event.gatewayRefundId ? await this.refundRepo.findOne({ where: { gateway, gatewayRefundId: event.gatewayRefundId } }) : null;
     if (!refund) return;
+    if (!(await this.sameCredentials(orgId, verifiedWith, refund.organizationId, gateway))) return;
     refund.status = event.kind === 'refund_completed' ? 'Completed' : 'Failed';
     await this.refundRepo.save(refund);
     await this.recomputeRefunds(refund.paymentOrderId);
@@ -938,8 +982,9 @@ export class PaymentsService {
 
     const page = Math.max(1, parseInt(q.page, 10) || 1);
     const limit = Math.min(500, Math.max(1, parseInt(q.limit, 10) || 20));
+    // Rows go under items (not data) so the response wrapper keeps summary intact.
     return {
-      data: rows.slice((page - 1) * limit, page * limit),
+      items: rows.slice((page - 1) * limit, page * limit),
       total: rows.length,
       totalPages: Math.ceil(rows.length / limit),
       page,
@@ -1223,7 +1268,9 @@ export class PaymentsService {
         if (st.status === 'success') await this.applyStatus(order, st);
         else await this.markFailed(order, st.failureReason || 'Checkout abandoned (expired after 24 hours)');
       } catch (e) {
-        await this.markFailed(order, 'Checkout abandoned (expired after 24 hours)');
+        await this.markFailed(order, 'Checkout abandoned (expired after 24 hours)').catch((err: Error) =>
+          this.logger.warn(`Could not expire payment ${order.id}: ${err.message}`),
+        );
       }
     }
   }

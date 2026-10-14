@@ -1,18 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+// Counselors are sent here by the middleware (it redirects them away from
+// /organization/lead-manager), so this route must render the lead list itself:
+// redirecting back to /organization/lead-manager made an endless redirect loop
+// for counselors. The API limits counselors to their own assigned leads.
+import LeadManagerPage from "../lead-manager/page";
 
-export default function RedirectLeadsPage() {
-  const router = useRouter();
-
-  useEffect(() => {
-    router.replace("/organization/lead-manager");
-  }, [router]);
-
-  return (
-    <div className="flex items-center justify-center min-h-[400px]">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-    </div>
-  );
+export default function LeadsPage() {
+  return <LeadManagerPage />;
 }

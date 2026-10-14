@@ -144,7 +144,7 @@ export default function LocationsPage() {
   const currentRole = useAuthStore((s) => s.user?.role);
   const canManage = currentRole === "org_admin" || currentRole === "superadmin";
 
-  const { data: serverLocations = [], isLoading } = useLocations();
+  const { data: serverLocations, isLoading } = useLocations();
   const createLocation = useCreateLocation();
   const updateLocation = useUpdateLocation();
   const deleteLocation = useDeleteLocation();
@@ -165,7 +165,7 @@ export default function LocationsPage() {
 
   React.useEffect(() => {
     // when server data arrives, prefer it over local cache
-    if (serverLocations && serverLocations.length) {
+    if (serverLocations) {
       setLocations(serverLocations);
     }
   }, [serverLocations]);

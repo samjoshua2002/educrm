@@ -227,10 +227,8 @@ export class InAppNotificationsService {
     const rows = await this.scopedQuery(viewer)
       .select('n.module', 'module')
       .addSelect('COUNT(*)', 'total')
-      .addSelect(
-        `SUM(CASE WHEN n.read_by @> '${JSON.stringify([viewer.sub]).replace(/'/g, "''")}'::jsonb THEN 0 ELSE 1 END)`,
-        'unread',
-      )
+      .addSelect('SUM(CASE WHEN n.read_by @> CAST(:me AS jsonb) THEN 0 ELSE 1 END)', 'unread')
+      .setParameter('me', JSON.stringify([viewer.sub]))
       .groupBy('n.module')
       .getRawMany();
     return rows.map((r) => ({ module: r.module, total: Number(r.total) || 0, unread: Number(r.unread) || 0 }));
@@ -241,8 +239,17 @@ export class InAppNotificationsService {
     if (!n) throw new NotFoundException('Notification not found');
     const readBy = Array.isArray(n.readBy) ? n.readBy : [];
     if (!readBy.includes(viewer.sub)) {
+      // Atomic append: saving the whole read_by list would drop marks made by
+      // other users reading the same broadcast at the same moment.
+      await this.repo
+        .createQueryBuilder()
+        .update(InAppNotification)
+        .set({ readBy: () => "COALESCE(read_by, '[]'::jsonb) || CAST(:me AS jsonb)" })
+        .where('id = :id', { id })
+        .andWhere("NOT (COALESCE(read_by, '[]'::jsonb) @> CAST(:me AS jsonb))")
+        .setParameter('me', JSON.stringify([viewer.sub]))
+        .execute();
       n.readBy = [...readBy, viewer.sub];
-      await this.repo.save(n);
     }
     return this.toDto(n, viewer.sub);
   }
@@ -250,8 +257,15 @@ export class InAppNotificationsService {
   async markUnread(viewer: NotificationViewer, id: string) {
     const n = await this.scopedQuery(viewer).andWhere('n.id = :id', { id }).getOne();
     if (!n) throw new NotFoundException('Notification not found');
+    // Atomic removal (jsonb - text drops that string) so other users' marks are kept.
+    await this.repo
+      .createQueryBuilder()
+      .update(InAppNotification)
+      .set({ readBy: () => "COALESCE(read_by, '[]'::jsonb) - CAST(:uid AS text)" })
+      .where('id = :id', { id })
+      .setParameter('uid', viewer.sub)
+      .execute();
     n.readBy = (Array.isArray(n.readBy) ? n.readBy : []).filter((u) => u !== viewer.sub);
-    await this.repo.save(n);
     return this.toDto(n, viewer.sub);
   }
 
@@ -267,8 +281,10 @@ export class InAppNotificationsService {
       await this.repo
         .createQueryBuilder()
         .update(InAppNotification)
-        .set({ readBy: () => `read_by || '${JSON.stringify([viewer.sub]).replace(/'/g, "''")}'::jsonb` })
+        .set({ readBy: () => "COALESCE(read_by, '[]'::jsonb) || CAST(:me AS jsonb)" })
         .whereInIds(chunk)
+        .andWhere("NOT (COALESCE(read_by, '[]'::jsonb) @> CAST(:me AS jsonb))")
+        .setParameter('me', JSON.stringify([viewer.sub]))
         .execute();
     }
     return { updated: ids.length };

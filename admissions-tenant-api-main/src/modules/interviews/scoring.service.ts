@@ -291,6 +291,11 @@ export function computeEntranceComponent(
 @Injectable()
 export class ScoringService implements OnApplicationBootstrap {
   private readonly logger = new Logger(ScoringService.name);
+  // Orgs whose results announcement is running right now. The auto-announce
+  // sweep runs every 30 s but one announcement (composite rollup + one email
+  // per applicant) can take far longer, and resultsAnnounced is only set at
+  // the end — without this guard every tick restarted it and re-emailed everyone.
+  private readonly announcing = new Set<string>();
 
   constructor(
     @InjectRepository(Application)
@@ -324,6 +329,7 @@ export class ScoringService implements OnApplicationBootstrap {
       const now = new Date();
       const configs = await this.conversionConfigService.findPendingAutoAnnouncements(now);
       for (const cfg of configs) {
+        if (this.announcing.has(cfg.organizationId)) continue;
         try {
           this.logger.log(`Auto-announcing results for org ${cfg.organizationId} at scheduled declaration date ${cfg.resultsDeclarationDate}`);
           await this.announceResults(
@@ -567,10 +573,21 @@ export class ScoringService implements OnApplicationBootstrap {
   // Read-only variant used by the GET .../composite-score endpoint — looks
   // the application up by applicationNo and still persists the freshly
   // recomputed values (compute-and-return, not just read stale columns).
-  async getCompositeScoreBreakdown(orgId: string, applicationNo: string): Promise<CompositeScoreBreakdown> {
+  async getCompositeScoreBreakdown(
+    orgId: string,
+    applicationNo: string,
+    user?: { sub?: string; role?: string; email?: string },
+  ): Promise<CompositeScoreBreakdown> {
     const application = await this.applicationRepository.findOne({ where: { applicationNo, organizationId: orgId } });
     if (!application) {
       throw new NotFoundException(`Application ${applicationNo} not found`);
+    }
+    // Students may only see their own application's breakdown.
+    if (user?.role === 'student') {
+      const owns =
+        (!!application.studentId && application.studentId === user.sub) ||
+        (!!user.email && !!application.email && application.email.toLowerCase() === user.email.toLowerCase());
+      if (!owns) throw new NotFoundException(`Application ${applicationNo} not found`);
     }
     return this.computeCompositeScore(orgId, application.id);
   }
@@ -1000,6 +1017,18 @@ export class ScoringService implements OnApplicationBootstrap {
   }
 
   async announceResults(orgId: string, declarationDate?: string, actorId?: string) {
+    if (this.announcing.has(orgId)) {
+      throw new BadRequestException('Results are already being announced for this organization. Please wait for it to finish.');
+    }
+    this.announcing.add(orgId);
+    try {
+      return await this.runAnnounceResults(orgId, declarationDate, actorId);
+    } finally {
+      this.announcing.delete(orgId);
+    }
+  }
+
+  private async runAnnounceResults(orgId: string, declarationDate?: string, actorId?: string) {
     const config = await this.conversionConfigService.getOrCreate(orgId);
     const qualifyingScore = config.qualifyingScore !== null && config.qualifyingScore !== undefined
       ? Number(config.qualifyingScore)

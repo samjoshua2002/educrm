@@ -75,6 +75,7 @@ export const organizationNavItems: NavGroup[] = [
         title: "Admission Decisions",
         url: "/organization/decisions",
         icon: Gavel,
+        roles: ["org_admin", "application_manager", "exam_manager", "counselor"],
         subItems: [
           { title: "Decisions", url: "/organization/decisions" },
           { title: "Offer Letters", url: "/organization/decisions?tab=offers" },
@@ -92,6 +93,8 @@ export const organizationNavItems: NavGroup[] = [
           { title: "Communications Log", url: "/organization/communications" },
           { title: "Email Templates", url: "/organization/email-templates" },
           { title: "Template Categories", url: "/organization/email-templates/categories" },
+          { title: "Email Campaigns", url: "/organization/email-campaigns" },
+          { title: "Calls", url: "/organization/calls" },
         ],
       },
       {
@@ -128,11 +131,13 @@ export const organizationNavItems: NavGroup[] = [
         title: "Branches",
         url: "/organization/branches",
         icon: Network,
+        roles: ["org_admin"],
       },
       {
         title: "Team",
         url: "/organization/team",
         icon: TeamIcon,
+        roles: ["org_admin"],
       },
       {
         title: "Students",
@@ -143,6 +148,7 @@ export const organizationNavItems: NavGroup[] = [
         title: "Forms",
         url: "/organization/forms",
         icon: FormsIcon,
+        roles: ["org_admin"],
       },
       // {
       //   title: "Email Templates",
@@ -168,8 +174,8 @@ export const organizationNavItems: NavGroup[] = [
           { title: "Letter Templates", url: "/organization/settings/letter-templates" },
           { title: "Payment Gateways", url: "/organization/settings/payment-gateways" },
           { title: "Reminders & Nudges", url: "/organization/settings/reminders" },
-          { title: "Videos", url: "/organization/settings/videos" },
-          { title: "Category", url: "/organization/settings/category" },
+          { title: "SMS & WhatsApp", url: "/organization/settings/messaging" },
+          { title: "Telephony", url: "/organization/settings/telephony" },
         ],
       },
     ],

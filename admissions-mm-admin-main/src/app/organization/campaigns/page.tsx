@@ -29,6 +29,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { usePageHeader } from "@/hooks/use-page-header";
 import { useCampaigns, useChannelPerformance, useDeleteCampaign, useSaveCampaign } from "@/hooks/use-campaigns";
+import { useAuthStore } from "@/stores/auth-store";
+import { Role } from "@/types/auth";
 import {
   CAMPAIGN_STATUSES,
   SOURCE_TYPES,
@@ -111,6 +113,9 @@ function CampaignList({ onEdit }: { onEdit: (d: Draft) => void }) {
     sourceType: sourceType === "all" ? undefined : sourceType,
   });
   const del = useDeleteCampaign();
+  // DELETE /campaigns/:id is limited to superadmin and org_admin (lead managers get 403)
+  const role = useAuthStore((s) => s.user?.role);
+  const canDelete = role === Role.SUPERADMIN || role === Role.ORG_ADMIN;
   const rows = data?.data || [];
   const totalPages = data?.pagination?.totalPages || 1;
 
@@ -247,10 +252,14 @@ function CampaignList({ onEdit }: { onEdit: (d: Draft) => void }) {
                         <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => onEdit(toDraft(c))}>
                           <Pencil className="size-4" /> Edit
                         </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem variant="destructive" className="gap-2 cursor-pointer" onClick={() => setDeleteId(c.id)}>
-                          <Trash2 className="size-4" /> Delete
-                        </DropdownMenuItem>
+                        {canDelete && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem variant="destructive" className="gap-2 cursor-pointer" onClick={() => setDeleteId(c.id)}>
+                              <Trash2 className="size-4" /> Delete
+                            </DropdownMenuItem>
+                          </>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>

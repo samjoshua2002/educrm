@@ -26,6 +26,7 @@ export function GatewayPayPanel({
   offerAcceptanceId,
   context,
   onSuccess,
+  beforeCheckout,
   compact,
 }: {
   applicationId: string;
@@ -34,6 +35,8 @@ export function GatewayPayPanel({
   /** Saved for redirect gateways and used by /payment-status after returning. */
   context?: Omit<PendingPaymentContext, "paymentId">;
   onSuccess?: () => void | Promise<void>;
+  /** Runs before checkout starts (e.g. to save data server-side before a redirect gateway). */
+  beforeCheckout?: () => Promise<void>;
   compact?: boolean;
 }) {
   const qc = useQueryClient();
@@ -65,6 +68,7 @@ export function GatewayPayPanel({
     setError(null);
     setState("working");
     try {
+      await beforeCheckout?.();
       const res = await startGatewayCheckout({
         applicationId,
         gateway: chosen.gateway,

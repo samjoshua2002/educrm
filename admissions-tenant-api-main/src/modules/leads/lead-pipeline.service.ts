@@ -5,6 +5,7 @@ import { Lead, LeadStatus } from './entities/lead.entity.js';
 import { LeadActivity } from './entities/lead-activity.entity.js';
 import { Course } from '../courses/entities/course.entity.js';
 import { AcademicSession } from '../academic-sessions/entities/academic-session.entity.js';
+import { Branch } from '../branches/entities/branch.entity.js';
 import { CapturedLeadInput, splitName } from './lead-field-mapper.js';
 import { LeadSourceTrackingService } from './lead-source-tracking.service.js';
 import { DuplicateMatch, LeadDuplicateService } from './lead-duplicate.service.js';
@@ -111,6 +112,15 @@ export class LeadPipelineService {
     }
   }
 
+  /** Drops a branch id that is not a branch of this organization (public forms send it as free input). */
+  async resolveBranch(orgId: string, input: { branchId?: string | null }) {
+    if (!input.branchId) return;
+    const ok =
+      UUID_RE.test(input.branchId) &&
+      (await this.leadRepo.manager.count(Branch, { where: { id: input.branchId, organizationId: orgId } })) > 0;
+    if (!ok) input.branchId = null;
+  }
+
   async ingest(orgId: string, rawInput: CapturedLeadInput, ctx: IngestContext): Promise<IngestResult> {
     const mode = ctx.mode ?? 'capture';
     const input = splitName({ ...rawInput });
@@ -118,6 +128,7 @@ export class LeadPipelineService {
 
     // 2-3: normalize + source tracking
     await this.resolveProgramAndIntake(orgId, input);
+    await this.resolveBranch(orgId, input);
     await this.sourceTracking.apply(orgId, input, { createdFrom: ctx.createdFrom, channelSource: ctx.channelSource });
     const touch = this.sourceTracking.touchPoint(input, ctx.createdFrom);
 
@@ -184,7 +195,10 @@ export class LeadPipelineService {
       emailBounced: false,
       followUpStatus: input.followUpStatus || 'Pending',
       nextFollowUpAt: input.nextFollowUpAt ? new Date(input.nextFollowUpAt) : undefined,
-      status: (input.status as LeadStatus) || LeadStatus.UNVERIFIED,
+      status:
+        input.status && input.status !== LeadStatus.MERGED && (Object.values(LeadStatus) as string[]).includes(input.status)
+          ? (input.status as LeadStatus)
+          : LeadStatus.UNVERIFIED,
       rawPayload: input.rawPayload || {},
       isDuplicate: flagged,
       duplicateCount: 0,

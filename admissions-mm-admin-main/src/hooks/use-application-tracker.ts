@@ -18,11 +18,19 @@ export function useOrgId() {
 const base = (orgId: string) => `/organizations/${orgId}/application-tracker`;
 const enc = (v: string) => encodeURIComponent(v);
 
+/** Array endpoints arrive as {data, pagination} (see api.ts); this returns the plain array. */
+function asArray<T>(res: T[] | { data?: T[] } | null | undefined): T[] {
+  if (Array.isArray(res)) return res;
+  return Array.isArray(res?.data) ? res!.data! : [];
+}
+
 function invalidateTracker(qc: ReturnType<typeof useQueryClient>) {
   qc.invalidateQueries({ queryKey: ["application-tracker"] });
   qc.invalidateQueries({ queryKey: ["application-timeline"] });
   qc.invalidateQueries({ queryKey: ["application-progress"] });
   qc.invalidateQueries({ queryKey: ["applications"] });
+  // Master fields in the application workspace read this key.
+  qc.invalidateQueries({ queryKey: ["application-raw"] });
 }
 
 export function useTrackerMeta() {
@@ -39,12 +47,17 @@ export function useTrackerDashboard(filters: TrackerFilters) {
   const orgId = useOrgId();
   return useQuery({
     queryKey: ["application-tracker", "dashboard", orgId, filters],
-    queryFn: () => {
+    queryFn: async () => {
       const params: Record<string, any> = {};
       for (const [k, v] of Object.entries(filters)) {
         if (v !== undefined && v !== "" && v !== "all") params[k] = v;
       }
-      return apiGet<TrackerDashboard>(`${base(orgId)}/dashboard`, params);
+      // The backend returns the rows under `items` (so stageCounts survive the response interceptor).
+      const res = await apiGet<Omit<TrackerDashboard, "data"> & { items?: TrackerDashboard["data"]; data?: TrackerDashboard["data"] }>(
+        `${base(orgId)}/dashboard`,
+        params,
+      );
+      return { ...res, data: res?.items ?? res?.data ?? [] } as TrackerDashboard;
     },
     enabled: !!orgId,
   });
@@ -54,7 +67,7 @@ export function useApplicationTimeline(applicationIdOrNo?: string) {
   const orgId = useOrgId();
   return useQuery({
     queryKey: ["application-timeline", orgId, applicationIdOrNo],
-    queryFn: () => apiGet<StatusLogEntry[]>(`${base(orgId)}/${enc(applicationIdOrNo!)}/timeline`),
+    queryFn: async () => asArray(await apiGet<StatusLogEntry[]>(`${base(orgId)}/${enc(applicationIdOrNo!)}/timeline`)),
     enabled: !!orgId && !!applicationIdOrNo,
   });
 }
@@ -172,7 +185,8 @@ export function useTrackerCounsellors() {
   const orgId = useOrgId();
   return useQuery({
     queryKey: ["application-tracker", "counsellors", orgId],
-    queryFn: () => apiGet<{ id: string; name: string; email: string; role: string }[]>(`${base(orgId)}/counsellors`),
+    queryFn: async () =>
+      asArray(await apiGet<{ id: string; name: string; email: string; role: string }[]>(`${base(orgId)}/counsellors`)),
     enabled: !!orgId,
     staleTime: 5 * 60 * 1000,
   });

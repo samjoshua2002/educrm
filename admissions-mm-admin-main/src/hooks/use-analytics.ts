@@ -75,8 +75,21 @@ export const useGeographyReport = (f?: AnalyticsFilters, enabled = true) =>
 export const useCounselorReport = (f?: AnalyticsFilters & { slaHours?: number }, enabled = true) =>
   useOrgReport<CounselorReport>("counselors", f, enabled);
 
-export const useTrendReport = (f?: AnalyticsFilters, enabled = true) =>
-  useOrgReport<TrendPoint[]>("trend", f, enabled);
+/** The trend endpoint returns an array, which the API wraps as { data, pagination }; unwrap it here. */
+export function useTrendReport(f?: AnalyticsFilters, enabled = true) {
+  const orgId = useOrgId();
+  const params = cleanFilters(f);
+  return useQuery({
+    queryKey: ["analytics", orgId, "trend", params],
+    queryFn: async () => {
+      const res = await apiGet<TrendPoint[] | { data: TrendPoint[] }>(`/organizations/${orgId}/analytics/trend`, params);
+      return Array.isArray(res) ? res : res?.data ?? [];
+    },
+    enabled: !!orgId && enabled,
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+  });
+}
 
 // ── Superadmin ──────────────────────────────────────────────────────────────
 export function usePlatformOverview() {

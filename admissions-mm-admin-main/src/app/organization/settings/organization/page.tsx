@@ -158,7 +158,7 @@ export default function OrganizationIntegrationSettingsPage() {
     const port = Number(smtpPort);
     updateSettings.mutate({
       smtpHost: smtpHost.trim() || undefined,
-      smtpPort: Number.isNaN(port) ? undefined : port,
+      smtpPort: smtpPort.trim() && Number.isInteger(port) ? port : undefined,
       smtpUser: smtpUser.trim() || undefined,
       smtpPass: smtpPass || undefined,
       smtpFromEmail: smtpFromEmail.trim() || undefined,
@@ -175,9 +175,9 @@ export default function OrganizationIntegrationSettingsPage() {
     });
   };
 
-  const webhookUrl = typeof window !== "undefined"
-    ? `${window.location.origin.replace("3001", "3000")}/api/payments/webhook`
-    : "https://api.yourdomain.com/api/payments/webhook";
+  // Backend route: POST /api/payments/webhook/:gateway/:orgId
+  const apiBase = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api").replace(/\/$/, "");
+  const webhookUrl = `${apiBase}/payments/webhook/razorpay/${orgId}`;
 
   const copyWebhookToClipboard = () => {
     navigator.clipboard.writeText(webhookUrl);

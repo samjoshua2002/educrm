@@ -7,7 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { In, LessThanOrEqual, Not, Repository } from 'typeorm';
+import { In, LessThanOrEqual, MoreThanOrEqual, Not, Repository } from 'typeorm';
 import * as crypto from 'crypto';
 import { Reminder, REMINDER_CHANNELS } from './entities/reminder.entity.js';
 import { ReminderRule, REMINDER_SCENARIOS, ReminderScenario } from './entities/reminder-rule.entity.js';
@@ -18,7 +18,7 @@ import { ApplicationStatusService, RequestUser } from '../applications/applicati
 import { InAppNotificationsService } from '../in-app-notifications/in-app-notifications.service.js';
 import { MessagingService } from '../messaging/messaging.service.js';
 import { MailerService } from '../notifications/mailer.service.js';
-import { FINAL_STAGES } from '../applications/application-workflow.constants.js';
+import { FINAL_STAGES, isUuid } from '../applications/application-workflow.constants.js';
 
 const SCENARIOS = Object.keys(REMINDER_SCENARIOS) as ReminderScenario[];
 
@@ -217,7 +217,20 @@ export class RemindersService {
       const cond = await this.evaluateCondition(app, rule);
       const current = open.find((r) => r.scenario === rule.scenario);
       if (cond.applies && rule.isEnabled) {
-        if (!current) {
+        // A reminder for this trigger that ran out of attempts (or was closed by staff)
+        // without the applicant acting must not be re-created on every run.
+        const exhausted = current
+          ? null
+          : await this.reminderRepo.findOne({
+              where: {
+                applicationId: app.id,
+                scenario: rule.scenario,
+                isClosed: true,
+                applicantResponse: 'No Action',
+                createdAt: MoreThanOrEqual(cond.triggeredAt),
+              },
+            });
+        if (!current && !exhausted) {
           const def = REMINDER_SCENARIOS[rule.scenario as ReminderScenario];
           const template = rule.templateId ? await this.templateRepo.findOne({ where: { id: rule.templateId } }) : null;
           const first = new Date(Math.max(Date.now(), cond.triggeredAt.getTime() + rule.firstReminderAfterHours * 3600000));
@@ -391,7 +404,23 @@ export class RemindersService {
     const due = await this.reminderRepo.find({
       where: { applicationId, isClosed: false, nextScheduledDate: LessThanOrEqual(new Date()) },
     });
-    for (const r of due) await this.sendReminder(r);
+    for (const r of due) {
+      if (await this.claim(r)) await this.sendReminder(r);
+    }
+  }
+
+  /**
+   * Atomically takes a due reminder so the cron, a manual run and status-change
+   * triggers cannot send the same attempt twice. A send that crashes is retried
+   * after 15 minutes instead of on every run.
+   */
+  private async claim(r: Reminder): Promise<boolean> {
+    if (!r.nextScheduledDate) return false;
+    const res = await this.reminderRepo.update(
+      { id: r.id, isClosed: false, nextScheduledDate: r.nextScheduledDate },
+      { nextScheduledDate: new Date(Date.now() + 15 * 60000) },
+    );
+    return (res.affected ?? 0) > 0;
   }
 
   async runForOrganization(orgId: string) {
@@ -400,7 +429,13 @@ export class RemindersService {
       where: { organizationId: orgId, currentStage: Not(In(FINAL_STAGES)) },
       take: 5000,
     });
-    for (const app of apps) await this.syncApplication(app, rules);
+    for (const app of apps) {
+      try {
+        await this.syncApplication(app, rules);
+      } catch (e) {
+        this.logger.error(`Reminder sync failed for application ${app.id}: ${(e as Error).message}`);
+      }
+    }
     const due = await this.reminderRepo.find({
       where: { organizationId: orgId, isClosed: false, nextScheduledDate: LessThanOrEqual(new Date()) },
       take: 1000,
@@ -408,9 +443,15 @@ export class RemindersService {
     let sent = 0;
     let failed = 0;
     for (const r of due) {
-      const res = await this.sendReminder(r);
-      if (res.reminderStatus === 'Sent') sent++;
-      else if (res.reminderStatus === 'Failed') failed++;
+      try {
+        if (!(await this.claim(r))) continue;
+        const res = await this.sendReminder(r);
+        if (res.reminderStatus === 'Sent') sent++;
+        else if (res.reminderStatus === 'Failed') failed++;
+      } catch (e) {
+        failed++;
+        this.logger.error(`Reminder ${r.id} failed: ${(e as Error).message}`);
+      }
     }
     return { applicationsChecked: apps.length, remindersDue: due.length, sent, failed };
   }
@@ -555,7 +596,10 @@ export class RemindersService {
   }
 
   async unsubscribe(applicationId: string, token: string) {
-    if (!applicationId || !token || token !== this.unsubscribeToken(applicationId)) return false;
+    if (typeof applicationId !== 'string' || typeof token !== 'string' || !isUuid(applicationId)) return false;
+    const expected = Buffer.from(this.unsubscribeToken(applicationId));
+    const given = Buffer.from(token);
+    if (given.length !== expected.length || !crypto.timingSafeEqual(given, expected)) return false;
     const res = await this.appRepo.update({ id: applicationId }, { remindersOptIn: false });
     return (res.affected ?? 0) > 0;
   }

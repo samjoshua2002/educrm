@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { usePaymentDetail, useRefundPayment, useUpdateReconciliation } from "@/hooks/use-payments";
+import { useAuthStore } from "@/stores/auth-store";
 
 export const pillBase = "font-medium px-2.5 py-0.5 rounded-full text-xs border-0 inline-block text-center";
 
@@ -74,6 +75,9 @@ export function PaymentDetailDialog({
   const { data: p, isLoading } = usePaymentDetail(open ? paymentId : null);
   const refund = useRefundPayment();
   const recon = useUpdateReconciliation();
+  // Backend: reconciliation update needs superadmin/org_admin/application_manager; counselors may only view.
+  const role = useAuthStore((s) => s.user?.role);
+  const isFinance = role === "superadmin" || role === "org_admin" || role === "application_manager";
 
   const [refundType, setRefundType] = React.useState<"full" | "partial">("full");
   const [refundAmount, setRefundAmount] = React.useState("");
@@ -92,7 +96,7 @@ export function PaymentDetailDialog({
   }, [p?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const refundable = p ? Math.max(0, Number(p.amount) - Number(p.refundAmount || 0)) : 0;
-  const canRefund = !!p && p.paymentStatus === "Success" && refundable > 0;
+  const canRefund = isFinance && !!p && p.paymentStatus === "Success" && refundable > 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -158,7 +162,7 @@ export function PaymentDetailDialog({
                 <Button
                   size="sm"
                   className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white gap-1.5"
-                  disabled={recon.isPending}
+                  disabled={recon.isPending || !isFinance}
                   onClick={() => recon.mutate({ paymentId: p.id, reconciliationStatus: reconStatus, financeRemarks: remarks })}
                 >
                   {recon.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
