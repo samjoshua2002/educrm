@@ -28,6 +28,12 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { usePageHeader } from "@/hooks/use-page-header";
+import {
+  AudienceTargetingSection,
+  EMPTY_TARGETING,
+  TargetingValue,
+  targetingPayload,
+} from "../_components/audience-targeting";
 import { useCreateEvent } from "@/hooks/use-events";
 import { useEmailTemplates } from "@/hooks/use-email-templates";
 import { useCourses } from "@/hooks/use-courses";
@@ -49,24 +55,6 @@ const CATEGORIES: EventCategory[] = [
   "Webinar",
   "Holiday",
   "General",
-];
-
-const TARGET_ROLES = [
-  { id: "all", label: "All Users (Staff + Students)" },
-  { id: "student", label: "Enrolled Students" },
-  { id: "lead", label: "Leads & Applicants" },
-  { id: "counselor", label: "Counselors" },
-  { id: "org_admin", label: "Admins & Staff" },
-  { id: "application_manager", label: "Application Managers" },
-  { id: "exam_manager", label: "Exam Managers" },
-];
-
-const LEAD_STAGES = [
-  "New",
-  "Contacted",
-  "Interested",
-  "Verified",
-  "Converted",
 ];
 
 export default function CreateAnnouncementEventPage() {
@@ -113,6 +101,8 @@ export default function CreateAnnouncementEventPage() {
     posterUrl: "",
   });
 
+  const [targeting, setTargeting] = React.useState<TargetingValue>(EMPTY_TARGETING);
+
   function setField<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
     if (errors[key]) {
@@ -122,34 +112,6 @@ export default function CreateAnnouncementEventPage() {
         return next;
       });
     }
-  }
-
-  function toggleRole(roleId: string) {
-    setForm((prev) => {
-      let updated: string[];
-      if (roleId === "all") {
-        updated = ["all"];
-      } else {
-        const withoutAll = prev.targetAudience.filter((r) => r !== "all");
-        if (withoutAll.includes(roleId)) {
-          updated = withoutAll.filter((r) => r !== roleId);
-          if (updated.length === 0) updated = ["all"];
-        } else {
-          updated = [...withoutAll, roleId];
-        }
-      }
-      return { ...prev, targetAudience: updated };
-    });
-  }
-
-  function toggleLeadStage(stage: string) {
-    setForm((prev) => {
-      const current = prev.targetLeadStages || [];
-      const updated = current.includes(stage)
-        ? current.filter((s) => s !== stage)
-        : [...current, stage];
-      return { ...prev, targetLeadStages: updated };
-    });
   }
 
   function handleSubmit(statusToSave: EventStatus) {
@@ -169,8 +131,7 @@ export default function CreateAnnouncementEventPage() {
       category: form.category,
       description: form.description.trim(),
       priority: form.priority,
-      targetAudience: form.targetAudience,
-      targetLeadStages: form.targetAudience.includes("lead") ? form.targetLeadStages : [],
+      ...targetingPayload(targeting),
       targetCourseId: form.targetCourseId !== "all" ? form.targetCourseId : undefined,
       targetCourseName:
         form.targetCourseId !== "all"
@@ -185,6 +146,10 @@ export default function CreateAnnouncementEventPage() {
       status: statusToSave,
       scheduledPublishDate: form.publishMode === "schedule" ? form.scheduledPublishDate : undefined,
       scheduledPublishTime: form.publishMode === "schedule" ? form.scheduledPublishTime : undefined,
+      scheduledPublishAt:
+        form.publishMode === "schedule" && form.scheduledPublishDate
+          ? new Date(`${form.scheduledPublishDate}T${form.scheduledPublishTime || "09:00"}`).toISOString()
+          : undefined,
       sendInAppNotification: form.sendInAppNotification,
       sendEmailBroadcast: form.sendEmailBroadcast,
       sendWhatsapp: form.sendWhatsapp,
@@ -521,67 +486,7 @@ export default function CreateAnnouncementEventPage() {
                 </div>
               </section>
 
-              {/* Section 3: Target Audience & Roles */}
-              <section className="flex flex-col gap-5 py-6">
-                <div className="flex flex-col gap-1">
-                  <p className="text-[16px] font-medium text-foreground">
-                    Target Audience
-                  </p>
-                  <p className="text-[14px] text-muted-foreground">
-                    Select roles and applicant segments who should view this notice.
-                  </p>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {TARGET_ROLES.map((role) => {
-                    const isSelected = form.targetAudience.includes(role.id);
-                    return (
-                      <label
-                        key={role.id}
-                        className={`border border-input h-[42px] rounded-[8px] text-[12px] flex items-center px-3 gap-2.5 cursor-pointer transition-colors ${
-                          isSelected
-                            ? "bg-muted/40 font-medium text-foreground"
-                            : "text-muted-foreground hover:bg-muted/20"
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => toggleRole(role.id)}
-                          className="size-4 rounded accent-primary cursor-pointer"
-                        />
-                        <span>{role.label}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-
-                {form.targetAudience.includes("lead") && (
-                  <div className="flex flex-col gap-2 mt-2">
-                    <Label className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">
-                      Filter by Lead Stage
-                    </Label>
-                    <div className="flex flex-wrap gap-2">
-                      {LEAD_STAGES.map((stg) => {
-                        const isSelected = form.targetLeadStages.includes(stg);
-                        return (
-                          <button
-                            key={stg}
-                            type="button"
-                            onClick={() => toggleLeadStage(stg)}
-                            className={`px-3 py-1 rounded-[6px] text-[12px] font-medium border transition-colors ${
-                              isSelected
-                                ? "bg-primary text-primary-foreground border-primary"
-                                : "bg-muted/30 text-muted-foreground border-input hover:bg-muted/60"
-                            }`}
-                          >
-                            {stg}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </section>
+              <AudienceTargetingSection value={targeting} onChange={setTargeting} courseId={form.targetCourseId} />
 
               {/* Section 4: Notice Message */}
               <section className="flex flex-col gap-5 py-6">

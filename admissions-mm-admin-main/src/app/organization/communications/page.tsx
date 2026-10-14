@@ -1,1250 +1,770 @@
-/* eslint-disable max-lines, @typescript-eslint/no-explicit-any */
 "use client";
 
 import * as React from "react";
 import Link from "next/link";
-import { toast } from "sonner";
-import { usePageHeader } from "@/hooks/use-page-header";
+import { useRouter } from "next/navigation";
 import {
-  useCommunications,
-  useSendCommunication,
-  useResendCommunication,
-} from "@/hooks/use-communications";
-import { useEmailTemplates, renderTemplate } from "@/hooks/use-email-templates";
-import { useAuthStore } from "@/stores/auth-store";
-import { CommunicationLog } from "@/data/mock-communications";
-
-import {
-  Search,
-  Mail,
-  MessageSquare,
-  Smartphone,
-  Plus,
-  Download,
-  Filter,
-  Eye,
-  RotateCcw,
-  Trash2,
-  ChevronLeft,
-  ChevronRight,
-  CheckCircle,
-  Clock,
-  AlertTriangle,
-  Send,
-  Calendar,
-  FileText,
-  User,
-  SlidersHorizontal,
+  CalendarClock,
   EllipsisVertical,
-  SearchX,
-  UsersRound,
+  Eye,
   LayoutTemplate,
+  Loader2,
+  Mail,
+  Megaphone,
+  MessageCircle,
+  MessageSquare,
+  Phone,
+  Plus,
+  RefreshCw,
+  Search,
+  Send,
+  Settings2,
+  XCircle,
 } from "lucide-react";
-
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { usePageHeader } from "@/hooks/use-page-header";
+import { useAuthStore } from "@/stores/auth-store";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
+  useCancelCommunication,
+  useCommunicationStats,
+  useCommunications,
+  useResendCommunication,
+} from "@/hooks/use-communications";
+import { useCancelMessage, useConsents, useMessageLogs, useMessageStats, useRetryMessage, useSetConsent } from "@/hooks/use-messaging";
+import { LogInteractionDialog } from "@/components/communication-timeline";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  INTERACTION_CHANNELS,
+  INTERACTION_DIRECTIONS,
+  MESSAGE_SENT_STATUSES,
+  MESSAGE_TYPES,
+  type MessageLog,
+  type TimelineEntry,
+} from "@/types/communications";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+  ChannelPill,
+  EmptyState,
+  Field,
+  Pager,
+  ReadOnlyField,
+  StatCard,
+  StatusPill,
+  TabBar,
+  Th,
+  formatDateTime,
+  tableHeaderClass,
+  tableShell,
+} from "./_components/comm-ui";
+import { ComposeDialog } from "./_components/compose-dialog";
+import { RecipientPicker, type PickedRecipient } from "./_components/recipient-picker";
 
-const statusPillStyles: Record<string, string> = {
-  Sent:
-    "bg-[#05966933] text-[#065F46] dark:bg-emerald-500/20 dark:text-emerald-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0 inline-flex items-center",
-  Scheduled:
-    "bg-[#FEF3C7] text-[#9A3412] dark:bg-amber-500/20 dark:text-amber-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0 inline-flex items-center",
-};
+type Tab = "interactions" | "messages" | "consent";
 
-const categoryPillStyles: Record<string, string> = {
-  "interview schedule":
-    "bg-[#DBEAFE] text-[#1D4ED8] dark:bg-blue-500/20 dark:text-blue-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0 inline-flex items-center",
-  "admission offer":
-    "bg-[#05966933] text-[#065F46] dark:bg-emerald-500/20 dark:text-emerald-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0 inline-flex items-center",
-  "document request":
-    "bg-[#FFEDD5] text-[#9A3412] dark:bg-amber-500/20 dark:text-amber-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0 inline-flex items-center",
-  "payment reminder":
-    "bg-[#FEE2E2] text-[#991B1B] dark:bg-rose-500/20 dark:text-rose-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0 inline-flex items-center",
-  "general notice":
-    "bg-[#F3E8FF] text-[#6B21A8] dark:bg-purple-500/20 dark:text-purple-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0 inline-flex items-center",
-  "direct message":
-    "bg-[#E0E7FF] text-[#4338CA] dark:bg-indigo-500/20 dark:text-indigo-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0 inline-flex items-center",
-};
-
-const getCategoryStyle = (cat: string) => {
-  const lower = (cat || "").toLowerCase();
-  if (categoryPillStyles[lower]) return categoryPillStyles[lower];
-  return "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0 inline-flex items-center";
-};
-
-function formatDate(dateStr: string) {
-  try {
-    return new Date(dateStr).toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  } catch {
-    return dateStr;
-  }
+function useDebounced<T>(value: T, ms = 350) {
+  const [v, setV] = React.useState(value);
+  React.useEffect(() => {
+    const t = setTimeout(() => setV(value), ms);
+    return () => clearTimeout(t);
+  }, [value, ms]);
+  return v;
 }
-
-function formatTime(dateStr: string) {
-  try {
-    return new Date(dateStr).toLocaleTimeString("en-IN", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
-  } catch {
-    return "";
-  }
-}
-
-function formatFullDateTime(dateStr: string) {
-  try {
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return { date: dateStr, time: "" };
-    return {
-      date: d.toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      }),
-      time: d.toLocaleTimeString("en-IN", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true,
-      }),
-    };
-  } catch {
-    return { date: dateStr, time: "" };
-  }
-}
-
-function exportToCSV(data: CommunicationLog[], filename = "communication_logs.csv") {
-  const headers = [
-    "Log ID",
-    "Application No",
-    "Recipient Name",
-    "Email",
-    "Phone",
-    "Channel",
-    "Category",
-    "Subject",
-    "Status",
-    "Sent At",
-  ];
-
-  const escape = (val: string | number | undefined) => {
-    const str = String(val || "");
-    if (str.includes(",") || str.includes('"') || str.includes("\n")) {
-      return `"${str.replace(/"/g, '""')}"`;
-    }
-    return str;
-  };
-
-  const rows = data.map((item) => [
-    escape(item.id),
-    escape(item.applicationNo),
-    escape(item.applicantName),
-    escape(item.recipientEmail),
-    escape(item.recipientPhone),
-    escape(item.channel),
-    escape(item.category),
-    escape(item.subject),
-    escape(item.status),
-    escape(item.sentAt),
-  ]);
-
-  const csvContent = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
-}
-
-import { useApplications } from "@/hooks/use-applications";
-
-import { checkAndDispatchScheduledCommunications } from "@/lib/scheduled-communications";
 
 export default function CommunicationsPage() {
-  const [composeOpen, setComposeOpen] = React.useState(false);
-
   usePageHeader({
     title: "Communications",
-    description:
-      "Manage and monitor all outbound and inbound communications with applicants and leads.",
-    action: {
-      label: "Compose Message",
-      onClick: () => setComposeOpen(true),
-    },
+    description: "Every Email, SMS, WhatsApp, call and system interaction with prospects and applicants.",
   });
-
-  const { data: commsResponse, isLoading: isCommsLoading } = useCommunications();
-  const { data: appsResponse, isLoading: isAppsLoading } = useApplications(1, 100);
-
-  const appsList: any[] = React.useMemo(() => {
-    if (!appsResponse) return [];
-    if (Array.isArray((appsResponse as any).data)) return (appsResponse as any).data;
-    if (Array.isArray(appsResponse)) return appsResponse;
-    return [];
-  }, [appsResponse]);
-
-  const [localHistory, setLocalHistory] = React.useState<CommunicationLog[]>([]);
-
-  const reloadHistory = React.useCallback(() => {
-    try {
-      const saved = localStorage.getItem("educrm_communications_history");
-      if (saved) {
-        setLocalHistory(JSON.parse(saved));
-      }
-    } catch {
-      // Ignore
-    }
-  }, []);
-
-  React.useEffect(() => {
-    reloadHistory();
-
-    // Check and auto-dispatch any overdue scheduled messages immediately
-    checkAndDispatchScheduledCommunications().then((changed) => {
-      if (changed) reloadHistory();
-    });
-
-    // Check every 5 seconds for newly due scheduled messages
-    const timer = setInterval(() => {
-      checkAndDispatchScheduledCommunications().then((changed) => {
-        if (changed) reloadHistory();
-      });
-    }, 5000);
-
-    const handleUpdate = () => reloadHistory();
-    window.addEventListener("storage", handleUpdate);
-    window.addEventListener("educrm_communications_updated", handleUpdate);
-
-    return () => {
-      clearInterval(timer);
-      window.removeEventListener("storage", handleUpdate);
-      window.removeEventListener("educrm_communications_updated", handleUpdate);
-    };
-  }, [reloadHistory]);
-
-  // Clean up any orphaned local storage communications when appsList updates
-  React.useEffect(() => {
-    if (Array.isArray(appsList) && appsList.length > 0) {
-      try {
-        const saved = localStorage.getItem("educrm_communications_history");
-        if (saved) {
-          const list = JSON.parse(saved);
-          const validAppNos = new Set(appsList.map((a: any) => (a.applicationNo || "").toLowerCase().trim()).filter(Boolean));
-          const validIds = new Set(appsList.map((a: any) => (a.id || "").toLowerCase().trim()).filter(Boolean));
-          const cleaned = list.filter((item: any) => {
-            const no = (item.applicationNo || "").toLowerCase().trim();
-            const id = (item.id || "").toLowerCase().trim();
-            return validAppNos.has(no) || validIds.has(id);
-          });
-          if (cleaned.length !== list.length) {
-            localStorage.setItem("educrm_communications_history", JSON.stringify(cleaned));
-            setLocalHistory(cleaned);
-          }
-        }
-      } catch {
-        // Ignore
-      }
-    }
-  }, [appsList]);
-
-  // All individual messages (not yet grouped)
-  const allMessages: CommunicationLog[] = React.useMemo(() => {
-    const rawApi = (commsResponse as any)?.data || (Array.isArray(commsResponse) ? commsResponse : []);
-    const apiComms: CommunicationLog[] = Array.isArray(rawApi) ? rawApi : [];
-
-    // Map existing applications by applicationNo and id
-    const appMap = new Map<string, any>();
-    if (Array.isArray(appsList)) {
-      for (const app of appsList) {
-        if (app.applicationNo) appMap.set(app.applicationNo.toLowerCase().trim(), app);
-        if (app.id) appMap.set(app.id.toLowerCase().trim(), app);
-      }
-    }
-
-    // Filter localHistory to only valid existing applications if appsList has loaded
-    const filteredLocal = localHistory.filter((item) => {
-      if (!Array.isArray(appsList)) return true;
-      if (appsList.length === 0) return false;
-      const no = (item.applicationNo || "").toLowerCase().trim();
-      const id = (item.id || "").toLowerCase().trim();
-      return appMap.has(no) || appMap.has(id);
-    });
-
-    // Combine localHistory + apiComms
-    const combined = [...filteredLocal, ...apiComms];
-
-    // Filter strictly by applications that exist in the organization
-    const filteredByExistingApps = combined.filter((c) => {
-      if (!Array.isArray(appsList)) return true;
-      if (appsList.length === 0) return false;
-      const no = (c.applicationNo || "").toLowerCase().trim();
-      const id = (c.id || "").toLowerCase().trim();
-      return appMap.has(no) || appMap.has(id);
-    });
-
-    // Enrich logs with real application applicantName and contact details if available
-    const enriched = filteredByExistingApps.map((c) => {
-      const app =
-        appMap.get((c.applicationNo || "").toLowerCase().trim()) ||
-        appMap.get((c.id || "").toLowerCase().trim());
-      if (app) {
-        const realName = app.name || app.fullName || app.applicant?.name;
-        const realEmail = app.email || app.applicant?.email;
-        const realPhone = app.phone || app.applicant?.primaryMobile;
-        return {
-          ...c,
-          applicantName: realName && realName !== "Applicant" ? realName : c.applicantName,
-          recipientEmail: realEmail || c.recipientEmail,
-          recipientPhone: realPhone || c.recipientPhone,
-        };
-      }
-      return c;
-    });
-
-    // Deduplicate by unique id or key
-    const seen = new Set<string>();
-    return enriched.filter((c) => {
-      const key = c.id || `${c.applicationNo}-${c.sentAt}-${c.subject}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-  }, [appsList, commsResponse, localHistory]);
-
-  // Group all messages by applicationNo → exactly one row per applicant in appsList
-  // The representative entry = active Scheduled (if any) else the most recent by sentAt
-  const commsList: (CommunicationLog & { totalMessages: number })[] = React.useMemo(() => {
-    if (!Array.isArray(appsList) || appsList.length === 0) {
-      return [];
-    }
-
-    const groups = new Map<string, CommunicationLog[]>();
-    for (const msg of allMessages) {
-      const key = (msg.applicationNo || "").toLowerCase().trim();
-      if (!key) continue;
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key)!.push(msg);
-    }
-
-    const rows: (CommunicationLog & { totalMessages: number })[] = [];
-    for (const app of appsList) {
-      const key = (app.applicationNo || "").toLowerCase().trim();
-      const idKey = (app.id || "").toLowerCase().trim();
-      const msgs = groups.get(key) || groups.get(idKey) || [];
-      const realName = app.name || app.fullName || app.applicant?.name || "Applicant";
-      const realEmail = app.email || app.applicant?.email || "applicant@example.com";
-      const realPhone = app.phone || app.applicant?.primaryMobile || "+91 98765 43210";
-
-      if (msgs.length > 0) {
-        const sorted = [...msgs].sort(
-          (a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime()
-        );
-        // Prefer a Scheduled entry if it exists, otherwise the latest
-        const scheduled = sorted.find((m) => m.status === "Scheduled");
-        const representative = scheduled || sorted[0];
-        rows.push({
-          ...representative,
-          applicantName:
-            representative.applicantName && representative.applicantName !== "Applicant"
-              ? representative.applicantName
-              : realName,
-          recipientEmail: representative.recipientEmail || realEmail,
-          recipientPhone: representative.recipientPhone || realPhone,
-          totalMessages: msgs.length,
-        });
-      } else {
-        // Initial communication channel entry for active application
-        rows.push({
-          id: `COMM-${app.id || app.applicationNo}`,
-          applicationNo: app.applicationNo || "APP2026001",
-          applicantName: realName,
-          recipientEmail: realEmail,
-          recipientPhone: realPhone,
-          channel: "Email",
-          category: "General Notice",
-          subject: `Admission Communication - ${app.program || "Admissions"} (${app.applicationNo})`,
-          content: `Official communication thread for application ${app.applicationNo}.`,
-          sender: "Admissions Directorate",
-          sentAt: app.submittedAt || app.createdAt || new Date().toISOString(),
-          status: "Sent",
-          openCount: 1,
-          totalMessages: 1,
-          timeline: [
-            {
-              status: "Sent",
-              timestamp: formatDate(app.submittedAt || new Date().toISOString()),
-              description: "Application thread initiated",
-            },
-          ],
-        });
-      }
-    }
-
-    return rows.sort((a, b) => {
-      const timeA = new Date(a.sentAt).getTime();
-      const timeB = new Date(b.sentAt).getTime();
-      return (isNaN(timeB) ? 0 : timeB) - (isNaN(timeA) ? 0 : timeA);
-    });
-  }, [allMessages, appsList]);
-
-  const isLoading = isCommsLoading || isAppsLoading;
-
-  const templatesQuery = useEmailTemplates();
-  const templates = templatesQuery.data || [];
-  const user = useAuthStore((s) => s.user);
-
-  const sendMutation = useSendCommunication();
-  const resendMutation = useResendCommunication();
-
-  // Search and Filter states
-  const [searchQuery, setSearchQuery] = React.useState("");
-  const [statusDraft, setStatusDraft] = React.useState("all");
-
-  // Advanced Filter Dialog
-  const [advancedOpen, setAdvancedOpen] = React.useState(false);
-  const [advDateFrom, setAdvDateFrom] = React.useState("");
-  const [advDateTo, setAdvDateTo] = React.useState("");
-  const [advAppNo, setAdvAppNo] = React.useState("");
-
-  // Pagination state (matching branches: 5 per page)
-  const [currentPage, setCurrentPage] = React.useState(1);
-  const itemsPerPage = 5;
-
-  // Compose Modal state
+  const role = useAuthStore((s) => s.user?.role);
+  const isAdmin = role === "org_admin" || role === "superadmin";
+  const [tab, setTab] = React.useState<Tab>("interactions");
+  const [composeOpen, setComposeOpen] = React.useState(false);
   const [composeChannel, setComposeChannel] = React.useState<"Email" | "SMS" | "WhatsApp">("Email");
-  const [composeAppNo, setComposeAppNo] = React.useState("");
-  const [composeName, setComposeName] = React.useState("");
-  const [composeEmail, setComposeEmail] = React.useState("");
-  const [composePhone, setComposePhone] = React.useState("");
-  const [composeCategory, setComposeCategory] = React.useState("General Notice");
-  const [composeSubject, setComposeSubject] = React.useState("");
-  const [composeContent, setComposeContent] = React.useState("");
-  const [composeTemplateId, setComposeTemplateId] = React.useState("none");
-  const [isScheduled, setIsScheduled] = React.useState(false);
-  const [scheduledAt, setScheduledAt] = React.useState("");
+  const [logOpen, setLogOpen] = React.useState(false);
 
-  const [mounted, setMounted] = React.useState(false);
-  React.useEffect(() => {
-    setMounted(true);
-  }, []);
+  const { data: stats } = useCommunicationStats();
+  const { data: msgStats } = useMessageStats();
+  const total = stats?.total || 0;
 
-  // Filter computation
-  const filteredComms = React.useMemo(() => {
-    return commsList.filter((item) => {
-      if (searchQuery.trim() !== "") {
-        const q = searchQuery.toLowerCase();
-        const matches =
-          item.applicantName.toLowerCase().includes(q) ||
-          item.recipientEmail.toLowerCase().includes(q) ||
-          item.recipientPhone.toLowerCase().includes(q) ||
-          item.applicationNo.toLowerCase().includes(q) ||
-          item.subject.toLowerCase().includes(q) ||
-          item.id.toLowerCase().includes(q);
-        if (!matches) return false;
-      }
-      if (statusDraft !== "all") {
-        const itemStatus = item.status === "Scheduled" ? "Scheduled" : "Sent";
-        if (itemStatus !== statusDraft) return false;
-      }
-
-      if (advAppNo && !item.applicationNo.toLowerCase().includes(advAppNo.toLowerCase())) return false;
-      if (advDateFrom && item.sentAt < advDateFrom) return false;
-      if (advDateTo && item.sentAt > advDateTo) return false;
-
-      return true;
-    });
-  }, [commsList, searchQuery, statusDraft, advAppNo, advDateFrom, advDateTo]);
-
-  const totalPages = Math.ceil(filteredComms.length / itemsPerPage) || 1;
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedComms = filteredComms.slice(startIndex, endIndex);
-
-  const visiblePages = React.useMemo(() => {
-    let startPage = 1;
-    let endPage = totalPages;
-    if (totalPages > 5) {
-      if (currentPage <= 3) {
-        startPage = 1;
-        endPage = 5;
-      } else if (currentPage + 2 >= totalPages) {
-        startPage = totalPages - 4;
-        endPage = totalPages;
-      } else {
-        startPage = currentPage - 2;
-        endPage = currentPage + 2;
-      }
-    }
-    return Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i);
-  }, [currentPage, totalPages]);
-
-  const hasAdvancedFilters = advAppNo !== "" || advDateFrom !== "" || advDateTo !== "";
-
-  // Statistics calculation: Total Sent and Scheduled only
-  const sentCount = commsList.filter((c) => c.status === "Sent" || c.status === "Delivered" || c.status === "Opened").length;
-  const scheduledCount = commsList.filter((c) => c.status === "Scheduled").length;
-  const totalCount = commsList.length;
-
-  function handleSelectTemplate(tmplId: string) {
-    setComposeTemplateId(tmplId);
-    if (tmplId === "none") return;
-    const tmpl = templates.find((t) => t.id === tmplId);
-    if (tmpl) {
-      const candidateContext = {
-        student: composeName || "Applicant",
-        course: "PGDM 2026-28",
-        application_no: composeAppNo || "APP2026001",
-        date: new Date().toLocaleDateString("en-IN", {
-          day: "2-digit",
-          month: "short",
-          year: "numeric",
-        }),
-        time: "10:30 AM - 12:00 PM IST",
-        venue: "Main Campus Seminar Hall A",
-        sender: user?.name || "Admissions Desk",
-        organization: "Educational Institutions Group",
-        email: composeEmail || "applicant@example.com",
-        phone: composePhone || "+91 98765 43210",
-      };
-      setComposeChannel(tmpl.channel || "Email");
-      setComposeCategory(tmpl.category);
-      setComposeSubject(renderTemplate(tmpl.subject, candidateContext));
-      setComposeContent(renderTemplate(tmpl.body, candidateContext));
-      toast.success(`Loaded "${tmpl.name}" with personalized shortcuts`);
-    }
-  }
-
-  function handleSendSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!composeAppNo.trim() && !composeEmail.trim()) {
-      toast.error("Please enter Recipient Application No or Email.");
-      return;
-    }
-    if (!composeSubject.trim()) {
-      toast.error("Please provide a subject title.");
-      return;
-    }
-
-    sendMutation.mutate(
-      {
-        applicationNo: composeAppNo || "APP2026001",
-        applicantName: composeName || "Applicant",
-        recipientEmail: composeEmail || "applicant@example.com",
-        recipientPhone: composePhone || "+91 98765 43210",
-        channel: composeChannel,
-        category: composeCategory,
-        subject: composeSubject,
-        content: composeContent,
-        sender: user?.name || "Admissions Desk",
-        scheduledAt: isScheduled ? scheduledAt : undefined,
-      },
-      {
-        onSuccess: (data: any) => {
-          if (data) {
-            try {
-              const existing = JSON.parse(localStorage.getItem("educrm_communications_history") || "[]");
-              localStorage.setItem("educrm_communications_history", JSON.stringify([data, ...existing]));
-              reloadHistory();
-            } catch {
-              // Ignore
-            }
-          }
-          setComposeOpen(false);
-          setComposeAppNo("");
-          setComposeName("");
-          setComposeEmail("");
-          setComposePhone("");
-          setComposeSubject("");
-          setComposeContent("");
-          setIsScheduled(false);
-        },
-      }
-    );
-  }
-
+  const openCompose = (c: "Email" | "SMS" | "WhatsApp") => {
+    setComposeChannel(c);
+    setComposeOpen(true);
+  };
 
   return (
-    <>
-      <div className="flex flex-col gap-4 p-4 md:p-6">
-        {/* Quick Stats Dashboard matching Branch page cards */}
-        {/* Quick Stats Dashboard: Total Sent & Scheduled */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Card 1: Total Sent */}
-          <div className="bg-card border border-border rounded-[12px] px-5 py-4 flex items-center gap-4 shadow-sm hover:shadow-md transition-all duration-200">
-            <div className="flex flex-col items-start gap-1 shrink-0">
-              <div className="w-11 h-11 rounded-[10px] bg-[#EFF6FF] flex items-center justify-center text-[#2563EB]">
-                <Mail className="size-5 text-[#2563EB]" />
-              </div>
-              <span className="text-[11px] font-medium text-muted-foreground whitespace-nowrap">
-                Total Sent
-              </span>
-            </div>
-            <div className="flex flex-col gap-2 flex-1 min-w-0">
-              <span className="text-[28px] font-bold leading-none text-[#0F172A]">
-                {sentCount}
-              </span>
-              <div className="w-full h-[6px] rounded-[9999px] overflow-hidden bg-[#2563EB]/15">
-                <div
-                  className="h-full rounded-[9999px] transition-all duration-700"
-                  style={{ width: "100%", backgroundColor: "#2563EB" }}
-                />
-              </div>
-            </div>
-          </div>
+    <div className="flex flex-col gap-4 p-4 md:p-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+        <StatCard icon={<Mail className="size-5" />} label="Email" value={stats?.byChannel?.Email ?? 0} ratio={total ? (stats?.byChannel?.Email || 0) / total : 0} />
+        <StatCard
+          icon={<MessageSquare className="size-5" />}
+          label="SMS"
+          value={stats?.byChannel?.SMS ?? 0}
+          color="#7C3AED"
+          bg="#F5F3FF"
+          ratio={total ? (stats?.byChannel?.SMS || 0) / total : 0}
+        />
+        <StatCard
+          icon={<MessageCircle className="size-5" />}
+          label="WhatsApp"
+          value={stats?.byChannel?.WhatsApp ?? 0}
+          color="#059669"
+          bg="#ECFDF5"
+          ratio={total ? (stats?.byChannel?.WhatsApp || 0) / total : 0}
+          hint={msgStats ? `${msgStats.read} read` : undefined}
+        />
+        <StatCard
+          icon={<Phone className="size-5" />}
+          label="Calls"
+          value={stats?.byChannel?.Call ?? 0}
+          color="#D97706"
+          bg="#FFFBEB"
+          ratio={total ? (stats?.byChannel?.Call || 0) / total : 0}
+        />
+        <StatCard
+          icon={<CalendarClock className="size-5" />}
+          label="Follow-ups due"
+          value={stats?.followUpsDue ?? 0}
+          color="#DC2626"
+          bg="#FEF2F2"
+          hint={`${stats?.byStatus?.Failed ?? 0} failed · ${stats?.byStatus?.Scheduled ?? 0} scheduled`}
+        />
+      </div>
 
-          {/* Card 2: Scheduled */}
-          <div className="bg-card border border-border rounded-[12px] px-5 py-4 flex items-center gap-4 shadow-sm hover:shadow-md transition-all duration-200">
-            <div className="flex flex-col items-start gap-1 shrink-0">
-              <div className="w-11 h-11 rounded-[10px] bg-[#FEF3C7] flex items-center justify-center text-[#D97706]">
-                <Clock className="size-5 text-[#D97706]" />
-              </div>
-              <span className="text-[11px] font-medium text-muted-foreground whitespace-nowrap">
-                Scheduled
-              </span>
-            </div>
-            <div className="flex flex-col gap-2 flex-1 min-w-0">
-              <span className="text-[28px] font-bold leading-none text-[#0F172A]">
-                {scheduledCount}
-              </span>
-              <div className="w-full h-[6px] rounded-[9999px] overflow-hidden bg-[#FDE68A]">
-                <div
-                  className="h-full rounded-[9999px] transition-all duration-700"
-                  style={{
-                    width: totalCount > 0 ? `${(scheduledCount / totalCount) * 100}%` : "0%",
-                    backgroundColor: "#D97706",
-                  }}
-                />
-              </div>
-            </div>
-          </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button className="gap-1.5" onClick={() => openCompose("Email")}>
+          <Send className="size-4" /> Compose
+        </Button>
+        <Button variant="outline" className="gap-1.5" onClick={() => openCompose("SMS")}>
+          <MessageSquare className="size-4 text-[#7C3AED]" /> Send SMS
+        </Button>
+        <Button variant="outline" className="gap-1.5" onClick={() => openCompose("WhatsApp")}>
+          <MessageCircle className="size-4 text-[#059669]" /> Send WhatsApp
+        </Button>
+        <Button variant="outline" className="gap-1.5" onClick={() => setLogOpen(true)}>
+          <Plus className="size-4" /> Log interaction
+        </Button>
+        <div className="flex-1" />
+        <Button asChild variant="outline" className="gap-1.5">
+          <Link href="/organization/email-campaigns">
+            <Megaphone className="size-4 text-[#2563EB]" /> Email Campaigns
+          </Link>
+        </Button>
+        <Button asChild variant="outline" className="gap-1.5">
+          <Link href="/organization/calls">
+            <Phone className="size-4 text-[#D97706]" /> Calls
+          </Link>
+        </Button>
+        <Button asChild variant="outline" className="gap-1.5">
+          <Link href="/organization/email-templates">
+            <LayoutTemplate className="size-4 text-[#2563EB]" /> Templates
+          </Link>
+        </Button>
+        {isAdmin && (
+          <Button asChild variant="outline" size="icon" title="SMS & WhatsApp settings">
+            <Link href="/organization/settings/messaging">
+              <Settings2 className="size-4" />
+            </Link>
+          </Button>
+        )}
+      </div>
+
+      <TabBar<Tab>
+        tabs={[
+          { value: "interactions", label: "All interactions" },
+          { value: "messages", label: "SMS & WhatsApp log" },
+          { value: "consent", label: "Opt-in consent" },
+        ]}
+        active={tab}
+        onChange={setTab}
+      />
+
+      {tab === "interactions" && <InteractionsTab />}
+      {tab === "messages" && <MessagesTab />}
+      {tab === "consent" && <ConsentTab />}
+
+      <ComposeDialog open={composeOpen} onOpenChange={setComposeOpen} initialChannel={composeChannel} />
+      {logOpen && <PickAndLogDialog onClose={() => setLogOpen(false)} />}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────── interactions ──
+
+function InteractionsTab() {
+  const router = useRouter();
+  const [page, setPage] = React.useState(1);
+  const [search, setSearch] = React.useState("");
+  const [channel, setChannel] = React.useState("all");
+  const [direction, setDirection] = React.useState("all");
+  const [status, setStatus] = React.useState("all");
+  const [followUpDue, setFollowUpDue] = React.useState(false);
+  const debounced = useDebounced(search);
+  const limit = 20;
+  const { data, isLoading } = useCommunications(page, limit, { search: debounced, channel, direction, status, followUpDue });
+  const resend = useResendCommunication();
+  const cancel = useCancelCommunication();
+  const [viewing, setViewing] = React.useState<TimelineEntry | null>(null);
+  const rows = data?.data || [];
+  const totalRows = data?.pagination?.total || 0;
+
+  const openHistory = (e: TimelineEntry) => {
+    if (e.applicantId) router.push(`/organization/communications/app/${e.applicantId}`);
+    else if (e.leadId) router.push(`/organization/communications/lead/${e.leadId}`);
+    else setViewing(e);
+  };
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+        <div className="relative flex-1">
+          <Input
+            placeholder="Search by applicant, app no, email, phone or subject…"
+            className="h-10 pr-10"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+          />
+          <Search className="absolute right-3 top-3 size-4 text-muted-foreground" />
         </div>
-
-        {/* Search & Filter Bar matching Branch page */}
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-          <div className="flex flex-1 w-full">
-            <div className="relative w-full">
-              <Input
-                placeholder="Search by recipient, email, app no or subject..."
-                className="w-full pr-10 h-10"
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setCurrentPage(1);
-                }}
-              />
-              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-muted-foreground">
-                <Search className="size-4" />
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              {/* Status Select */}
-              <div className="flex-1 min-w-0 sm:w-[150px]">
-                <Select
-                  value={statusDraft}
-                  onValueChange={(val) => {
-                    setStatusDraft(val);
-                    setCurrentPage(1);
-                  }}
-                >
-                  <SelectTrigger className="w-full h-10" size="lg">
-                    <SelectValue placeholder="All Statuses" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value="Sent">Sent</SelectItem>
-                    <SelectItem value="Scheduled">Scheduled</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Advanced Filter Button */}
-              <Button
-                variant="outline"
-                size="icon"
-                className="relative h-10 w-10 shrink-0 cursor-pointer"
-                onClick={() => setAdvancedOpen(true)}
-              >
-                <Filter className="size-4" />
-                {hasAdvancedFilters && (
-                  <span className="absolute -top-1 -right-1 flex size-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                    <span className="relative inline-flex rounded-full size-3 bg-primary"></span>
-                  </span>
-                )}
-                <span className="sr-only">Advanced filters</span>
-              </Button>
-
-              {/* Export CSV Button */}
-              <Button
-                variant="outline"
-                className="h-10 text-xs sm:text-sm font-medium gap-1.5 cursor-pointer"
-                onClick={() => exportToCSV(filteredComms)}
-              >
-                <Download className="size-4 text-muted-foreground" />
-                Export
-              </Button>
-
-              {/* Email Templates Module Button */}
-              <Button
-                asChild
-                variant="outline"
-                className="h-10 text-xs sm:text-sm font-medium border-border text-foreground hover:bg-accent hover:text-accent-foreground gap-2 cursor-pointer rounded-lg"
-              >
-                <Link href="/organization/email-templates">
-                  <LayoutTemplate className="size-4 text-[#2563EB]" />
-                  <span>Email Templates</span>
-                </Link>
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {/* Desktop View - Table matching Branch Table spacing & font styling */}
-        <div className="hidden lg:block border border-[#e5e5e5] rounded-[12px] bg-white overflow-hidden shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)]">
-          <Table>
-            <TableHeader className="bg-[#fafafa] border-b border-[#e2e8f0]">
-              <TableRow className="hover:bg-transparent border-b border-[#e2e8f0]">
-                <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
-                  RECIPIENT & APP NO
-                </TableHead>
-                <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
-                  EMAIL
-                </TableHead>
-                <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
-                  CATEGORY
-                </TableHead>
-                <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
-                  STATUS
-                </TableHead>
-                <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
-                  TIMESTAMP
-                </TableHead>
-                <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto text-right w-[85px]">
-                  ACTION
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading && filteredComms.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="h-48 text-center">
-                    <div className="flex flex-col items-center justify-center text-muted-foreground">
-                      <div className="size-8 animate-spin rounded-full border-4 border-primary border-t-transparent mb-4" />
-                      <p>Loading communications...</p>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : filteredComms.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="h-64 text-center">
-                    <div className="flex flex-col items-center justify-center gap-3">
-                      <div className="flex size-12 items-center justify-center rounded-full bg-muted/40">
-                        <SearchX className="size-6 text-muted-foreground/80" />
-                      </div>
-                      <div className="flex flex-col gap-0.5 text-center">
-                        <p className="text-sm font-semibold text-foreground">
-                          No communications found
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Try adjusting your filters or search query.
-                        </p>
-                      </div>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                paginatedComms.map((item) => (
-                  <TableRow
-                    key={item.id}
-                    className="border-b border-[#e2e8f0] hover:bg-muted/15 transition-colors"
-                  >
-                    <TableCell className="py-[20px] px-[24px] align-middle">
-                      <div className="flex items-center gap-2">
-                        <Link
-                          href={`/organization/communications/${item.applicationNo || item.id}`}
-                          className="font-semibold text-[#1e293b] text-[14px] hover:text-[#2563EB] hover:underline cursor-pointer transition-colors"
-                        >
-                          {item.applicantName}
-                        </Link>
-                        {(item as any).totalMessages > 0 && (
-                          <span className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-[#EFF6FF] text-[#2563EB] text-[10px] font-bold border border-[#BFDBFE]">
-                            {(item as any).totalMessages}
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-[#475569] text-[12px] flex items-center gap-2 mt-0.5">
-                        <Link
-                          href={`/organization/communications/${item.applicationNo || item.id}`}
-                          className="font-medium text-[#2563EB] hover:underline"
-                        >
-                          {item.applicationNo}
-                        </Link>
-                      </div>
-                    </TableCell>
-                    <TableCell className="py-[20px] px-[24px] align-middle">
-                      <div className="flex items-center gap-1.5 text-[#1e293b] text-[13px] font-medium">
-                        <Mail className="size-3.5 text-[#2563EB] shrink-0" />
-                        <span className="truncate max-w-[200px]" title={item.recipientEmail}>{item.recipientEmail}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="py-[20px] px-[24px] align-middle">
-                      <span className={getCategoryStyle(item.category)}>
-                        {item.category}
-                      </span>
-                    </TableCell>
-                    <TableCell className="py-[20px] px-[24px] align-middle">
-                      {(() => {
-                        const displayStatus = item.status === "Scheduled" ? "Scheduled" : "Sent";
-                        return (
-                          <Badge className={statusPillStyles[displayStatus] || "bg-gray-100 text-gray-700 font-medium text-xs px-2.5 py-0.5 rounded-full border-0 inline-flex items-center"}>
-                            {displayStatus}
-                          </Badge>
-                        );
-                      })()}
-                    </TableCell>
-                    <TableCell className="py-[20px] px-[24px] align-middle">
-                      {(() => {
-                        const dt = formatFullDateTime(item.sentAt);
-                        return (
-                          <div>
-                            <div className="text-[#1e293b] text-[13px] font-medium">{dt.date}</div>
-                            <div className="text-[#64748b] text-[11px] mt-0.5">{dt.time}</div>
-                          </div>
-                        );
-                      })()}
-                    </TableCell>
-                    <TableCell className="py-[20px] px-[24px] align-middle text-right">
-                      <div className="flex justify-end">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              className="data-[state=open]:bg-muted text-muted-foreground flex size-8 rounded-md hover:bg-muted"
-                              size="icon"
-                            >
-                              <EllipsisVertical className="size-4" />
-                              <span className="sr-only">Open menu</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-44 z-50">
-                            <DropdownMenuItem
-                              className="gap-2 cursor-pointer"
-                              onClick={() => resendMutation.mutate(item.id)}
-                            >
-                              <RotateCcw className="size-4 text-blue-600" />
-                              Resend Message
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-
-          {/* Desktop Pagination Footer matching Branches Page */}
-          <div className="flex flex-col sm:flex-row items-center justify-between border-t border-border/80 bg-zinc-100 dark:bg-muted/5 py-4 px-6 gap-4">
-            <p className="text-sm text-muted-foreground font-normal">
-              Showing{" "}
-              <span className="font-medium text-foreground">
-                {filteredComms.length === 0 ? 0 : startIndex + 1}
-              </span>{" "}
-              to{" "}
-              <span className="font-medium text-foreground">
-                {Math.min(endIndex, filteredComms.length)}
-              </span>{" "}
-              of{" "}
-              <span className="font-medium text-foreground">
-                {filteredComms.length}
-              </span>{" "}
-              entries
-            </p>
-            {totalPages > 1 && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <Button
-                  variant="outline"
-                  className="h-9 px-4 border border-border/80 bg-background text-foreground text-sm font-normal rounded-[6px] hover:bg-muted/30 dark:hover:bg-muted/10 transition-colors shadow-2xs"
-                  onClick={() => {
-                    if (currentPage > 1) setCurrentPage(currentPage - 1);
-                  }}
-                  disabled={currentPage === 1}
-                >
-                  <ChevronLeft className="mr-1 size-4" />
-                  Prev
-                </Button>
-                <div className="flex items-center gap-1.5 px-1">
-                  {visiblePages.map((page) => {
-                    const isActive = page === currentPage;
-                    return (
-                      <Button
-                        key={page}
-                        variant={isActive ? "default" : "outline"}
-                        className={`h-9 w-9 p-0 text-sm border shadow-2xs rounded-[6px] transition-colors ${
-                          isActive
-                            ? "bg-[#EA2525] border-[#EA2525] hover:bg-[#D61F1F] text-white font-semibold shadow-xs"
-                            : "border-border/80 bg-background text-muted-foreground hover:bg-muted/30 dark:hover:bg-muted/10 hover:text-foreground font-normal"
-                        }`}
-                        onClick={() => setCurrentPage(page)}
-                      >
-                        {page}
-                      </Button>
-                    );
-                  })}
-                </div>
-                <Button
-                  variant="outline"
-                  className="h-9 px-4 border border-border/80 bg-background text-foreground text-sm font-normal rounded-[6px] hover:bg-muted/30 dark:hover:bg-muted/10 transition-colors shadow-2xs"
-                  onClick={() => {
-                    if (currentPage < totalPages) setCurrentPage(currentPage + 1);
-                  }}
-                  disabled={currentPage === totalPages}
-                >
-                  Next
-                  <ChevronRight className="ml-1 size-4" />
-                </Button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Mobile View - Cards */}
-        <div className="flex flex-col gap-3 lg:hidden">
-          {paginatedComms.map((item) => (
-            <Card key={item.id} className="p-4 border border-border rounded-[12px] bg-card shadow-xs">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex flex-col">
-                  <Link
-                    href={`/organization/communications/${item.applicationNo || item.id}`}
-                    className="font-semibold text-foreground text-sm hover:text-[#2563EB] hover:underline cursor-pointer transition-colors"
-                  >
-                    {item.applicantName}
-                  </Link>
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
-                    <Mail className="size-3 text-[#2563EB]" />
-                    <span>{item.recipientEmail}</span>
-                  </div>
-                  <Link
-                    href={`/organization/communications/${item.applicationNo || item.id}`}
-                    className="text-xs text-primary font-medium mt-0.5 hover:underline"
-                  >
-                    App: {item.applicationNo}
-                  </Link>
-                </div>
-                {(() => {
-                  const displayStatus = item.status === "Scheduled" ? "Scheduled" : "Sent";
-                  return (
-                    <Badge className={statusPillStyles[displayStatus] || ""}>
-                      {displayStatus}
-                    </Badge>
-                  );
-                })()}
-              </div>
-              <div className="mt-3 pt-2 border-t border-border flex flex-col gap-1.5">
-                <span className="text-xs font-semibold text-foreground">{item.subject}</span>
-                <div>
-                  <span className={getCategoryStyle(item.category)}>
-                    {item.category}
-                  </span>
-                </div>
-              </div>
-              <div className="mt-3 flex items-center justify-between">
-                {(() => {
-                  const dt = formatFullDateTime(item.sentAt);
-                  return (
-                    <span className="text-xs text-muted-foreground">
-                      {dt.date} • {dt.time}
-                    </span>
-                  );
-                })()}
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="text-xs h-8 gap-1.5"
-                  onClick={() => resendMutation.mutate(item.id)}
-                >
-                  <RotateCcw className="size-3.5 text-blue-600" />
-                  Resend
-                </Button>
-              </div>
-            </Card>
-          ))}
+        <div className="grid grid-cols-2 sm:flex gap-2">
+          <FilterSelect value={channel} onChange={(v) => (setChannel(v), setPage(1))} all="All channels" options={INTERACTION_CHANNELS} />
+          <FilterSelect value={direction} onChange={(v) => (setDirection(v), setPage(1))} all="All directions" options={INTERACTION_DIRECTIONS} />
+          <FilterSelect value={status} onChange={(v) => (setStatus(v), setPage(1))} all="All statuses" options={["Sent", "Read", "Failed", "Scheduled"]} />
+          <Button variant={followUpDue ? "default" : "outline"} className="h-10" onClick={() => (setFollowUpDue((f) => !f), setPage(1))}>
+            <CalendarClock className="size-4" /> Follow-ups due
+          </Button>
         </div>
       </div>
 
-      {/* Compose Communication Dialog */}
-      <Dialog open={composeOpen} onOpenChange={setComposeOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
-              <Send className="size-5 text-primary" />
-              Compose Communication
-            </DialogTitle>
-          </DialogHeader>
+      <div className={tableShell}>
+        <Table>
+          <TableHeader className={tableHeaderClass}>
+            <TableRow className="hover:bg-transparent">
+              <Th>Date & time</Th>
+              <Th>Applicant</Th>
+              <Th>Channel</Th>
+              <Th>Direction</Th>
+              <Th>Subject / summary</Th>
+              <Th>Handled by</Th>
+              <Th>Status</Th>
+              <Th>Next follow-up</Th>
+              <Th className="text-right"> </Th>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
+                  <Loader2 className="inline size-4 animate-spin mr-2" /> Loading…
+                </TableCell>
+              </TableRow>
+            ) : rows.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={9}>
+                  <EmptyState title="No interactions found" description="Sent emails, messages, calls and logged interactions appear here." />
+                </TableCell>
+              </TableRow>
+            ) : (
+              rows.map((e) => (
+                <TableRow key={e.interactionId} className="cursor-pointer" onClick={() => openHistory(e)}>
+                  <TableCell className="px-4 text-xs whitespace-nowrap">{formatDateTime(e.dateTime)}</TableCell>
+                  <TableCell className="px-4">
+                    <p className="text-sm font-medium">{e.applicantName || e.recipient || "—"}</p>
+                    <p className="text-[11px] text-muted-foreground">{e.applicationNo || (e.leadId ? "Lead" : "")}</p>
+                  </TableCell>
+                  <TableCell className="px-4">
+                    <ChannelPill channel={e.channel} />
+                  </TableCell>
+                  <TableCell className="px-4 text-xs">{e.direction}</TableCell>
+                  <TableCell className="px-4 max-w-[320px]">
+                    <p className="text-sm truncate">{e.subject}</p>
+                    {e.summary && <p className="text-[11px] text-muted-foreground truncate">{e.summary}</p>}
+                  </TableCell>
+                  <TableCell className="px-4 text-xs">{e.handledBy || "System"}</TableCell>
+                  <TableCell className="px-4">
+                    <StatusPill status={e.deliveryStatus} />
+                  </TableCell>
+                  <TableCell className="px-4 text-xs whitespace-nowrap">{e.nextFollowUpDate ? formatDateTime(e.nextFollowUpDate) : "—"}</TableCell>
+                  <TableCell className="px-4 text-right" onClick={(ev) => ev.stopPropagation()}>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <EllipsisVertical className="size-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => setViewing(e)}>
+                          <Eye className="size-4" /> View details
+                        </DropdownMenuItem>
+                        {(e.applicantId || e.leadId) && (
+                          <DropdownMenuItem onClick={() => openHistory(e)}>
+                            <CalendarClock className="size-4" /> Full timeline
+                          </DropdownMenuItem>
+                        )}
+                        {e.channel === "Email" && e.source === "communication" && e.rawStatus !== "Scheduled" && (
+                          <DropdownMenuItem onClick={() => resend.mutate(e.interactionId)}>
+                            <RefreshCw className="size-4" /> Resend
+                          </DropdownMenuItem>
+                        )}
+                        {e.rawStatus === "Scheduled" && e.channel === "Email" && (
+                          <DropdownMenuItem onClick={() => cancel.mutate(e.interactionId)}>
+                            <XCircle className="size-4" /> Cancel scheduled
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+      <Pager page={page} limit={limit} total={totalRows} onPage={setPage} />
 
-          <form onSubmit={handleSendSubmit} className="flex flex-col gap-4 py-2">
-            <div className="flex flex-col gap-1.5">
-              <Label className="text-xs font-semibold text-foreground">Channel</Label>
-              <Tabs
-                value={composeChannel}
-                onValueChange={(val) => setComposeChannel(val as any)}
-                className="w-full"
-              >
-                <TabsList className="grid grid-cols-3 w-full">
-                  <TabsTrigger value="Email" className="text-xs font-medium gap-1.5">
-                    <Mail className="size-3.5" /> Email
-                  </TabsTrigger>
-                  <TabsTrigger value="SMS" className="text-xs font-medium gap-1.5">
-                    <Smartphone className="size-3.5" /> SMS
-                  </TabsTrigger>
-                  <TabsTrigger value="WhatsApp" className="text-xs font-medium gap-1.5">
-                    <MessageSquare className="size-3.5" /> WhatsApp
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
+      <Sheet open={!!viewing} onOpenChange={(o) => !o && setViewing(null)}>
+        <SheetContent className="sm:max-w-[560px] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Interaction details</SheetTitle>
+          </SheetHeader>
+          {viewing && <InteractionDetails e={viewing} />}
+        </SheetContent>
+      </Sheet>
+    </div>
+  );
+}
+
+function InteractionDetails({ e }: { e: TimelineEntry }) {
+  const isHtml = /<\/?[a-z][\s\S]*>/i.test(e.content || "");
+  return (
+    <div className="flex flex-col gap-3 px-4 pb-6">
+      <div className="grid grid-cols-2 gap-3">
+        <ReadOnlyField label="Interaction ID" value={<span className="font-mono text-[11px]">{e.interactionId}</span>} />
+        <ReadOnlyField label="Related record ID" value={<span className="font-mono text-[11px]">{e.relatedRecordId}</span>} />
+        <ReadOnlyField label="Applicant" value={e.applicantName} />
+        <ReadOnlyField label="Application no" value={e.applicationNo} />
+        <ReadOnlyField label="Channel" value={e.channel} />
+        <ReadOnlyField label="Direction" value={e.direction} />
+        <ReadOnlyField label="Date & time" value={formatDateTime(e.dateTime)} />
+        <ReadOnlyField label="Handled by" value={e.handledBy} />
+        <ReadOnlyField label="Delivery status" value={<StatusPill status={e.deliveryStatus} />} />
+        <ReadOnlyField label="Recipient" value={e.recipient} />
+        <ReadOnlyField label="Action taken" value={e.actionTaken} />
+        <ReadOnlyField label="Next follow-up" value={e.nextFollowUpDate ? formatDateTime(e.nextFollowUpDate) : null} />
+        <ReadOnlyField label="Assigned staff" value={e.assignedStaff} />
+        <ReadOnlyField label="Remarks" value={e.remarks} />
+      </div>
+      <ReadOnlyField label="Subject / title" value={e.subject} />
+      {e.failureReason && <ReadOnlyField label="Failure reason" value={<span className="text-destructive">{e.failureReason}</span>} />}
+      {e.attachments?.length > 0 && (
+        <ReadOnlyField
+          label="Attachment links"
+          value={
+            <div className="flex flex-col gap-1">
+              {e.attachments.map((a, i) => (
+                <a key={i} href={a.url} target="_blank" rel="noreferrer" className="text-primary underline">
+                  {a.name || a.url}
+                </a>
+              ))}
             </div>
+          }
+        />
+      )}
+      {e.content &&
+        (isHtml ? (
+          <iframe title="content" sandbox="" srcDoc={e.content} className="w-full h-[420px] rounded-md border border-border bg-white" />
+        ) : (
+          <pre className="whitespace-pre-wrap break-words rounded-md bg-muted/40 p-3 text-xs font-sans">{e.content}</pre>
+        ))}
+    </div>
+  );
+}
 
-            <div className="flex flex-col gap-1.5">
-              <Label className="text-xs font-semibold text-foreground">Select Template (Optional)</Label>
-              <Select value={composeTemplateId} onValueChange={handleSelectTemplate}>
-                <SelectTrigger className="h-9 text-xs">
-                  <SelectValue placeholder="Choose a pre-saved template..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Custom / Blank Message</SelectItem>
-                  {templates.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>
-                      {t.name} ({t.category})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+// ───────────────────────────────────────────────────────── message log ──
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1.5">
-                <Label className="text-xs font-semibold text-foreground">Application Number</Label>
-                <Input
-                  placeholder="e.g. APP2026001"
-                  className="h-9 text-xs"
-                  value={composeAppNo}
-                  onChange={(e) => setComposeAppNo(e.target.value)}
-                />
+function MessagesTab() {
+  const [page, setPage] = React.useState(1);
+  const [search, setSearch] = React.useState("");
+  const [channel, setChannel] = React.useState("all");
+  const [status, setStatus] = React.useState("all");
+  const [messageType, setMessageType] = React.useState("all");
+  const debounced = useDebounced(search);
+  const limit = 20;
+  const { data, isLoading } = useMessageLogs(page, limit, { search: debounced, channel, status, messageType });
+  const { data: stats } = useMessageStats();
+  const retry = useRetryMessage();
+  const cancel = useCancelMessage();
+  const [viewing, setViewing] = React.useState<MessageLog | null>(null);
+  const rows = data?.data || [];
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 p-4 rounded-[8px] border border-border bg-card shadow-xs">
+        {[
+          ["Total", stats?.total],
+          ["Sent", stats?.sent],
+          ["Delivered", stats?.delivered],
+          ["Read (WhatsApp)", stats?.read],
+          ["Failed", stats?.failed],
+          ["Scheduled", stats?.scheduled],
+        ].map(([l, v]) => (
+          <div key={l as string}>
+            <span className="block text-[10px] font-bold tracking-[1px] uppercase text-muted-foreground">{l}</span>
+            <p className="text-[16px] font-bold">{(v as number) ?? 0}</p>
+          </div>
+        ))}
+      </div>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+        <div className="relative flex-1">
+          <Input
+            placeholder="Search by name, mobile, app no or text…"
+            className="h-10 pr-10"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+          />
+          <Search className="absolute right-3 top-3 size-4 text-muted-foreground" />
+        </div>
+        <div className="grid grid-cols-3 sm:flex gap-2">
+          <FilterSelect value={channel} onChange={(v) => (setChannel(v), setPage(1))} all="All channels" options={["SMS", "WhatsApp"]} />
+          <FilterSelect value={messageType} onChange={(v) => (setMessageType(v), setPage(1))} all="All types" options={MESSAGE_TYPES} />
+          <FilterSelect value={status} onChange={(v) => (setStatus(v), setPage(1))} all="All statuses" options={MESSAGE_SENT_STATUSES} />
+        </div>
+      </div>
+      <div className={tableShell}>
+        <Table>
+          <TableHeader className={tableHeaderClass}>
+            <TableRow className="hover:bg-transparent">
+              <Th>Created</Th>
+              <Th>Recipient</Th>
+              <Th>Channel</Th>
+              <Th>Type</Th>
+              <Th>Message</Th>
+              <Th>Priority</Th>
+              <Th>Consent</Th>
+              <Th>Status</Th>
+              <Th>Read</Th>
+              <Th>Provider</Th>
+              <Th className="text-right"> </Th>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={11} className="py-10 text-center text-muted-foreground">
+                  <Loader2 className="inline size-4 animate-spin mr-2" /> Loading…
+                </TableCell>
+              </TableRow>
+            ) : rows.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={11}>
+                  <EmptyState title="No SMS or WhatsApp messages yet" />
+                </TableCell>
+              </TableRow>
+            ) : (
+              rows.map((m) => (
+                <TableRow key={m.id} className="cursor-pointer" onClick={() => setViewing(m)}>
+                  <TableCell className="px-4 text-xs whitespace-nowrap">{formatDateTime(m.scheduledAt && m.sentStatus === "Scheduled" ? m.scheduledAt : m.createdAt)}</TableCell>
+                  <TableCell className="px-4">
+                    <p className="text-sm font-medium">{m.recipientName || "—"}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      +{m.countryCode} {m.mobileNumber}
+                      {m.direction === "Inbound" ? " · inbound" : ""}
+                    </p>
+                  </TableCell>
+                  <TableCell className="px-4">
+                    <ChannelPill channel={m.channel} />
+                  </TableCell>
+                  <TableCell className="px-4 text-xs">{m.messageType}</TableCell>
+                  <TableCell className="px-4 max-w-[280px]">
+                    <p className="text-xs truncate">{m.body}</p>
+                    <p className="text-[11px] text-muted-foreground">{m.characterCount} chars</p>
+                  </TableCell>
+                  <TableCell className="px-4 text-xs">{m.priority}</TableCell>
+                  <TableCell className="px-4">
+                    <StatusPill status={m.consentStatus} />
+                  </TableCell>
+                  <TableCell className="px-4">
+                    <StatusPill status={m.sentStatus} />
+                  </TableCell>
+                  <TableCell className="px-4 text-xs">{m.channel === "WhatsApp" ? m.readStatus || "Unread" : "—"}</TableCell>
+                  <TableCell className="px-4 text-xs capitalize">{m.provider || "—"}</TableCell>
+                  <TableCell className="px-4 text-right" onClick={(ev) => ev.stopPropagation()}>
+                    {m.sentStatus === "Failed" && m.direction !== "Inbound" && (
+                      <Button variant="ghost" size="sm" className="h-8 gap-1" onClick={() => retry.mutate(m.id)}>
+                        <RefreshCw className="size-3.5" /> Retry
+                      </Button>
+                    )}
+                    {m.sentStatus === "Scheduled" && (
+                      <Button variant="ghost" size="sm" className="h-8 gap-1" onClick={() => cancel.mutate(m.id)}>
+                        <XCircle className="size-3.5" /> Cancel
+                      </Button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+      <Pager page={page} limit={limit} total={data?.pagination?.total || 0} onPage={setPage} />
+
+      <Sheet open={!!viewing} onOpenChange={(o) => !o && setViewing(null)}>
+        <SheetContent className="sm:max-w-[560px] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>{viewing?.channel} message</SheetTitle>
+          </SheetHeader>
+          {viewing && (
+            <div className="flex flex-col gap-3 px-4 pb-6">
+              <div className="grid grid-cols-2 gap-3">
+                <ReadOnlyField label="Message ID" value={<span className="font-mono text-[11px]">{viewing.id}</span>} />
+                <ReadOnlyField label="Channel" value={viewing.channel} />
+                <ReadOnlyField label="Message type" value={viewing.messageType} />
+                <ReadOnlyField label="Template ID" value={viewing.templateId} />
+                <ReadOnlyField label="Character count" value={viewing.characterCount} />
+                <ReadOnlyField label="CTA link" value={viewing.ctaLink} />
+                <ReadOnlyField label="Applicant ID" value={viewing.applicationNo || viewing.applicationId} />
+                <ReadOnlyField label="Full name" value={viewing.recipientName} />
+                <ReadOnlyField label="Mobile number" value={viewing.mobileNumber} />
+                <ReadOnlyField label="Country code" value={`+${viewing.countryCode}`} />
+                <ReadOnlyField label="Preferred language" value={viewing.preferredLanguage} />
+                <ReadOnlyField label="Consent / opt-in" value={<StatusPill status={viewing.consentStatus} />} />
+                <ReadOnlyField label="Trigger event" value={viewing.triggerEvent} />
+                <ReadOnlyField label="Scheduled date & time" value={viewing.scheduledAt ? formatDateTime(viewing.scheduledAt) : null} />
+                <ReadOnlyField label="Priority" value={viewing.priority} />
+                <ReadOnlyField label="Time zone" value={viewing.timeZone} />
+                <ReadOnlyField label="Sent status" value={<StatusPill status={viewing.sentStatus} />} />
+                <ReadOnlyField label="Read status" value={viewing.channel === "WhatsApp" ? viewing.readStatus || "Unread" : "n/a (SMS)"} />
+                <ReadOnlyField label="Delivery timestamp" value={viewing.deliveredAt ? formatDateTime(viewing.deliveredAt) : null} />
+                <ReadOnlyField label="Provider" value={viewing.provider} />
               </div>
-
-              <div className="flex flex-col gap-1.5">
-                <Label className="text-xs font-semibold text-foreground">Applicant Name</Label>
-                <Input
-                  placeholder="Recipient Name"
-                  className="h-9 text-xs"
-                  value={composeName}
-                  onChange={(e) => setComposeName(e.target.value)}
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <Label className="text-xs font-semibold text-foreground">Recipient Email</Label>
-                <Input
-                  type="email"
-                  placeholder="student@example.com"
-                  className="h-9 text-xs"
-                  value={composeEmail}
-                  onChange={(e) => setComposeEmail(e.target.value)}
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <Label className="text-xs font-semibold text-foreground">Recipient Mobile</Label>
-                <Input
-                  placeholder="+91 98765 43210"
-                  className="h-9 text-xs"
-                  value={composePhone}
-                  onChange={(e) => setComposePhone(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label className="text-xs font-semibold text-foreground">Subject / Header Title</Label>
-              <Input
-                placeholder="Enter subject line..."
-                className="h-9 text-xs"
-                value={composeSubject}
-                onChange={(e) => setComposeSubject(e.target.value)}
-              />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label className="text-xs font-semibold text-foreground">Message Content</Label>
-              <Textarea
-                rows={5}
-                placeholder="Type your message or edit template here..."
-                className="text-xs font-mono"
-                value={composeContent}
-                onChange={(e) => setComposeContent(e.target.value)}
-              />
-            </div>
-
-            <div className="flex items-center justify-between p-3 rounded-md bg-muted/40 border border-border">
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="scheduleCheck"
-                  checked={isScheduled}
-                  onChange={(e) => setIsScheduled(e.target.checked)}
-                  className="h-4 w-4 accent-primary rounded cursor-pointer"
-                />
-                <label htmlFor="scheduleCheck" className="text-xs font-semibold text-foreground cursor-pointer">
-                  Schedule for later
-                </label>
-              </div>
-
-              {isScheduled && (
-                <Input
-                  type="datetime-local"
-                  className="h-8 w-48 text-xs bg-background"
-                  value={scheduledAt}
-                  onChange={(e) => setScheduledAt(e.target.value)}
+              {viewing.failureReason && <ReadOnlyField label="Failure reason" value={<span className="text-destructive">{viewing.failureReason}</span>} />}
+              {viewing.mediaUrl && (
+                <ReadOnlyField
+                  label="Media attachment"
+                  value={
+                    <a href={viewing.mediaUrl} target="_blank" rel="noreferrer" className="text-primary underline break-all">
+                      {viewing.mediaUrl}
+                    </a>
+                  }
                 />
               )}
+              <pre className="whitespace-pre-wrap break-words rounded-md bg-muted/40 p-3 text-xs font-sans">{viewing.body}</pre>
             </div>
+          )}
+        </SheetContent>
+      </Sheet>
+    </div>
+  );
+}
 
-            <DialogFooter className="mt-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setComposeOpen(false)}
-                className="text-xs"
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                size="sm"
-                className="bg-primary text-primary-foreground text-xs font-semibold px-4 gap-1.5"
-                disabled={sendMutation.isPending}
-              >
-                <Send className="size-3.5" />
-                {isScheduled ? "Schedule Message" : "Send Immediately"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+// ───────────────────────────────────────────────────────────── consent ──
 
-      {/* Advanced Filter Modal */}
-      <Dialog open={advancedOpen} onOpenChange={setAdvancedOpen}>
-        <DialogContent className="max-w-md">
+function ConsentTab() {
+  const [page, setPage] = React.useState(1);
+  const [search, setSearch] = React.useState("");
+  const [channel, setChannel] = React.useState("all");
+  const [status, setStatus] = React.useState("all");
+  const debounced = useDebounced(search);
+  const { data, isLoading } = useConsents(page, 20, { search: debounced, channel, status });
+  const setConsent = useSetConsent();
+  const [addOpen, setAddOpen] = React.useState(false);
+  const [form, setForm] = React.useState({ mobile: "", countryCode: "91", channel: "WhatsApp", status: "Opted In", source: "Manual (staff)" });
+  const rows = data?.data || [];
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+        <div className="relative flex-1">
+          <Input placeholder="Search mobile number…" className="h-10 pr-10" value={search} onChange={(e) => (setSearch(e.target.value), setPage(1))} />
+          <Search className="absolute right-3 top-3 size-4 text-muted-foreground" />
+        </div>
+        <div className="flex gap-2">
+          <FilterSelect value={channel} onChange={(v) => (setChannel(v), setPage(1))} all="All channels" options={["SMS", "WhatsApp"]} />
+          <FilterSelect value={status} onChange={(v) => (setStatus(v), setPage(1))} all="All statuses" options={["Opted In", "Opted Out"]} />
+          <Button className="h-10 gap-1.5" onClick={() => setAddOpen(true)}>
+            <Plus className="size-4" /> Record consent
+          </Button>
+        </div>
+      </div>
+      <div className={tableShell}>
+        <Table>
+          <TableHeader className={tableHeaderClass}>
+            <TableRow className="hover:bg-transparent">
+              <Th>Mobile</Th>
+              <Th>Channel</Th>
+              <Th>Status</Th>
+              <Th>Source</Th>
+              <Th>Preferred language</Th>
+              <Th>Updated</Th>
+              <Th className="text-right"> </Th>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
+                  <Loader2 className="inline size-4 animate-spin mr-2" /> Loading…
+                </TableCell>
+              </TableRow>
+            ) : rows.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7}>
+                  <EmptyState title="No consent records" description="Opt-ins / opt-outs (including STOP replies) are recorded here." />
+                </TableCell>
+              </TableRow>
+            ) : (
+              rows.map((c) => (
+                <TableRow key={c.id}>
+                  <TableCell className="px-4 text-sm">
+                    +{c.countryCode} {c.mobileNumber}
+                  </TableCell>
+                  <TableCell className="px-4">
+                    <ChannelPill channel={c.channel} />
+                  </TableCell>
+                  <TableCell className="px-4">
+                    <StatusPill status={c.status} />
+                  </TableCell>
+                  <TableCell className="px-4 text-xs">{c.source || "—"}</TableCell>
+                  <TableCell className="px-4 text-xs">{c.preferredLanguage || "—"}</TableCell>
+                  <TableCell className="px-4 text-xs">{formatDateTime(c.updatedAt)}</TableCell>
+                  <TableCell className="px-4 text-right">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8"
+                      onClick={() =>
+                        setConsent.mutate({
+                          mobile: c.mobileNumber,
+                          countryCode: c.countryCode,
+                          channel: c.channel as "SMS" | "WhatsApp",
+                          status: c.status === "Opted In" ? "Opted Out" : "Opted In",
+                          source: "Manual (staff)",
+                        })
+                      }
+                    >
+                      Mark {c.status === "Opted In" ? "opted out" : "opted in"}
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+      <Pager page={page} limit={20} total={data?.pagination?.total || 0} onPage={setPage} />
+
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent className="sm:max-w-[480px]">
           <DialogHeader>
-            <DialogTitle className="text-base font-bold flex items-center gap-2">
-              <SlidersHorizontal className="size-4 text-primary" />
-              Filter Communications
-            </DialogTitle>
+            <DialogTitle>Record consent</DialogTitle>
           </DialogHeader>
-
-          <div className="flex flex-col gap-3 py-2">
-            <div className="flex flex-col gap-1.5">
-              <Label className="text-xs font-semibold text-foreground">Application Number</Label>
-              <Input
-                placeholder="Filter by App No..."
-                className="h-9 text-xs"
-                value={advAppNo}
-                onChange={(e) => setAdvAppNo(e.target.value)}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1.5">
-                <Label className="text-xs font-semibold text-foreground">From Date</Label>
-                <Input
-                  type="date"
-                  className="h-9 text-xs"
-                  value={advDateFrom}
-                  onChange={(e) => setAdvDateFrom(e.target.value)}
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <Label className="text-xs font-semibold text-foreground">To Date</Label>
-                <Input
-                  type="date"
-                  className="h-9 text-xs"
-                  value={advDateTo}
-                  onChange={(e) => setAdvDateTo(e.target.value)}
-                />
-              </div>
-            </div>
+          <div className="grid grid-cols-3 gap-3">
+            <Field label="Code">
+              <Input className="h-10" value={form.countryCode} onChange={(e) => setForm({ ...form, countryCode: e.target.value })} />
+            </Field>
+            <Field label="Mobile number" className="col-span-2">
+              <Input className="h-10" value={form.mobile} onChange={(e) => setForm({ ...form, mobile: e.target.value })} />
+            </Field>
+            <Field label="Channel">
+              <FilterSelect value={form.channel} onChange={(v) => setForm({ ...form, channel: v })} options={["SMS", "WhatsApp"]} />
+            </Field>
+            <Field label="Status" className="col-span-2">
+              <FilterSelect value={form.status} onChange={(v) => setForm({ ...form, status: v })} options={["Opted In", "Opted Out"]} />
+            </Field>
+            <Field label="Source" className="col-span-3">
+              <Input className="h-10" value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })} />
+            </Field>
           </div>
-
           <DialogFooter>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setAdvAppNo("");
-                setAdvDateFrom("");
-                setAdvDateTo("");
-                setAdvancedOpen(false);
-              }}
-              className="text-xs"
-            >
-              Reset Filters
+            <Button variant="outline" onClick={() => setAddOpen(false)}>
+              Cancel
             </Button>
             <Button
-              size="sm"
-              onClick={() => setAdvancedOpen(false)}
-              className="bg-primary text-primary-foreground text-xs font-semibold"
+              disabled={!form.mobile || setConsent.isPending}
+              onClick={() =>
+                setConsent.mutate(
+                  {
+                    mobile: form.mobile,
+                    countryCode: form.countryCode,
+                    channel: form.channel as "SMS" | "WhatsApp",
+                    status: form.status as "Opted In" | "Opted Out",
+                    source: form.source,
+                  },
+                  { onSuccess: () => setAddOpen(false) },
+                )
+              }
             >
-              Apply Filters
+              Save
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────── shared ──
+
+function FilterSelect({
+  value,
+  onChange,
+  options,
+  all,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: readonly string[];
+  all?: string;
+}) {
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger className="w-full sm:w-[150px] h-10">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {all && <SelectItem value="all">{all}</SelectItem>}
+        {options.map((o) => (
+          <SelectItem key={o} value={o}>
+            {o}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+function PickAndLogDialog({ onClose }: { onClose: () => void }) {
+  const [picked, setPicked] = React.useState<PickedRecipient[]>([]);
+  const [step, setStep] = React.useState<"pick" | "log">("pick");
+  const r = picked[0];
+  if (step === "log" && r) {
+    return <LogInteractionDialog applicationId={r.applicationId} leadId={r.leadId} onClose={onClose} />;
+  }
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-[520px]">
+        <DialogHeader>
+          <DialogTitle>Log interaction — choose applicant / lead</DialogTitle>
+        </DialogHeader>
+        <RecipientPicker value={picked} onChange={(v) => setPicked(v.filter((x) => x.kind !== "Manual"))} multiple={false} />
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button disabled={!r} onClick={() => setStep("log")}>
+            Continue
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

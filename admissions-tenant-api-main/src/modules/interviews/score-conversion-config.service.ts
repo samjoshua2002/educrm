@@ -16,17 +16,23 @@ const ACADEMIC_BANDS = [
   { minPercent: 50, points: 2 },
 ];
 
+const TEST_PERCENTILE_BANDS = [
+  { minPercentile: 95, points: 10 },
+  { minPercentile: 90, points: 8 },
+  { minPercentile: 80, points: 6 },
+  { minPercentile: 70, points: 4 },
+  { minPercentile: 60, points: 2 },
+];
+
 const DEFAULT_BANDS = {
   tenth: ACADEMIC_BANDS,
   twelfth: ACADEMIC_BANDS,
   ug: ACADEMIC_BANDS,
-  testPercentile: [
-    { minPercentile: 95, points: 10 },
-    { minPercentile: 90, points: 8 },
-    { minPercentile: 80, points: 6 },
-    { minPercentile: 70, points: 4 },
-    { minPercentile: 60, points: 2 },
-  ],
+  testPercentile: TEST_PERCENTILE_BANDS,
+  // Used only when entranceScoringMode = 'cat_split' (owner request): CAT
+  // and the best non-CAT exam are scored on their own band tables.
+  catPercentile: TEST_PERCENTILE_BANDS,
+  otherTestPercentile: TEST_PERCENTILE_BANDS,
   // Experience is stored/edited in months everywhere else in the app
   // (application_work_experience.from_date/to_date, claimedExperienceMonths,
   // validatedExperienceMonths), so bands key off minMonths too — no year<->
@@ -74,12 +80,33 @@ export class ScoreConversionConfigService {
       delete (config.bands as any).experienceYears;
       config = await this.configRepository.save(config);
     }
+    if (config && (!config.bands?.catPercentile || !config.bands?.otherTestPercentile)) {
+      // Rows created before the CAT / other-exam split: seed both new band
+      // tables from the existing entrance-test bands so switching the mode
+      // on gives the same points scale the org already uses.
+      const base = config.bands?.testPercentile ?? TEST_PERCENTILE_BANDS;
+      config.bands = {
+        ...config.bands,
+        catPercentile: config.bands?.catPercentile ?? JSON.parse(JSON.stringify(base)),
+        otherTestPercentile: config.bands?.otherTestPercentile ?? JSON.parse(JSON.stringify(base)),
+      };
+      config = await this.configRepository.save(config);
+    }
     return config;
   }
 
   async update(orgId: string, dto: UpdateScoreConversionConfigDto, actorId?: string) {
     const config = await this.getOrCreate(orgId);
     Object.assign(config, dto);
+    if (actorId && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(actorId)) {
+      config.updatedBy = actorId;
+    }
+    return this.configRepository.save(config);
+  }
+
+  async setGdScoringScheme(orgId: string, schemeId: string | null, actorId?: string) {
+    const config = await this.getOrCreate(orgId);
+    config.gdScoringSchemeId = schemeId;
     if (actorId && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(actorId)) {
       config.updatedBy = actorId;
     }

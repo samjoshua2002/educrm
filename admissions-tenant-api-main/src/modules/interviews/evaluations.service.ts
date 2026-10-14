@@ -8,6 +8,8 @@ import { EvaluationScore } from './entities/evaluation-score.entity.js';
 import { SubmitEvaluationDto } from './dto/submit-evaluation.dto.js';
 import { Role } from '../../common/enums/roles.enum.js';
 import { ScoringService } from './scoring.service.js';
+import { computeWeightedScore } from './entities/evaluation-score.entity.js';
+import { GdScoringSchemesService } from './gd-scoring-schemes.service.js';
 
 const ADMIN_ROLES = [Role.SUPERADMIN, Role.ORG_ADMIN, Role.EXAM_MANAGER];
 const BLOCKED_STATUSES = ['Cancelled', 'No Show'];
@@ -25,17 +27,53 @@ export class EvaluationsService {
     private readonly scoreRepository: Repository<EvaluationScore>,
     private readonly dataSource: DataSource,
     private readonly scoringService: ScoringService,
+    private readonly gdSchemesService: GdScoringSchemesService,
   ) {}
 
   private isAdmin(role: string) {
     return ADMIN_ROLES.includes(role as Role);
   }
 
+  // Weighted_Score formula: Score_Given / Max_Score x Weightage.
   private weightedScore(scoreGiven: number, rubric: EvaluationRubric): number {
-    const maxScore = Number(rubric.maxScore) || 0;
-    const weightagePercent = Number(rubric.weightagePercent) || 0;
-    if (!maxScore) return 0;
-    return (Number(scoreGiven) / maxScore) * weightagePercent;
+    return computeWeightedScore(scoreGiven, rubric.maxScore, rubric.weightagePercent);
+  }
+
+  // The selected GD scoring scheme's component for this interview type, so
+  // the evaluator portal can show how the panel's marks are used.
+  async getScoringContext(orgId: string, interviewId: string, userId: string, role: string) {
+    const interview = await this.findInterviewOrThrow(orgId, interviewId);
+    this.assertCanView(interview, userId, role);
+    const scheme = await this.gdSchemesService.getActiveScheme(orgId);
+    const rubrics = await this.getRubricsForInterview(orgId, interviewId);
+    return {
+      interview: {
+        id: interview.id,
+        interviewNumber: interview.interviewNumber,
+        interviewType: interview.interviewType,
+        interviewMode: interview.interviewMode ?? interview.slot?.mode ?? null,
+        round: interview.round,
+        status: interview.status,
+        interviewDate: interview.interviewDate ?? interview.slot?.slotDate ?? null,
+        startTime: interview.startTime ?? interview.slot?.startTime ?? null,
+        endTime: interview.endTime ?? interview.slot?.endTime ?? null,
+        meetingLink: interview.meetingLink ?? interview.slot?.meetingLink ?? null,
+        location: interview.location ?? interview.slot?.location ?? null,
+        applicationNo: interview.application?.applicationNo ?? null,
+        candidateName: interview.application?.name ?? interview.application?.student?.name ?? null,
+      },
+      scheme: { id: scheme.id, name: scheme.name, isPredefined: scheme.isPredefined },
+      schemeComponents: scheme.components.filter((c) => c.interviewType === interview.interviewType),
+      rubrics,
+      totalWeightage: rubrics.reduce((sum, r) => sum + (Number(r.weightagePercent) || 0), 0),
+    };
+  }
+
+  private assertCanView(interview: Interview, userId: string, role: string) {
+    const isPanelMember = (interview.assignedPanel || []).includes(userId);
+    if (!isPanelMember && !this.isAdmin(role)) {
+      throw new ForbiddenException('You are not assigned as an evaluator for this interview.');
+    }
   }
 
   async getMyAssignedInterviews(orgId: string, userId: string) {
@@ -60,16 +98,28 @@ export class EvaluationsService {
       const evaluation = evaluationByInterviewId.get(interview.id);
       return {
         interviewId: interview.id,
+        interviewNumber: interview.interviewNumber,
         applicationId: interview.applicationId,
         applicationNo: interview.application?.applicationNo,
-        studentName: interview.application?.student?.name,
+        studentName: interview.application?.student?.name ?? interview.application?.name,
         interviewType: interview.interviewType,
+        interviewMode: interview.interviewMode ?? interview.slot?.mode ?? null,
         round: interview.round,
         status: interview.status,
+        meetingLink: interview.meetingLink ?? interview.slot?.meetingLink ?? null,
+        location: interview.location ?? interview.slot?.location ?? null,
         slot: interview.slot
-          ? { slotDate: interview.slot.slotDate, startTime: interview.slot.startTime, location: interview.slot.location }
+          ? {
+              slotDate: interview.slot.slotDate,
+              startTime: interview.slot.startTime,
+              endTime: interview.slot.endTime,
+              location: interview.slot.location,
+              timeZone: interview.slot.timeZone,
+            }
           : null,
         evaluationStatus: evaluation ? evaluation.status : 'Not Started',
+        recommendation: evaluation?.overallRecommendation ?? null,
+        submitted: evaluation ? evaluation.status === 'submitted' : false,
       };
     });
   }
@@ -128,6 +178,7 @@ export class EvaluationsService {
       }
 
       for (const item of dto.scores) {
+        const rubric = rubricById.get(item.rubricId) as EvaluationRubric;
         let scoreRow = await manager.findOne(EvaluationScore, {
           where: { evaluationId: evaluation.id, rubricId: item.rubricId },
         });
@@ -142,13 +193,19 @@ export class EvaluationsService {
             notes: item.notes,
           });
         }
+        scoreRow.weightedScore = this.weightedScore(item.scoreGiven, rubric);
         await manager.save(scoreRow);
       }
 
       if (dto.overallRecommendation !== undefined) evaluation.overallRecommendation = dto.overallRecommendation;
       if (dto.comments !== undefined) evaluation.comments = dto.comments;
+      evaluation.evaluationDate = new Date();
       if (dto.submit) {
+        if (!evaluation.overallRecommendation) {
+          throw new BadRequestException('Choose an Overall Recommendation before submitting.');
+        }
         evaluation.status = 'submitted';
+        evaluation.submitted = true;
         evaluation.submittedAt = new Date();
       }
       evaluation = await manager.save(evaluation);
@@ -203,24 +260,31 @@ export class EvaluationsService {
   }
 
   private toEvaluationResponse(evaluation: InterviewEvaluation, scores: EvaluationScore[]) {
+    const mapped = scores.map((s) => ({
+      id: s.id,
+      scoreNumber: s.scoreNumber,
+      rubricId: s.rubricId,
+      parameterName: s.rubric?.parameterName,
+      maxScore: s.rubric?.maxScore,
+      weightagePercent: s.rubric?.weightagePercent,
+      scoreGiven: s.scoreGiven,
+      notes: s.notes,
+      evaluatorNotes: s.notes,
+      weightedScore: s.rubric ? this.weightedScore(s.scoreGiven, s.rubric) : s.weightedScore ?? null,
+    }));
     return {
       id: evaluation.id,
+      evaluationNumber: evaluation.evaluationNumber,
       interviewId: evaluation.interviewId,
       evaluatorId: evaluation.evaluatorId,
       status: evaluation.status,
+      submitted: evaluation.status === 'submitted' || Boolean(evaluation.submitted),
       overallRecommendation: evaluation.overallRecommendation,
       comments: evaluation.comments,
+      evaluationDate: evaluation.evaluationDate ?? evaluation.submittedAt ?? null,
       submittedAt: evaluation.submittedAt,
-      scores: scores.map((s) => ({
-        id: s.id,
-        rubricId: s.rubricId,
-        parameterName: s.rubric?.parameterName,
-        maxScore: s.rubric?.maxScore,
-        weightagePercent: s.rubric?.weightagePercent,
-        scoreGiven: s.scoreGiven,
-        notes: s.notes,
-        weightedScore: s.rubric ? this.weightedScore(s.scoreGiven, s.rubric) : null,
-      })),
+      totalWeightedScore: Number(mapped.reduce((sum, s) => sum + (Number(s.weightedScore) || 0), 0).toFixed(2)),
+      scores: mapped,
     };
   }
 

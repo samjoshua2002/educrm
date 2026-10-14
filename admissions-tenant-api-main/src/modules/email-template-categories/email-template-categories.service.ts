@@ -6,6 +6,7 @@ import { EmailTemplateCategoryVariable } from './entities/email-template-categor
 import { CreateCategoryDto } from './dto/create-category.dto.js';
 import { UpdateCategoryDto } from './dto/update-category.dto.js';
 import { CreateVariableDto } from './dto/create-variable.dto.js';
+import { SCOPE_MERGE_FIELDS } from '../messaging/merge-fields.js';
 
 type SeedVariable = Omit<CreateVariableDto, 'sortOrder'>;
 
@@ -154,6 +155,45 @@ export class EmailTemplateCategoriesService implements OnModuleInit {
 
   async onModuleInit() {
     await this.seedDefaults();
+    await this.ensureScopeMergeFields();
+  }
+
+  /**
+   * Adds the standard personalization merge fields ({{Name}}, {{First_Name}},
+   * {{Program}}, {{Date}}, {{Link}}, {{Application_ID}}, {{Application_No}})
+   * to every category so they can be inserted in any template. Idempotent.
+   */
+  private async ensureScopeMergeFields() {
+    try {
+      const categories = await this.categoryRepo.find({ relations: ['variables'] });
+      for (const cat of categories) {
+        const existing = new Set((cat.variables || []).map((v) => v.key));
+        const maxOrder = Math.max(0, ...(cat.variables || []).map((v) => v.sortOrder || 0));
+        const missing = SCOPE_MERGE_FIELDS.filter((f) => !existing.has(`mf_${f.key}`));
+        if (missing.length === 0) continue;
+        await this.variableRepo.save(
+          missing.map((f, idx) =>
+            this.variableRepo.create({
+              categoryId: cat.id,
+              key: `mf_${f.key}`,
+              tag: f.tag,
+              label: f.label,
+              description: 'Standard personalization merge field',
+              sampleValue: f.sample,
+              sourceField: 'merge field',
+              sortOrder: maxOrder + 1 + idx,
+            }),
+          ),
+        );
+      }
+    } catch (err: any) {
+      this.logger.warn(`Failed to add standard merge fields: ${err?.message || err}`);
+    }
+  }
+
+  /** The standard merge fields (also returned to the template editor). */
+  getMergeFields() {
+    return SCOPE_MERGE_FIELDS;
   }
 
   private async seedDefaults() {

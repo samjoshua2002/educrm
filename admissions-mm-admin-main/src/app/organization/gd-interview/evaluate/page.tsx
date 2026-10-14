@@ -14,7 +14,6 @@ import {
   useAnnounceResults,
   useSetDeclarationDate,
   useAnnouncedResultsStatus,
-  type ScoreBand,
 } from "@/hooks/use-shortlisting";
 
 import {
@@ -60,73 +59,6 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { usePageHeaderStore } from "@/stores/page-header-store";
-
-// ============================================================================
-// STANDARD 55-POINT PRESET BANDS (Fallback when org bands are empty)
-// ============================================================================
-const STANDARD_55_BANDS = {
-  tenth: [
-    { minPercent: 90, points: 10 },
-    { minPercent: 80, points: 8 },
-    { minPercent: 70, points: 6 },
-    { minPercent: 60, points: 4 },
-    { minPercent: 50, points: 2 },
-  ],
-  twelfth: [
-    { minPercent: 90, points: 10 },
-    { minPercent: 80, points: 8 },
-    { minPercent: 70, points: 6 },
-    { minPercent: 60, points: 4 },
-    { minPercent: 50, points: 2 },
-  ],
-  ug: [
-    { minPercent: 85, points: 15 },
-    { minPercent: 75, points: 12 },
-    { minPercent: 65, points: 9 },
-    { minPercent: 55, points: 6 },
-    { minPercent: 50, points: 3 },
-  ],
-  testPercentile: [
-    { minPercentile: 95, points: 10 },
-    { minPercentile: 90, points: 8 },
-    { minPercentile: 80, points: 6 },
-    { minPercentile: 70, points: 4 },
-    { minPercentile: 60, points: 2 },
-  ],
-  experienceMonths: [
-    { minMonths: 48, points: 10 },
-    { minMonths: 36, points: 8 },
-    { minMonths: 24, points: 6 },
-    { minMonths: 12, points: 4 },
-    { minMonths: 0, points: 0 },
-  ],
-};
-
-function computeScoreFromBand(
-  val: number,
-  bands?: ScoreBand[],
-  mode: "percent" | "percentile" | "months" = "percent"
-): number {
-  if (!bands || !Array.isArray(bands) || bands.length === 0) return 0;
-  const sorted = [...bands].sort((a, b) => {
-    const aVal = Number(a.minPercent ?? a.minPercentile ?? a.minMonths ?? 0);
-    const bVal = Number(b.minPercent ?? b.minPercentile ?? b.minMonths ?? 0);
-    return bVal - aVal;
-  });
-  for (const band of sorted) {
-    const threshold = Number(
-      mode === "percentile"
-        ? (band.minPercentile ?? band.minPercent ?? 0)
-        : mode === "months"
-        ? (band.minMonths ?? 0)
-        : (band.minPercent ?? 0)
-    );
-    if (val >= threshold) {
-      return Number(band.points ?? 0);
-    }
-  }
-  return 0;
-}
 
 function exportToCSV(data: any[], isResultsAnnounced: boolean, filename = "gd_interview_evaluations.csv") {
   const headers = [
@@ -284,45 +216,17 @@ export default function MyEvaluationsPage() {
   // Compute composite score & qualification for a candidate
   const getCandidateScores = React.useCallback(
     (item: any) => {
-      // If database already has compositeScore, use it
-      if (item.compositeScore !== null && item.compositeScore !== undefined && Number(item.compositeScore) > 0) {
+      // Only the composite score calculated and stored by the API is shown.
+      // No stored score = not scored yet (never an invented number).
+      if (item.compositeScore !== null && item.compositeScore !== undefined && item.compositeScore !== "") {
         const comp = Number(item.compositeScore);
-        return {
-          compositeScore: comp,
-          isQualified: comp >= qualifyingCutoff,
-        };
+        if (Number.isFinite(comp)) {
+          return { compositeScore: comp as number | null, isQualified: comp >= qualifyingCutoff };
+        }
       }
-
-      // Dynamic calculation based on scoring bands
-      const hash = (item.applicationNo || "APP").split("").reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
-      const tenthPct = 72 + (hash % 24);
-      const twelfthPct = 70 + ((hash * 3) % 26);
-      const ugPct = 65 + ((hash * 7) % 28);
-
-      const tenthPts = computeScoreFromBand(tenthPct, scoringConfig?.bands?.tenth || STANDARD_55_BANDS.tenth);
-      const twelfthPts = computeScoreFromBand(twelfthPct, scoringConfig?.bands?.twelfth || STANDARD_55_BANDS.twelfth);
-      const ugPts = computeScoreFromBand(ugPct, scoringConfig?.bands?.ug || STANDARD_55_BANDS.ug);
-      const academicTotal = tenthPts + twelfthPts + ugPts;
-
-      const testPercentile = 65 + ((hash * 5) % 33);
-      const testPts = computeScoreFromBand(testPercentile, scoringConfig?.bands?.testPercentile || STANDARD_55_BANDS.testPercentile, "percentile");
-
-      const expMonths = (hash % 4 === 0) ? 0 : 12 + ((hash % 4) * 12);
-      const expPts = computeScoreFromBand(expMonths, scoringConfig?.bands?.experienceMonths || STANDARD_55_BANDS.experienceMonths, "months");
-
-      const gdScore = 7;
-      const piScore = 20;
-      const gdpiTotal = gdScore + piScore;
-
-      const compositeScore = Math.max(0, Math.min(100, academicTotal + testPts + expPts + gdpiTotal));
-      const isQualified = compositeScore >= qualifyingCutoff;
-
-      return {
-        compositeScore,
-        isQualified,
-      };
+      return { compositeScore: null as number | null, isQualified: false };
     },
-    [qualifyingCutoff, scoringConfig]
+    [qualifyingCutoff]
   );
 
   // Purely dynamic candidates list from backend applications (ZERO hardcoded fallback)
@@ -984,7 +888,7 @@ export default function MyEvaluationsPage() {
 
                     {/* Composite Score */}
                     <TableCell className="py-3.5 px-4">
-                      {candidate.interviewStatus === "Completed" ? (
+                      {candidate.interviewStatus === "Completed" && candidate.compositeScore !== null ? (
                         <div className="flex items-baseline gap-1">
                           <span className="text-base font-bold text-slate-900">
                             {candidate.compositeScore}

@@ -49,5 +49,34 @@ export class LeadQueryDto extends PaginationDto {
   @IsOptional()
   @IsString()
   sortBy?: string;
-}
 
+  @IsOptional()
+  @IsString()
+  channelSource?: string;
+
+  @IsOptional()
+  @IsString()
+  sourceType?: string;
+
+  @IsOptional()
+  @IsString()
+  createdFrom?: string;
+
+  @IsOptional()
+  @IsString()
+  followUpStatus?: string;
+
+  @IsOptional()
+  @IsString()
+  campaignId?: string;
+
+  /** 'true' = only flagged duplicates */
+  @IsOptional()
+  @IsString()
+  duplicates?: string;
+
+  /** 'true' = include records folded into a master lead */
+  @IsOptional()
+  @IsString()
+  includeMerged?: string;
+}

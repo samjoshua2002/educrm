@@ -14,6 +14,8 @@ import {
   SearchX,
   TrendingUp,
   Receipt,
+  Settings2,
+  Eye,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +39,7 @@ import {
 
 import { usePayments, usePaymentStats, type PaymentRecord } from "@/hooks/use-payments";
 import { usePageHeader } from "@/hooks/use-page-header";
+import { PaymentDetailDialog, formatMoney, reconciliationClass, refundClass } from "./_components/payment-detail-dialog";
 
 const paymentStatusStyles: Record<string, string> = {
   Pending:
@@ -58,7 +61,7 @@ const paymentStatusStyles: Record<string, string> = {
     "bg-red-500/10 text-red-700 dark:bg-red-500/20 dark:text-red-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0 inline-block text-center",
 };
 
-function formatDateTime(dateStr?: string) {
+function formatDateTime(dateStr?: string | null) {
   if (!dateStr) return "—";
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return "—";
@@ -80,19 +83,24 @@ function formatCurrency(amount: number) {
 
 function exportToCSV(data: PaymentRecord[], filename = "payments.csv") {
   const headers = [
-    "Application No",
+    "Payment_ID",
+    "Application_ID",
     "Candidate Name",
     "Email",
     "Phone",
     "Program",
-    "Campus",
-    "Paid Amount (₹)",
-    "Status",
+    "Payment_Status",
+    "Payment_Amount",
+    "Currency",
     "Purpose",
-    "Payment Gateway",
-    "Razorpay Payment ID",
-    "Razorpay Order ID",
-    "Payment Timestamp",
+    "Payment_Gateway",
+    "Transaction_ID",
+    "Payment_Method",
+    "Payment_Date",
+    "Reconciliation_Status",
+    "Refund_Status",
+    "Refund_Amount",
+    "Finance_Remarks",
   ];
 
   const escape = (val: string | number | undefined) => {
@@ -104,19 +112,24 @@ function exportToCSV(data: PaymentRecord[], filename = "payments.csv") {
   };
 
   const rows = data.map((p) => [
+    escape(p.paymentId),
     escape(p.applicationNo),
     escape(p.applicantName),
     escape(p.applicantEmail),
     escape(p.applicantPhone),
     escape(p.program),
-    escape(p.campus),
+    escape(p.paymentStatus),
     escape(p.amount),
-    escape(p.status.toUpperCase()),
+    escape(p.currency),
     escape(p.purpose === "application_fee" ? "Application Fee" : "Seat Booking Fee"),
-    escape(p.method),
-    escape(p.razorpayPaymentId),
-    escape(p.razorpayOrderId),
-    escape(formatDateTime(p.paidAt || p.createdAt)),
+    escape(p.gatewayLabel),
+    escape(p.transactionId || ""),
+    escape(p.method || ""),
+    escape(p.paidAt ? formatDateTime(p.paidAt) : ""),
+    escape(p.reconciliationStatus),
+    escape(p.refundStatus),
+    escape(p.refundAmount),
+    escape(p.financeRemarks || ""),
   ]);
 
   const csvContent = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
@@ -133,16 +146,18 @@ export default function PaymentsPage() {
   const [searchQuery, setSearchQuery] = React.useState("");
   const [appliedSearch, setAppliedSearch] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState("all");
+  const [gatewayFilter, setGatewayFilter] = React.useState("all");
+  const [detailId, setDetailId] = React.useState<string | null>(null);
   const [currentPage, setCurrentPage] = React.useState(1);
   const [copiedId, setCopiedId] = React.useState<string | null>(null);
   const itemsPerPage = 10;
 
   usePageHeader({
     title: "Payments & Collections",
-    description: "Track all student fee payments, Razorpay order IDs, timestamps, and real-time revenue collection.",
+    description: "Track fee payments across Razorpay, Stripe, PayU and Paytm, refunds and real-time revenue collection.",
     action: {
-      label: "Fee Settings",
-      href: "/organization/settings/fees",
+      label: "Reconciliation",
+      href: "/organization/payments/reconciliation",
     },
   });
 
@@ -160,6 +175,7 @@ export default function PaymentsPage() {
     limit: 500,
     search: appliedSearch || undefined,
     status: statusFilter !== "all" ? statusFilter : undefined,
+    gateway: gatewayFilter !== "all" ? gatewayFilter : undefined,
   });
 
   const { data: statsData } = usePaymentStats();
@@ -221,7 +237,7 @@ export default function PaymentsPage() {
 
     return {
       totalCollected: statsData?.totalCollected ?? totalCollected,
-      successfulCount: statsData?.successfulCount ?? (statsData as any)?.successfulOrders ?? successful.length,
+      successfulCount: statsData?.successfulOrders ?? successful.length,
       pendingCount: statsData?.pendingCount ?? pending,
       failedCount: statsData?.failedCount ?? failed,
     };
@@ -357,13 +373,45 @@ export default function PaymentsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="paid">Paid</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="paid">Success</SelectItem>
                 <SelectItem value="failed">Failed</SelectItem>
                 <SelectItem value="refunded">Refunded</SelectItem>
               </SelectContent>
             </Select>
           </div>
+
+          <div className="w-full sm:w-[150px]">
+            <Select
+              value={gatewayFilter}
+              onValueChange={(val) => {
+                setGatewayFilter(val);
+                setCurrentPage(1);
+              }}
+            >
+              <SelectTrigger className="w-full h-10 bg-background">
+                <SelectValue placeholder="All Gateways" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Gateways</SelectItem>
+                <SelectItem value="razorpay">Razorpay</SelectItem>
+                <SelectItem value="stripe">Stripe</SelectItem>
+                <SelectItem value="payu">PayU</SelectItem>
+                <SelectItem value="paytm">Paytm</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <Button
+            variant="outline"
+            asChild
+            className="h-10 px-3.5 border-border/80 bg-background hover:bg-muted/50 text-foreground flex items-center justify-center gap-2 shadow-2xs"
+          >
+            <Link href="/organization/settings/payment-gateways">
+              <Settings2 className="size-4 text-muted-foreground" />
+              <span className="text-sm font-medium">Gateways</span>
+            </Link>
+          </Button>
 
           {/* Export CSV Button */}
           <Button
@@ -401,14 +449,20 @@ export default function PaymentsPage() {
                 TRANSACTION / ORDER ID
               </TableHead>
               <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
+                RECONCILIATION / REFUND
+              </TableHead>
+              <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto">
                 DATE & TIME
+              </TableHead>
+              <TableHead className="py-4 px-6 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto text-right">
+                ACTIONS
               </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={7} className="h-64 text-center">
+                <TableCell colSpan={9} className="h-64 text-center">
                   <div className="flex flex-col items-center justify-center gap-3">
                     <div className="size-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
                     <p className="text-sm text-muted-foreground font-medium">Searching...</p>
@@ -417,7 +471,7 @@ export default function PaymentsPage() {
               </TableRow>
             ) : filteredPayments.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="h-64 text-center">
+                <TableCell colSpan={9} className="h-64 text-center">
                   <div className="flex flex-col items-center justify-center gap-3">
                     <div className="flex size-12 items-center justify-center rounded-full bg-muted/40">
                       <SearchX className="size-6 text-muted-foreground/80" />
@@ -438,7 +492,7 @@ export default function PaymentsPage() {
                 const statusKey = (payment.status || "pending").toLowerCase();
                 const displayStatus =
                   statusKey === "paid" || statusKey === "success"
-                    ? "Paid"
+                    ? "Success"
                     : statusKey === "failed"
                     ? "Failed"
                     : statusKey === "refunded"
@@ -479,7 +533,7 @@ export default function PaymentsPage() {
                     <TableCell className="py-5 px-6 align-middle">
                       <div className="flex flex-col gap-0.5">
                         <span className="font-semibold text-foreground text-sm tracking-tight">
-                          {formatCurrency(payment.amount)}
+                          {formatMoney(payment.amount, payment.currency)}
                         </span>
                         <span className="text-xs text-muted-foreground font-normal uppercase">
                           {payment.currency || "INR"}
@@ -510,11 +564,11 @@ export default function PaymentsPage() {
                     <TableCell className="py-5 px-6 align-middle">
                       <div className="flex flex-col gap-0.5">
                         <div className="flex items-center gap-1.5 text-sm font-normal text-foreground">
-                          <span>{payment.razorpayPaymentId && payment.razorpayPaymentId !== "—" ? payment.razorpayPaymentId : payment.razorpayOrderId}</span>
-                          {payment.razorpayPaymentId && payment.razorpayPaymentId !== "—" && (
+                          <span className="font-mono text-xs">{payment.transactionId || payment.gatewayOrderId || "—"}</span>
+                          {payment.transactionId && (
                             <button
                               type="button"
-                              onClick={() => handleCopy(payment.razorpayPaymentId, payment.id + "-pay")}
+                              onClick={() => handleCopy(payment.transactionId || "", payment.id + "-pay")}
                               className="text-muted-foreground hover:text-foreground cursor-pointer p-0.5 rounded"
                               title="Copy Payment ID"
                             >
@@ -527,14 +581,48 @@ export default function PaymentsPage() {
                           )}
                         </div>
                         <div className="text-xs text-muted-foreground font-normal">
-                          {payment.method || "Razorpay Gateway"}
+                          {payment.paymentId !== "—" ? `${payment.paymentId} · ` : ""}
+                          {payment.gatewayLabel}
+                          {payment.method ? ` · ${payment.method}` : ""}
+                          {payment.isInternational ? " · Intl" : ""}
                         </div>
                       </div>
+                    </TableCell>
+
+                    {/* Reconciliation / Refund */}
+                    <TableCell className="py-5 px-6 align-middle">
+                      {payment.gateway === "offline" ? (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      ) : (
+                        <div className="flex flex-col items-start gap-1">
+                          <span className={reconciliationClass[payment.reconciliationStatus]}>{payment.reconciliationStatus}</span>
+                          {payment.refundStatus !== "Not Initiated" && (
+                            <span className={refundClass[payment.refundStatus]}>
+                              Refund {payment.refundStatus} · {formatMoney(payment.refundAmount, payment.currency)}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </TableCell>
 
                     {/* Timestamp */}
                     <TableCell className="py-5 px-6 align-middle text-sm text-muted-foreground font-normal">
                       {formatDateTime(payment.paidAt || payment.createdAt)}
+                    </TableCell>
+
+                    {/* Actions */}
+                    <TableCell className="py-5 px-6 align-middle text-right">
+                      {payment.gateway !== "offline" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 gap-1.5 text-xs"
+                          onClick={() => setDetailId(payment.id)}
+                        >
+                          <Eye className="size-3.5" />
+                          {payment.paymentStatus === "Success" ? "Details / Refund" : "Details"}
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 );
@@ -630,7 +718,7 @@ export default function PaymentsPage() {
             const statusKey = (payment.status || "pending").toLowerCase();
             const displayStatus =
               statusKey === "paid" || statusKey === "success"
-                ? "Paid"
+                ? "Success"
                 : statusKey === "failed"
                 ? "Failed"
                 : statusKey === "refunded"
@@ -689,7 +777,7 @@ export default function PaymentsPage() {
                   <div className="flex flex-col gap-0.5">
                     <span className="text-[11px] font-semibold text-muted-foreground/80">Amount Paid:</span>
                     <span className="text-foreground font-mono font-bold text-sm text-emerald-600">
-                      {formatCurrency(payment.amount)}
+                      {formatMoney(payment.amount, payment.currency)}
                     </span>
                   </div>
 
@@ -703,8 +791,21 @@ export default function PaymentsPage() {
                   <div className="flex flex-col gap-0.5">
                     <span className="text-[11px] font-semibold text-muted-foreground/80">Transaction ID:</span>
                     <span className="text-foreground font-mono text-[11px] truncate">
-                      {payment.razorpayPaymentId && payment.razorpayPaymentId !== "—" ? payment.razorpayPaymentId : payment.razorpayOrderId}
+                      {payment.transactionId || payment.gatewayOrderId || "—"}
                     </span>
+                  </div>
+
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-[11px] font-semibold text-muted-foreground/80">Gateway:</span>
+                    <span className="text-foreground font-medium">
+                      {payment.gatewayLabel}
+                      {payment.method ? ` · ${payment.method}` : ""}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-[11px] font-semibold text-muted-foreground/80">Reconciliation:</span>
+                    <span className="text-foreground font-medium">{payment.reconciliationStatus}</span>
                   </div>
 
                   <div className="col-span-2 flex flex-col gap-0.5 border-t border-border/30 pt-2">
@@ -714,6 +815,11 @@ export default function PaymentsPage() {
                     </span>
                   </div>
                 </div>
+                {payment.gateway !== "offline" && (
+                  <Button variant="outline" size="sm" className="w-full h-9 text-xs gap-1.5" onClick={() => setDetailId(payment.id)}>
+                    <Eye className="size-3.5" /> Details / Refund
+                  </Button>
+                )}
               </div>
             );
           })
@@ -730,6 +836,8 @@ export default function PaymentsPage() {
           </Button>
         )}
       </div>
+
+      <PaymentDetailDialog paymentId={detailId} open={!!detailId} onOpenChange={(v) => !v && setDetailId(null)} />
     </div>
   );
 }

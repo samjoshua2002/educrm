@@ -21,6 +21,9 @@ import {
   MapPin,
   ArrowUpDown,
   Calendar,
+  Copy,
+  Upload,
+  Megaphone,
 } from "lucide-react";
 import { format } from "date-fns";
 import { SourceIcon } from "@/components/icons/source-icon";
@@ -73,192 +76,9 @@ import { useForms } from "@/hooks/use-forms";
 import { useTeam } from "@/hooks/use-team";
 import { toast } from "sonner";
 import { usePageHeader } from "@/hooks/use-page-header";
-
-type Lead = {
-  id: string | number;
-  name: string;
-  email: string;
-  mobile: string;
-  state: string;
-  city: string;
-  source: string;
-  medium: string;
-  campaign: string;
-  stage: string;
-  status: string;
-  assignedTo: string;
-};
-
-const leads: Lead[] = [
-  {
-    id: 1,
-    name: "John Doe",
-    email: "john.doe@example.com",
-    mobile: "+1 234 567 890",
-    state: "California",
-    city: "Los Angeles",
-    source: "Google Ads",
-    medium: "CPC",
-    campaign: "Spring 2025",
-    stage: "New",
-    status: "Hot",
-    assignedTo: "Alice Brown",
-  },
-  {
-    id: 2,
-    name: "Jane Smith",
-    email: "jane.smith@example.com",
-    mobile: "+1 234 567 891",
-    state: "Texas",
-    city: "Houston",
-    source: "Facebook",
-    medium: "Social",
-    campaign: "Summer 2025",
-    stage: "Contacted",
-    status: "Warm",
-    assignedTo: "Bob Wilson",
-  },
-  {
-    id: 3,
-    name: "Robert Johnson",
-    email: "robert.j@example.com",
-    mobile: "+1 234 567 892",
-    state: "New York",
-    city: "New York City",
-    source: "Website",
-    medium: "Organic",
-    campaign: "Fall 2025",
-    stage: "Interested",
-    status: "Cold",
-    assignedTo: "Alice Brown",
-  },
-  {
-    id: 4,
-    name: "Emily Davis",
-    email: "emily.davis@example.com",
-    mobile: "+1 234 567 893",
-    state: "Florida",
-    city: "Miami",
-    source: "Instagram",
-    medium: "Social",
-    campaign: "Spring 2025",
-    stage: "Qualified",
-    status: "Hot",
-    assignedTo: "Bob Wilson",
-  },
-  {
-    id: 5,
-    name: "Michael Chen",
-    email: "michael.chen@example.com",
-    mobile: "+1 234 567 894",
-    state: "Illinois",
-    city: "Chicago",
-    source: "Referral",
-    medium: "Word of Mouth",
-    campaign: "Summer 2025",
-    stage: "New",
-    status: "Warm",
-    assignedTo: "Alice Brown",
-  },
-  {
-    id: 6,
-    name: "Sarah Williams",
-    email: "sarah.w@example.com",
-    mobile: "+1 234 567 895",
-    state: "Washington",
-    city: "Seattle",
-    source: "Google Ads",
-    medium: "CPC",
-    campaign: "Fall 2025",
-    stage: "Converted",
-    status: "Hot",
-    assignedTo: "Carol Martinez",
-  },
-  {
-    id: 7,
-    name: "David Kumar",
-    email: "david.kumar@example.com",
-    mobile: "+1 234 567 896",
-    state: "Massachusetts",
-    city: "Boston",
-    source: "LinkedIn",
-    medium: "Social",
-    campaign: "Spring 2025",
-    stage: "Contacted",
-    status: "Cold",
-    assignedTo: "Carol Martinez",
-  },
-  {
-    id: 8,
-    name: "Priya Sharma",
-    email: "priya.sharma@example.com",
-    mobile: "+1 234 567 897",
-    state: "Georgia",
-    city: "Atlanta",
-    source: "Website",
-    medium: "Organic",
-    campaign: "Summer 2025",
-    stage: "Interested",
-    status: "Warm",
-    assignedTo: "Bob Wilson",
-  },
-  {
-    id: 9,
-    name: "James Taylor",
-    email: "james.t@example.com",
-    mobile: "+1 234 567 898",
-    state: "Colorado",
-    city: "Denver",
-    source: "Facebook",
-    medium: "Social",
-    campaign: "Fall 2025",
-    stage: "Lost",
-    status: "Cold",
-    assignedTo: "Alice Brown",
-  },
-  {
-    id: 10,
-    name: "Anita Patel",
-    email: "anita.patel@example.com",
-    mobile: "+1 234 567 899",
-    state: "Arizona",
-    city: "Phoenix",
-    source: "Google Ads",
-    medium: "CPC",
-    campaign: "Spring 2025",
-    stage: "New",
-    status: "Hot",
-    assignedTo: "Carol Martinez",
-  },
-  {
-    id: 11,
-    name: "Samjoshua",
-    email: "[EMAIL_ADDRESS]",
-    mobile: "+91 7902089317",
-    state: "Kerala",
-    city: "Trivandrum",
-    source: "Website",
-    medium: "Organic",
-    campaign: "Summer 2025",
-    stage: "Converted",
-    status: "Hot",
-    assignedTo: "Carol Martinez",
-  },
-  {
-    id: 12,
-    name: "Samjoshua",
-    email: "[EMAIL_ADDRESS]",
-    mobile: "+91 7902089317",
-    state: "Kerala",
-    city: "Trivandrum",
-    source: "Website",
-    medium: "Organic",
-    campaign: "Summer 2025",
-    stage: "lost",
-    status: "Hot",
-    assignedTo: "Carol Martinez",
-  },
-];
+import { useDuplicateLeads } from "@/hooks/use-lead-management";
+import { CHANNEL_SOURCES, FOLLOW_UP_STATUSES, SOURCE_TYPES } from "@/types/lead-management";
+import { BandBadge, followUpStyles, pillStyles } from "./_components/lm-ui";
 
 const STAGES = [
   "New",
@@ -270,24 +90,6 @@ const STAGES = [
   "Lost",
 ] as const;
 const STATUSES = ["Hot", "Warm", "Cold"] as const;
-
-const SOURCES = [
-  "Google Ads",
-  "Facebook",
-  "Instagram",
-  "LinkedIn",
-  "Website",
-  "Referral",
-  "Other",
-] as const;
-const MEDIUMS = [
-  "CPC",
-  "Social",
-  "Organic",
-  "Word of Mouth",
-  "Email",
-  "Other",
-] as const;
 
 const stageStyles: Record<string, string> = {
   New: "bg-[#D9770633] text-[#9A3412] dark:bg-orange-500/20 dark:text-orange-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0",
@@ -365,6 +167,16 @@ export default function LeadManagerPage() {
   const [advCampaign, setAdvCampaign] = React.useState("all");
   const [advAssignedTo, setAdvAssignedTo] = React.useState("");
   const [advStatus, setAdvStatus] = React.useState("all");
+  const [channelDraft, setChannelDraft] = React.useState("all");
+  const [advSourceType, setAdvSourceType] = React.useState("all");
+  const [advFollowUp, setAdvFollowUp] = React.useState("all");
+  const [campaignIdFilter, setCampaignIdFilter] = React.useState<string | undefined>(undefined);
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    const cid = new URLSearchParams(window.location.search).get("campaignId");
+    if (cid) setCampaignIdFilter(cid);
+  }, []);
 
   const [editingLeadId, setEditingLeadId] = React.useState<string | null>(null);
   const [editForm, setEditForm] = React.useState<any | null>(null);
@@ -377,7 +189,12 @@ export default function LeadManagerPage() {
     campaign: "all",
     assignedTo: "",
     status: "all",
+    sourceType: "all",
+    followUpStatus: "all",
   });
+
+  const { data: duplicatePairs } = useDuplicateLeads();
+  const duplicateCount = duplicatePairs?.length || 0;
 
   const { data: formsData } = useForms(1, 100);
 
@@ -405,6 +222,10 @@ export default function LeadManagerPage() {
       campaign: effectiveCampaign,
       stage: stageDraft !== "all" ? stageDraft : undefined,
       sortOrder: sortOrder,
+      channelSource: channelDraft !== "all" ? channelDraft : undefined,
+      sourceType: appliedAdvanced.sourceType !== "all" ? appliedAdvanced.sourceType : undefined,
+      followUpStatus: appliedAdvanced.followUpStatus !== "all" ? appliedAdvanced.followUpStatus : undefined,
+      campaignId: campaignIdFilter,
     }
   );
 
@@ -459,9 +280,9 @@ export default function LeadManagerPage() {
       mobile: item.phone || "N/A",
       state: item.state || "N/A",
       city: item.city || "N/A",
-      source: item.source || "Direct",
+      source: item.subSource || item.source || item.utmSource || item.channelSource || "Direct",
       medium: item.utmMedium && item.utmMedium !== "N/A" ? item.utmMedium : "",
-      campaign: item.utmCampaign && item.utmCampaign !== "N/A" ? item.utmCampaign : (item.campaign?.name || ""),
+      campaign: item.campaignName || (item.utmCampaign && item.utmCampaign !== "N/A" ? item.utmCampaign : ""),
       createdAt: item.createdAt || "",
       stage: (item.status === "disqualified" || item.rawPayload?.stage === "Lost" || item.rawPayload?.stage === "lost")
         ? "Lost"
@@ -469,9 +290,17 @@ export default function LeadManagerPage() {
           ? "Duplicate"
           : (item.rawPayload?.stage || (item.status === "verified" ? "Verified" : "New"))),
       status: item.scoreBand
-
         ? item.scoreBand.charAt(0).toUpperCase() + item.scoreBand.slice(1)
-        : "Warm",
+        : "Unscored",
+      scoreBand: item.scoreBand || null,
+      score: item.score ?? null,
+      channelSource: item.channelSource || "",
+      sourceType: item.sourceType || "",
+      subSource: item.subSource || "",
+      campaignName: item.campaignName || "",
+      followUpStatus: item.followUpStatus || "Pending",
+      isDuplicate: !!item.isDuplicate,
+      duplicateConfidence: item.duplicateConfidence ?? null,
       assignedToUser: item.assignedToUser ? {
         name: item.assignedToUser.name,
         role: item.assignedToUser.role?.replace('_', ' ')?.toLowerCase()
@@ -526,6 +355,8 @@ export default function LeadManagerPage() {
       campaign: advCampaign,
       assignedTo: advAssignedTo,
       status: advStatus,
+      sourceType: advSourceType,
+      followUpStatus: advFollowUp,
     });
     if (advSource !== "all") {
       setSourceDraft(advSource);
@@ -541,7 +372,10 @@ export default function LeadManagerPage() {
     setAdvCampaign("all");
     setAdvAssignedTo("");
     setAdvStatus("all");
+    setAdvSourceType("all");
+    setAdvFollowUp("all");
     setSourceDraft("all");
+    setCampaignIdFilter(undefined);
     setAppliedAdvanced({
       city: "",
       state: "",
@@ -549,6 +383,8 @@ export default function LeadManagerPage() {
       campaign: "all",
       assignedTo: "",
       status: "all",
+      sourceType: "all",
+      followUpStatus: "all",
     });
     setCurrentPage(1);
   }
@@ -571,7 +407,10 @@ export default function LeadManagerPage() {
     appliedAdvanced.source !== "all" ||
     appliedAdvanced.campaign !== "all" ||
     appliedAdvanced.assignedTo !== "" ||
-    appliedAdvanced.status !== "all";
+    appliedAdvanced.status !== "all" ||
+    appliedAdvanced.sourceType !== "all" ||
+    appliedAdvanced.followUpStatus !== "all" ||
+    !!campaignIdFilter;
 
   const visiblePages = React.useMemo(() => {
     let startPage = 1;
@@ -597,6 +436,37 @@ export default function LeadManagerPage() {
   return (
     <>
       <div className="flex flex-col gap-4 p-4 md:p-6">
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href="/organization/lead-manager/duplicates">
+            <Button variant="outline" className="h-9 text-xs font-semibold gap-1.5">
+              <Copy className="size-4" />
+              Duplicates
+              {duplicateCount > 0 && <span className={pillStyles.red}>{duplicateCount}</span>}
+            </Button>
+          </Link>
+          <Link href="/organization/lead-manager/import">
+            <Button variant="outline" className="h-9 text-xs font-semibold gap-1.5">
+              <Upload className="size-4" /> Import CSV
+            </Button>
+          </Link>
+          <Link href="/organization/campaigns">
+            <Button variant="outline" className="h-9 text-xs font-semibold gap-1.5">
+              <Megaphone className="size-4" /> Campaigns
+            </Button>
+          </Link>
+          {campaignIdFilter && (
+            <Button
+              variant="ghost"
+              className="h-9 text-xs"
+              onClick={() => {
+                setCampaignIdFilter(undefined);
+                setCurrentPage(1);
+              }}
+            >
+              Campaign filter applied — clear
+            </Button>
+          )}
+        </div>
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
           {/* Search Section */}
           <div className="flex flex-1 w-full">
@@ -696,6 +566,29 @@ export default function LeadManagerPage() {
                       </SelectItem>
                     ))}
                     <SelectItem value="Other">Other / Custom</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Channel Source Select */}
+              <div className="flex-1 min-w-0 sm:w-[140px]">
+                <Select
+                  value={channelDraft}
+                  onValueChange={(val) => {
+                    setChannelDraft(val);
+                    setCurrentPage(1);
+                  }}
+                >
+                  <SelectTrigger className="w-full h-10" size="lg">
+                    <SelectValue placeholder="All Channels" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Channels</SelectItem>
+                    {CHANNEL_SOURCES.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -854,6 +747,42 @@ export default function LeadManagerPage() {
                 </Select>
               </div>
 
+              {/* Source Type & Follow-up Status */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-2">
+                  <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                    Source Type
+                  </Label>
+                  <Select value={advSourceType} onValueChange={setAdvSourceType}>
+                    <SelectTrigger className="w-full border-[#D4D4D4] rounded-lg h-11 text-sm bg-white text-[#0F172A]">
+                      <SelectValue placeholder="All Source Types" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Source Types</SelectItem>
+                      {SOURCE_TYPES.map((s) => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
+                    Follow-up Status
+                  </Label>
+                  <Select value={advFollowUp} onValueChange={setAdvFollowUp}>
+                    <SelectTrigger className="w-full border-[#D4D4D4] rounded-lg h-11 text-sm bg-white text-[#0F172A]">
+                      <SelectValue placeholder="All" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      {FOLLOW_UP_STATUSES.map((s) => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
               {/* Assigned To */}
               <div className="flex flex-col gap-2">
                 <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">
@@ -971,6 +900,9 @@ export default function LeadManagerPage() {
                   STAGE
                 </TableHead>
                 <TableHead className="py-4 px-4 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto whitespace-nowrap">
+                  FOLLOW-UP
+                </TableHead>
+                <TableHead className="py-4 px-4 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto whitespace-nowrap">
                   ASSIGNED TO
                 </TableHead>
                 <TableHead className="py-4 px-5 text-xs font-semibold tracking-wider text-muted-foreground uppercase h-auto whitespace-nowrap">
@@ -987,7 +919,7 @@ export default function LeadManagerPage() {
             <TableBody>
               {filteredLeads.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="h-64 text-center">
+                  <TableCell colSpan={10} className="h-64 text-center">
                     <div className="flex flex-col items-center justify-center gap-3">
                       <div className="flex size-12 items-center justify-center rounded-full bg-muted/40">
                         <SearchX className="size-6 text-muted-foreground/80" />
@@ -1023,10 +955,8 @@ export default function LeadManagerPage() {
                         {item.email}
                       </div>
                     </TableCell>
-                    <TableCell className="py-5 pl-1 pr-4 align-middle">
-                      <span className={statusStyles[item.status] ?? ""}>
-                        {item.status}
-                      </span>
+                    <TableCell className="py-5 pl-1 pr-4 align-middle whitespace-nowrap">
+                      <BandBadge band={item.scoreBand} score={item.score} />
                     </TableCell>
                     <TableCell className="py-5 px-4 align-middle text-sm text-foreground/80 font-normal whitespace-nowrap">
                       {item.city}
@@ -1034,6 +964,16 @@ export default function LeadManagerPage() {
                     <TableCell className="py-5 px-4 align-middle">
                       <span className={stageStyles[item.stage] ?? ""}>
                         {item.stage}
+                      </span>
+                      {item.isDuplicate && item.duplicateConfidence !== null && (
+                        <div className="text-[11px] text-muted-foreground mt-1 whitespace-nowrap">
+                          {item.duplicateConfidence}% match
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell className="py-5 px-4 align-middle">
+                      <span className={followUpStyles[item.followUpStatus] ?? ""}>
+                        {item.followUpStatus}
                       </span>
                     </TableCell>
                     <TableCell className="py-5 px-4 align-middle">
@@ -1055,9 +995,9 @@ export default function LeadManagerPage() {
                           <SourceIcon source={item.source} className="size-3.5 shrink-0" />
                           <span>{item.source}</span>
                         </div>
-                        {Boolean(item.medium || item.campaign) && (
+                        {Boolean(item.channelSource || item.sourceType || item.campaign) && (
                           <div className="text-xs text-muted-foreground font-normal whitespace-nowrap">
-                            {[item.medium, item.campaign].filter(Boolean).join(" · ")}
+                            {[item.channelSource, item.sourceType, item.campaign].filter(Boolean).join(" · ")}
                           </div>
                         )}
                       </div>
@@ -1335,9 +1275,7 @@ export default function LeadManagerPage() {
                         Status & Counselor:
                       </span>
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className={statusStyles[item.status] ?? ""}>
-                          {item.status}
-                        </span>
+                        <BandBadge band={item.scoreBand} score={item.score} />
                         <span className="text-muted-foreground/50 font-normal">·</span>
                         {item.assignedToUser ? (
                           <div className="flex items-center gap-1 flex-wrap">

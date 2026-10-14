@@ -1,4 +1,4 @@
-import { IsObject, IsOptional, IsNumber, Min } from 'class-validator';
+import { IsObject, IsOptional, IsNumber, Min, IsIn } from 'class-validator';
 
 export class UpdateScoreConversionConfigDto {
   @IsOptional()
@@ -23,5 +23,18 @@ export class UpdateScoreConversionConfigDto {
 
   @IsOptional()
   autoAnnounceResults?: boolean;
-}
 
+  @IsOptional()
+  @IsIn(['best_overall', 'cat_split'])
+  entranceScoringMode?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  catWeight?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  otherTestWeight?: number;
+}

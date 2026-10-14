@@ -6,13 +6,12 @@ import {
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
+  Generated,
 } from 'typeorm';
 import { Organization } from '../../organizations/entities/organization.entity.js';
 import { Application } from '../../applications/entities/application.entity.js';
 
-// Phase 6b — Waitlist Management module. Created automatically when
-// AdmissionDecisionsService.finalizeDecision locks a decision with
-// finalDecision = 'waitlisted' (see WaitlistService.addToWaitlist).
+// Waitlist_Management (scope: Waitlist Management).
 export enum WaitlistStatus {
   ACTIVE = 'active',
   OFFER_RELEASED = 'offer_released',
@@ -20,10 +19,25 @@ export enum WaitlistStatus {
   CLOSED = 'closed',
 }
 
+// Movement Trigger picklist — what caused the entry to move.
+export const MOVEMENT_TRIGGERS = [
+  'offer_declined',
+  'offer_expired',
+  'offer_withdrawn',
+  'acceptance_expired',
+  'seat_added',
+  'manual_review',
+] as const;
+
 @Entity('waitlist_entries')
 export class WaitlistEntry {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  // Waitlist ID (Auto Number)
+  @Column({ name: 'waitlist_no', type: 'int' })
+  @Generated('increment')
+  waitlistNo: number;
 
   @Column({ name: 'organization_id', type: 'uuid' })
   organizationId: string;
@@ -39,8 +53,12 @@ export class WaitlistEntry {
   @JoinColumn({ name: 'application_id' })
   application: Application;
 
+  // Program the candidate is waitlisted for (ranking is per program).
+  @Column({ name: 'program', length: 255, nullable: true })
+  program: string | null;
+
   @Column({ name: 'waitlist_rank', type: 'int', nullable: true })
-  waitlistRank: number;
+  waitlistRank: number | null;
 
   @Column({
     name: 'waitlist_status',
@@ -51,22 +69,25 @@ export class WaitlistEntry {
   waitlistStatus: WaitlistStatus;
 
   @Column({ name: 'movement_trigger', length: 100, nullable: true })
-  movementTrigger: string;
+  movementTrigger: string | null;
 
   @Column({ name: 'alternate_program_offered', length: 255, nullable: true })
-  alternateProgramOffered: string;
+  alternateProgramOffered: string | null;
 
   @Column({ name: 'offer_released', default: false })
   offerReleased: boolean;
+
+  @Column({ name: 'released_offer_id', type: 'uuid', nullable: true })
+  releasedOfferId: string | null;
 
   @Column({ name: 'communication_sent', default: false })
   communicationSent: boolean;
 
   @Column({ name: 'last_review_date', type: 'date', nullable: true })
-  lastReviewDate: Date;
+  lastReviewDate: Date | string | null;
 
   @Column({ name: 'remarks', type: 'text', nullable: true })
-  remarks: string;
+  remarks: string | null;
 
   @Column({ name: 'created_by', type: 'uuid', nullable: true })
   createdBy: string;

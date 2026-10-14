@@ -189,7 +189,14 @@ export default function ShortlistingRunPage() {
                         <TableCell className="py-[14px] px-[24px] align-middle font-medium text-[#1e293b] text-[14px]">{row.name}</TableCell>
                         <TableCell className="py-[14px] px-[24px] align-middle text-[#475569] text-[14px]">{row.applicationNo}</TableCell>
                         <TableCell className="py-[14px] px-[24px] align-middle text-[#475569] text-[14px]">{row.academicComponent}</TableCell>
-                        <TableCell className="py-[14px] px-[24px] align-middle text-[#475569] text-[14px]">{row.testComponent}</TableCell>
+                        <TableCell className="py-[14px] px-[24px] align-middle text-[#475569] text-[14px]">
+                          {row.testComponent}
+                          {row.catComponent != null && (
+                            <span className="block text-[11px] text-slate-400">
+                              CAT {row.catComponent} · Other {row.otherTestComponent ?? 0}
+                            </span>
+                          )}
+                        </TableCell>
                         <TableCell className="py-[14px] px-[24px] align-middle text-[#475569] text-[14px]">{row.experienceComponent}</TableCell>
                         <TableCell className="py-[14px] px-[24px] align-middle font-bold text-[#1e293b] text-[14px]">{row.shortlistScore}</TableCell>
                         <TableCell className="py-[14px] px-[24px] align-middle">
@@ -201,8 +208,13 @@ export default function ShortlistingRunPage() {
                                 : "bg-amber-100 text-amber-700"
                             )}
                           >
-                            {row.shortlistStatus === "Eligible" ? "Eligible" : "Review"}
+                            {row.shortlistStatus === "Eligible" ? "Eligible" : "Not Eligible"}
                           </Badge>
+                          {(row.failedCriteria ?? []).length > 0 && (
+                            <span className="block text-[11px] text-amber-700 mt-1">
+                              Missed: {(row.failedCriteria ?? []).join(", ")}
+                            </span>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))
@@ -251,6 +263,9 @@ export default function ShortlistingRunPage() {
                       <div>
                         <span className="block text-slate-400 font-medium">Test</span>
                         <span className="font-semibold text-slate-700 block mt-0.5">{row.testComponent}</span>
+                        {row.catComponent != null && (
+                          <span className="block text-[11px] text-slate-400">CAT {row.catComponent} · Other {row.otherTestComponent ?? 0}</span>
+                        )}
                       </div>
                       <div>
                         <span className="block text-slate-400 font-medium">Experience</span>

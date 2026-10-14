@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { Bell, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
@@ -140,9 +141,7 @@ export function DynamicHeader() {
   // Common template for actions (Right side)
   const commonActions = (
     <div className="flex items-center gap-2">
-      <Button variant="ghost" size="icon" className="size-9 rounded-full">
-        <Bell className="size-5" />
-      </Button>
+      <NotificationBell />
       {!isStudent && !pathname.startsWith("/student-application") && !pathname.startsWith("/my-application") && (
         (storeAction || isOrganizationRoute)
           ? orgActionButton

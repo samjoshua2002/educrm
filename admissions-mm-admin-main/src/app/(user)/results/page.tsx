@@ -1,86 +1,125 @@
 "use client";
 
 import * as React from "react";
+
 import Link from "next/link";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { usePageHeaderStore } from "@/stores/page-header-store";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  downloadStudentOfferPdf,
+  downloadStudentRejectionPdf,
+  useRespondToOffer,
+  useStudentAdmissionResult,
+} from "@/hooks/use-acceptance";
 import { useActiveApplication } from "@/hooks/use-applications";
 import { useBranches } from "@/hooks/use-branches";
+import { startGatewayCheckout, useAvailableGateways } from "@/hooks/use-payments";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { usePageHeaderStore } from "@/stores/page-header-store";
+import {
+  ACCEPTANCE_STATUS_LABELS,
+  ENROLLMENT_STATUS_LABELS,
+  FEE_PAYMENT_STATUS_LABELS,
+  OFFER_STATUS_LABELS,
+  OFFER_TYPE_LABELS,
+  REJECTION_REASON_LABELS,
+} from "@/types/admission-decisions";
 
 export default function StudentResultsPage() {
   const setHeader = usePageHeaderStore((s) => s.setHeader);
   const clearHeader = usePageHeaderStore((s) => s.clearHeader);
 
-  const { data: activeApp, isLoading: isAppLoading } = useActiveApplication({ enabled: true });
+  const { data: activeApp, isLoading: isAppLoading } = useActiveApplication({
+    enabled: true,
+  });
+  const { data: result, isLoading: isResultLoading } =
+    useStudentAdmissionResult(activeApp?.applicationNo, {
+      enabled: !!activeApp?.applicationNo,
+    });
+  const respond = useRespondToOffer(activeApp?.applicationNo);
+  const [declineOpen, setDeclineOpen] = React.useState(false);
+  const [declineReason, setDeclineReason] = React.useState("");
 
   // Branches to resolve campus IDs or codes to human names
   const { data: branchesData } = useBranches(1, 100);
   const branches = React.useMemo(() => {
-    return (branchesData as any)?.data || (Array.isArray(branchesData) ? branchesData : []);
+    return (
+      (branchesData as any)?.data ||
+      (Array.isArray(branchesData) ? branchesData : [])
+    );
   }, [branchesData]);
 
   const resolveCampusName = React.useCallback(
     (val?: string) => {
       if (!val) return "Main Campus";
-      const match = branches.find((b: any) => b.id === val || b.name === val || b.city === val);
+      const match = branches.find(
+        (b: any) => b.id === val || b.name === val || b.city === val,
+      );
       if (match) return match.name || match.city;
-      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(val)) {
+      if (
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+          val,
+        )
+      ) {
         return "Main Campus";
       }
       return val;
     },
-    [branches]
+    [branches],
   );
 
   // Student Profile Data
-  const studentName = activeApp?.applicant?.name || (activeApp as any)?.name || "Applicant";
+  const studentName =
+    activeApp?.applicant?.name || (activeApp as any)?.name || "Applicant";
   const applicationNo = activeApp?.applicationNo || "—";
   const email = activeApp?.applicant?.email || (activeApp as any)?.email || "—";
-  const phone = activeApp?.applicant?.primaryMobile || (activeApp as any)?.primaryMobile || (activeApp as any)?.phone || "—";
-  const course = activeApp?.appliedFor || (activeApp as any)?.program || "Bachelor of Computer Science";
+  const phone =
+    activeApp?.applicant?.primaryMobile ||
+    (activeApp as any)?.primaryMobile ||
+    (activeApp as any)?.phone ||
+    "—";
 
-  // Dynamic Waitlist Status
-  const rawWaitlist =
-    activeApp?.waitlistStatus ||
-    (activeApp as any)?.waitlist_status ||
-    (activeApp?.shortlistStatus && activeApp.shortlistStatus.toLowerCase().includes("waitlist")
-      ? activeApp.shortlistStatus
-      : null);
+  // Admission decision — only what the institution has RELEASED and made
+  // visible to the applicant (GET /student/admission-result).
+  const finalDecision = result?.decisionReleased
+    ? (result.decision?.finalDecision ?? null)
+    : null;
+  const waitlistInfo = result?.waitlist ?? null;
+  const offerInfo = result?.offer ?? null;
+  const acceptanceInfo = result?.acceptance ?? null;
+  const rejectionInfo = result?.rejection ?? null;
 
-  const isWaitlisted = Boolean(
-    rawWaitlist &&
-    rawWaitlist !== "Not Applicable" &&
-    rawWaitlist.trim() !== ""
-  );
-
-  const waitlistDisplay = isWaitlisted
-    ? rawWaitlist.toLowerCase().startsWith("wl") || rawWaitlist.toLowerCase().startsWith("waitlist")
-      ? rawWaitlist
-      : `WL-${rawWaitlist}`
-    : "Not Applicable";
-
-  // Explicit Admission Decision Check
-  const statusStr = (activeApp?.shortlistStatus || (activeApp as any)?.status || "").toLowerCase();
-
-  const isExplicitSelected =
-    !isWaitlisted &&
-    (statusStr === "selected" ||
-      statusStr === "admitted" ||
-      statusStr === "accepted" ||
-      statusStr === "offer made" ||
-      statusStr === "offer_made" ||
-      (activeApp as any)?.formStatus === "accepted");
-
-  const isExplicitRejected =
-    !isWaitlisted &&
-    (statusStr === "not selected" ||
-      statusStr === "rejected" ||
-      statusStr === "not eligible" ||
-      (activeApp as any)?.formStatus === "rejected");
-
-  const isSelected = !isWaitlisted && isExplicitSelected;
-  const isRejected = !isWaitlisted && !isSelected && isExplicitRejected;
+  // A waitlisted applicant who later got an offer from the waitlist is "Offer Made".
+  const isSelected = finalDecision === "offer_made";
+  const isWaitlisted = finalDecision === "waitlisted";
+  const isRejected = finalDecision === "rejected";
+  const waitlistDisplay = waitlistInfo?.waitlistRank
+    ? `WL-${waitlistInfo.waitlistRank}`
+    : isWaitlisted
+      ? "Waitlisted"
+      : "Not Applicable";
+  const statusStr = (
+    activeApp?.shortlistStatus ||
+    (activeApp as any)?.status ||
+    ""
+  ).toLowerCase();
+  const course =
+    offerInfo?.programOffered ||
+    activeApp?.appliedFor ||
+    (activeApp as any)?.program ||
+    result?.program ||
+    "—";
   const hasFinalDecision = isSelected || isWaitlisted || isRejected;
 
   // -------------------------------------------------------------------------
@@ -91,43 +130,50 @@ export default function StudentResultsPage() {
   // Step 4: Results Announcement
   // -------------------------------------------------------------------------
 
-  const isStep1Done = Boolean(activeApp && activeApp.status !== "incomplete" && activeApp.status !== "draft");
+  const isStep1Done = Boolean(
+    activeApp &&
+      activeApp.status !== "incomplete" &&
+      activeApp.status !== "draft",
+  );
 
   // Step 2: Application Verified & Shortlisted
   const isVerified = Boolean(
     activeApp?.verificationStatus === "verified" ||
-    activeApp?.shortlistStatus === "Shortlisted" ||
-    activeApp?.shortlistStatus === "Eligible" ||
-    statusStr === "shortlisted" ||
-    statusStr === "eligible" ||
-    (activeApp as any)?.status?.toLowerCase() === "shortlisted"
+      activeApp?.shortlistStatus === "Shortlisted" ||
+      activeApp?.shortlistStatus === "Eligible" ||
+      statusStr === "shortlisted" ||
+      statusStr === "eligible" ||
+      (activeApp as any)?.status?.toLowerCase() === "shortlisted",
   );
   const isStep2Done = isVerified;
 
   // Has scores or evaluation remarks entered
   const hasInterviewScores = Boolean(
     activeApp?.compositeScore != null ||
-    activeApp?.gdScore != null ||
-    activeApp?.piScore != null ||
-    activeApp?.gdEvaluation?.gdScore != null ||
-    activeApp?.gdEvaluation?.piScore != null
+      activeApp?.gdScore != null ||
+      activeApp?.piScore != null ||
+      activeApp?.gdEvaluation?.gdScore != null ||
+      activeApp?.gdEvaluation?.piScore != null,
   );
 
   const hasEvaluationRemarks = Boolean(
-    (activeApp?.evaluationRemarks && activeApp.evaluationRemarks.trim() !== "") ||
-    (activeApp?.gdEvaluation?.remarks && activeApp.gdEvaluation.remarks.trim() !== "")
+    (activeApp?.evaluationRemarks &&
+      activeApp.evaluationRemarks.trim() !== "") ||
+      (activeApp?.gdEvaluation?.remarks &&
+        activeApp.gdEvaluation.remarks.trim() !== ""),
   );
 
   // Step 3: GD & Personal Interview
   // When admin gives "Mark as Completed", activeApp.interviewStatus or activeInterview is 'Completed'
   const isInterviewCompleted = Boolean(
     activeApp?.interviewStatus?.toLowerCase() === "completed" ||
-    (activeApp as any)?.interview_status?.toLowerCase() === "completed" ||
-    (activeApp as any)?.activeInterview?.status?.toLowerCase() === "completed" ||
-    hasInterviewScores ||
-    hasEvaluationRemarks ||
-    statusStr.includes("attended") ||
-    statusStr.includes("completed")
+      (activeApp as any)?.interview_status?.toLowerCase() === "completed" ||
+      (activeApp as any)?.activeInterview?.status?.toLowerCase() ===
+        "completed" ||
+      hasInterviewScores ||
+      hasEvaluationRemarks ||
+      statusStr.includes("attended") ||
+      statusStr.includes("completed"),
   );
   const isStep3Done = isInterviewCompleted;
 
@@ -143,7 +189,8 @@ export default function StudentResultsPage() {
     if (isStep4Done) {
       setHeader({
         title: "Admission Results",
-        description: "Official admission decision, seat allotment, and campus allocation details.",
+        description:
+          "Official admission decision, seat allotment, and campus allocation details.",
         customRightNode: (
           <Button
             type="button"
@@ -157,19 +204,22 @@ export default function StudentResultsPage() {
     } else if (isStep3Done) {
       setHeader({
         title: "Admission Results",
-        description: "Your interview is completed. Evaluation is under review by the admissions committee.",
+        description:
+          "Your interview is completed. Evaluation is under review by the admissions committee.",
         customRightNode: null,
       });
     } else if (isStep2Done) {
       setHeader({
         title: "Admission Results",
-        description: "Application verified. You are shortlisted for Group Discussion & Personal Interview.",
+        description:
+          "Application verified. You are shortlisted for Group Discussion & Personal Interview.",
         customRightNode: null,
       });
     } else {
       setHeader({
         title: "Admission Results",
-        description: "Application received. Verification and interview rounds are pending.",
+        description:
+          "Application received. Verification and interview rounds are pending.",
         customRightNode: null,
       });
     }
@@ -182,9 +232,9 @@ export default function StudentResultsPage() {
   // Campus Allotted (Which Place He Allotted)
   const campusAllotted = resolveCampusName(
     activeApp?.confirmedCampus ||
-    (activeApp as any)?.confirmedCampus ||
-    (activeApp as any)?.interviewLocation ||
-    activeApp?.preferences?.preference1
+      (activeApp as any)?.confirmedCampus ||
+      (activeApp as any)?.interviewLocation ||
+      activeApp?.preferences?.preference1,
   );
 
   const finalRemarks =
@@ -193,11 +243,13 @@ export default function StudentResultsPage() {
     (activeApp as any)?.evaluation_remarks ||
     (activeApp as any)?.remarks ||
     (isSelected
-      ? "Congratulations! You have been selected for admission. Your seat is confirmed."
+      ? "Congratulations! You have been offered admission. See your offer below."
       : isWaitlisted
-        ? `You have qualified on merit and are placed on ${waitlistDisplay}. Admission offers will be extended as seats become available.`
+        ? `You are on the waitlist (${waitlistDisplay}). An offer is released automatically if a seat becomes available.`
         : isRejected
-          ? "Does not meet the cut-off requirements for this admissions round."
+          ? rejectionInfo
+            ? `Reason: ${REJECTION_REASON_LABELS[rejectionInfo.rejectionReason] ?? rejectionInfo.rejectionReason}.`
+            : "We are unable to offer you admission in this round."
           : "Evaluation in progress.");
 
   const todayDateStr = new Date().toLocaleDateString("en-IN", {
@@ -251,10 +303,10 @@ export default function StudentResultsPage() {
     const rangeDelim = raw.includes(" – ")
       ? " – "
       : raw.includes(" - ")
-      ? " - "
-      : raw.includes(" to ")
-      ? " to "
-      : null;
+        ? " - "
+        : raw.includes(" to ")
+          ? " to "
+          : null;
 
     if (rangeDelim) {
       const [start, end] = raw.split(rangeDelim);
@@ -269,7 +321,8 @@ export default function StudentResultsPage() {
 
   const rawStart = activeApp?.activeInterview?.slot?.startTime;
   const rawEnd = activeApp?.activeInterview?.slot?.endTime;
-  const rawFallbackTime = activeApp?.gdEvaluation?.interviewTime || (activeApp as any)?.interviewTime;
+  const rawFallbackTime =
+    activeApp?.gdEvaluation?.interviewTime || (activeApp as any)?.interviewTime;
 
   const interviewTimeFormatted = React.useMemo(() => {
     if (rawStart && rawEnd) {
@@ -291,11 +344,13 @@ export default function StudentResultsPage() {
     activeApp?.preferences?.interviewPreference1 ||
     "Campus Venue / Online link shared via notification";
 
-  if (isAppLoading) {
+  if (isAppLoading || (!!activeApp?.applicationNo && isResultLoading)) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[420px] w-full p-6">
         <div className="size-9 animate-spin rounded-full border-4 border-[#EA2525] border-t-transparent" />
-        <p className="mt-4 text-sm text-muted-foreground font-medium">Loading admission results...</p>
+        <p className="mt-4 text-sm text-muted-foreground font-medium">
+          Loading admission results...
+        </p>
       </div>
     );
   }
@@ -303,9 +358,12 @@ export default function StudentResultsPage() {
   if (!activeApp) {
     return (
       <div className="flex flex-col items-center justify-center min-h-full w-full p-6 text-center">
-        <h3 className="text-base font-semibold text-foreground">No Active Application Registered</h3>
+        <h3 className="text-base font-semibold text-foreground">
+          No Active Application Registered
+        </h3>
         <p className="text-sm text-muted-foreground max-w-md mt-1">
-          You currently do not have an active application. Please submit your application to track GD &amp; Interview results.
+          You currently do not have an active application. Please submit your
+          application to track GD &amp; Interview results.
         </p>
         <Button asChild className="mt-4" variant="outline">
           <Link href="/my-application">Go to My Application</Link>
@@ -324,7 +382,13 @@ export default function StudentResultsPage() {
           Admissions Journey Tracker
         </span>
         <span className="text-xs font-semibold text-muted-foreground">
-          {isStep4Done ? "4 of 4 Steps Completed" : isStep3Done ? "3 of 4 Steps Completed" : isStep2Done ? "2 of 4 Steps Completed" : "1 of 4 Steps Completed"}
+          {isStep4Done
+            ? "4 of 4 Steps Completed"
+            : isStep3Done
+              ? "3 of 4 Steps Completed"
+              : isStep2Done
+                ? "2 of 4 Steps Completed"
+                : "1 of 4 Steps Completed"}
         </span>
       </div>
 
@@ -338,8 +402,12 @@ export default function StudentResultsPage() {
             </span>
           </div>
           <div className="flex flex-col gap-0.5">
-            <span className="text-sm font-bold text-emerald-950">Application Submitted</span>
-            <span className="text-xs text-emerald-700">Form &amp; credentials registered</span>
+            <span className="text-sm font-bold text-emerald-950">
+              Application Submitted
+            </span>
+            <span className="text-xs text-emerald-700">
+              Form &amp; credentials registered
+            </span>
           </div>
         </div>
 
@@ -352,7 +420,9 @@ export default function StudentResultsPage() {
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className={`text-xs font-bold ${isStep2Done ? "text-emerald-800" : "text-amber-800"}`}>
+            <span
+              className={`text-xs font-bold ${isStep2Done ? "text-emerald-800" : "text-amber-800"}`}
+            >
               Step 2
             </span>
             <span
@@ -366,11 +436,17 @@ export default function StudentResultsPage() {
             </span>
           </div>
           <div className="flex flex-col gap-0.5">
-            <span className={`text-sm font-bold ${isStep2Done ? "text-emerald-950" : "text-amber-950"}`}>
+            <span
+              className={`text-sm font-bold ${isStep2Done ? "text-emerald-950" : "text-amber-950"}`}
+            >
               Application Verified
             </span>
-            <span className={`text-xs ${isStep2Done ? "text-emerald-700" : "text-amber-800"}`}>
-              {isStep2Done ? "Verified & shortlisted for GD/PI" : "Document verification pending"}
+            <span
+              className={`text-xs ${isStep2Done ? "text-emerald-700" : "text-amber-800"}`}
+            >
+              {isStep2Done
+                ? "Verified & shortlisted for GD/PI"
+                : "Document verification pending"}
             </span>
           </div>
         </div>
@@ -381,8 +457,8 @@ export default function StudentResultsPage() {
             isStep3Done
               ? "border-emerald-200 bg-emerald-50/40"
               : isInterviewScheduled
-              ? "border-blue-300 bg-blue-50/50"
-              : "border-border/80 bg-background opacity-75"
+                ? "border-blue-300 bg-blue-50/50"
+                : "border-border/80 bg-background opacity-75"
           }`}
         >
           <div className="flex items-center justify-between">
@@ -391,8 +467,8 @@ export default function StudentResultsPage() {
                 isStep3Done
                   ? "text-emerald-800"
                   : isInterviewScheduled
-                  ? "text-blue-800"
-                  : "text-muted-foreground"
+                    ? "text-blue-800"
+                    : "text-muted-foreground"
               }`}
             >
               Step 3
@@ -402,11 +478,15 @@ export default function StudentResultsPage() {
                 isStep3Done
                   ? "bg-emerald-100 text-emerald-800"
                   : isInterviewScheduled
-                  ? "bg-blue-100 text-blue-800"
-                  : "bg-muted text-muted-foreground"
+                    ? "bg-blue-100 text-blue-800"
+                    : "bg-muted text-muted-foreground"
               }`}
             >
-              {isStep3Done ? "Completed" : isInterviewScheduled ? "Scheduled" : "Pending"}
+              {isStep3Done
+                ? "Completed"
+                : isInterviewScheduled
+                  ? "Scheduled"
+                  : "Pending"}
             </span>
           </div>
           <div className="flex flex-col gap-0.5">
@@ -415,8 +495,8 @@ export default function StudentResultsPage() {
                 isStep3Done
                   ? "text-emerald-950"
                   : isInterviewScheduled
-                  ? "text-blue-950"
-                  : "text-foreground"
+                    ? "text-blue-950"
+                    : "text-foreground"
               }`}
             >
               GD &amp; Interview
@@ -426,17 +506,17 @@ export default function StudentResultsPage() {
                 isStep3Done
                   ? "text-emerald-700"
                   : isInterviewScheduled
-                  ? "text-blue-800"
-                  : "text-muted-foreground"
+                    ? "text-blue-800"
+                    : "text-muted-foreground"
               }`}
             >
               {isStep3Done
                 ? "Rounds attended & completed"
                 : isInterviewScheduled && interviewDateFormatted
-                ? `${interviewDateFormatted} ${interviewTimeFormatted ? `· ${interviewTimeFormatted}` : ""}`
-                : isInterviewScheduled
-                ? "Shortlisted · Scheduled for rounds"
-                : "Rounds to be scheduled"}
+                  ? `${interviewDateFormatted} ${interviewTimeFormatted ? `· ${interviewTimeFormatted}` : ""}`
+                  : isInterviewScheduled
+                    ? "Shortlisted · Scheduled for rounds"
+                    : "Rounds to be scheduled"}
             </span>
           </div>
         </div>
@@ -447,8 +527,8 @@ export default function StudentResultsPage() {
             isStep4Done
               ? "border-emerald-200 bg-emerald-50/40"
               : isStep4InProgress
-              ? "border-amber-300 bg-amber-50/40"
-              : "border-border/80 bg-background opacity-75"
+                ? "border-amber-300 bg-amber-50/40"
+                : "border-border/80 bg-background opacity-75"
           }`}
         >
           <div className="flex items-center justify-between">
@@ -457,8 +537,8 @@ export default function StudentResultsPage() {
                 isStep4Done
                   ? "text-emerald-800"
                   : isStep4InProgress
-                  ? "text-amber-800"
-                  : "text-muted-foreground"
+                    ? "text-amber-800"
+                    : "text-muted-foreground"
               }`}
             >
               Step 4
@@ -468,11 +548,15 @@ export default function StudentResultsPage() {
                 isStep4Done
                   ? "bg-emerald-100 text-emerald-800"
                   : isStep4InProgress
-                  ? "bg-amber-100 text-amber-800"
-                  : "bg-muted text-muted-foreground"
+                    ? "bg-amber-100 text-amber-800"
+                    : "bg-muted text-muted-foreground"
               }`}
             >
-              {isStep4Done ? "Announced" : isStep4InProgress ? "In Progress" : "Pending"}
+              {isStep4Done
+                ? "Announced"
+                : isStep4InProgress
+                  ? "In Progress"
+                  : "Pending"}
             </span>
           </div>
           <div className="flex flex-col gap-0.5">
@@ -481,8 +565,8 @@ export default function StudentResultsPage() {
                 isStep4Done
                   ? "text-emerald-950"
                   : isStep4InProgress
-                  ? "text-amber-950"
-                  : "text-foreground"
+                    ? "text-amber-950"
+                    : "text-foreground"
               }`}
             >
               Results Announcement
@@ -492,15 +576,15 @@ export default function StudentResultsPage() {
                 isStep4Done
                   ? "text-emerald-700"
                   : isStep4InProgress
-                  ? "text-amber-800"
-                  : "text-muted-foreground"
+                    ? "text-amber-800"
+                    : "text-muted-foreground"
               }`}
             >
               {isStep4Done
                 ? "Official seat allotment declared"
                 : isStep4InProgress
-                ? "Evaluating merit & finalizing results"
-                : "Awaiting interview completion"}
+                  ? "Evaluating merit & finalizing results"
+                  : "Awaiting interview completion"}
             </span>
           </div>
         </div>
@@ -520,7 +604,7 @@ export default function StudentResultsPage() {
           <div className="p-6 md:p-8 border-b border-border/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-muted/10">
             <div className="flex flex-col gap-1">
               <span className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                EduCRM Admissions Office · Intake 2026
+                Admissions Office
               </span>
               <h1 className="text-2xl md:text-3xl font-extrabold text-foreground tracking-tight">
                 Shortlisted for GD &amp; Personal Interview
@@ -575,12 +659,16 @@ export default function StudentResultsPage() {
                 Application Verified · Shortlisted for GD &amp; PI
               </span>
               <p className="text-sm text-blue-950 font-medium leading-relaxed">
-                Your application has been verified and you are officially shortlisted for the Group Discussion and Personal Interview. Please attend your scheduled session as detailed below.
+                Your application has been verified and you are officially
+                shortlisted for the Group Discussion and Personal Interview.
+                Please attend your scheduled session as detailed below.
               </p>
             </div>
 
             {/* Scheduled Details (If available) */}
-            {(interviewDateFormatted || interviewTimeFormatted || interviewLocationFormatted) && (
+            {(interviewDateFormatted ||
+              interviewTimeFormatted ||
+              interviewLocationFormatted) && (
               <div className="p-5 rounded-xl border border-border/80 bg-background flex flex-col gap-3 shadow-2xs">
                 <span className="text-xs font-bold text-foreground uppercase tracking-wider">
                   Scheduled Interview Details (Step 3)
@@ -588,15 +676,24 @@ export default function StudentResultsPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
                   <div className="flex flex-col gap-1">
                     <span className="text-muted-foreground">Date:</span>
-                    <strong className="text-foreground text-sm">{interviewDateFormatted || "Scheduled for upcoming session"}</strong>
+                    <strong className="text-foreground text-sm">
+                      {interviewDateFormatted ||
+                        "Scheduled for upcoming session"}
+                    </strong>
                   </div>
                   <div className="flex flex-col gap-1">
                     <span className="text-muted-foreground">Time Slot:</span>
-                    <strong className="text-foreground text-sm">{interviewTimeFormatted || "Morning Session"}</strong>
+                    <strong className="text-foreground text-sm">
+                      {interviewTimeFormatted || "Morning Session"}
+                    </strong>
                   </div>
                   <div className="flex flex-col gap-1">
-                    <span className="text-muted-foreground">Venue / Location:</span>
-                    <strong className="text-foreground text-sm">{interviewLocationFormatted}</strong>
+                    <span className="text-muted-foreground">
+                      Venue / Location:
+                    </span>
+                    <strong className="text-foreground text-sm">
+                      {interviewLocationFormatted}
+                    </strong>
                   </div>
                 </div>
               </div>
@@ -608,9 +705,14 @@ export default function StudentResultsPage() {
             {/* Quick Actions */}
             <div className="pt-4 border-t border-border/60 flex flex-col sm:flex-row items-center justify-between gap-4">
               <span className="text-xs text-muted-foreground">
-                Prepare your identity proof and original academic certificates for verification during the interview.
+                Prepare your identity proof and original academic certificates
+                for verification during the interview.
               </span>
-              <Button asChild variant="outline" className="text-xs font-semibold">
+              <Button
+                asChild
+                variant="outline"
+                className="text-xs font-semibold"
+              >
                 <Link href="/my-application">View Application Details</Link>
               </Button>
             </div>
@@ -631,7 +733,7 @@ export default function StudentResultsPage() {
           <div className="p-6 md:p-8 border-b border-border/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-muted/10">
             <div className="flex flex-col gap-1">
               <span className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                EduCRM Admissions Office · Intake 2026
+                Admissions Office
               </span>
               <h1 className="text-2xl md:text-3xl font-extrabold text-foreground tracking-tight">
                 Admission Evaluation Pending
@@ -686,7 +788,9 @@ export default function StudentResultsPage() {
                 Application Under Verification
               </span>
               <p className="text-sm text-slate-900 font-medium leading-relaxed">
-                Your application has been received and registered. It is currently undergoing Step 2 verification before being shortlisted for GD and Personal Interview.
+                Your application has been received and registered. It is
+                currently undergoing Step 2 verification before being
+                shortlisted for GD and Personal Interview.
               </p>
             </div>
 
@@ -696,9 +800,14 @@ export default function StudentResultsPage() {
             {/* Quick Actions */}
             <div className="pt-4 border-t border-border/60 flex flex-col sm:flex-row items-center justify-between gap-4">
               <span className="text-xs text-muted-foreground">
-                Questions regarding verification? Contact Central Admissions Office.
+                Questions regarding verification? Contact Central Admissions
+                Office.
               </span>
-              <Button asChild variant="outline" className="text-xs font-semibold">
+              <Button
+                asChild
+                variant="outline"
+                className="text-xs font-semibold"
+              >
                 <Link href="/my-application">View Submitted Application</Link>
               </Button>
             </div>
@@ -720,7 +829,7 @@ export default function StudentResultsPage() {
           <div className="p-6 md:p-8 border-b border-border/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-muted/10">
             <div className="flex flex-col gap-1">
               <span className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                EduCRM Admissions Office · Intake 2026
+                Admissions Office
               </span>
               <h1 className="text-2xl md:text-3xl font-extrabold text-foreground tracking-tight">
                 Admission Evaluation Under Review
@@ -775,7 +884,10 @@ export default function StudentResultsPage() {
                 Interview Completed · Evaluation In Progress
               </span>
               <p className="text-sm text-amber-950 font-medium leading-relaxed">
-                Your Group Discussion and Personal Interview evaluation is completed and currently under review by the admissions committee. Official admission decisions will be announced here once published.
+                Your Group Discussion and Personal Interview evaluation is
+                completed and currently under review by the admissions
+                committee. Official admission decisions will be announced here
+                once published.
               </p>
             </div>
 
@@ -785,9 +897,14 @@ export default function StudentResultsPage() {
             {/* Quick Actions */}
             <div className="pt-4 border-t border-border/60 flex flex-col sm:flex-row items-center justify-between gap-4">
               <span className="text-xs text-muted-foreground">
-                Admissions decisions are released in batches as each course panel concludes.
+                Admissions decisions are released in batches as each course
+                panel concludes.
               </span>
-              <Button asChild variant="outline" className="text-xs font-semibold">
+              <Button
+                asChild
+                variant="outline"
+                className="text-xs font-semibold"
+              >
                 <Link href="/my-application">View Application Details</Link>
               </Button>
             </div>
@@ -812,13 +929,16 @@ export default function StudentResultsPage() {
         <div className="p-6 md:p-8 border-b border-border/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-muted/10">
           <div className="flex flex-col gap-1">
             <span className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-              EduCRM Admissions Office · Intake 2026
+              Admissions Office
             </span>
             <h1 className="text-2xl md:text-3xl font-extrabold text-foreground tracking-tight">
               Official Admission Allotment
             </h1>
             <span className="text-xs text-muted-foreground mt-0.5">
-              Declaration Date: {todayDateStr}
+              Declaration Date:{" "}
+              {formatResultDate(
+                result?.decision?.releasedAt || result?.decision?.decisionDate,
+              ) || todayDateStr}
             </span>
           </div>
 
@@ -863,9 +983,7 @@ export default function StudentResultsPage() {
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               Applied Program
             </span>
-            <span className="text-base font-bold text-[#EA2525]">
-              {course}
-            </span>
+            <span className="text-base font-bold text-[#EA2525]">{course}</span>
           </div>
         </div>
 
@@ -888,12 +1006,19 @@ export default function StudentResultsPage() {
                   {isSelected
                     ? "Official allocated campus for registration & classes"
                     : isWaitlisted
-                    ? "Preferred campus for waitlist seat release"
-                    : "Campus allotment not available"}
+                      ? "Preferred campus for waitlist seat release"
+                      : "Campus allotment not available"}
                 </span>
               </div>
               <div className="pt-3 border-t border-border/60 text-xs text-muted-foreground">
-                Campus Status: <strong className="text-foreground">{isSelected ? "Confirmed Seat" : isWaitlisted ? "Subject to Vacancy" : "Closed"}</strong>
+                Campus Status:{" "}
+                <strong className="text-foreground">
+                  {isSelected
+                    ? "Confirmed Seat"
+                    : isWaitlisted
+                      ? "Subject to Vacancy"
+                      : "Closed"}
+                </strong>
               </div>
             </div>
 
@@ -920,12 +1045,13 @@ export default function StudentResultsPage() {
                   {isSelected
                     ? "Offer extended under course capacity quota"
                     : isWaitlisted
-                    ? `Standing ${waitlistDisplay} on official course merit list`
-                    : "Intake quota finalized for current round"}
+                      ? `Standing ${waitlistDisplay} on official course merit list`
+                      : "Intake quota finalized for current round"}
                 </span>
               </div>
               <div className="pt-3 border-t border-border/60 text-xs text-muted-foreground">
-                Waitlist Standing: <strong className="text-foreground">{waitlistDisplay}</strong>
+                Waitlist Standing:{" "}
+                <strong className="text-foreground">{waitlistDisplay}</strong>
               </div>
             </div>
           </div>
@@ -940,6 +1066,249 @@ export default function StudentResultsPage() {
             </p>
           </div>
 
+          {isSelected && offerInfo && (
+            <div className="p-5 rounded-xl border border-border/80 bg-background flex flex-col gap-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-xs font-bold text-foreground uppercase tracking-wider">
+                  Your Offer Letter
+                </span>
+                {offerInfo.hasPdf && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      downloadStudentOfferPdf(activeApp?.applicationNo)
+                    }
+                  >
+                    Download Offer Letter (PDF)
+                  </Button>
+                )}
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <ResultField
+                  label="Offer Type"
+                  value={
+                    OFFER_TYPE_LABELS[offerInfo.offerType] ??
+                    offerInfo.offerType
+                  }
+                />
+                <ResultField
+                  label="Program Offered"
+                  value={offerInfo.programOffered || "—"}
+                />
+                <ResultField
+                  label="Offer Status"
+                  value={
+                    OFFER_STATUS_LABELS[offerInfo.offerStatus] ??
+                    offerInfo.offerStatus
+                  }
+                />
+                <ResultField
+                  label="Valid Till"
+                  value={formatResultDate(offerInfo.offerValidTill) || "—"}
+                />
+                {Number(offerInfo.scholarshipAmount) > 0 && (
+                  <ResultField
+                    label="Scholarship"
+                    value={formatInr(offerInfo.scholarshipAmount)}
+                  />
+                )}
+                {offerInfo.conditions && (
+                  <ResultField
+                    label="Conditions"
+                    value={offerInfo.conditions}
+                    className="col-span-2 md:col-span-3"
+                  />
+                )}
+              </div>
+
+              {acceptanceInfo && (
+                <div className="flex flex-col gap-4 pt-3 border-t border-border/60">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <ResultField
+                      label="Your Response"
+                      value={
+                        ACCEPTANCE_STATUS_LABELS[
+                          acceptanceInfo.acceptanceStatus
+                        ] ?? acceptanceInfo.acceptanceStatus
+                      }
+                    />
+                    <ResultField
+                      label="Respond By"
+                      value={
+                        formatResultDate(acceptanceInfo.acceptanceDeadline) ||
+                        "—"
+                      }
+                    />
+                    <ResultField
+                      label="Seat Booking Fee"
+                      value={formatInr(acceptanceInfo.seatBookingFee)}
+                    />
+                    <ResultField
+                      label="Fee Payment"
+                      value={
+                        FEE_PAYMENT_STATUS_LABELS[
+                          acceptanceInfo.feePaymentStatus
+                        ] ?? acceptanceInfo.feePaymentStatus
+                      }
+                    />
+                    <ResultField
+                      label="Enrollment"
+                      value={
+                        ENROLLMENT_STATUS_LABELS[
+                          acceptanceInfo.enrollmentStatus
+                        ] ?? acceptanceInfo.enrollmentStatus
+                      }
+                    />
+                    {acceptanceInfo.candidateConfirmationDate && (
+                      <ResultField
+                        label="Responded On"
+                        value={formatResultDate(
+                          acceptanceInfo.candidateConfirmationDate,
+                        )}
+                      />
+                    )}
+                    {acceptanceInfo.paymentReferenceId && (
+                      <ResultField
+                        label="Payment Reference"
+                        value={acceptanceInfo.paymentReferenceId}
+                      />
+                    )}
+                  </div>
+
+                  {acceptanceInfo.acceptanceStatus === "pending" &&
+                    offerInfo.offerStatus === "sent" && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                          type="button"
+                          className="h-9 px-4 rounded-[8px] text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white"
+                          disabled={respond.isPending}
+                          onClick={() => respond.mutate({ accept: true })}
+                        >
+                          Accept Offer
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-9 px-4 rounded-[8px] text-xs font-semibold"
+                          disabled={respond.isPending}
+                          onClick={() => {
+                            setDeclineReason("");
+                            setDeclineOpen(true);
+                          }}
+                        >
+                          Decline Offer
+                        </Button>
+                      </div>
+                    )}
+
+                  {acceptanceInfo.acceptanceStatus === "accepted" &&
+                    acceptanceInfo.feePaymentStatus !== "paid" &&
+                    acceptanceInfo.feePaymentStatus !== "waived" &&
+                    Number(acceptanceInfo.seatBookingFee) > 0 && (
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        <span>
+                          Pay the seat booking fee to confirm your enrollment.
+                        </span>
+                        {acceptanceInfo.feePaymentLink ? (
+                          <Button
+                            asChild
+                            size="sm"
+                            className="h-8 bg-[#EA2525] hover:bg-[#D61F1F] text-white"
+                          >
+                            <a
+                              href={acceptanceInfo.feePaymentLink}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              Pay Seat Booking Fee
+                            </a>
+                          </Button>
+                        ) : result?.applicationId ? (
+                          <SeatFeePayButton
+                            applicationId={result.applicationId}
+                            offerAcceptanceId={acceptanceInfo.id}
+                          />
+                        ) : null}
+                      </div>
+                    )}
+
+                  {acceptanceInfo.onboardingPackageSent &&
+                    acceptanceInfo.onboardingInfo && (
+                      <div className="flex flex-col gap-1.5 rounded-lg bg-muted/20 p-4">
+                        <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                          Onboarding Information
+                        </span>
+                        <p className="text-sm text-foreground whitespace-pre-wrap">
+                          {acceptanceInfo.onboardingInfo}
+                        </p>
+                      </div>
+                    )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {isRejected && rejectionInfo && (
+            <div className="p-5 rounded-xl border border-border/80 bg-background flex flex-col gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-xs font-bold text-foreground uppercase tracking-wider">
+                  Decision Details
+                </span>
+                {rejectionInfo.hasLetter && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      downloadStudentRejectionPdf(activeApp?.applicationNo)
+                    }
+                  >
+                    Download Letter (PDF)
+                  </Button>
+                )}
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <ResultField
+                  label="Reason"
+                  value={
+                    REJECTION_REASON_LABELS[rejectionInfo.rejectionReason] ??
+                    rejectionInfo.rejectionReason
+                  }
+                />
+                <ResultField
+                  label="Date"
+                  value={formatResultDate(rejectionInfo.rejectionDate) || "—"}
+                />
+                <ResultField
+                  label="Eligible to Reapply"
+                  value={rejectionInfo.eligibleForReapply ? "Yes" : "No"}
+                />
+                {rejectionInfo.nextIntake && (
+                  <ResultField
+                    label="Next Intake"
+                    value={rejectionInfo.nextIntake}
+                  />
+                )}
+                {rejectionInfo.alternateOptionsSuggested && (
+                  <ResultField
+                    label="Alternate Options"
+                    value={rejectionInfo.alternateOptionsSuggested}
+                    className="col-span-2 md:col-span-4"
+                  />
+                )}
+              </div>
+            </div>
+          )}
+
+          {isWaitlisted && waitlistInfo?.alternateProgramOffered && (
+            <div className="p-5 rounded-xl border border-border/80 bg-background text-sm">
+              Alternate program offered:{" "}
+              <strong>{waitlistInfo.alternateProgramOffered}</strong>
+            </div>
+          )}
+
           {/* Official Instructions & Directives */}
           <div className="p-5 rounded-xl border border-border/80 bg-background flex flex-col gap-3">
             <span className="text-xs font-bold text-foreground uppercase tracking-wider">
@@ -948,30 +1317,43 @@ export default function StudentResultsPage() {
             {isSelected ? (
               <ul className="text-xs text-muted-foreground leading-relaxed list-disc list-inside space-y-1.5">
                 <li>
-                  <strong>Offer Acceptance:</strong> You must confirm acceptance of your allotted seat for <strong>{course}</strong> at <strong>{campusAllotted}</strong> within the scheduled admission timeline.
+                  <strong>Offer Acceptance:</strong> You must confirm acceptance
+                  of your allotted seat for <strong>{course}</strong> at{" "}
+                  <strong>{campusAllotted}</strong> within the scheduled
+                  admission timeline.
                 </li>
                 <li>
-                  <strong>Seat Booking &amp; Fee:</strong> Complete the initial registration fee payment to finalize your enrollment.
+                  <strong>Seat Booking &amp; Fee:</strong> Complete the initial
+                  registration fee payment to finalize your enrollment.
                 </li>
                 <li>
-                  <strong>Original Document Verification:</strong> Present original educational credentials and photo ID at <strong>{campusAllotted}</strong> during orientation.
+                  <strong>Original Document Verification:</strong> Present
+                  original educational credentials and photo ID at{" "}
+                  <strong>{campusAllotted}</strong> during orientation.
                 </li>
               </ul>
             ) : isWaitlisted ? (
               <ul className="text-xs text-muted-foreground leading-relaxed list-disc list-inside space-y-1.5">
                 <li>
-                  <strong>Waitlist Movement:</strong> Vacated seats are offered in strict merit rank sequence (WL-1, WL-2, etc.) as candidate confirmations conclude.
+                  <strong>Waitlist Movement:</strong> Vacated seats are offered
+                  in strict merit rank sequence (WL-1, WL-2, etc.) as candidate
+                  confirmations conclude.
                 </li>
                 <li>
-                  <strong>Instant Notification:</strong> If a seat becomes available for your standing, an official admission offer will be transmitted via SMS and Email.
+                  <strong>Instant Notification:</strong> If a seat becomes
+                  available for your standing, an official admission offer will
+                  be transmitted via SMS and Email.
                 </li>
                 <li>
-                  <strong>No Additional Action Needed:</strong> Your candidature remains active in the admissions pool.
+                  <strong>No Additional Action Needed:</strong> Your candidature
+                  remains active in the admissions pool.
                 </li>
               </ul>
             ) : (
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Thank you for your participation in the Group Discussion and Personal Interview process. Due to limited seat capacity, we are unable to extend an admission offer for this round.
+                Thank you for your participation in the Group Discussion and
+                Personal Interview process. Due to limited seat capacity, we are
+                unable to extend an admission offer for this round.
               </p>
             )}
           </div>
@@ -979,16 +1361,148 @@ export default function StudentResultsPage() {
           {/* Printable Authorization Seal */}
           <div className="pt-6 mt-4 border-t border-border/80 flex flex-col sm:flex-row items-start sm:items-center justify-between text-xs text-muted-foreground gap-4">
             <div className="flex flex-col">
-              <span>Contact: {email} · {phone}</span>
+              <span>
+                Contact: {email} · {phone}
+              </span>
               <span>EduCRM Central Admissions System</span>
             </div>
             <div className="text-right sm:text-right">
-              <span className="block font-semibold text-foreground">Office of Academic Admissions</span>
+              <span className="block font-semibold text-foreground">
+                Office of Academic Admissions
+              </span>
               <span>Allotment Reference: {applicationNo}</span>
             </div>
           </div>
         </div>
       </div>
+      <Dialog open={declineOpen} onOpenChange={setDeclineOpen}>
+        <DialogContent className="sm:max-w-[440px]">
+          <DialogHeader>
+            <DialogTitle>Decline this offer?</DialogTitle>
+            <DialogDescription>
+              Your seat will be released to another applicant. This cannot be
+              undone.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            rows={3}
+            value={declineReason}
+            onChange={(e) => setDeclineReason(e.target.value)}
+            placeholder="Reason (optional)"
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeclineOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={respond.isPending}
+              onClick={() =>
+                respond.mutate(
+                  {
+                    accept: false,
+                    declineReason: declineReason.trim() || undefined,
+                  },
+                  { onSuccess: () => setDeclineOpen(false) },
+                )
+              }
+            >
+              Decline Offer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
+  );
+}
+
+function formatResultDate(value?: string | null) {
+  if (!value) return "";
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function formatInr(value?: number | string | null) {
+  const n = Number(value ?? 0);
+  return `₹${(isFinite(n) ? n : 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+}
+
+function ResultField({
+  label,
+  value,
+  className,
+}: {
+  label: string;
+  value: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={`flex flex-col gap-1 min-w-0 ${className ?? ""}`}>
+      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+        {label}
+      </span>
+      <span className="text-sm font-semibold text-foreground break-words whitespace-pre-wrap">
+        {value}
+      </span>
+    </div>
+  );
+}
+
+// Seat booking fee through the organization's payment gateway (payments
+// module). When paid, the API confirms the enrollment automatically.
+function SeatFeePayButton({
+  applicationId,
+  offerAcceptanceId,
+}: {
+  applicationId: string;
+  offerAcceptanceId: string;
+}) {
+  const queryClient = useQueryClient();
+  const { data: gateways } = useAvailableGateways(applicationId, {
+    purpose: "seat_booking_fee",
+    offerAcceptanceId,
+  });
+  const [busy, setBusy] = React.useState(false);
+  const gateway =
+    gateways?.gateways.find((g) => g.isDefault) ?? gateways?.gateways[0];
+  if (!gateway) return null;
+
+  async function pay() {
+    if (!gateway) return;
+    setBusy(true);
+    try {
+      const res = await startGatewayCheckout({
+        applicationId,
+        gateway: gateway.gateway,
+        purpose: "seat_booking_fee",
+        offerAcceptanceId,
+      });
+      if (res.status === "success") {
+        toast.success("Seat booking fee paid. Your enrollment will be confirmed shortly.");
+        queryClient.invalidateQueries({ queryKey: ["student-admission-result"] });
+      } else if (res.status === "failed" && res.error) {
+        toast.error(res.error);
+      }
+    } catch {
+      // API errors are shown by the request interceptor.
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Button
+      type="button"
+      size="sm"
+      className="h-8 bg-[#EA2525] hover:bg-[#D61F1F] text-white"
+      disabled={busy}
+      onClick={pay}
+    >
+      {busy ? "Opening payment..." : `Pay Seat Booking Fee (${gateway.label})`}
+    </Button>
   );
 }

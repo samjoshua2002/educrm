@@ -1,13 +1,47 @@
-import { Injectable, NotFoundException, Logger, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  Logger,
+  OnModuleInit,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, FindOptionsWhere, IsNull } from 'typeorm';
-import { EmailTemplate } from './entities/email-template.entity.js';
+import { Repository, IsNull, In } from 'typeorm';
+import { EmailTemplate, DEFAULT_EDITING_ROLES } from './entities/email-template.entity.js';
 import { CreateEmailTemplateDto } from './dto/create-email-template.dto.js';
 import { UpdateEmailTemplateDto } from './dto/update-email-template.dto.js';
 import { SendEmailTemplateDto } from './dto/send-email-template.dto.js';
 import { MailerService } from '../notifications/mailer.service.js';
 import { EmailTemplateCategoriesService } from '../email-template-categories/email-template-categories.service.js';
 import { CommunicationsService } from '../communications/communications.service.js';
+import { EmailSuppression } from '../email-campaigns/entities/email-suppression.entity.js';
+import { renderMergeFields, extractMergeFields } from '../messaging/merge-fields.js';
+import { buildEmailHtml, sendOrgEmail } from './email-sender.js';
+
+export interface TemplateActor {
+  id?: string | null;
+  name?: string | null;
+  role?: string | null;
+}
+
+const ADMIN_ROLES = ['org_admin', 'superadmin'];
+const APPROVED = ['approved', 'active'];
+
+/** Maps lifecycle category slugs onto the scope's template categories. */
+const SLUG_TO_SCOPE_CATEGORY: Record<string, string> = {
+  application_submitted: 'Reminder',
+  fee_payment_confirmation: 'Fee',
+  shortlisted: 'Interview',
+  interview_gd_slot_invitation: 'Interview',
+  interview_gd_reschedule: 'Interview',
+  interview_gd_cancellation: 'Interview',
+  results_scores_updated: 'Interview',
+  offer_letter_sent: 'Offer',
+  waitlisted: 'Rejection',
+  waitlist_offer_conversion: 'Offer',
+  enrollment_confirmed: 'Offer',
+};
 
 @Injectable()
 export class EmailTemplatesService implements OnModuleInit {
@@ -16,29 +50,70 @@ export class EmailTemplatesService implements OnModuleInit {
   constructor(
     @InjectRepository(EmailTemplate)
     private readonly templateRepo: Repository<EmailTemplate>,
+    @InjectRepository(EmailSuppression)
+    private readonly suppressionRepo: Repository<EmailSuppression>,
     private readonly mailerService: MailerService,
     private readonly categoriesService: EmailTemplateCategoriesService,
     private readonly communicationsService: CommunicationsService,
   ) {}
 
   async onModuleInit() {
+    await this.migrateLegacyStatuses();
     await this.seedDefaultTemplates();
   }
 
+  /** 'active' (legacy) → 'approved' so the scope statuses Draft / Approved / Archived apply everywhere. */
+  private async migrateLegacyStatuses() {
+    try {
+      await this.templateRepo
+        .createQueryBuilder()
+        .update(EmailTemplate)
+        .set({ status: 'approved' })
+        .where('status = :s', { s: 'active' })
+        .execute();
+    } catch (err: any) {
+      this.logger.warn(`Template status migration skipped: ${err?.message || err}`);
+    }
+  }
+
   private extractVariables(text: string): string[] {
-    const matches = text.match(/\{([a-zA-Z0-9_-]+)\}/g) || [];
+    const matches = (text || '').replace(/\{\{[^}]*\}\}/g, '').match(/\{([a-zA-Z0-9_-]+)\}/g) || [];
     const vars = new Set<string>();
     matches.forEach((m) => {
       vars.add(m.replace(/[\{\}]/g, '').trim().toLowerCase());
     });
+    extractMergeFields(text).forEach((f) => vars.add(f));
     return Array.from(vars);
   }
 
-  private renderText(text: string, vars: Record<string, string | null | undefined>): string {
-    return text.replace(/\{([a-zA-Z0-9_-]+)\}/g, (match, key) => {
+  /** Renders {{Merge_Fields}} first, then legacy single-brace {variables}. */
+  renderText(text: string, vars: Record<string, string | null | undefined>): string {
+    const merged = renderMergeFields(text, {
+      name: vars.name || vars.student,
+      program: vars.course || vars.program || vars.program_offered,
+      applicationNo: vars.application_no,
+      date: vars.date,
+      link: vars.link || vars.login_url || vars.meeting_link,
+      email: vars.email,
+      phone: vars.phone,
+      extra: vars,
+    });
+    return merged.replace(/\{([a-zA-Z0-9_-]+)\}/g, (match, key) => {
       const val = vars[key.toLowerCase()];
       return val !== undefined && val !== null && val !== '' ? String(val) : match;
     });
+  }
+
+  async isSuppressed(orgId: string | null | undefined, email: string): Promise<boolean> {
+    if (!orgId || !email) return false;
+    try {
+      const row = await this.suppressionRepo.findOne({
+        where: { organizationId: orgId, email: email.trim().toLowerCase() },
+      });
+      return !!row;
+    } catch {
+      return false;
+    }
   }
 
   private async findTemplateForCategory(
@@ -47,13 +122,13 @@ export class EmailTemplatesService implements OnModuleInit {
   ): Promise<EmailTemplate | null> {
     if (orgId) {
       const orgTemplate = await this.templateRepo.findOne({
-        where: { categoryId, organizationId: orgId, status: 'active' },
+        where: { categoryId, organizationId: orgId, status: In(APPROVED), channel: 'Email' },
         order: { createdAt: 'ASC' },
       });
       if (orgTemplate) return orgTemplate;
     }
     return this.templateRepo.findOne({
-      where: { categoryId, organizationId: IsNull(), status: 'active' },
+      where: { categoryId, organizationId: IsNull(), status: In(APPROVED), channel: 'Email' },
       order: { isDefault: 'DESC', createdAt: 'ASC' },
     });
   }
@@ -83,6 +158,11 @@ export class EmailTemplatesService implements OnModuleInit {
       return null;
     }
 
+    if (await this.isSuppressed(organizationId, to)) {
+      this.logger.warn(`Skipping transactional email "${categorySlug}" — ${to} is on the suppression list.`);
+      return { success: false };
+    }
+
     const category = await this.categoriesService.findBySlugForOrg(categorySlug, organizationId);
     if (!category) {
       this.logger.warn(`No email category found for slug "${categorySlug}" — skipping send.`);
@@ -99,12 +179,16 @@ export class EmailTemplatesService implements OnModuleInit {
     let subject = '';
     let body = '';
     let footer: string | undefined = undefined;
+    let header: string | undefined = undefined;
+    let signature: string | undefined = undefined;
     let templateId: string | undefined = undefined;
 
     if (template) {
       subject = this.renderText(template.subject, normalizedVars);
       body = this.renderText(template.body, normalizedVars);
       footer = template.footer ? this.renderText(template.footer, normalizedVars) : undefined;
+      header = template.header ? this.renderText(template.header, normalizedVars) : undefined;
+      signature = template.signature ? this.renderText(template.signature, normalizedVars) : undefined;
       templateId = template.id;
     } else {
       const def = this.seedTemplateDefinitions[categorySlug];
@@ -125,6 +209,8 @@ export class EmailTemplatesService implements OnModuleInit {
         subject,
         body,
         footer,
+        header,
+        signature,
         senderName,
         category: category.name,
         templateId,
@@ -144,6 +230,8 @@ export class EmailTemplatesService implements OnModuleInit {
         applicantName,
         recipientEmail: to,
         channel: 'Email',
+        direction: 'System Generated',
+        handledBy: 'System',
         category: category.name,
         categoryId: category.id,
         templateId: templateId || undefined,
@@ -346,7 +434,13 @@ Welcome aboard!`,
         const existing = await this.templateRepo.findOne({
           where: { categoryId: category.id, organizationId: IsNull() },
         });
-        if (existing) continue;
+        if (existing) {
+          if (!existing.templateCategory && SLUG_TO_SCOPE_CATEGORY[category.slug]) {
+            existing.templateCategory = SLUG_TO_SCOPE_CATEGORY[category.slug];
+            await this.templateRepo.save(existing);
+          }
+          continue;
+        }
 
         const allowedKeys = new Set((category.variables || []).map((v) => v.key));
         const variables = Array.from(
@@ -362,15 +456,22 @@ Welcome aboard!`,
           name: def.name,
           category: category.name,
           categoryId: category.id,
+          templateCategory: SLUG_TO_SCOPE_CATEGORY[category.slug] || null,
           channel: 'Email',
           subject: def.subject,
           body: def.body,
           footer: def.footer,
           description: def.description,
           variables,
-          status: 'active',
+          language: 'English',
+          status: 'approved',
+          versionNumber: 1,
           isDefault: true,
           usageCount: 0,
+          editableByRoles: DEFAULT_EDITING_ROLES,
+          createdByName: 'System',
+          approvedByName: 'System',
+          approvedAt: new Date(),
         });
         await this.templateRepo.save(template);
       }
@@ -386,6 +487,7 @@ Welcome aboard!`,
     search?: string,
     category?: string,
     status?: string,
+    filters: { type?: string; templateCategory?: string; language?: string } = {},
   ): Promise<EmailTemplate[]> {
     const qb = this.templateRepo.createQueryBuilder('tmpl');
 
@@ -398,8 +500,15 @@ Welcome aboard!`,
     }
 
     if (status && status !== 'all') {
-      qb.andWhere('tmpl.status = :status', { status });
+      if (status === 'approved' || status === 'active') qb.andWhere("tmpl.status IN ('approved','active')");
+      else qb.andWhere('tmpl.status = :status', { status });
     }
+
+    if (filters.type && filters.type !== 'all') qb.andWhere('tmpl.channel = :type', { type: filters.type });
+    if (filters.templateCategory && filters.templateCategory !== 'all') {
+      qb.andWhere('tmpl.template_category = :tc', { tc: filters.templateCategory });
+    }
+    if (filters.language && filters.language !== 'all') qb.andWhere('tmpl.language = :lang', { lang: filters.language });
 
     if (search && search.trim() !== '') {
       const q = `%${search.trim().toLowerCase()}%`;
@@ -423,120 +532,278 @@ Welcome aboard!`,
     return template;
   }
 
-  async create(orgId: string | null, dto: CreateEmailTemplateDto): Promise<EmailTemplate> {
-    const varsInSubject = this.extractVariables(dto.subject);
-    const varsInBody = this.extractVariables(dto.body);
-    const varsInFooter = this.extractVariables(dto.footer || '');
+  private isAdmin(actor?: TemplateActor | null) {
+    return !!actor?.role && ADMIN_ROLES.includes(actor.role);
+  }
+
+  /** Role-based editing rights: org_admin / superadmin always; others only when listed on the template. */
+  canEdit(template: EmailTemplate, actor?: TemplateActor | null): boolean {
+    if (!actor?.role) return true; // internal calls
+    if (this.isAdmin(actor)) return true;
+    if (!template.organizationId) return false; // global defaults: admins only
+    const roles = Array.isArray(template.editableByRoles) && template.editableByRoles.length
+      ? template.editableByRoles
+      : DEFAULT_EDITING_ROLES;
+    return roles.includes(actor.role);
+  }
+
+  private validateContent(channel: string, subject?: string | null) {
+    if ((channel || 'Email') === 'Email' && !String(subject || '').trim()) {
+      throw new BadRequestException('Subject line is required for Email templates');
+    }
+  }
+
+  async create(orgId: string | null, dto: CreateEmailTemplateDto, actor?: TemplateActor): Promise<EmailTemplate> {
+    const channel = dto.channel || 'Email';
+    this.validateContent(channel, dto.subject);
+    const subject = channel === 'Email' ? dto.subject || '' : dto.subject || '';
     const allVars = Array.from(
-      new Set([...varsInSubject, ...varsInBody, ...varsInFooter, ...(dto.variables || [])]),
+      new Set([
+        ...this.extractVariables(subject),
+        ...this.extractVariables(dto.body),
+        ...this.extractVariables(dto.header || ''),
+        ...this.extractVariables(dto.footer || ''),
+        ...this.extractVariables(dto.signature || ''),
+        ...(dto.variables || []),
+      ]),
+    );
+
+    let status = dto.status === 'active' ? 'approved' : dto.status || 'draft';
+    if (status === 'approved' && actor && !this.isAdmin(actor)) {
+      status = 'draft'; // only org_admin approves
+    }
+    const editableByRoles = Array.from(
+      new Set([...(dto.editableByRoles?.length ? dto.editableByRoles : DEFAULT_EDITING_ROLES), 'org_admin']),
     );
 
     const template = this.templateRepo.create({
       ...dto,
+      subject,
+      category: dto.category || dto.templateCategory || 'General Notice',
       organizationId: orgId,
       variables: allVars,
-      status: dto.status || 'active',
-      channel: dto.channel || 'Email',
+      status,
+      channel,
+      language: dto.language || 'English',
+      versionNumber: 1,
+      editableByRoles,
+      createdBy: actor?.id || null,
+      createdByName: actor?.name || null,
+      updatedBy: actor?.id || null,
+      updatedByName: actor?.name || null,
+      approvedBy: status === 'approved' ? actor?.id || null : null,
+      approvedByName: status === 'approved' ? actor?.name || null : null,
+      approvedAt: status === 'approved' ? new Date() : null,
     });
 
     return this.templateRepo.save(template);
   }
 
-  async update(id: string, dto: UpdateEmailTemplateDto): Promise<EmailTemplate> {
+  async update(id: string, dto: UpdateEmailTemplateDto, actor?: TemplateActor): Promise<EmailTemplate> {
     const template = await this.findOne(id);
-
-    if (dto.subject !== undefined || dto.body !== undefined || dto.footer !== undefined) {
-      const subj = dto.subject !== undefined ? dto.subject : template.subject;
-      const body = dto.body !== undefined ? dto.body : template.body;
-      const footer = dto.footer !== undefined ? dto.footer : template.footer;
-      const vars = Array.from(
-        new Set([
-          ...this.extractVariables(subj),
-          ...this.extractVariables(body),
-          ...this.extractVariables(footer || ''),
-        ]),
-      );
-      template.variables = vars;
+    if (!this.canEdit(template, actor)) {
+      throw new ForbiddenException('Your role is not allowed to edit this template');
     }
 
-    Object.assign(template, dto);
+    const contentKeys = ['subject', 'body', 'header', 'footer', 'signature'] as const;
+    const contentChanged = contentKeys.some(
+      (k) => (dto as any)[k] !== undefined && ((dto as any)[k] || '') !== ((template as any)[k] || ''),
+    );
+
+    const nextChannel = dto.channel || template.channel;
+    const nextSubject = dto.subject !== undefined ? dto.subject : template.subject;
+    this.validateContent(nextChannel, nextSubject);
+
+    if (contentChanged) {
+      const parts = contentKeys.map((k) => ((dto as any)[k] !== undefined ? (dto as any)[k] : (template as any)[k]) || '');
+      template.variables = Array.from(new Set(parts.flatMap((p) => this.extractVariables(p))));
+      template.versionNumber = (template.versionNumber || 1) + 1;
+    }
+
+    const { status: requestedStatus, editableByRoles, ...rest } = dto as any;
+    delete rest.variables;
+    Object.assign(template, rest);
+
+    if (editableByRoles !== undefined) {
+      if (!this.isAdmin(actor) && actor?.role) {
+        throw new ForbiddenException('Only an organization admin can change editing rights');
+      }
+      template.editableByRoles = Array.from(new Set([...(editableByRoles || []), 'org_admin']));
+    }
+
+    if (requestedStatus !== undefined) {
+      const st = requestedStatus === 'active' ? 'approved' : requestedStatus;
+      if (st === 'approved' && template.status !== 'approved') {
+        if (actor?.role && !this.isAdmin(actor)) throw new ForbiddenException('Only an organization admin can approve templates');
+        template.approvedBy = actor?.id || null;
+        template.approvedByName = actor?.name || null;
+        template.approvedAt = new Date();
+      }
+      template.status = st;
+    }
+
+    // A non-admin content change sends an approved template back for approval.
+    if (contentChanged && actor?.role && !this.isAdmin(actor) && APPROVED.includes(template.status)) {
+      template.status = 'draft';
+      template.approvedBy = null;
+      template.approvedByName = null;
+      template.approvedAt = null;
+    } else if (contentChanged && this.isAdmin(actor) && APPROVED.includes(template.status)) {
+      template.approvedBy = actor?.id || template.approvedBy;
+      template.approvedByName = actor?.name || template.approvedByName;
+      template.approvedAt = new Date();
+    }
+
+    template.updatedBy = actor?.id || template.updatedBy;
+    template.updatedByName = actor?.name || template.updatedByName;
     return this.templateRepo.save(template);
   }
 
-  async delete(id: string): Promise<void> {
+  async approve(id: string, actor: TemplateActor): Promise<EmailTemplate> {
+    if (!this.isAdmin(actor)) throw new ForbiddenException('Only an organization admin can approve templates');
     const template = await this.findOne(id);
+    template.status = 'approved';
+    template.approvedBy = actor.id || null;
+    template.approvedByName = actor.name || null;
+    template.approvedAt = new Date();
+    template.updatedBy = actor.id || template.updatedBy;
+    template.updatedByName = actor.name || template.updatedByName;
+    return this.templateRepo.save(template);
+  }
+
+  async archive(id: string, actor: TemplateActor): Promise<EmailTemplate> {
+    const template = await this.findOne(id);
+    if (!this.isAdmin(actor) && !this.canEdit(template, actor)) {
+      throw new ForbiddenException('Your role is not allowed to archive this template');
+    }
+    template.status = 'archived';
+    template.updatedBy = actor.id || template.updatedBy;
+    template.updatedByName = actor.name || template.updatedByName;
+    return this.templateRepo.save(template);
+  }
+
+  async restore(id: string, actor: TemplateActor): Promise<EmailTemplate> {
+    const template = await this.findOne(id);
+    if (!this.canEdit(template, actor)) throw new ForbiddenException('Your role is not allowed to edit this template');
+    template.status = 'draft';
+    template.approvedBy = null;
+    template.approvedByName = null;
+    template.approvedAt = null;
+    template.updatedBy = actor.id || template.updatedBy;
+    template.updatedByName = actor.name || template.updatedByName;
+    return this.templateRepo.save(template);
+  }
+
+  async delete(id: string, actor?: TemplateActor): Promise<void> {
+    const template = await this.findOne(id);
+    if (actor?.role && !this.isAdmin(actor)) throw new ForbiddenException('Only an organization admin can delete templates');
     await this.templateRepo.remove(template);
   }
 
-  async duplicate(id: string): Promise<EmailTemplate> {
+  async duplicate(id: string, actor?: TemplateActor, orgId?: string | null): Promise<EmailTemplate> {
     const orig = await this.findOne(id);
     const copy = this.templateRepo.create({
       name: `${orig.name} (Copy)`,
       category: orig.category,
+      categoryId: orig.categoryId,
+      templateCategory: orig.templateCategory,
       channel: orig.channel,
       subject: orig.subject,
       body: orig.body,
+      header: orig.header,
+      footer: orig.footer,
+      signature: orig.signature,
+      language: orig.language,
       description: orig.description,
       variables: orig.variables,
       status: 'draft',
+      versionNumber: 1,
       isDefault: false,
-      organizationId: orig.organizationId,
+      organizationId: orgId !== undefined ? orgId : orig.organizationId,
       usageCount: 0,
+      editableByRoles: orig.editableByRoles?.length ? orig.editableByRoles : DEFAULT_EDITING_ROLES,
+      createdBy: actor?.id || null,
+      createdByName: actor?.name || null,
+      updatedBy: actor?.id || null,
+      updatedByName: actor?.name || null,
     });
     return this.templateRepo.save(copy);
   }
 
+  async bumpUsage(templateId?: string | null) {
+    if (!templateId) return;
+    try {
+      await this.templateRepo.increment({ id: templateId }, 'usageCount', 1);
+    } catch {
+      // Ignore template usage bump errors
+    }
+  }
+
   async sendEmail(
     dto: SendEmailTemplateDto & { organizationId?: string },
-  ): Promise<{ success: boolean; messageId?: string }> {
-    if (dto.templateId) {
-      try {
-        const tmpl = await this.templateRepo.findOne({ where: { id: dto.templateId } });
-        if (tmpl) {
-          tmpl.usageCount = (tmpl.usageCount || 0) + 1;
-          await this.templateRepo.save(tmpl);
-        }
-      } catch {
-        // Ignore template usage bump errors
-      }
+  ): Promise<{ success: boolean; messageId?: string; error?: string }> {
+    if (await this.isSuppressed(dto.organizationId, dto.to)) {
+      return { success: false, error: 'Recipient is on the suppression list (unsubscribed)' };
     }
+    await this.bumpUsage(dto.templateId);
 
-    // Convert newlines in plain text to html paragraphs/breaks
-    const htmlBody = `
-      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 620px; margin: 0 auto; color: #1e293b; line-height: 1.6; font-size: 14px; background: #ffffff; padding: 24px; border: 1px solid #e2e8f0; border-radius: 8px;">
-        <div style="border-bottom: 2px solid #2563eb; padding-bottom: 12px; margin-bottom: 20px;">
-          <h2 style="color: #0f172a; margin: 0; font-size: 18px; font-weight: 700;">${dto.subject}</h2>
-          ${
-            dto.category
-              ? `<span style="display:inline-block; margin-top: 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; background: #eff6ff; color: #1d4ed8; padding: 2px 8px; border-radius: 9999px;">${dto.category}</span>`
-              : ''
-          }
-        </div>
-        <div style="white-space: pre-line; margin-bottom: 24px;">${dto.body}</div>
-        ${
-          dto.footer
-            ? `<div style="border-top: 1px solid #e2e8f0; padding-top: 12px; margin-bottom: 20px; font-size: 12px; color: #64748b; white-space: pre-line;">${dto.footer}</div>`
-            : ''
-        }
-        <div style="border-top: 1px solid #f1f5f9; padding-top: 14px; font-size: 12px; color: #64748b;">
-          <p style="margin: 0;">Sent by: <strong>${dto.senderName || 'Admissions Desk'}</strong></p>
-          ${dto.applicationNo ? `<p style="margin: 2px 0 0 0;">Application Ref: ${dto.applicationNo}</p>` : ''}
-        </div>
-      </div>
-    `;
-
-    const success = await this.mailerService.sendCustomEmail({
-      to: dto.to,
+    const html = buildEmailHtml({
       subject: dto.subject,
-      text: dto.body,
-      html: htmlBody,
-      fromName: dto.senderName,
-      organizationId: dto.organizationId,
+      body: dto.body,
+      header: dto.header,
+      footer: dto.footer,
+      signature: dto.signature,
+      category: dto.category,
+      senderName: dto.senderName,
+      applicationNo: dto.applicationNo,
     });
 
+    const res = await sendOrgEmail(this.mailerService, {
+      organizationId: dto.organizationId,
+      to: dto.to,
+      subject: dto.subject,
+      html,
+      text: dto.body,
+      fromName: dto.senderName,
+    });
+    if (!res.ok) this.logger.error(`Failed to send email to ${dto.to}: ${res.error}`);
+
     return {
-      success,
-      messageId: `COMM-${Date.now()}`,
+      success: res.ok,
+      messageId: res.messageId || `COMM-${Date.now()}`,
+      error: res.error,
     };
+  }
+
+  /** Staff "send" from the templates page — sends and records it in the communication history. */
+  async sendAndLog(
+    dto: SendEmailTemplateDto & { organizationId?: string },
+    actor?: TemplateActor,
+  ): Promise<{ success: boolean; messageId?: string; error?: string }> {
+    const result = await this.sendEmail(dto);
+    try {
+      await this.communicationsService.create({
+        organizationId: dto.organizationId,
+        applicationNo: dto.applicationNo,
+        applicantName: dto.applicantName,
+        recipientEmail: dto.to,
+        channel: 'Email',
+        direction: 'Outbound',
+        category: dto.category,
+        templateId: dto.templateId && /^[0-9a-f-]{36}$/i.test(dto.templateId) ? dto.templateId : undefined,
+        subject: dto.subject,
+        content: dto.body,
+        footer: dto.footer,
+        sender: dto.senderName || actor?.name || undefined,
+        handledBy: actor?.name || dto.senderName || 'Staff',
+        handledByUserId: actor?.id || undefined,
+        status: result.success ? 'Sent' : 'Failed',
+        failureReason: result.error,
+        messageId: result.messageId,
+      });
+    } catch (err: any) {
+      this.logger.warn(`Failed to log sent email: ${err?.message || err}`);
+    }
+    return result;
   }
 }

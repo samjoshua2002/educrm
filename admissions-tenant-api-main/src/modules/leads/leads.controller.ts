@@ -27,6 +27,8 @@ import { UpdateLeadStatusDto } from './dto/update-lead-status.dto.js';
 import { CloseLeadDto } from './dto/close-lead.dto.js';
 import { CreateLeadDto } from './dto/create-lead.dto.js';
 import { UpdateLeadDto } from './dto/update-lead.dto.js';
+import { RecordEngagementDto, UpdateFollowUpStatusDto } from './dto/lead-management.dto.js';
+import { EngagementType } from './lead-scoring.service.js';
 
 @Controller('organizations/:orgId/leads')
 @UseGuards(JwtAuthGuard, RolesGuard, TenantGuard)
@@ -152,6 +154,68 @@ export class LeadsController {
     @Request() req: any,
   ) {
     return this.leadsService.close(id, orgId, req.user.sub, dto, req.user.role);
+  }
+
+  @Get(':id/activities')
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.LEAD_MANAGER, Role.COUNSELOR)
+  @ResponseMessage('Lead activity fetched successfully')
+  activities(
+    @Param('orgId', ParseUUIDPipe) orgId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Request() req: any,
+  ) {
+    return this.leadsService.getActivities(id, orgId, req.user.sub, req.user.role);
+  }
+
+  @Post(':id/engagement')
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.LEAD_MANAGER, Role.COUNSELOR)
+  @ResponseMessage('Engagement recorded and lead rescored')
+  engagement(
+    @Param('orgId', ParseUUIDPipe) orgId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RecordEngagementDto,
+    @Request() req: any,
+  ) {
+    return this.leadsService.recordEngagement(id, orgId, dto.type as EngagementType, {
+      count: dto.count,
+      note: dto.note,
+      actorId: req.user.sub,
+      userId: req.user.sub,
+      role: req.user.role,
+    });
+  }
+
+  @Post(':id/rescore')
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.LEAD_MANAGER)
+  @ResponseMessage('Lead rescored successfully')
+  rescore(
+    @Param('orgId', ParseUUIDPipe) orgId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.leadsService.rescore(id, orgId);
+  }
+
+  @Post(':id/reroute')
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.LEAD_MANAGER)
+  @ResponseMessage('Lead re-routed successfully')
+  reroute(
+    @Param('orgId', ParseUUIDPipe) orgId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Request() req: any,
+  ) {
+    return this.leadsService.reroute(id, orgId, req.user.sub);
+  }
+
+  @Patch(':id/follow-up-status')
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.LEAD_MANAGER, Role.COUNSELOR)
+  @ResponseMessage('Follow-up status updated')
+  followUpStatus(
+    @Param('orgId', ParseUUIDPipe) orgId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateFollowUpStatusDto,
+    @Request() req: any,
+  ) {
+    return this.leadsService.updateFollowUpStatus(id, orgId, req.user.sub, dto.followUpStatus, dto.nextFollowUpAt, req.user.role);
   }
 
   @Delete(':id')

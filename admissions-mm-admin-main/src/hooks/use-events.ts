@@ -5,9 +5,59 @@ import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth-store";
 import {
   AnnouncementEventItem,
+  AudiencePreview,
+  AudienceTargeting,
   CreateAnnouncementEventInput,
   UpdateAnnouncementEventInput,
 } from "@/types/events";
+
+const arr = (a: any, b: any): string[] => (Array.isArray(a) ? a : Array.isArray(b) ? b : []);
+
+/** Maps an API row (camelCase or snake_case) to the frontend shape. */
+export function mapEvent(item: any): AnnouncementEventItem {
+  return {
+    id: item.id,
+    organizationId: item.organizationId || item.organization_id,
+    title: item.title,
+    type: item.type || "announcement",
+    category: item.category || "General",
+    priority: item.priority || "Medium",
+    status: item.status || "Published",
+    targetAudience: arr(item.targetAudience, item.target_audience),
+    targetLeadStages: arr(item.targetLeadStages, item.target_lead_stages),
+    targetLeadSources: arr(item.targetLeadSources, item.target_lead_sources),
+    targetApplicationStatuses: arr(item.targetApplicationStatuses, item.target_application_statuses),
+    targetBranchIds: arr(item.targetBranchIds, item.target_branch_ids),
+    targetAcademicSession: item.targetAcademicSession || item.target_academic_session || undefined,
+    targetCourseId: item.targetCourseId || item.target_course_id,
+    targetCourseName: item.targetCourseName || item.target_course_name,
+    eventStartDate: item.eventStartDate || item.event_start_date,
+    eventEndDate: item.eventEndDate || item.event_end_date,
+    eventStartTime: item.eventStartTime || item.event_start_time,
+    eventEndTime: item.eventEndTime || item.event_end_time,
+    venueType: item.venueType || item.venue_type || "in_person",
+    venueLocation: item.venueLocation || item.venue_location,
+    scheduledPublishDate: item.scheduledPublishDate || item.scheduled_publish_date,
+    scheduledPublishTime: item.scheduledPublishTime || item.scheduled_publish_time,
+    scheduledPublishAt: item.scheduledPublishAt || item.scheduled_publish_at || undefined,
+    description: item.description,
+    posterUrl: item.posterUrl || item.poster_url,
+    attachmentUrl: item.attachmentUrl || item.attachment_url,
+    attachmentName: item.attachmentName || item.attachment_name,
+    attachmentType: item.attachmentType || item.attachment_type || "other",
+    sendInAppNotification: item.sendInAppNotification ?? item.send_in_app_notification ?? true,
+    sendEmailBroadcast: item.sendEmailBroadcast ?? item.send_email_broadcast ?? false,
+    sendWhatsapp: item.sendWhatsapp ?? item.send_whatsapp ?? false,
+    emailTemplateId: item.emailTemplateId || item.email_template_id,
+    createdByName: item.createdByName || item.created_by_name || "Admissions Team",
+    createdAt: item.createdAt || item.created_at || new Date().toISOString(),
+    updatedAt: item.updatedAt || item.updated_at || new Date().toISOString(),
+    publishedAt: item.publishedAt || item.published_at || undefined,
+    deliveryStatus: item.deliveryStatus ?? item.delivery_status ?? null,
+    lastDeliveredAt: item.lastDeliveredAt ?? item.last_delivered_at ?? null,
+    deliveryStats: item.deliveryStats ?? item.delivery_stats ?? null,
+  };
+}
 
 // 1. Fetch all announcements & events from Database
 export function useEvents(filters?: {
@@ -39,39 +89,7 @@ export function useEvents(filters?: {
           list = res.items;
         }
 
-        return list.map((item: any): AnnouncementEventItem => ({
-          id: item.id,
-          organizationId: item.organizationId || item.organization_id,
-          title: item.title,
-          type: item.type || "announcement",
-          category: item.category || "General Notice",
-          priority: item.priority || "Medium",
-          status: item.status || "Published",
-          targetAudience: Array.isArray(item.targetAudience) ? item.targetAudience : (Array.isArray(item.target_audience) ? item.target_audience : []),
-          targetLeadStages: Array.isArray(item.targetLeadStages) ? item.targetLeadStages : (Array.isArray(item.target_lead_stages) ? item.target_lead_stages : []),
-          targetCourseId: item.targetCourseId || item.target_course_id,
-          targetCourseName: item.targetCourseName || item.target_course_name,
-          eventStartDate: item.eventStartDate || item.event_start_date,
-          eventEndDate: item.eventEndDate || item.event_end_date,
-          eventStartTime: item.eventStartTime || item.event_start_time,
-          eventEndTime: item.eventEndTime || item.event_end_time,
-          venueType: item.venueType || item.venue_type || "in_person",
-          venueLocation: item.venueLocation || item.venue_location,
-          scheduledPublishDate: item.scheduledPublishDate || item.scheduled_publish_date,
-          scheduledPublishTime: item.scheduledPublishTime || item.scheduled_publish_time,
-          description: item.description,
-          posterUrl: item.posterUrl || item.poster_url,
-          attachmentUrl: item.attachmentUrl || item.attachment_url,
-          attachmentName: item.attachmentName || item.attachment_name,
-          attachmentType: item.attachmentType || item.attachment_type || "other",
-          sendInAppNotification: item.sendInAppNotification ?? item.send_in_app_notification ?? true,
-          sendEmailBroadcast: item.sendEmailBroadcast ?? item.send_email_broadcast ?? false,
-          sendWhatsapp: item.sendWhatsapp ?? item.send_whatsapp ?? false,
-          emailTemplateId: item.emailTemplateId || item.email_template_id,
-          createdByName: item.createdByName || item.created_by_name || "Admissions Team",
-          createdAt: item.createdAt || item.created_at || new Date().toISOString(),
-          updatedAt: item.updatedAt || item.updated_at || new Date().toISOString(),
-        }));
+        return list.map(mapEvent);
       } catch (err) {
         console.error("Failed to fetch events from DB:", err);
         return [] as AnnouncementEventItem[];
@@ -97,39 +115,7 @@ export function useEvent(id: string) {
         const res = await apiGet<any>(url);
         const raw = res?.data || res;
         if (raw && (raw.id || raw.title)) {
-          return {
-            id: raw.id,
-            organizationId: raw.organizationId || raw.organization_id,
-            title: raw.title,
-            type: raw.type || "announcement",
-            category: raw.category || "General Notice",
-            priority: raw.priority || "Medium",
-            status: raw.status || "Published",
-            targetAudience: Array.isArray(raw.targetAudience) ? raw.targetAudience : (Array.isArray(raw.target_audience) ? raw.target_audience : []),
-            targetLeadStages: Array.isArray(raw.targetLeadStages) ? raw.targetLeadStages : (Array.isArray(raw.target_lead_stages) ? raw.target_lead_stages : []),
-            targetCourseId: raw.targetCourseId || raw.target_course_id,
-            targetCourseName: raw.targetCourseName || raw.target_course_name,
-            eventStartDate: raw.eventStartDate || raw.event_start_date,
-            eventEndDate: raw.eventEndDate || raw.event_end_date,
-            eventStartTime: raw.eventStartTime || raw.event_start_time,
-            eventEndTime: raw.eventEndTime || raw.event_end_time,
-            venueType: raw.venueType || raw.venue_type || "in_person",
-            venueLocation: raw.venueLocation || raw.venue_location,
-            scheduledPublishDate: raw.scheduledPublishDate || raw.scheduled_publish_date,
-            scheduledPublishTime: raw.scheduledPublishTime || raw.scheduled_publish_time,
-            description: raw.description,
-            posterUrl: raw.posterUrl || raw.poster_url,
-            attachmentUrl: raw.attachmentUrl || raw.attachment_url,
-            attachmentName: raw.attachmentName || raw.attachment_name,
-            attachmentType: raw.attachmentType || raw.attachment_type || "other",
-            sendInAppNotification: raw.sendInAppNotification ?? raw.send_in_app_notification ?? true,
-            sendEmailBroadcast: raw.sendEmailBroadcast ?? raw.send_email_broadcast ?? false,
-            sendWhatsapp: raw.sendWhatsapp ?? raw.send_whatsapp ?? false,
-            emailTemplateId: raw.emailTemplateId || raw.email_template_id,
-            createdByName: raw.createdByName || raw.created_by_name || "Admissions Team",
-            createdAt: raw.createdAt || raw.created_at || new Date().toISOString(),
-            updatedAt: raw.updatedAt || raw.updated_at || new Date().toISOString(),
-          } as AnnouncementEventItem;
+          return mapEvent(raw);
         }
       } catch (err) {
         console.error(`Failed to fetch event ${id} from DB:`, err);
@@ -230,16 +216,27 @@ export function useBroadcastEvent() {
         ? `/organizations/${orgId}/events/${encodeURIComponent(event.id)}/broadcast`
         : `/events/${encodeURIComponent(event.id)}/broadcast`;
       const res = await apiPost<any>(url, {});
-      return res?.item || event;
+      return { item: res?.item || event, message: res?.message as string | undefined, success: res?.success !== false };
     },
-    onSuccess: (event) => {
+    onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ["events"] });
-      toast.success(
-        `Broadcast sent! In-app notification and email dispatched to target audience.`
-      );
+      if (res.success) toast.success(res.message || "Broadcast started for the target audience.");
+      else toast.error(res.message || "Published, but delivery could not start.");
     },
     onError: (err: any) => {
       toast.error(err?.message || "Failed to broadcast announcement.");
     },
+  });
+}
+
+// 7. Audience preview: how many staff / students / leads / applicants a targeting selection reaches
+export function useAudiencePreview(targeting: AudienceTargeting, enabled = true) {
+  const orgId = useAuthStore((state) => state.user?.organizationId);
+  const key = JSON.stringify(targeting);
+  return useQuery({
+    queryKey: ["events", "audience-preview", orgId, key],
+    queryFn: () => apiPost<AudiencePreview>(`/organizations/${orgId}/events/audience-preview`, targeting),
+    enabled: !!orgId && enabled,
+    staleTime: 30_000,
   });
 }

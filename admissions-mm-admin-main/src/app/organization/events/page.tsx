@@ -93,9 +93,12 @@ const CATEGORIES = [
 const ROLE_OPTIONS = [
   { value: "all", label: "All Audiences" },
   { value: "student", label: "Enrolled Students" },
-  { value: "lead", label: "Leads & Applicants" },
+  { value: "staff", label: "All Staff" },
+  { value: "lead", label: "Leads" },
+  { value: "applicant", label: "Applicants" },
   { value: "counselor", label: "Counselors" },
-  { value: "org_admin", label: "Admins & Staff" },
+  { value: "lead_manager", label: "Lead Managers" },
+  { value: "org_admin", label: "Admins" },
   { value: "application_manager", label: "Application Managers" },
   { value: "exam_manager", label: "Exam Managers" },
 ] as const;
@@ -154,7 +157,17 @@ function getAudienceBadge(role: string) {
     case "student":
       return "Students";
     case "lead":
-      return "Leads / Applicants";
+      return "Leads";
+    case "applicant":
+      return "Applicants";
+    case "staff":
+      return "All Staff";
+    case "lead_manager":
+      return "Lead Managers";
+    case "application_manager":
+      return "Application Managers";
+    case "exam_manager":
+      return "Exam Managers";
     case "counselor":
       return "Counselors";
     case "org_admin":
@@ -162,7 +175,7 @@ function getAudienceBadge(role: string) {
     case "all":
       return "All Audiences";
     default:
-      return role.replace("_", " ");
+      return role.replace(/_/g, " ");
   }
 }
 
@@ -1264,11 +1277,68 @@ export default function AnnouncementsEventsPage() {
                   )}
                   {previewItem.targetLeadStages && previewItem.targetLeadStages.length > 0 && (
                     <span className="bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300 px-2.5 py-1 rounded text-xs font-medium">
-                      Leads: {previewItem.targetLeadStages.join(", ")}
+                      Lead stages: {previewItem.targetLeadStages.join(", ")}
+                    </span>
+                  )}
+                  {previewItem.targetLeadSources && previewItem.targetLeadSources.length > 0 && (
+                    <span className="bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300 px-2.5 py-1 rounded text-xs font-medium">
+                      Lead sources: {previewItem.targetLeadSources.join(", ")}
+                    </span>
+                  )}
+                  {previewItem.targetApplicationStatuses && previewItem.targetApplicationStatuses.length > 0 && (
+                    <span className="bg-purple-50 text-purple-700 dark:bg-purple-950 dark:text-purple-300 px-2.5 py-1 rounded text-xs font-medium">
+                      Application status: {previewItem.targetApplicationStatuses.join(", ")}
+                    </span>
+                  )}
+                  {previewItem.targetAcademicSession && (
+                    <span className="bg-muted px-2.5 py-1 rounded text-xs font-medium">
+                      Session: {previewItem.targetAcademicSession}
+                    </span>
+                  )}
+                  {previewItem.targetBranchIds && previewItem.targetBranchIds.length > 0 && (
+                    <span className="bg-muted px-2.5 py-1 rounded text-xs font-medium">
+                      {previewItem.targetBranchIds.length} branch(es)
                     </span>
                   )}
                 </div>
               </div>
+
+              {/* Delivery summary (in-app / email / WhatsApp, also logged in Communications) */}
+              {previewItem.deliveryStatus && (
+                <div className="flex flex-col gap-1.5 border-t border-border/60 pt-3 text-xs">
+                  <span className="font-semibold text-muted-foreground">
+                    Delivery: <span className="capitalize text-foreground">{previewItem.deliveryStatus.replace(/_/g, " ")}</span>
+                    {previewItem.lastDeliveredAt && ` · ${format(new Date(previewItem.lastDeliveredAt), "dd MMM yyyy, hh:mm a")}`}
+                  </span>
+                  {previewItem.deliveryStats && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {previewItem.deliveryStats.recipients && (
+                        <span className="bg-muted px-2.5 py-1 rounded font-medium">
+                          Recipients: {previewItem.deliveryStats.recipients.staff ?? 0} staff · {previewItem.deliveryStats.recipients.students ?? 0} students · {previewItem.deliveryStats.recipients.leads ?? 0} leads · {previewItem.deliveryStats.recipients.applicants ?? 0} applicants
+                        </span>
+                      )}
+                      {typeof previewItem.deliveryStats.inApp === "number" && (
+                        <span className="bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 px-2.5 py-1 rounded font-medium">
+                          In-app: {previewItem.deliveryStats.inApp}
+                        </span>
+                      )}
+                      {previewItem.deliveryStats.email && (previewItem.deliveryStats.email.sent > 0 || previewItem.deliveryStats.email.failed > 0) && (
+                        <span className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 px-2.5 py-1 rounded font-medium">
+                          Email: {previewItem.deliveryStats.email.sent} sent, {previewItem.deliveryStats.email.failed} failed
+                        </span>
+                      )}
+                      {previewItem.deliveryStats.whatsapp && (previewItem.deliveryStats.whatsapp.sent > 0 || previewItem.deliveryStats.whatsapp.failed > 0) && (
+                        <span className="bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300 px-2.5 py-1 rounded font-medium">
+                          WhatsApp: {previewItem.deliveryStats.whatsapp.sent} sent, {previewItem.deliveryStats.whatsapp.failed} failed
+                        </span>
+                      )}
+                      {previewItem.deliveryStats.error && (
+                        <span className="bg-red-50 text-red-700 px-2.5 py-1 rounded font-medium">{previewItem.deliveryStats.error}</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Attachment link if exists */}
               {previewItem.attachmentName && (

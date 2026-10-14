@@ -47,6 +47,27 @@ export class ScoreConversionConfig {
   @Column({ name: 'auto_announce_results', type: 'boolean', default: false })
   autoAnnounceResults: boolean;
 
+  // Entrance exam scoring mode (owner request):
+  //  - best_overall (default, existing behaviour): the single best
+  //    percentile across ALL entrance tests, scored on bands.testPercentile.
+  //  - cat_split: CAT is scored on its own (bands.catPercentile x catWeight%)
+  //    and the best percentile among non-CAT exams (XAT, MAT, CMAT, GMAT,
+  //    GRE, ...) is scored on bands.otherTestPercentile x otherTestWeight%.
+  //    The entrance component is the sum of the two.
+  @Column({ name: 'entrance_scoring_mode', length: 20, default: 'best_overall' })
+  entranceScoringMode: string;
+
+  @Column({ name: 'cat_weight', type: 'decimal', precision: 6, scale: 2, default: 100 })
+  catWeight: number;
+
+  @Column({ name: 'other_test_weight', type: 'decimal', precision: 6, scale: 2, default: 100 })
+  otherTestWeight: number;
+
+  // Selected GD/PI scoring scheme (owner request). null = the predefined
+  // "Standard" template (GD /10, PI /30, existing composite formula).
+  @Column({ name: 'gd_scoring_scheme_id', type: 'uuid', nullable: true })
+  gdScoringSchemeId: string | null;
+
   @Column({ name: 'updated_by', type: 'uuid', nullable: true })
   updatedBy: string;
 

@@ -43,6 +43,8 @@ import {
   UpdateGdEvaluationDto,
 } from './dto/update-sections.dto.js';
 import { VerifyApplicationDto } from './dto/verify-application.dto.js';
+import { ApplicationStatusService } from './application-status.service.js';
+import { fromApplicationStatus, toApplicationStatus } from './application-workflow.constants.js';
 
 import { ApplicationEducation, EducationLevel } from './entities/application-education.entity.js';
 import { ApplicationEntranceTest } from './entities/application-entrance-test.entity.js';
@@ -72,6 +74,7 @@ export class ApplicationsService {
     private readonly emailTemplatesService: EmailTemplatesService,
     private readonly dataSource: DataSource,
     private readonly mailerService: MailerService,
+    private readonly statusService: ApplicationStatusService,
   ) {}
 
   // =========================================================================
@@ -185,6 +188,7 @@ export class ApplicationsService {
     search?: string,
     status?: string,
     verificationStatus?: string,
+    filters: { stage?: string; source?: string; counsellorId?: string; academicYear?: string } = {},
   ) {
     const query = this.applicationRepository
       .createQueryBuilder('app')
@@ -203,7 +207,22 @@ export class ApplicationsService {
         'pref2.id::text = app.preference_2::text AND pref2.organization_id = :orgId',
         { orgId },
       )
+      .leftJoinAndSelect('app.assignedCounselor', 'counsellor')
       .where('app.organization_id = :orgId', { orgId });
+
+    if (filters.stage && filters.stage !== 'all') {
+      query.andWhere('app.current_stage = :stage', { stage: filters.stage });
+    }
+    if (filters.source && filters.source !== 'all') {
+      query.andWhere('app.application_source = :source', { source: filters.source });
+    }
+    if (filters.counsellorId && filters.counsellorId !== 'all') {
+      if (filters.counsellorId === 'unassigned') query.andWhere('app.assigned_counselor_id IS NULL');
+      else query.andWhere('app.assigned_counselor_id = :cid', { cid: filters.counsellorId });
+    }
+    if (filters.academicYear && filters.academicYear !== 'all') {
+      query.andWhere('app.academic_session = :ay', { ay: filters.academicYear });
+    }
 
     if (status) {
       query.andWhere('app.form_status = :status', { status: status.toLowerCase() });
@@ -265,6 +284,17 @@ export class ApplicationsService {
       verificationStatus: app.verificationStatus || (app as any).verification_status || 'pending',
       verificationRemarks: app.verificationRemarks || (app as any).verification_remarks || null,
       verifiedAt: app.verifiedAt || (app as any).verified_at || null,
+      // Application Master fields (scope p.15)
+      applicantId: app.studentId,
+      academicYear: app.academicSession,
+      applicationStatus: toApplicationStatus(app.formStatus),
+      currentStage: app.currentStage || 'Application Started',
+      applicationStartDate: app.createdAt,
+      applicationSubmissionDate: app.submittedAt ?? null,
+      assignedCounsellorId: app.assignedCounselorId ?? null,
+      assignedCounsellorName: app.assignedCounselor?.name ?? null,
+      lastUpdated: app.updatedAt,
+      applicationSource: app.applicationSource ?? null,
     }));
 
     return {
@@ -320,6 +350,11 @@ export class ApplicationsService {
       preference1: pref1Name,
       preference2: pref2Name,
     };
+    (app as any).applicationStatus = toApplicationStatus(app.formStatus);
+    if (app.assignedCounselorId) {
+      const counsellor = await this.dataSource.getRepository(User).findOne({ where: { id: app.assignedCounselorId } });
+      (app as any).assignedCounsellorName = counsellor?.name ?? null;
+    }
 
     return app;
   }
@@ -634,6 +669,8 @@ export class ApplicationsService {
         interviewPreference1: dto.preferences?.interviewPreference1 || undefined,
         interviewPreference2: dto.preferences?.interviewPreference2 || undefined,
         hobbies: dto.otherDetails?.hobbies || undefined,
+        applicationSource: dto.applicationSource || (creatorRole === Role.STUDENT ? 'Website' : null),
+        currentStage: 'Application Started',
         createdBy: creatorId,
         updatedBy: creatorId,
       });
@@ -724,6 +761,8 @@ export class ApplicationsService {
       }
 
       await queryRunner.commitTransaction();
+
+      await this.statusService.initialize(savedApp, creatorId).catch(() => undefined);
 
       // Trigger Application Received email and communication log
       try {
@@ -903,7 +942,9 @@ export class ApplicationsService {
     Object.assign(app, dto);
     app.updatedBy = actorId;
     app.lastActivityAt = new Date();
-    return this.applicationRepository.save(app);
+    const saved = await this.applicationRepository.save(app);
+    await this.statusService.evaluate(saved.id, actorId);
+    return saved;
   }
 
   // Generic replace strategy for child collections
@@ -1045,6 +1086,8 @@ export class ApplicationsService {
     await this.logActivity(queryRunner.manager, saved.id, orgId, actorId, 'status_changed', 'Application submitted', 'incomplete', 'submitted');
     await queryRunner.release();
 
+    await this.statusService.evaluate(saved.id, actorId);
+
     return saved;
   }
 
@@ -1064,7 +1107,7 @@ export class ApplicationsService {
     }
 
     const prev = app.formStatus;
-    app.formStatus = status.toLowerCase();
+    app.formStatus = fromApplicationStatus(status) || status.toLowerCase();
     app.updatedBy = actorId;
     app.lastActivityAt = new Date();
     
@@ -1074,6 +1117,15 @@ export class ApplicationsService {
     await queryRunner.connect();
     await this.logActivity(queryRunner.manager, saved.id, orgId, actorId, 'status_changed', `Status updated to ${status}`, prev, status);
     await queryRunner.release();
+
+    // Final decisions are mirrored on the status tracker; other changes go through the rules engine.
+    if (saved.formStatus === 'accepted' && saved.currentStage !== 'Approved') {
+      await this.statusService.changeStage(saved, 'Approved', { actorId, source: 'manual', internalRemarks: `Application status set to ${status}` });
+    } else if (saved.formStatus === 'rejected' && saved.currentStage !== 'Rejected') {
+      await this.statusService.changeStage(saved, 'Rejected', { actorId, source: 'manual', internalRemarks: `Application status set to ${status}` });
+    } else {
+      await this.statusService.evaluate(saved.id, actorId);
+    }
 
     return saved;
   }
@@ -1104,6 +1156,7 @@ export class ApplicationsService {
     await queryRunner.connect();
     await this.logActivity(queryRunner.manager, saved.id, orgId, actorId, 'shortlist_status_changed', `Shortlist status updated to ${shortlistStatus}`, prev, shortlistStatus);
     await queryRunner.release();
+    await this.statusService.evaluate(saved.id, actorId);
 
     return saved;
   }
@@ -1174,6 +1227,8 @@ export class ApplicationsService {
       dto.status,
     );
     await queryRunner.release();
+
+    await this.statusService.evaluate(saved.id, actorId);
 
     // Send document verification email via organization SMTP and record communication log
     try {

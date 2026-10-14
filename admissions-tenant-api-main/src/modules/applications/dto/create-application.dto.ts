@@ -6,6 +6,7 @@ import {
   IsObject,
   IsArray,
   ValidateNested,
+  IsIn,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -64,6 +65,11 @@ export class ApplicantDto {
 }
 
 export class CreateApplicationDto {
+  /** Application_Source — Website / Agent / Campaign */
+  @IsOptional()
+  @IsIn(['Website', 'Agent', 'Campaign'])
+  applicationSource?: string;
+
   @IsOptional()
   @IsUUID()
   leadId?: string;

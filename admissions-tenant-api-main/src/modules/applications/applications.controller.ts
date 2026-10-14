@@ -62,12 +62,21 @@ export class ApplicationsController {
     @Query('search') search?: string,
     @Query('status') status?: string,
     @Query('verificationStatus') verificationStatus?: string,
+    @Query('stage') stage?: string,
+    @Query('source') source?: string,
+    @Query('counsellorId') counsellorId?: string,
+    @Query('academicYear') academicYear?: string,
   ) {
     const orgId = req.user.organizationId;
     const paginationDto = new PaginationDto();
     paginationDto.page = page ? Math.max(1, parseInt(page, 10) || 1) : 1;
     paginationDto.limit = limit ? Math.min(1000, Math.max(1, parseInt(limit, 10) || 10)) : 10;
-    return this.applicationsService.findAll(orgId, paginationDto, search, status, verificationStatus);
+    return this.applicationsService.findAll(orgId, paginationDto, search, status, verificationStatus, {
+      stage,
+      source,
+      counsellorId,
+      academicYear,
+    });
   }
 
   @Get('my/active')

@@ -4,14 +4,25 @@ import * as React from "react";
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useLead, useUpdateLead } from "@/hooks/use-leads";
+import {
+  useLead,
+  useLeadActivities,
+  useRecordEngagement,
+  useRerouteLead,
+  useRescoreLead,
+  useUpdateLead,
+} from "@/hooks/use-leads";
+import { useCourses } from "@/hooks/use-courses";
+import { CHANNEL_SOURCES, ENGAGEMENT_TYPES, FOLLOW_UP_STATUSES, SOURCE_TYPES } from "@/types/lead-management";
+import { BandBadge, ReadOnlyField, formatDateTime, pillStyles } from "../_components/lm-ui";
+import { MergeDialog } from "../_components/merge-dialog";
 import { useForm } from "@/hooks/use-forms";
 import { useTeam } from "@/hooks/use-team";
 import { useAuthStore } from "@/stores/auth-store";
 import { usePageHeader } from "@/hooks/use-page-header";
 import { Role } from "@/types/auth";
 import { SYSTEM_FIELD_IDS } from "@/lib/default-form-fields";
-import { ChevronLeft, Check, Upload, Paperclip, FileText, Trash2, ExternalLink, Loader2 } from "lucide-react";
+import { ChevronLeft, Check, Upload, Paperclip, FileText, Trash2, ExternalLink, Loader2, RefreshCw, GitMerge, Route } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -53,7 +64,30 @@ const STAGES = [
   "Lost",
 ] as const;
 
-const STATUSES = ["Hot", "Warm", "Cold"] as const;
+
+function toLocalInput(v: string) {
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+const ACTION_LABELS: Record<string, string> = {
+  created: "Lead captured",
+  reentry: "Submitted again",
+  auto_assigned: "Auto-assigned",
+  assigned: "Assigned",
+  reassigned: "Reassigned",
+  duplicate_flagged: "Duplicate flagged",
+  duplicate_dismissed: "Duplicate dismissed",
+  merged: "Merged",
+  status_changed: "Status changed",
+  follow_up_status: "Follow-up",
+  engagement: "Engagement",
+  rescored: "Rescored",
+  note: "Note",
+  updated: "Updated",
+};
 
 function EditLeadForm() {
   usePageHeader({
@@ -71,6 +105,14 @@ function EditLeadForm() {
   const formFields = lead?.form?.fields || formData?.fields || [];
 
   const updateLead = useUpdateLead();
+  const { data: activities = [] } = useLeadActivities(leadId);
+  const rescore = useRescoreLead();
+  const reroute = useRerouteLead();
+  const recordEngagement = useRecordEngagement();
+  const [engagementType, setEngagementType] = React.useState("webinar");
+  const [mergeOpen, setMergeOpen] = React.useState(false);
+  const { data: coursesData } = useCourses(1, 200);
+  const courses: any[] = (coursesData as any)?.data || [];
   const { data: teamData } = useTeam(1, 100);
   const teamMembers = teamData?.data || [];
   const currentUser = useAuthStore((s) => s.user);
@@ -86,9 +128,26 @@ function EditLeadForm() {
     source: "",
     campaign: "",
     stage: "New",
-    status: "",
     assignedTo: "",
     notes: "",
+    dateOfBirth: "",
+    studentId: "",
+    courseId: "",
+    programInterest: "",
+    intake: "",
+    formName: "",
+    channelSource: "",
+    sourceType: "",
+    subSource: "",
+    campaignName: "",
+    utmSource: "",
+    utmMedium: "",
+    testType: "",
+    testScore: "",
+    gpa: "",
+    workExperienceYears: "",
+    followUpStatus: "Pending",
+    nextFollowUpAt: "",
   });
 
   const [extraPayload, setExtraPayload] = React.useState<Record<string, any>>({});
@@ -106,9 +165,27 @@ function EditLeadForm() {
         source: lead.source || lead.utmSource || "",
         campaign: lead.utmCampaign || lead.campaignId || (lead.form as any)?.campaignId || (lead.form as any)?.campaign || (lead as any)?.campaign?.name || "",
         stage: (lead.status === "disqualified" || lead.rawPayload?.stage === "Lost" || lead.rawPayload?.stage === "lost") ? "Lost" : (lead.rawPayload?.stage || "New"), 
-        status: lead.scoreBand ? lead.scoreBand.charAt(0).toUpperCase() + lead.scoreBand.slice(1) : "Warm",
         assignedTo: lead.assignedTo || "",
         notes: lead.rawPayload?.notes || "",
+        dateOfBirth: lead.dateOfBirth || "",
+        studentId: lead.studentId || "",
+        courseId: lead.courseId || "",
+        programInterest: lead.programInterest || "",
+        intake: lead.intake || "",
+        formName: lead.formName || lead.form?.name || "",
+        channelSource: lead.channelSource || "",
+        sourceType: lead.sourceType || "",
+        subSource: lead.subSource || "",
+        campaignName: lead.campaignName || "",
+        utmSource: lead.utmSource || "",
+        utmMedium: lead.utmMedium || "",
+        testType: lead.testType || "",
+        testScore: lead.testScore !== null && lead.testScore !== undefined ? String(lead.testScore) : "",
+        gpa: lead.gpa !== null && lead.gpa !== undefined ? String(lead.gpa) : "",
+        workExperienceYears:
+          lead.workExperienceYears !== null && lead.workExperienceYears !== undefined ? String(lead.workExperienceYears) : "",
+        followUpStatus: lead.followUpStatus || "Pending",
+        nextFollowUpAt: lead.nextFollowUpAt ? toLocalInput(lead.nextFollowUpAt) : "",
       });
       setExtraPayload(lead.rawPayload || {});
     }
@@ -242,9 +319,25 @@ function EditLeadForm() {
         state: form.state || undefined,
         country: form.country || undefined,
         source: form.source || undefined,
-        utmSource: form.source || undefined,
+        utmSource: form.utmSource || undefined,
+        utmMedium: form.utmMedium || undefined,
         utmCampaign: form.campaign || undefined,
-        scoreBand: form.status ? form.status.toLowerCase() : undefined,
+        dateOfBirth: form.dateOfBirth || undefined,
+        studentId: form.studentId || undefined,
+        courseId: form.courseId || undefined,
+        programInterest: form.programInterest || undefined,
+        intake: form.intake || undefined,
+        formName: form.formName || undefined,
+        channelSource: form.channelSource || undefined,
+        sourceType: form.sourceType || undefined,
+        subSource: form.subSource || undefined,
+        campaignName: form.campaignName || undefined,
+        testType: form.testType || undefined,
+        testScore: form.testScore !== "" ? Number(form.testScore) : undefined,
+        gpa: form.gpa !== "" ? Number(form.gpa) : undefined,
+        workExperienceYears: form.workExperienceYears !== "" ? Number(form.workExperienceYears) : undefined,
+        followUpStatus: form.followUpStatus || undefined,
+        nextFollowUpAt: form.nextFollowUpAt ? new Date(form.nextFollowUpAt).toISOString() : undefined,
         status: form.stage === "Lost" ? "disqualified" : (form.stage === "Verified" ? "verified" : (lead?.status === "disqualified" && form.stage !== "Lost" ? "unverified" : lead?.status)),
         assignedTo: form.assignedTo || null,
         rawPayload: { ...lead?.rawPayload, ...extraPayload, notes: form.notes, stage: form.stage }
@@ -347,6 +440,67 @@ function EditLeadForm() {
                 </div>
               </section>
 
+              {/* Program & Academic */}
+              <section className="flex flex-col gap-5 py-6">
+                <div className="flex flex-col gap-1">
+                  <p className="text-[16px] font-medium text-foreground">Program &amp; Academic</p>
+                  <p className="text-[14px] text-muted-foreground">Program interest, intake and the details used for scoring.</p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+                  <div className="flex flex-col gap-2">
+                    <Label className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">Program / Course Interest</Label>
+                    <Select
+                      value={form.courseId || "none"}
+                      onValueChange={(v) => {
+                        const c = courses.find((x: any) => x.id === v);
+                        setForm((prev) => ({ ...prev, courseId: v === "none" ? "" : v, programInterest: c ? c.name : prev.programInterest }));
+                      }}
+                    >
+                      <SelectTrigger className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full data-[placeholder]:text-foreground">
+                        <SelectValue placeholder="Select program" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">{form.programInterest ? `${form.programInterest} (not in catalog)` : "Not specified"}</SelectItem>
+                        {courses.map((c: any) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">Intake / Session</Label>
+                    <Input value={form.intake} placeholder="e.g. Fall 2026" onChange={(e) => set("intake", e.target.value)} className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground" />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">Date of Birth</Label>
+                    <Input type="date" value={form.dateOfBirth} onChange={(e) => set("dateOfBirth", e.target.value)} className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground" />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">Student ID</Label>
+                    <Input value={form.studentId} onChange={(e) => set("studentId", e.target.value)} className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground" />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">Test (GMAT / GRE)</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input value={form.testType} placeholder="GMAT" onChange={(e) => set("testType", e.target.value)} className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground" />
+                      <Input type="number" value={form.testScore} placeholder="Score" onChange={(e) => set("testScore", e.target.value)} className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="flex flex-col gap-2">
+                      <Label className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">Work Exp. (yrs)</Label>
+                      <Input type="number" value={form.workExperienceYears} onChange={(e) => set("workExperienceYears", e.target.value)} className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground" />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Label className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">GPA</Label>
+                      <Input type="number" value={form.gpa} onChange={(e) => set("gpa", e.target.value)} className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground" />
+                    </div>
+                  </div>
+                </div>
+              </section>
+
               {/* Location */}
               <section className="flex flex-col gap-5 py-6">
                 <div className="flex flex-col gap-1">
@@ -428,93 +582,98 @@ function EditLeadForm() {
               {/* Lead Source */}
               <section className="flex flex-col gap-5 py-6">
                 <div className="flex flex-col gap-1">
-                  <p className="text-[16px] font-medium text-foreground">
-                    Lead Source
-                  </p>
-                  <p className="text-[14px] text-muted-foreground">
-                    Where did this lead come from?
-                  </p>
+                  <p className="text-[16px] font-medium text-foreground">Lead Source</p>
+                  <p className="text-[14px] text-muted-foreground">Where did this lead come from? First touch and last touch are both kept.</p>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                  {/* Form Submitted */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="flex flex-col gap-2">
-                    <Label className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">
-                      Form Submitted
-                    </Label>
-                    <div className="border border-input h-[40px] rounded-[8px] text-[12px] flex items-center px-3 bg-muted/30 text-foreground truncate" title={lead?.form?.name || "Not specified"}>
-                      {lead?.form?.name || "Not specified"}
-                    </div>
+                    <Label className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">Form Name</Label>
+                    <Input value={form.formName} onChange={(e) => set("formName", e.target.value)} className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground" />
                   </div>
-                  {/* Source */}
                   <div className="flex flex-col gap-2">
-                    <Label
-                      htmlFor="source"
-                      className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground"
-                    >
-                      Source
-                    </Label>
-                    <Select
-                      value={
-                        (SOURCES as readonly string[]).includes(form.source) && form.source !== "Other"
-                          ? form.source
-                          : form.source
-                          ? "Other"
-                          : ""
-                      }
-                      onValueChange={(v) => {
-                        if (v === "Other") {
-                          set("source", "Other");
-                        } else {
-                          set("source", v);
-                        }
-                      }}
-                    >
-                      <SelectTrigger
-                        id="source"
-                        className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full data-[placeholder]:text-foreground"
-                      >
-                        <SelectValue placeholder="Select Source" />
+                    <Label className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">Channel Source</Label>
+                    <Select value={form.channelSource || "none"} onValueChange={(v) => set("channelSource", v === "none" ? "" : v)}>
+                      <SelectTrigger className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full data-[placeholder]:text-foreground">
+                        <SelectValue placeholder="Select channel" />
                       </SelectTrigger>
                       <SelectContent>
-                        {SOURCES.map((s) => (
-                          <SelectItem key={s} value={s}>
-                            {s}
-                          </SelectItem>
+                        <SelectItem value="none">Not specified</SelectItem>
+                        {CHANNEL_SOURCES.map((c) => (
+                          <SelectItem key={c} value={c}>{c}</SelectItem>
                         ))}
-                        {form.source && !(SOURCES as readonly string[]).includes(form.source) && (
-                          <SelectItem value={form.source}>
-                            {form.source} (Custom)
-                          </SelectItem>
-                        )}
                       </SelectContent>
                     </Select>
-                    {(form.source === "Other" || (!((SOURCES as readonly string[]).includes(form.source)) && form.source !== "")) && (
-                      <Input
-                        placeholder="Type custom source (e.g. Newspaper, Seminar)..."
-                        value={form.source === "Other" ? "" : form.source}
-                        onChange={(e) => set("source", e.target.value)}
-                        className="h-[38px] rounded-[8px] text-[12px] mt-1"
-                        autoFocus={form.source === "Other"}
-                      />
-                    )}
                   </div>
-
-                  {/* Campaign */}
                   <div className="flex flex-col gap-2">
-                    <Label
-                      htmlFor="campaign"
-                      className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground"
-                    >
-                      Campaign
-                    </Label>
-                    <Input
-                      id="campaign"
-                      placeholder="e.g. Fall 2027, Spring 2027, Direct Walk-in..."
-                      value={form.campaign}
-                      onChange={(e) => set("campaign", e.target.value)}
-                      className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full"
-                    />
+                    <Label className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">Source Type</Label>
+                    <Select value={form.sourceType || "none"} onValueChange={(v) => set("sourceType", v === "none" ? "" : v)}>
+                      <SelectTrigger className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full data-[placeholder]:text-foreground">
+                        <SelectValue placeholder="Select source type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Not specified</SelectItem>
+                        {SOURCE_TYPES.map((c) => (
+                          <SelectItem key={c} value={c}>{c}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
+                  <div className="flex flex-col gap-2">
+                    <Label className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">Sub-source</Label>
+                    <Input value={form.subSource} placeholder="e.g. Google, Facebook, Shiksha" onChange={(e) => set("subSource", e.target.value)} className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground" />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">Campaign Name</Label>
+                    <Input value={form.campaignName} onChange={(e) => set("campaignName", e.target.value)} className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground" />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">Source (legacy)</Label>
+                    <Input value={form.source} onChange={(e) => set("source", e.target.value)} className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground" />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">UTM Source</Label>
+                    <Input value={form.utmSource} onChange={(e) => set("utmSource", e.target.value)} className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground" />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">UTM Medium</Label>
+                    <Input value={form.utmMedium} onChange={(e) => set("utmMedium", e.target.value)} className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground" />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">UTM Campaign</Label>
+                    <Input value={form.campaign} onChange={(e) => set("campaign", e.target.value)} className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <ReadOnlyField label="Created From" value={lead?.createdFrom} />
+                  <ReadOnlyField label="Lead Owner" value={lead?.assignedToUser?.name} />
+                  <ReadOnlyField label="Touches" value={lead?.touchCount ?? 1} />
+                  <ReadOnlyField label="UTM Term / Content" value={[lead?.utmTerm, lead?.utmContent].filter(Boolean).join(" · ")} />
+                  <div className="md:col-span-2">
+                    <ReadOnlyField label="Submission URL" value={lead?.submissionUrl} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {(["firstTouch", "lastTouch"] as const).map((k) => {
+                    const t = lead?.[k];
+                    return (
+                      <div key={k} className="rounded-[8px] border border-input p-4 flex flex-col gap-1 text-[12px]">
+                        <p className="text-[12px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">
+                          {k === "firstTouch" ? "First touch" : "Last touch"}
+                        </p>
+                        {t ? (
+                          <>
+                            <p className="font-medium text-foreground">{formatDateTime(t.at)}</p>
+                            <p>{[t.channelSource, t.sourceType, t.subSource].filter(Boolean).join(" · ") || "—"}</p>
+                            <p className="text-muted-foreground">{[t.utmSource, t.utmMedium, t.utmCampaign].filter(Boolean).join(" / ") || "No UTM"}</p>
+                            {t.campaignName && <p className="text-muted-foreground">Campaign: {t.campaignName}</p>}
+                            {t.formName && <p className="text-muted-foreground">Form: {t.formName}</p>}
+                          </>
+                        ) : (
+                          <p className="text-muted-foreground">Not recorded</p>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </section>
 
@@ -724,32 +883,29 @@ function EditLeadForm() {
                   </Select>
                 </div>
 
-                {/* Status */}
+                {/* Follow-up Status */}
                 <div className="flex flex-col gap-2">
-                  <Label
-                    htmlFor="crm-status"
-                    className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground"
-                  >
-                    Status
-                  </Label>
-                  <Select
-                    value={form.status}
-                    onValueChange={(v) => set("status", v)}
-                  >
-                    <SelectTrigger
-                      id="crm-status"
-                      className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full data-[placeholder]:text-foreground"
-                    >
-                      <SelectValue placeholder="Select Status" />
+                  <Label htmlFor="crm-followup" className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">Follow-up Status</Label>
+                  <Select value={form.followUpStatus} onValueChange={(v) => set("followUpStatus", v)}>
+                    <SelectTrigger id="crm-followup" className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full data-[placeholder]:text-foreground">
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {STATUSES.map((s) => (
-                        <SelectItem key={s} value={s}>
-                          {s}
-                        </SelectItem>
+                      {FOLLOW_UP_STATUSES.map((s) => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="crm-next" className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">Next Follow-up</Label>
+                  <Input
+                    id="crm-next"
+                    type="datetime-local"
+                    value={form.nextFollowUpAt}
+                    onChange={(e) => set("nextFollowUpAt", e.target.value)}
+                    className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground"
+                  />
                 </div>
 
                 {/* Assigned To */}
@@ -780,6 +936,23 @@ function EditLeadForm() {
                       ))}
                     </SelectContent>
                   </Select>
+                  <p className="text-[12px] text-muted-foreground">
+                    Assigned {formatDateTime(lead?.assignedAt)}
+                  </p>
+                  {lead?.assignmentRule && (
+                    <p className="text-[12px] text-muted-foreground">Rule: {lead.assignmentRule}</p>
+                  )}
+                  {canEditAssignedTo && leadId && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-9 text-xs"
+                      disabled={reroute.isPending}
+                      onClick={() => reroute.mutate(leadId)}
+                    >
+                      <Route className="size-4" /> Re-run routing rules
+                    </Button>
+                  )}
                 </div>
               </div>
 
@@ -821,19 +994,140 @@ function EditLeadForm() {
               />
             </div>
 
-            {/* Protip Card */}
-            <div className="bg-accent flex flex-col gap-4 p-6 rounded-[8px]">
-              <p className="text-accent-foreground text-[18px] font-semibold leading-normal">
-                Protip
-              </p>
-              <p className="text-foreground text-[12px] font-medium leading-[20px] tracking-[0.6px]">
-                Completing the Lead Source details helps the AI system better
-                predict conversion rates for this campaign.
-              </p>
+            {/* Lead Score Card */}
+            <div className="border border-border rounded-[8px] bg-card p-6 flex flex-col gap-4">
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="text-[18px] font-medium text-foreground">Lead Score</h2>
+                <BandBadge band={lead?.scoreBand} />
+              </div>
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="rounded-[8px] border border-input p-3">
+                  <p className="text-[20px] font-bold text-foreground">{lead?.score ?? "—"}</p>
+                  <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Lead</p>
+                </div>
+                <div className="rounded-[8px] border border-input p-3">
+                  <p className="text-[20px] font-bold text-foreground">{lead?.academicScore ?? "—"}</p>
+                  <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Academic</p>
+                </div>
+                <div className="rounded-[8px] border border-input p-3">
+                  <p className="text-[20px] font-bold text-foreground">{lead?.engagementScore ?? "—"}</p>
+                  <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Engagement</p>
+                </div>
+              </div>
+              <p className="text-[12px] text-muted-foreground">Last scored: {formatDateTime(lead?.lastScoredAt)}</p>
+              {(lead?.scoreBreakdown || []).length > 0 && (
+                <div className="flex flex-col gap-1.5">
+                  {(lead?.scoreBreakdown || []).map((b) => (
+                    <div key={b.ruleId} className="flex items-center justify-between gap-2 text-[12px]">
+                      <span className="text-foreground/90">{b.label}</span>
+                      <span className={b.points >= 0 ? pillStyles.green : pillStyles.red}>
+                        {b.points > 0 ? `+${b.points}` : b.points}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <Select value={engagementType} onValueChange={setEngagementType}>
+                  <SelectTrigger className="border border-input h-[36px] rounded-[8px] text-[12px] flex-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ENGAGEMENT_TYPES.map((e) => (
+                      <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-9 text-xs"
+                  disabled={!leadId || recordEngagement.isPending}
+                  onClick={() => leadId && recordEngagement.mutate({ leadId, type: engagementType })}
+                >
+                  Record
+                </Button>
+              </div>
+              {canEditAssignedTo && leadId && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-9 text-xs"
+                  disabled={rescore.isPending}
+                  onClick={() => rescore.mutate(leadId)}
+                >
+                  <RefreshCw className="size-4" /> Rescore now
+                </Button>
+              )}
+            </div>
+
+            {/* Duplicate Card */}
+            <div className="border border-border rounded-[8px] bg-card p-6 flex flex-col gap-3">
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="text-[18px] font-medium text-foreground">Duplicate Check</h2>
+                <span className={lead?.status === "merged" ? pillStyles.purple : lead?.isDuplicate ? pillStyles.red : pillStyles.green}>
+                  {lead?.status === "merged" ? "Merged" : lead?.isDuplicate ? "Flagged" : "Unique"}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-[12px]">
+                <span className="text-muted-foreground">Duplicate Flag</span>
+                <span className="text-right">{lead?.isDuplicate ? "Yes" : "No"}</span>
+                <span className="text-muted-foreground">Confidence</span>
+                <span className="text-right">{lead?.duplicateConfidence !== null && lead?.duplicateConfidence !== undefined ? `${lead.duplicateConfidence}%` : "—"}</span>
+                <span className="text-muted-foreground">Master Lead</span>
+                <span className="text-right truncate">
+                  {lead?.masterLeadId ? (
+                    <Link className="text-primary underline" href={`/organization/lead-manager/edit?id=${lead.masterLeadId}`}>
+                      Open master
+                    </Link>
+                  ) : (
+                    "—"
+                  )}
+                </span>
+                <span className="text-muted-foreground">Merge Date</span>
+                <span className="text-right">{formatDateTime(lead?.mergedAt)}</span>
+                <span className="text-muted-foreground">Re-entries</span>
+                <span className="text-right">{lead?.duplicateCount ?? 0}</span>
+              </div>
+              {lead?.duplicateReason && <p className="text-[12px] text-muted-foreground">Matched on: {lead.duplicateReason}</p>}
+              {lead?.isDuplicate && lead?.masterLeadId && lead?.status !== "merged" && canEditAssignedTo && (
+                <Button type="button" className="h-9 text-xs" onClick={() => setMergeOpen(true)}>
+                  <GitMerge className="size-4" /> Review &amp; merge
+                </Button>
+              )}
+            </div>
+
+            {/* Activity Card */}
+            <div className="border border-border rounded-[8px] bg-card p-6 flex flex-col gap-4">
+              <h2 className="text-[18px] font-medium text-foreground">Activity &amp; Assignment History</h2>
+              {activities.length === 0 ? (
+                <p className="text-[12px] text-muted-foreground">No activity yet.</p>
+              ) : (
+                <div className="flex flex-col gap-3 max-h-[420px] overflow-y-auto pr-1">
+                  {activities.map((a) => (
+                    <div key={a.id} className="border-l-2 border-primary/30 pl-3 flex flex-col gap-0.5">
+                      <p className="text-[12px] font-semibold text-foreground">
+                        {ACTION_LABELS[a.action] || a.action.replace(/_/g, " ")}
+                        {a.newAssignedToName ? ` → ${a.newAssignedToName}` : ""}
+                      </p>
+                      {a.content && <p className="text-[12px] text-foreground/80">{a.content}</p>}
+                      <p className="text-[11px] text-muted-foreground">
+                        {formatDateTime(a.createdAt)}
+                        {a.actorName ? ` · ${a.actorName}` : ""}
+                        {a.mergedFromLeadId ? " · from merged lead" : ""}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
+      <MergeDialog
+        review={mergeOpen && lead?.masterLeadId && leadId ? { masterId: lead.masterLeadId, duplicateId: leadId } : null}
+        onClose={() => setMergeOpen(false)}
+      />
     </>
   );
 }

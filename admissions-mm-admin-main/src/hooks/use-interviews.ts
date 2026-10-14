@@ -8,9 +8,16 @@ import { PaginatedResponse } from "@/types/api";
 // TYPES
 // ============================================================================
 
+export type InterviewStatus = "Slot Available" | "Scheduled" | "Rescheduled" | "Completed" | "No Show" | "Cancelled";
+export type SlotStatus = "Available" | "Booked" | "Blocked" | "Cancelled";
+
 export interface InterviewSlot {
   id: string;
+  // Slot_ID (Auto Number)
+  slotNumber?: number;
   organizationId: string;
+  // Interview (Lookup Interviews) currently booked into this slot
+  interviewId?: string | null;
   interviewerId: string;
   interviewer?: { id: string; name: string; email: string };
   interviewType: "GD" | "PI";
@@ -20,7 +27,10 @@ export interface InterviewSlot {
   location?: string | null;
   mode: "In-person" | "Virtual";
   meetingLink?: string | null;
-  status: "Available" | "Booked" | "Blocked" | "Cancelled";
+  status: SlotStatus;
+  // Candidate_Booked (Checkbox) / Booking_Time (Date-Time)
+  candidateBooked?: boolean;
+  bookingTime?: string | null;
   timeZone?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -55,15 +65,23 @@ export interface BulkCreateSlotsInput {
 
 export interface Interview {
   id: string;
+  // Interview_ID (Auto Number)
+  interviewNumber?: number;
   organizationId: string;
   applicationId: string;
   application?: { id: string; applicationNo: string; name: string };
   interviewType: "GD" | "PI";
+  interviewMode?: "In-person" | "Virtual" | null;
   round: number;
+  interviewDate?: string | null;
+  startTime?: string | null;
+  endTime?: string | null;
   slotId: string | null;
   slot?: InterviewSlot;
-  status: "Scheduled" | "Rescheduled" | "Completed" | "No Show" | "Cancelled";
+  status: InterviewStatus;
   assignedPanel: string[];
+  meetingLink?: string | null;
+  location?: string | null;
   outcome?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -75,6 +93,49 @@ export interface BookInterviewInput {
   slotId: string;
   // Optional — defaults server-side to the slot's assigned interviewer.
   panelUserIds?: string[];
+}
+
+export interface CreateInterviewInput {
+  applicationId: string;
+  interviewType: "GD" | "PI";
+  interviewMode?: "In-person" | "Virtual";
+  round?: number;
+  assignedPanel?: string[];
+  interviewDate?: string;
+  startTime?: string;
+  endTime?: string;
+  meetingLink?: string;
+  location?: string;
+}
+
+export interface UpdateInterviewInput extends Partial<Omit<CreateInterviewInput, "applicationId" | "interviewType">> {
+  status?: InterviewStatus;
+  outcome?: string;
+}
+
+// Picklists from the scope document, served by GET /interviews/picklists.
+export interface InterviewPicklists {
+  interviewTypes: string[];
+  interviewModes: string[];
+  interviewStatuses: InterviewStatus[];
+  interviewOutcomes: string[];
+  slotStatuses: SlotStatus[];
+  timeZones: string[];
+  recommendations: string[];
+  evaluationStatuses: string[];
+  ruleStatuses: string[];
+  calendarProviders: string[];
+  calendarSyncStatuses: string[];
+}
+
+export function useInterviewPicklists() {
+  const orgId = useAuthStore((s) => s.user?.organizationId);
+  return useQuery({
+    queryKey: ["interview-picklists", orgId],
+    queryFn: () => apiGet<InterviewPicklists>(`/organizations/${orgId}/interviews/picklists`),
+    enabled: !!orgId,
+    staleTime: 60 * 60 * 1000,
+  });
 }
 
 // ============================================================================
@@ -208,6 +269,45 @@ export function useInterviews(filters?: { applicationId?: string; interviewType?
   });
 }
 
+export function useInterview(id?: string) {
+  const orgId = useAuthStore((s) => s.user?.organizationId);
+  return useQuery({
+    queryKey: ["interview", orgId, id],
+    queryFn: () => apiGet<Interview>(`/organizations/${orgId}/interviews/${id}`),
+    enabled: !!orgId && !!id,
+  });
+}
+
+// Creates an interview without a slot yet (Interview_Status "Slot Available").
+export function useCreateInterview() {
+  const queryClient = useQueryClient();
+  const orgId = useAuthStore((s) => s.user?.organizationId);
+  return useMutation({
+    mutationFn: (data: CreateInterviewInput) => apiPost<Interview>(`/organizations/${orgId}/interviews`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["interviews"] });
+      toast.success("Interview created");
+    },
+    onError: (err: any) => toast.error(err.response?.data?.message || "Failed to create interview"),
+  });
+}
+
+export function useUpdateInterview() {
+  const queryClient = useQueryClient();
+  const orgId = useAuthStore((s) => s.user?.organizationId);
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: UpdateInterviewInput }) =>
+      apiPatch<Interview>(`/organizations/${orgId}/interviews/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["interviews"] });
+      queryClient.invalidateQueries({ queryKey: ["interview"] });
+      queryClient.invalidateQueries({ queryKey: ["composite-score"] });
+      toast.success("Interview updated");
+    },
+    onError: (err: any) => toast.error(err.response?.data?.message || "Failed to update interview"),
+  });
+}
+
 export function useBookInterview() {
   const queryClient = useQueryClient();
   const orgId = useAuthStore((s) => s.user?.organizationId);
@@ -274,6 +374,7 @@ export function useMarkCompleted() {
       apiPatch<Interview>(`/organizations/${orgId}/interviews/${id}/complete`, { outcome }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["interviews"] });
+      queryClient.invalidateQueries({ queryKey: ["composite-score"] });
       toast.success("Interview marked completed");
     },
     onError: (err: any) => toast.error(err.response?.data?.message || "Failed to mark interview completed"),

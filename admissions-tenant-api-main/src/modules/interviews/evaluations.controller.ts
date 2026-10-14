@@ -19,6 +19,13 @@ export class EvaluationsController {
     return this.evaluationsService.getRubricsForInterview(orgId, interviewId);
   }
 
+  // Evaluator portal context: interview details, active rubrics for its
+  // type, and the selected GD scoring scheme's component(s) for that type.
+  @Get(':interviewId/scoring-context')
+  getScoringContext(@Param('orgId') orgId: string, @Param('interviewId') interviewId: string, @Request() req) {
+    return this.evaluationsService.getScoringContext(orgId, interviewId, req.user.sub, req.user.role);
+  }
+
   @Get(':interviewId/evaluations/mine')
   getMyEvaluation(@Param('orgId') orgId: string, @Param('interviewId') interviewId: string, @Request() req) {
     return this.evaluationsService.getOrCreateDraftEvaluation(orgId, interviewId, req.user.sub, req.user.role);

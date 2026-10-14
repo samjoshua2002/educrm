@@ -7,6 +7,8 @@ import { useRouter } from "next/navigation";
 import { useCreateLead } from "@/hooks/use-leads";
 import { useTeam } from "@/hooks/use-team";
 import { usePageHeader } from "@/hooks/use-page-header";
+import { useCourses } from "@/hooks/use-courses";
+import { CHANNEL_SOURCES, FOLLOW_UP_STATUSES, SOURCE_TYPES } from "@/types/lead-management";
 
 import { ChevronLeft, Check } from "lucide-react";
 
@@ -47,7 +49,6 @@ const STAGES = [
   "Converted",
   "Lost",
 ] as const;
-const STATUSES = ["Hot", "Warm", "Cold"] as const;
 
 export default function AddLeadPage() {
   usePageHeader({
@@ -64,9 +65,21 @@ export default function AddLeadPage() {
     source: "",
     campaign: "",
     stage: "New",
-    status: "Warm",
     assignedTo: "",
     notes: "",
+    country: "India",
+    dateOfBirth: "",
+    courseId: "",
+    programInterest: "",
+    intake: "",
+    formName: "",
+    channelSource: "",
+    sourceType: "",
+    subSource: "",
+    testType: "",
+    testScore: "",
+    workExperienceYears: "",
+    followUpStatus: "Pending",
   });
 
   function set(key: keyof typeof form, value: string) {
@@ -77,6 +90,8 @@ export default function AddLeadPage() {
   const createLead = useCreateLead();
   const { data: teamData } = useTeam(1, 100);
   const teamMembers = teamData?.data || [];
+  const { data: coursesData } = useCourses(1, 200);
+  const courses: any[] = (coursesData as any)?.data || [];
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -93,11 +108,23 @@ export default function AddLeadPage() {
       phone: form.mobile || undefined,
       city: form.city || undefined,
       state: form.state || undefined,
+      country: form.country || undefined,
       source: form.source || undefined,
       utmSource: form.source || undefined,
       utmCampaign: form.campaign || undefined,
+      dateOfBirth: form.dateOfBirth || undefined,
+      courseId: form.courseId || undefined,
+      programInterest: form.programInterest || undefined,
+      intake: form.intake || undefined,
+      formName: form.formName || undefined,
+      channelSource: form.channelSource || undefined,
+      sourceType: form.sourceType || undefined,
+      subSource: form.subSource || undefined,
+      testType: form.testType || undefined,
+      testScore: form.testScore !== "" ? Number(form.testScore) : undefined,
+      workExperienceYears: form.workExperienceYears !== "" ? Number(form.workExperienceYears) : undefined,
+      followUpStatus: form.followUpStatus,
       status: "unverified",
-      scoreBand: form.status ? form.status.toLowerCase() : undefined,
       assignedTo: form.assignedTo || null,
       rawPayload: { notes: form.notes, stage: form.stage }
     }, {
@@ -340,6 +367,100 @@ export default function AddLeadPage() {
                       className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full"
                     />
                   </div>
+
+                  {/* Channel Source */}
+                  <div className="flex flex-col gap-2">
+                    <Label className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">Channel Source</Label>
+                    <Select value={form.channelSource || "none"} onValueChange={(v) => set("channelSource", v === "none" ? "" : v)}>
+                      <SelectTrigger className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full data-[placeholder]:text-foreground">
+                        <SelectValue placeholder="Select channel" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Not specified</SelectItem>
+                        {CHANNEL_SOURCES.map((c) => (
+                          <SelectItem key={c} value={c}>{c}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {/* Source Type */}
+                  <div className="flex flex-col gap-2">
+                    <Label className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">Source Type</Label>
+                    <Select value={form.sourceType || "none"} onValueChange={(v) => set("sourceType", v === "none" ? "" : v)}>
+                      <SelectTrigger className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full data-[placeholder]:text-foreground">
+                        <SelectValue placeholder="Select source type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Not specified</SelectItem>
+                        {SOURCE_TYPES.map((c) => (
+                          <SelectItem key={c} value={c}>{c}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {/* Sub-source */}
+                  <div className="flex flex-col gap-2">
+                    <Label className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">Sub-source</Label>
+                    <Input value={form.subSource} placeholder="e.g. Google, Shiksha" onChange={(e) => set("subSource", e.target.value)} className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground" />
+                  </div>
+                  {/* Form Name */}
+                  <div className="flex flex-col gap-2">
+                    <Label className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">Form Name</Label>
+                    <Input value={form.formName} placeholder="e.g. Walk-in enquiry" onChange={(e) => set("formName", e.target.value)} className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground" />
+                  </div>
+                </div>
+              </section>
+
+              {/* Program & Academic */}
+              <section className="flex flex-col gap-5 py-6">
+                <div className="flex flex-col gap-1">
+                  <p className="text-[16px] font-medium text-foreground">Program &amp; Academic</p>
+                  <p className="text-[14px] text-muted-foreground">Used for lead scoring and routing.</p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+                  <div className="flex flex-col gap-2">
+                    <Label className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">Program / Course Interest</Label>
+                    <Select
+                      value={form.courseId || "none"}
+                      onValueChange={(v) => {
+                        const c = courses.find((x: any) => x.id === v);
+                        setForm((prev) => ({ ...prev, courseId: v === "none" ? "" : v, programInterest: c ? c.name : "" }));
+                      }}
+                    >
+                      <SelectTrigger className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full data-[placeholder]:text-foreground">
+                        <SelectValue placeholder="Select program" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Not specified</SelectItem>
+                        {courses.map((c: any) => (
+                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">Intake / Session</Label>
+                    <Input value={form.intake} placeholder="e.g. Fall 2026" onChange={(e) => set("intake", e.target.value)} className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground" />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">Date of Birth</Label>
+                    <Input type="date" value={form.dateOfBirth} onChange={(e) => set("dateOfBirth", e.target.value)} className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground" />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">Country</Label>
+                    <Input value={form.country} onChange={(e) => set("country", e.target.value)} className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground" />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">Test (GMAT / GRE)</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input value={form.testType} placeholder="GMAT" onChange={(e) => set("testType", e.target.value)} className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground" />
+                      <Input type="number" value={form.testScore} placeholder="Score" onChange={(e) => set("testScore", e.target.value)} className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground" />
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">Work Experience (years)</Label>
+                    <Input type="number" value={form.workExperienceYears} onChange={(e) => set("workExperienceYears", e.target.value)} className="border border-input h-[40px] rounded-[8px] text-[12px] placeholder:text-muted-foreground" />
+                  </div>
                 </div>
               </section>
 
@@ -408,32 +529,22 @@ export default function AddLeadPage() {
                   </Select>
                 </div>
 
-                {/* Status */}
+                {/* Follow-up Status */}
                 <div className="flex flex-col gap-2">
-                  <Label
-                    htmlFor="crm-status"
-                    className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground"
-                  >
-                    Status
-                  </Label>
-                  <Select
-                    value={form.status}
-                    onValueChange={(v) => set("status", v)}
-                  >
-                    <SelectTrigger
-                      id="crm-status"
-                      className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full data-[placeholder]:text-foreground"
-                    >
-                      <SelectValue placeholder="Select Status" />
+                  <Label htmlFor="crm-followup" className="text-[14px] font-semibold uppercase tracking-[0.6px] text-muted-foreground">Follow-up Status</Label>
+                  <Select value={form.followUpStatus} onValueChange={(v) => set("followUpStatus", v)}>
+                    <SelectTrigger id="crm-followup" className="border border-input h-[40px] rounded-[8px] text-[12px] text-foreground w-full data-[placeholder]:text-foreground">
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {STATUSES.map((s) => (
-                        <SelectItem key={s} value={s}>
-                          {s}
-                        </SelectItem>
+                      {FOLLOW_UP_STATUSES.map((s) => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  <p className="text-[12px] text-muted-foreground">
+                    Lead Status (Hot / Warm / Cold) is calculated from the scoring rules. Leave “Assigned To” empty to apply the routing rules.
+                  </p>
                 </div>
 
                 {/* Assigned To */}
@@ -495,8 +606,9 @@ export default function AddLeadPage() {
                 Protip
               </p>
               <p className="text-foreground text-[12px] font-medium leading-[20px] tracking-[0.6px]">
-                Completing the Lead Source details helps the AI system better
-                predict conversion rates for this campaign.
+                Filling in the program, test score, work experience and source
+                details gives the lead an accurate score and routes it to the
+                right counselor automatically.
               </p>
             </div>
           </div>

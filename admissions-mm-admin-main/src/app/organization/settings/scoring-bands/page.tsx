@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { usePageHeader } from "@/hooks/use-page-header";
+import { useActiveGdScoringScheme } from "@/hooks/use-scoring";
 import { cn } from "@/lib/utils";
 import {
   useScoreConversionConfig,
@@ -55,6 +56,21 @@ const STANDARD_55_BANDS: ScoreConversionConfig["bands"] = {
     { minPercentile: 70, points: 4 },
     { minPercentile: 60, points: 2 },
   ],
+  // Split entrance scoring (CAT vs other exams) starts from the same bands.
+  catPercentile: [
+    { minPercentile: 95, points: 10 },
+    { minPercentile: 90, points: 8 },
+    { minPercentile: 80, points: 6 },
+    { minPercentile: 70, points: 4 },
+    { minPercentile: 60, points: 2 },
+  ],
+  otherTestPercentile: [
+    { minPercentile: 95, points: 10 },
+    { minPercentile: 90, points: 8 },
+    { minPercentile: 80, points: 6 },
+    { minPercentile: 70, points: 4 },
+    { minPercentile: 60, points: 2 },
+  ],
   experienceMonths: [
     { minMonths: 48, points: 10 },
     { minMonths: 36, points: 8 },
@@ -64,11 +80,15 @@ const STANDARD_55_BANDS: ScoreConversionConfig["bands"] = {
   ],
 };
 
+type BandSection = "tenth" | "twelfth" | "ug" | "testPercentile" | "catPercentile" | "otherTestPercentile" | "experienceMonths";
+
 const EMPTY_BANDS: ScoreConversionConfig["bands"] = {
   tenth: [],
   twelfth: [],
   ug: [],
   testPercentile: [],
+  catPercentile: [],
+  otherTestPercentile: [],
   experienceMonths: [],
 };
 
@@ -77,8 +97,11 @@ type ActiveModal =
   | "twelfth"
   | "ug"
   | "testPercentile"
+  | "catPercentile"
+  | "otherTestPercentile"
   | "experienceMonths"
   | "eligibility"
+  | "entranceMode"
   | null;
 
 export default function ScoringBandsSettingsPage() {
@@ -95,6 +118,15 @@ export default function ScoringBandsSettingsPage() {
   const [discrepancyThreshold, setDiscrepancyThreshold] = React.useState("10");
   const [qualifyingScore, setQualifyingScore] = React.useState("50");
   const [initialized, setInitialized] = React.useState(false);
+  // Entrance scoring (owner request): best percentile across all tests
+  // (default, original behaviour) or CAT and other exams scored separately.
+  const [entranceMode, setEntranceMode] = React.useState<"best_overall" | "cat_split">("best_overall");
+  const [catWeight, setCatWeight] = React.useState("100");
+  const [otherTestWeight, setOtherTestWeight] = React.useState("100");
+  const [tempEntranceMode, setTempEntranceMode] = React.useState<"best_overall" | "cat_split">("best_overall");
+  const [tempCatWeight, setTempCatWeight] = React.useState("100");
+  const [tempOtherWeight, setTempOtherWeight] = React.useState("100");
+  const { data: activeScheme } = useActiveGdScoringScheme();
 
   // Modal edit state
   const [activeModal, setActiveModal] = React.useState<ActiveModal>(null);
@@ -109,8 +141,13 @@ export default function ScoringBandsSettingsPage() {
         twelfth: config.bands?.twelfth ?? [],
         ug: config.bands?.ug ?? [],
         testPercentile: config.bands?.testPercentile ?? [],
+        catPercentile: config.bands?.catPercentile ?? config.bands?.testPercentile ?? [],
+        otherTestPercentile: config.bands?.otherTestPercentile ?? config.bands?.testPercentile ?? [],
         experienceMonths: config.bands?.experienceMonths ?? [],
       });
+      setEntranceMode(config.entranceScoringMode === "cat_split" ? "cat_split" : "best_overall");
+      setCatWeight(String(config.catWeight ?? 100));
+      setOtherTestWeight(String(config.otherTestWeight ?? 100));
       setDiscrepancyThreshold(String(config.discrepancyThreshold ?? 10));
       setQualifyingScore(String(config.qualifyingScore ?? 50));
       setInitialized(true);
@@ -121,16 +158,26 @@ export default function ScoringBandsSettingsPage() {
   const maxTenth = Math.max(0, ...(bands.tenth || []).map((b) => Number(b.points) || 0));
   const maxTwelfth = Math.max(0, ...(bands.twelfth || []).map((b) => Number(b.points) || 0));
   const maxUg = Math.max(0, ...(bands.ug || []).map((b) => Number(b.points) || 0));
-  const maxTest = Math.max(0, ...(bands.testPercentile || []).map((b) => Number(b.points) || 0));
+  const maxOf = (rows?: ScoreBand[]) => Math.max(0, ...(rows || []).map((b) => Number(b.points) || 0));
+  const maxCat = maxOf(bands.catPercentile);
+  const maxOther = maxOf(bands.otherTestPercentile);
+  const maxTest =
+    entranceMode === "cat_split"
+      ? Number(((maxCat * (Number(catWeight) || 0)) / 100 + (maxOther * (Number(otherTestWeight) || 0)) / 100).toFixed(2))
+      : maxOf(bands.testPercentile);
   const maxExp = Math.max(0, ...(bands.experienceMonths || []).map((b) => Number(b.points) || 0));
 
   const totalBandsMax = maxTenth + maxTwelfth + maxUg + maxTest + maxExp;
-  const FIXED_GDPI = 40;
+  // GD & PI maximum comes from the selected scoring scheme (Settings > GD
+  // Scoring); the predefined Standard template is GD 10 + PI 30.
+  const GDPI_MAX = (activeScheme?.components ?? [])
+    .filter((c) => c.includeInComposite)
+    .reduce((sum, c) => sum + Number(c.compositeWeight || 0), 0);
   const FIXED_OTHER = 5;
-  const grandTotal = totalBandsMax + FIXED_GDPI + FIXED_OTHER;
+  const grandTotal = Number((totalBandsMax + GDPI_MAX + FIXED_OTHER).toFixed(2));
 
   // Open modal handlers
-  const openBandModal = (section: "tenth" | "twelfth" | "ug" | "testPercentile" | "experienceMonths") => {
+  const openBandModal = (section: BandSection) => {
     setTempRows(JSON.parse(JSON.stringify(bands[section] || [])));
     setActiveModal(section);
   };
@@ -141,9 +188,37 @@ export default function ScoringBandsSettingsPage() {
     setActiveModal("eligibility");
   };
 
+  const openEntranceModeModal = () => {
+    setTempEntranceMode(entranceMode);
+    setTempCatWeight(catWeight);
+    setTempOtherWeight(otherTestWeight);
+    setActiveModal("entranceMode");
+  };
+
   // Save modal handler
   const handleSaveModal = () => {
     if (!activeModal) return;
+
+    if (activeModal === "entranceMode") {
+      const cw = Number(tempCatWeight);
+      const ow = Number(tempOtherWeight);
+      if (Number.isNaN(cw) || cw < 0 || Number.isNaN(ow) || ow < 0) {
+        toast.error("Weights must be 0 or more");
+        return;
+      }
+      updateConfig.mutate(
+        { entranceScoringMode: tempEntranceMode, catWeight: cw, otherTestWeight: ow },
+        {
+          onSuccess: () => {
+            setEntranceMode(tempEntranceMode);
+            setCatWeight(String(cw));
+            setOtherTestWeight(String(ow));
+            setActiveModal(null);
+          },
+        }
+      );
+      return;
+    }
 
     if (activeModal === "eligibility") {
       const qScore = Number(tempQualifyingScore);
@@ -214,6 +289,12 @@ export default function ScoringBandsSettingsPage() {
         return "UG Percentage Bands";
       case "testPercentile":
         return "Entrance Test Percentile Bands";
+      case "catPercentile":
+        return "CAT Percentile Bands";
+      case "otherTestPercentile":
+        return "Other Exams Percentile Bands (XAT, MAT, CMAT, GMAT, GRE...)";
+      case "entranceMode":
+        return "Entrance Test Scoring";
       case "experienceMonths":
         return "Work Experience Bands";
       case "eligibility":
@@ -230,6 +311,8 @@ export default function ScoringBandsSettingsPage() {
       case "ug":
         return "Min Percentage (%)";
       case "testPercentile":
+      case "catPercentile":
+      case "otherTestPercentile":
         return "Min Percentile";
       case "experienceMonths":
         return "Min Months";
@@ -239,7 +322,7 @@ export default function ScoringBandsSettingsPage() {
   };
 
   const getThresholdKey = (modal: ActiveModal): "minPercent" | "minPercentile" | "minMonths" => {
-    if (modal === "testPercentile") return "minPercentile";
+    if (modal === "testPercentile" || modal === "catPercentile" || modal === "otherTestPercentile") return "minPercentile";
     if (modal === "experienceMonths") return "minMonths";
     return "minPercent";
   };
@@ -286,10 +369,10 @@ export default function ScoringBandsSettingsPage() {
             </div>
             <div className="space-y-0.5">
               <span className="block text-[10px] font-bold leading-[15px] tracking-[1px] uppercase text-[#64748B] font-sans">
-                GD &amp; PI (FIXED)
+                GD &amp; PI (SCHEME)
               </span>
               <p className="text-[15px] sm:text-[16px] font-bold leading-[22px] text-[#1E293B] font-sans">
-                40
+                {activeScheme ? GDPI_MAX : "—"}
               </p>
             </div>
             <div className="space-y-0.5">
@@ -513,8 +596,75 @@ export default function ScoringBandsSettingsPage() {
           {/* TAB 2: ENTRANCE & EXPERIENCE */}
           {activeTab === "test-experience" && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {/* Entrance scoring mode (owner request: CAT scored separately) */}
+              <div className="md:col-span-2 flex flex-col rounded-[8px] border border-[#D4D4D4] bg-[#FFF] shadow-xs overflow-hidden">
+                <div
+                  style={{
+                    display: "flex",
+                    padding: "16px 20px",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    borderBottom: "1px solid #F8FAFC",
+                    background: "#FAFAFA",
+                  }}
+                >
+                  <div className="flex items-center gap-2 font-sans text-[15px] sm:text-[16px] font-bold leading-[24px] text-[#1E293B]">
+                    Entrance Test Scoring
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-[#415876] hover:text-[#1A237E] hover:bg-slate-100 cursor-pointer shrink-0 rounded-full"
+                    onClick={openEntranceModeModal}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="p-4 sm:p-5 grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+                  <div>
+                    <span className="block text-[10px] font-bold tracking-[1px] uppercase text-[#64748B]">Mode</span>
+                    <span className="font-semibold text-[#1E293B]">
+                      {entranceMode === "cat_split" ? "CAT and other exams scored separately" : "Best percentile across all tests (default)"}
+                    </span>
+                  </div>
+                  {entranceMode === "cat_split" ? (
+                    <>
+                      <div>
+                        <span className="block text-[10px] font-bold tracking-[1px] uppercase text-[#64748B]">CAT weight</span>
+                        <span className="font-semibold text-[#1A237E]">{catWeight}% of CAT band points (max {Number(((maxCat * (Number(catWeight) || 0)) / 100).toFixed(2))} pts)</span>
+                      </div>
+                      <div>
+                        <span className="block text-[10px] font-bold tracking-[1px] uppercase text-[#64748B]">Other exams weight</span>
+                        <span className="font-semibold text-[#1A237E]">{otherTestWeight}% of other-exam band points (max {Number(((maxOther * (Number(otherTestWeight) || 0)) / 100).toFixed(2))} pts)</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="sm:col-span-2 text-[#475569]">
+                      The single best percentile among all entrance tests (CAT, XAT, MAT, CMAT, GMAT, GRE...) is converted with the bands below.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {entranceMode === "cat_split" && (
+                <>
+                  <BandListCard
+                    title="CAT Percentile"
+                    rows={bands.catPercentile || []}
+                    onEdit={() => openBandModal("catPercentile")}
+                    maxLabel={`${maxCat} pts x ${catWeight}%`}
+                  />
+                  <BandListCard
+                    title="Other Exams Percentile (best non-CAT)"
+                    rows={bands.otherTestPercentile || []}
+                    onEdit={() => openBandModal("otherTestPercentile")}
+                    maxLabel={`${maxOther} pts x ${otherTestWeight}%`}
+                  />
+                </>
+              )}
+
               {/* Entrance Test Card */}
-              <div className="flex flex-col rounded-[8px] border border-[#D4D4D4] bg-[#FFF] shadow-xs overflow-hidden">
+              <div className={cn("flex flex-col rounded-[8px] border border-[#D4D4D4] bg-[#FFF] shadow-xs overflow-hidden", entranceMode === "cat_split" && "hidden")}>
                 <div
                   style={{
                     display: "flex",
@@ -715,7 +865,93 @@ export default function ScoringBandsSettingsPage() {
                 </DialogTitle>
               </DialogHeader>
 
-              {activeModal === "eligibility" ? (
+              {activeModal === "entranceMode" ? (
+                <div className="flex flex-col gap-5 pt-5 pb-2">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-[#475569]">Scoring mode</Label>
+                    {([
+                      {
+                        value: "best_overall",
+                        title: "Best percentile across all tests (default)",
+                        help: "Original behaviour: the single best percentile among all entrance tests is converted with the Entrance Test bands.",
+                      },
+                      {
+                        value: "cat_split",
+                        title: "CAT scored separately from other exams",
+                        help: "CAT uses its own bands and weight; the best percentile among the other exams (XAT, MAT, CMAT, GMAT, GRE, ...) uses its own bands and weight. Both add to the composite.",
+                      },
+                    ] as const).map((opt) => (
+                      <label
+                        key={opt.value}
+                        className={cn(
+                          "flex gap-3 rounded-[8px] border p-3 cursor-pointer",
+                          tempEntranceMode === opt.value ? "border-[#1A237E] bg-[#1A237E]/5" : "border-[#D4D4D4]"
+                        )}
+                      >
+                        <input
+                          type="radio"
+                          name="entranceMode"
+                          className="mt-1"
+                          checked={tempEntranceMode === opt.value}
+                          onChange={() => setTempEntranceMode(opt.value)}
+                        />
+                        <span>
+                          <span className="block text-sm font-semibold text-[#1E293B]">{opt.title}</span>
+                          <span className="block text-xs text-[#64748B] mt-0.5">{opt.help}</span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+
+                  {tempEntranceMode === "cat_split" && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="catWeight" className="text-sm font-medium text-[#475569]">CAT weight (%)</Label>
+                        <Input
+                          id="catWeight"
+                          type="number"
+                          min={0}
+                          value={tempCatWeight}
+                          onChange={(e) => setTempCatWeight(e.target.value)}
+                          className="h-10 border-[#D4D4D4] rounded-[8px]"
+                        />
+                        <p className="text-xs text-[#64748B]">CAT component = CAT band points x this %.</p>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="otherWeight" className="text-sm font-medium text-[#475569]">Other exams weight (%)</Label>
+                        <Input
+                          id="otherWeight"
+                          type="number"
+                          min={0}
+                          value={tempOtherWeight}
+                          onChange={(e) => setTempOtherWeight(e.target.value)}
+                          className="h-10 border-[#D4D4D4] rounded-[8px]"
+                        />
+                        <p className="text-xs text-[#64748B]">Other-exams component = band points x this %.</p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex justify-end gap-3 pt-4 border-t border-[#E5E5E5] mt-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setActiveModal(null)}
+                      className="h-10 px-5 rounded-[8px] border-[#D4D4D4] text-[#475569] hover:bg-slate-50 font-medium text-xs cursor-pointer"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={handleSaveModal}
+                      disabled={updateConfig.isPending}
+                      className="h-10 px-6 rounded-[8px] bg-[#1A237E] hover:bg-[#121858] text-white font-semibold text-xs cursor-pointer"
+                    >
+                      {updateConfig.isPending ? "Saving..." : "Save Changes"}
+                    </Button>
+                  </div>
+                </div>
+              ) : activeModal === "eligibility" ? (
                 <div className="flex flex-col gap-5 pt-5 pb-2">
                   <div className="space-y-1.5">
                     <Label
@@ -884,6 +1120,71 @@ export default function ScoringBandsSettingsPage() {
           </Dialog>
         </>
       )}
+    </div>
+  );
+}
+
+// Read-only list of percentile bands with an edit button (used for the CAT
+// and other-exams bands when entrance scoring is split).
+function BandListCard({
+  title,
+  rows,
+  onEdit,
+  maxLabel,
+}: {
+  title: string;
+  rows: ScoreBand[];
+  onEdit: () => void;
+  maxLabel: string;
+}) {
+  return (
+    <div className="flex flex-col rounded-[8px] border border-[#D4D4D4] bg-[#FFF] shadow-xs overflow-hidden">
+      <div
+        style={{
+          display: "flex",
+          padding: "16px 20px",
+          alignItems: "center",
+          justifyContent: "space-between",
+          borderBottom: "1px solid #F8FAFC",
+          background: "#FAFAFA",
+        }}
+      >
+        <div className="flex items-center gap-2 font-sans text-[15px] sm:text-[16px] font-bold leading-[24px] text-[#1E293B]">
+          {title}
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-[#415876] hover:text-[#1A237E] hover:bg-slate-100 cursor-pointer shrink-0 rounded-full"
+          onClick={onEdit}
+        >
+          <Pencil className="h-4 w-4" />
+        </Button>
+      </div>
+      <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between">
+        <div className="space-y-3">
+          <div className="flex justify-between items-center text-xs font-bold uppercase tracking-wider text-[#64748B] pb-2 border-b border-[#F1F5F9]">
+            <span>Min Percentile</span>
+            <span className="text-right">Points</span>
+          </div>
+          {rows.length === 0 && <p className="text-xs text-[#64748B]">No bands yet.</p>}
+          {rows.map((row, idx) => (
+            <div key={idx} className="flex justify-between items-center text-sm py-1 border-b border-[#F8FAFC]">
+              <span className="text-slate-600 font-medium">&ge; {row.minPercentile}</span>
+              <div
+                className="w-[64px] sm:w-[72px] h-[32px] flex items-center justify-center bg-slate-50 text-[#1A237E] font-bold text-[14px] rounded-[8px] border border-[#E2E8F0]"
+                style={{ fontFamily: "Inter" }}
+              >
+                {row.points}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="pt-4 mt-2 border-t border-[#F1F5F9] flex justify-between items-center text-xs text-[#475569]">
+          <span>Maximum Weightage:</span>
+          <span className="font-bold text-[#1A237E]">{maxLabel}</span>
+        </div>
+      </div>
     </div>
   );
 }

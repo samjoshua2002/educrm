@@ -1,8 +1,24 @@
 import { IsEnum } from 'class-validator';
 
+// Accepts the internal values used by existing screens plus the scope's
+// Application_Status picklist (Started / Submitted / Under Review / Approved / Rejected).
+const STATUSES = [
+  'accepted',
+  'rejected',
+  'in_progress',
+  'submitted',
+  'under_review',
+  'incomplete',
+  'Started',
+  'Submitted',
+  'Under Review',
+  'Approved',
+  'Rejected',
+];
+
 export class UpdateApplicationStatusDto {
-  @IsEnum(['accepted', 'rejected', 'in_progress', 'submitted'], {
-    message: 'Status must be one of: accepted, rejected, in_progress, submitted',
+  @IsEnum(STATUSES, {
+    message: 'Status must be one of: Started, Submitted, Under Review, Approved, Rejected',
   })
   status: string;
 }

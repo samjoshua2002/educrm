@@ -93,6 +93,7 @@ import { useAcademicSessions } from "@/hooks/use-academic-sessions";
 import { useCourseSessions } from "@/hooks/use-course-sessions";
 import { useBranches } from "@/hooks/use-branches";
 import { useOrganizationSettings } from "@/hooks/use-organizations";
+import { GatewayPayPanel } from "@/app/organization/applications/_components/gateway-pay-panel";
 
 
 
@@ -1303,7 +1304,7 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
                   Application Fee Payment
                 </h1>
                 <p className="text-sm text-slate-600 max-w-2xl leading-relaxed">
-                  Your admission details have been saved. Complete the payment below via Razorpay to finalize your submission and receive your official application number.
+                  Your admission details have been saved. Choose a payment option below to finalize your submission and receive your official application number.
                 </p>
               </div>
 
@@ -1448,28 +1449,20 @@ function MyApplicationForm({ isStudent }: { isStudent: boolean }) {
                       </div>
                     ) : (
                       <div className="space-y-2.5 pt-1">
-                        <Button
-                          className="w-full bg-[#2563EB] hover:bg-[#1d4ed8] text-white flex items-center justify-center gap-2 h-11 text-sm font-semibold rounded-lg shadow-sm transition-all cursor-pointer border-0"
-                          onClick={handlePayNow}
-                          disabled={paymentState === "creating-order" || paymentState === "awaiting-payment" || paymentState === "verifying"}
-                        >
-                          {paymentState === "creating-order" || paymentState === "awaiting-payment" || paymentState === "verifying" ? (
-                            <>
-                              <Loader2 className="size-4 animate-spin mr-1.5 inline" />
-                              {paymentState === "creating-order" ? "Creating Order..." : "Verifying Payment..."}
-                            </>
-                          ) : (
-                            <>
-                              <CreditCard className="size-4" />
-                              Pay ₹{feeAmount.toLocaleString("en-IN")} via Razorpay
-                            </>
-                          )}
-                        </Button>
-
-                        <div className="flex items-center justify-center gap-1.5 text-[11px] text-slate-400 font-medium">
-                          <Lock className="size-3 text-slate-400" />
-                          <span>256-Bit SSL Encrypted • Razorpay Checkout</span>
-                        </div>
+                        <GatewayPayPanel
+                          compact
+                          applicationId={createdApplication?.id || createdApplication?.applicationNo || ""}
+                          context={{
+                            applicationNo: createdApplication?.applicationNo,
+                            submitAfterPayment: true,
+                            password: (form.getValues() as any)?.personal?.password || undefined,
+                            returnTo: "/my-application",
+                          }}
+                          onSuccess={async () => {
+                            setPaymentState("success");
+                            await finalizeSubmission();
+                          }}
+                        />
                       </div>
                     )}
                   </div>

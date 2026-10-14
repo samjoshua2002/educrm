@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BookOpen, MapPin, ClipboardList, IndianRupee, Gauge, Plug } from "lucide-react";
+import { BookOpen, MapPin, ClipboardList, IndianRupee, Gauge, Plug, Target, Route, Webhook, Scale, CalendarDays, FileText, CreditCard, BellRing } from "lucide-react";
 
 const settingsLinks = [
   {
@@ -37,6 +37,54 @@ const settingsLinks = [
     description: "Configure score conversion bands for academics, test percentile, and experience.",
     href: "/organization/settings/scoring-bands",
     icon: Gauge,
+  },
+  {
+    title: "GD & PI Scoring",
+    description: "Create custom GD/PI scoring schemes or use the Standard template.",
+    href: "/organization/settings/gd-scoring",
+    icon: Scale,
+  },
+  {
+    title: "Calendar Integration",
+    description: "Connect Google or Outlook calendars for interview scheduling.",
+    href: "/organization/settings/calendar",
+    icon: CalendarDays,
+  },
+  {
+    title: "Lead Scoring",
+    description: "Configure lead scoring rules and Hot/Warm/Cold thresholds.",
+    href: "/organization/settings/lead-scoring",
+    icon: Target,
+  },
+  {
+    title: "Lead Routing",
+    description: "Configure rules that assign new leads to counselors.",
+    href: "/organization/settings/lead-routing",
+    icon: Route,
+  },
+  {
+    title: "Lead Capture Integrations",
+    description: "Web forms, API, social ads, education portals, events and chatbot.",
+    href: "/organization/settings/lead-integrations",
+    icon: Webhook,
+  },
+  {
+    title: "Letter Templates",
+    description: "Offer, waitlist and rejection letter templates with merge fields.",
+    href: "/organization/settings/letter-templates",
+    icon: FileText,
+  },
+  {
+    title: "Payment Gateways",
+    description: "Enable Razorpay, Stripe, PayU or Paytm, set currency and payment methods.",
+    href: "/organization/settings/payment-gateways",
+    icon: CreditCard,
+  },
+  {
+    title: "Reminders & Nudges",
+    description: "Automatic reminders, status SLA alerts and document rules.",
+    href: "/organization/settings/reminders",
+    icon: BellRing,
   },
 ];
 

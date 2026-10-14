@@ -39,6 +39,19 @@ export class EmailTemplateCategoriesController {
     return this.service.findAll(effectiveOrgId);
   }
 
+  @Get('merge-fields')
+  @Roles(
+    Role.SUPERADMIN,
+    Role.ORG_ADMIN,
+    Role.APPLICATION_MANAGER,
+    Role.COUNSELOR,
+    Role.LEAD_MANAGER,
+  )
+  @ResponseMessage('Merge fields fetched successfully')
+  mergeFields() {
+    return this.service.getMergeFields();
+  }
+
   @Get(':id')
   @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.APPLICATION_MANAGER, Role.COUNSELOR)
   @ResponseMessage('Email template category fetched successfully')

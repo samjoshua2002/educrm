@@ -20,17 +20,27 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { usePageHeader } from "@/hooks/use-page-header";
 import {
+  RECOMMENDATIONS as RECOMMENDATION_OPTIONS,
   useInterviewRubrics,
   useMyEvaluation,
+  useScoringContext,
   useSubmitEvaluation,
 } from "@/hooks/use-evaluations";
+import { toast } from "sonner";
 
-const RECOMMENDATION_OPTIONS = [
-  "Strongly Recommend",
-  "Recommend",
-  "Neutral",
-  "Do Not Recommend",
-] as const;
+// Scope: Evaluation_Scores.Weighted_Score = Score_Given / Max_Score x Weightage
+function weightedScore(scoreGiven: number, maxScore: number, weightage?: number | null) {
+  const max = Number(maxScore);
+  if (!(max > 0)) return 0;
+  const w = weightage === null || weightage === undefined ? max : Number(weightage);
+  return Number(((scoreGiven / max) * w).toFixed(2));
+}
+
+function formatDateTime(value?: string | null) {
+  if (!value) return "-";
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? value : d.toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+}
 
 export default function ScoreInterviewPage() {
   const params = useParams();
@@ -44,6 +54,7 @@ export default function ScoreInterviewPage() {
 
   const { data: rubrics, isLoading: rubricsLoading } = useInterviewRubrics(interviewId);
   const { data: evaluation, isLoading: evaluationLoading } = useMyEvaluation(interviewId);
+  const { data: context } = useScoringContext(interviewId);
   const submitEvaluation = useSubmitEvaluation(interviewId);
 
   const [scoresByRubricId, setScoresByRubricId] = React.useState<Record<string, { scoreGiven: string; notes: string }>>({});
@@ -87,17 +98,51 @@ export default function ScoreInterviewPage() {
   }
 
   async function handleSave(submit: boolean) {
+    for (const rubric of rubrics || []) {
+      const value = scoresByRubricId[rubric.id]?.scoreGiven;
+      if (value === undefined || value === "") {
+        if (submit) {
+          toast.error(`Enter a score for "${rubric.parameterName}" before submitting`);
+          return;
+        }
+        continue;
+      }
+      const n = Number(value);
+      if (!Number.isFinite(n) || n < 0 || n > Number(rubric.maxScore)) {
+        toast.error(`"${rubric.parameterName}" must be between 0 and ${rubric.maxScore}`);
+        return;
+      }
+    }
+    if (submit && !overallRecommendation) {
+      toast.error("Select a recommendation before submitting");
+      return;
+    }
     const payload = buildPayload(submit);
-    if (payload.scores.length === 0) return;
+    if (payload.scores.length === 0) {
+      toast.error("Enter at least one score");
+      return;
+    }
     await submitEvaluation.mutateAsync(payload);
   }
+
+  const totals = React.useMemo(() => {
+    let total = 0;
+    let possible = 0;
+    for (const rubric of rubrics || []) {
+      const w = rubric.weightagePercent === null || rubric.weightagePercent === undefined ? Number(rubric.maxScore) : Number(rubric.weightagePercent);
+      possible += w;
+      const value = scoresByRubricId[rubric.id]?.scoreGiven;
+      if (value !== undefined && value !== "") total += weightedScore(Number(value), rubric.maxScore, rubric.weightagePercent);
+    }
+    return { total: Number(total.toFixed(2)), possible: Number(possible.toFixed(2)) };
+  }, [rubrics, scoresByRubricId]);
 
   const isLoading = rubricsLoading || evaluationLoading;
 
   return (
     <div className="flex flex-col gap-4 p-4 md:p-6 w-full max-w-full min-w-0">
       <Link
-        href="/organization/gd-interview/evaluate"
+        href="/organization/gd-interview/my-evaluations"
         className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground w-fit"
       >
         <ArrowLeft className="size-4" />
@@ -117,9 +162,59 @@ export default function ScoreInterviewPage() {
             </div>
           )}
 
+          {context && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Interview Details</CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+                <div>
+                  <p className="text-xs text-muted-foreground">Candidate</p>
+                  <p className="font-medium">{context.interview.candidateName || "-"}</p>
+                  <p className="text-xs text-muted-foreground">{context.interview.applicationNo || ""}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Interview</p>
+                  <p className="font-medium">
+                    {context.interview.interviewType} · Round {context.interview.round}
+                    {context.interview.interviewNumber ? ` · #${context.interview.interviewNumber}` : ""}
+                  </p>
+                  <Badge variant="outline" className="mt-1">{context.interview.status}</Badge>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">When</p>
+                  <p className="font-medium">{formatDateTime(context.interview.startTime)}</p>
+                  <p className="text-xs text-muted-foreground">{context.interview.interviewMode || ""}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Where</p>
+                  {context.interview.meetingLink ? (
+                    <a href={context.interview.meetingLink} target="_blank" rel="noreferrer" className="font-medium text-primary underline break-all">
+                      Join meeting
+                    </a>
+                  ) : (
+                    <p className="font-medium">{context.interview.location || "-"}</p>
+                  )}
+                </div>
+                <div className="sm:col-span-2 lg:col-span-4 text-xs text-muted-foreground border-t pt-3">
+                  Scoring scheme: <span className="font-medium text-foreground">{context.scheme.name}</span>
+                  {context.schemeComponents.length > 0 && (
+                    <>
+                      {" · "}Your marks feed{" "}
+                      {context.schemeComponents.map((c) => `${c.label} (max ${c.maxMarks})`).join(", ")}
+                    </>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
               <CardTitle>Rubric Scores</CardTitle>
+              <span className="text-sm text-muted-foreground">
+                Weighted total: <span className="font-semibold text-foreground">{totals.total}</span> / {totals.possible}
+              </span>
             </CardHeader>
             <CardContent className="flex flex-col gap-6">
               {(rubrics || []).length === 0 ? (
@@ -136,7 +231,17 @@ export default function ScoreInterviewPage() {
                             <p className="text-xs text-muted-foreground mt-0.5">{rubric.description}</p>
                           )}
                         </div>
-                        <span className="text-xs text-muted-foreground shrink-0">Max {rubric.maxScore}</span>
+                        <div className="text-right shrink-0">
+                          <span className="text-xs text-muted-foreground block">
+                            Max {rubric.maxScore}
+                            {rubric.weightagePercent !== null && rubric.weightagePercent !== undefined ? ` · Weightage ${rubric.weightagePercent}%` : ""}
+                          </span>
+                          {entry.scoreGiven !== "" && (
+                            <span className="text-xs font-semibold text-foreground">
+                              Weighted: {weightedScore(Number(entry.scoreGiven), rubric.maxScore, rubric.weightagePercent)}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-3">
                         <div className="flex flex-col gap-1.5">

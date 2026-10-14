@@ -1,4 +1,5 @@
 import { IsString, IsNotEmpty, IsOptional, IsIn, IsDateString, IsInt, Min, MaxLength } from 'class-validator';
+import { TIME_ZONES } from '../constants/interview-picklists.js';
 
 // Generates back-to-back slots for one interviewer on one day, e.g. every 30
 // minutes between 10:00 and 17:00 — the recurring-pattern bulk-create from
@@ -37,8 +38,8 @@ export class BulkCreateSlotsDto {
   @IsString()
   meetingLink?: string;
 
+  // Time_Zone (Pick List)
   @IsOptional()
-  @IsString()
-  @MaxLength(50)
+  @IsIn(TIME_ZONES as unknown as string[])
   timeZone?: string;
 }

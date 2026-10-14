@@ -1,4 +1,5 @@
 import { IsString, IsNotEmpty, IsOptional, IsIn, IsDateString, MaxLength } from 'class-validator';
+import { TIME_ZONES } from '../constants/interview-picklists.js';
 
 export class CreateSlotDto {
   @IsString()
@@ -30,8 +31,8 @@ export class CreateSlotDto {
   @IsString()
   meetingLink?: string;
 
+  // Time_Zone (Pick List)
   @IsOptional()
-  @IsString()
-  @MaxLength(50)
+  @IsIn(TIME_ZONES as unknown as string[])
   timeZone?: string;
 }
