@@ -17,7 +17,43 @@ export class CommunicationsService {
   ) {}
 
   async create(dto: CreateCommunicationLogDto): Promise<CommunicationLog> {
+    // Link the interaction to the applicant record when only the number is known.
+    let applicationId = dto.applicationId ?? null;
+    let leadId = dto.leadId ?? null;
+    if (!applicationId && dto.applicationNo) {
+      try {
+        const app = await this.dataSource.getRepository(Application).findOne({
+          where: dto.organizationId
+            ? { applicationNo: ILike(dto.applicationNo.trim()), organizationId: dto.organizationId }
+            : { applicationNo: ILike(dto.applicationNo.trim()) },
+          select: ['id', 'leadId'],
+        });
+        if (app) {
+          applicationId = app.id;
+          leadId = leadId ?? app.leadId ?? null;
+        }
+      } catch {
+        // best effort
+      }
+    }
     const log = this.repo.create({
+      applicationId,
+      leadId,
+      direction: dto.direction || (dto.channel === 'System' ? 'System Generated' : 'Outbound'),
+      handledBy: dto.handledBy ?? dto.sender ?? 'System',
+      handledByUserId: dto.handledByUserId ?? null,
+      relatedRecordId: dto.relatedRecordId ?? null,
+      relatedRecordType: dto.relatedRecordType ?? null,
+      summary: dto.summary ?? null,
+      attachments: dto.attachments ?? [],
+      scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : null,
+      timeZone: dto.timeZone ?? null,
+      failureReason: dto.failureReason ?? null,
+      actionTaken: dto.actionTaken ?? null,
+      nextFollowUpDate: dto.nextFollowUpDate ? new Date(dto.nextFollowUpDate) : null,
+      assignedStaffId: dto.assignedStaffId ?? null,
+      assignedStaffName: dto.assignedStaffName ?? null,
+      remarks: dto.remarks ?? null,
       organizationId: dto.organizationId ?? null,
       applicationNo: dto.applicationNo ?? null,
       applicantName: dto.applicantName ?? null,
@@ -246,20 +282,6 @@ Your composite scores, section evaluations, and selection status will be availab
   ): Promise<{ data: CommunicationLog[]; total: number; page: number; limit: number }> {
     if (applicationNo) {
       await this.ensureBackfilledLogs(applicationNo, orgId);
-    } else if (orgId) {
-      try {
-        const apps = await this.dataSource.getRepository(Application).find({
-          where: { organizationId: orgId },
-          select: ['applicationNo'],
-        });
-        for (const app of apps) {
-          if (app.applicationNo) {
-            await this.ensureBackfilledLogs(app.applicationNo, orgId);
-          }
-        }
-      } catch {
-        // best effort
-      }
     }
 
     const qb = this.repo.createQueryBuilder('log');

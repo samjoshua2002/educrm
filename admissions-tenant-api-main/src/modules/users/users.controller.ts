@@ -46,7 +46,7 @@ export class UsersController {
   }
 
   @Get('organizations/:orgId/users')
-  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN)
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.LEAD_MANAGER)
   @ResponseMessage('Staff users fetched successfully')
   findAll(
     @Param('orgId', ParseUUIDPipe) orgId: string,

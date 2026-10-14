@@ -303,6 +303,26 @@ export class Application {
   @Column({ name: 'submitted_at', nullable: true })
   submittedAt: Date;
 
+  // Application Master — Application_Source (Website / Agent / Campaign).
+  @Column({ name: 'application_source', type: 'varchar', length: 20, nullable: true })
+  applicationSource: string | null;
+
+  // Application Status Tracker — current stage (Application Started → Fee
+  // Paid → Documents Uploaded → Under Review → Verified / Shortlisted →
+  // Approved / Rejected / Waitlisted). Maintained by ApplicationStatusService.
+  @Column({ name: 'current_stage', type: 'varchar', length: 40, default: 'Application Started' })
+  currentStage: string;
+
+  @Column({ name: 'stage_updated_at', type: 'timestamp', nullable: true })
+  stageUpdatedAt: Date | null;
+
+  // Reminders & Nudges — opt-in / opt-out compliance.
+  @Column({ name: 'reminders_opt_in', default: true })
+  remindersOptIn: boolean;
+
+  @Column({ name: 'reminder_opt_out_channels', type: 'jsonb', default: () => "'[]'" })
+  reminderOptOutChannels: string[];
+
   @Column({ name: 'confirmation_email_sent_at', nullable: true })
   confirmationEmailSentAt: Date;
 

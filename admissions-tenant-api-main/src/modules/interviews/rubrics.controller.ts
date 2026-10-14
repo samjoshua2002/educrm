@@ -4,10 +4,11 @@ import { CreateRubricDto } from './dto/create-rubric.dto.js';
 import { UpdateRubricDto } from './dto/update-rubric.dto.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
+import { TenantGuard } from '../../common/guards/tenant.guard.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { Role } from '../../common/enums/roles.enum.js';
 
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, TenantGuard)
 @Controller('organizations/:orgId/evaluation-rubrics')
 export class RubricsController {
   constructor(private readonly rubricsService: RubricsService) {}

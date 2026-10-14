@@ -36,6 +36,13 @@ export interface AnnouncementEventItem {
   priority: EventPriority;
   targetAudience: string[]; // ["student", "staff", "all", "counselor", etc.]
   targetLeadStages?: string[];
+  /** Lead sources (leads.source) */
+  targetLeadSources?: string[];
+  /** Application statuses (applications.form_status) */
+  targetApplicationStatuses?: string[];
+  targetAcademicSession?: string;
+  /** Branch ids: staff, leads and applicants of these branches */
+  targetBranchIds?: string[];
   targetCourseId?: string;
   targetCourseName?: string;
   eventStartDate?: string;
@@ -47,6 +54,8 @@ export interface AnnouncementEventItem {
   status: EventStatus;
   scheduledPublishDate?: string;
   scheduledPublishTime?: string;
+  /** ISO timestamp of the scheduled publish moment */
+  scheduledPublishAt?: string;
   sendInAppNotification: boolean;
   sendEmailBroadcast: boolean;
   sendWhatsapp: boolean;
@@ -59,11 +68,46 @@ export interface AnnouncementEventItem {
   updatedAt: string;
   publishedAt?: string;
   createdByName?: string;
+  deliveryStatus?: string | null;
+  lastDeliveredAt?: string | null;
+  deliveryStats?: EventDeliveryStats | null;
+}
+
+export interface EventDeliveryStats {
+  reason?: string;
+  recipients?: { staff?: number; students?: number; leads?: number; applicants?: number };
+  inApp?: number;
+  email?: { sent: number; failed: number; error?: string };
+  whatsapp?: { sent: number; failed: number; error?: string };
+  startedAt?: string;
+  finishedAt?: string;
+  error?: string;
+}
+
+export interface AudienceTargeting {
+  targetAudience: string[];
+  targetCourseId?: string;
+  targetLeadStages?: string[];
+  targetLeadSources?: string[];
+  targetApplicationStatuses?: string[];
+  targetAcademicSession?: string;
+  targetBranchIds?: string[];
+}
+
+export interface AudiencePreview {
+  staff: number;
+  staffByRole: Record<string, number>;
+  students: number;
+  leads: number;
+  applicants: number;
+  portalAccounts: number;
+  uniqueEmails: number;
+  uniquePhones: number;
 }
 
 export type CreateAnnouncementEventInput = Omit<
   AnnouncementEventItem,
-  "id" | "createdAt" | "updatedAt"
+  "id" | "createdAt" | "updatedAt" | "deliveryStatus" | "lastDeliveredAt" | "deliveryStats"
 >;
 
 export type UpdateAnnouncementEventInput = Partial<CreateAnnouncementEventInput>;

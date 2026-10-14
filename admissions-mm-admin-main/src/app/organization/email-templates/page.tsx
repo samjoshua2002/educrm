@@ -1,26 +1,29 @@
-/* eslint-disable max-lines, @typescript-eslint/no-explicit-any */
 "use client";
 
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  EllipsisVertical,
-  Pencil,
-  Trash2,
-  ChevronLeft,
-  ChevronRight,
-  Search,
-  SearchX,
-  Eye,
+  Archive,
+  CheckCircle2,
   Copy,
-  Mail,
-  Layers,
-  Sparkles,
-  Send,
+  EllipsisVertical,
+  Eye,
+  FileText,
+  FolderCog,
+  Loader2,
+  Pencil,
   Plus,
+  RotateCcw,
+  Search,
+  Send,
+  Trash2,
 } from "lucide-react";
-
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,1036 +34,401 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ActiveFormIcon } from "@/components/icons/active-form-icon";
-import { TotalResponseIcon } from "@/components/icons/total-response-icon";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogDescription,
-} from "@/components/ui/dialog";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { usePageHeader } from "@/hooks/use-page-header";
 import { useAuthStore } from "@/stores/auth-store";
 import {
-  useEmailTemplates,
+  renderTemplate,
+  useApproveTemplate,
+  useArchiveTemplate,
   useDeleteEmailTemplate,
   useDuplicateEmailTemplate,
+  useEmailTemplates,
+  useRestoreTemplate,
   useSendTemplatedEmail,
-  renderTemplate,
 } from "@/hooks/use-email-templates";
-import { useEmailTemplateCategories } from "@/hooks/use-email-template-categories";
-import { EmailTemplate } from "@/types/email-template";
+import { TEMPLATE_CATEGORIES, TEMPLATE_LANGUAGES, TEMPLATE_TYPES, type CommTemplate } from "@/types/communications";
+import {
+  EmptyState,
+  Field,
+  Pager,
+  StatCard,
+  StatusPill,
+  Th,
+  formatDate,
+  formatDateTime,
+  pill,
+  tableHeaderClass,
+  tableShell,
+} from "../communications/_components/comm-ui";
+import { SAMPLE_CONTEXT, canEditTemplate } from "./_components/template-form";
 
-const statusStyles: Record<string, string> = {
-  active:
-    "bg-[#05966933] text-[#065F46] dark:bg-emerald-500/20 dark:text-emerald-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0 inline-flex items-center",
-  draft:
-    "bg-[#F3E8FF] text-[#6B21A8] dark:bg-purple-500/20 dark:text-purple-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0 inline-flex items-center",
-};
+const PAGE_SIZE = 15;
 
-const categoryPillStyles: Record<string, string> = {
-  "interview schedule":
-    "bg-[#DBEAFE] text-[#1D4ED8] dark:bg-blue-500/20 dark:text-blue-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0 inline-flex items-center",
-  "admission offer":
-    "bg-[#05966933] text-[#065F46] dark:bg-emerald-500/20 dark:text-emerald-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0 inline-flex items-center",
-  "document request":
-    "bg-[#FFEDD5] text-[#9A3412] dark:bg-amber-500/20 dark:text-amber-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0 inline-flex items-center",
-  "payment reminder":
-    "bg-[#FEE2E2] text-[#991B1B] dark:bg-rose-500/20 dark:text-rose-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0 inline-flex items-center",
-  "general notice":
-    "bg-[#F3E8FF] text-[#6B21A8] dark:bg-purple-500/20 dark:text-purple-300 font-medium px-2.5 py-0.5 rounded-full text-xs border-0 inline-flex items-center",
-};
-
-const getCategoryStyle = (cat: string) => {
-  const lower = (cat || "").toLowerCase();
-  if (categoryPillStyles[lower]) return categoryPillStyles[lower];
-  const leadManagerPalettes = [
-    "bg-[#DBEAFE] text-[#1D4ED8] dark:bg-blue-500/20 dark:text-blue-300",
-    "bg-[#F3E8FF] text-[#6B21A8] dark:bg-purple-500/20 dark:text-purple-300",
-    "bg-[#05966933] text-[#065F46] dark:bg-emerald-500/20 dark:text-emerald-300",
-    "bg-[#FFEDD5] text-[#9A3412] dark:bg-amber-500/20 dark:text-amber-300",
-    "bg-[#CFFAFE] text-[#155E75] dark:bg-cyan-500/20 dark:text-cyan-300",
-  ];
-  let hash = 0;
-  for (let i = 0; i < lower.length; i++) {
-    hash = lower.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const index = Math.abs(hash) % leadManagerPalettes.length;
-  return `${leadManagerPalettes[index]} font-medium px-2.5 py-0.5 rounded-full text-xs border-0 inline-flex items-center`;
-};
-
-export default function OrganizationEmailTemplatesPage() {
-  const [currentPage, setCurrentPage] = React.useState(1);
-  const [searchQuery, setSearchQuery] = React.useState("");
-  const [categoryFilter, setCategoryFilter] = React.useState("all");
-  const [statusFilter, setStatusFilter] = React.useState("all");
-
-  const user = useAuthStore((s) => s.user);
-
+export default function EmailTemplatesPage() {
   usePageHeader({
-    title: "Email Templates",
-    description: "Create and manage email communication templates for admission campaigns",
-    action: {
-      label: "Create Template",
-      href: "/organization/email-templates/create",
-    },
+    title: "Templates",
+    description: "Approved, reusable Email / SMS / WhatsApp / call-script templates with merge fields.",
   });
-
   const router = useRouter();
+  const role = useAuthStore((s) => s.user?.role) || "";
+  const isAdmin = role === "org_admin" || role === "superadmin";
 
-  // Mobile load more
-  const [mobileVisibleCount, setMobileVisibleCount] = React.useState(5);
-  const [deleteTemplateId, setDeleteTemplateId] = React.useState<string | null>(null);
+  const [search, setSearch] = React.useState("");
+  const [type, setType] = React.useState("all");
+  const [templateCategory, setTemplateCategory] = React.useState("all");
+  const [status, setStatus] = React.useState("all");
+  const [language, setLanguage] = React.useState("all");
+  const [page, setPage] = React.useState(1);
+  const { data: templates = [], isLoading } = useEmailTemplates(undefined, undefined, undefined, { type, templateCategory, language });
 
-  // Quick preview & test send modals
-  const [previewTemplate, setPreviewTemplate] = React.useState<EmailTemplate | null>(null);
-  const [testSendTemplate, setTestSendTemplate] = React.useState<EmailTemplate | null>(null);
-  const [testRecipientEmail, setTestRecipientEmail] = React.useState("");
-  const [testCandidateName, setTestCandidateName] = React.useState("Aarav Sharma");
-  const [testAppNo, setTestAppNo] = React.useState("APP2026001");
+  const approve = useApproveTemplate();
+  const archive = useArchiveTemplate();
+  const restore = useRestoreTemplate();
+  const duplicate = useDuplicateEmailTemplate();
+  const del = useDeleteEmailTemplate();
+  const [preview, setPreview] = React.useState<CommTemplate | null>(null);
+  const [testFor, setTestFor] = React.useState<CommTemplate | null>(null);
+  const [deleting, setDeleting] = React.useState<CommTemplate | null>(null);
 
-  const itemsPerPage = 5;
-
-  const { data: allTemplates = [], isLoading, error } = useEmailTemplates(
-    searchQuery,
-    categoryFilter,
-    statusFilter
-  );
-  const { data: categories = [] } = useEmailTemplateCategories();
-
-  const filterCategories = React.useMemo(
-    () => categories.map((c) => c.name),
-    [categories]
-  );
-
-  // Flattened lookup of every category's variables, keyed by variable key,
-  // used to resolve a template's saved variable list to its label/description.
-  const variablesByKey = React.useMemo(() => {
-    const map = new Map<string, { label: string; description?: string | null; sampleValue?: string | null }>();
-    categories.forEach((cat) => {
-      cat.variables.forEach((v) => {
-        if (!map.has(v.key)) {
-          map.set(v.key, { label: v.label, description: v.description, sampleValue: v.sampleValue });
-        }
-      });
-    });
-    return map;
-  }, [categories]);
-
-  const { mutate: duplicateTemplate } = useDuplicateEmailTemplate();
-  const deleteTemplateMutation = useDeleteEmailTemplate();
-  const sendEmailMutation = useSendTemplatedEmail();
-
-  const activeTemplates = allTemplates.filter((t) => t.status === "active").length;
-  const totalTemplates = allTemplates.length;
-
-  function handleDeleteConfirm() {
-    if (deleteTemplateId) {
-      deleteTemplateMutation.mutate(deleteTemplateId);
-      setDeleteTemplateId(null);
+  const filtered = templates.filter((t) => {
+    const st = t.status === "active" ? "approved" : t.status;
+    if (status !== "all" && st !== status) return false;
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      if (![t.name, t.subject, t.category, t.templateCategory, t.body].some((x) => (x || "").toLowerCase().includes(q))) return false;
     }
-  }
-
-  function handleDuplicate(id: string) {
-    duplicateTemplate(id);
-  }
-
-  const filteredTemplates = React.useMemo(() => {
-    return allTemplates.filter((item: EmailTemplate) => {
-      if (searchQuery.trim() !== "") {
-        const q = searchQuery.toLowerCase();
-        if (
-          !item.name.toLowerCase().includes(q) &&
-          !item.subject.toLowerCase().includes(q) &&
-          !item.category.toLowerCase().includes(q)
-        ) {
-          return false;
-        }
-      }
-
-      if (categoryFilter !== "all" && item.category.toLowerCase() !== categoryFilter.toLowerCase()) {
-        return false;
-      }
-
-      if (statusFilter !== "all" && item.status.toLowerCase() !== statusFilter.toLowerCase()) {
-        return false;
-      }
-
-      return true;
-    });
-  }, [allTemplates, searchQuery, categoryFilter, statusFilter]);
-
-  // Desktop Pagination (matching forms module: 5 per page)
-  const totalPages = Math.ceil(filteredTemplates.length / itemsPerPage) || 1;
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedTemplates = filteredTemplates.slice(startIndex, endIndex);
-
-  // Mobile load more logic
-  const mobileTemplates = React.useMemo(() => {
-    return filteredTemplates.slice(0, mobileVisibleCount);
-  }, [filteredTemplates, mobileVisibleCount]);
-
-  const visiblePages = React.useMemo(() => {
-    let startPage = 1;
-    let endPage = totalPages;
-    if (totalPages > 5) {
-      if (currentPage <= 3) {
-        startPage = 1;
-        endPage = 5;
-      } else if (currentPage + 2 >= totalPages) {
-        startPage = totalPages - 4;
-        endPage = totalPages;
-      } else {
-        startPage = currentPage - 2;
-        endPage = currentPage + 2;
-      }
-    }
-    return Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i);
-  }, [currentPage, totalPages]);
-
-  const [mounted, setMounted] = React.useState(false);
-  React.useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // Candidate sample context for preview, built from every category's sample values
-  const sampleCandidateContext: Record<string, string> = React.useMemo(() => {
-    const ctx: Record<string, string> = {
-      date: new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
-    };
-    variablesByKey.forEach((v, key) => {
-      ctx[key] = v.sampleValue || "";
-    });
-    return ctx;
-  }, [variablesByKey]);
-
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-6">
-        <p className="text-destructive font-semibold mb-2">Failed to load email templates</p>
-        <p className="text-muted-foreground text-sm">Please check your connection or contact support.</p>
-        <Button variant="outline" className="mt-4" onClick={() => window.location.reload()}>
-          Retry
-        </Button>
-      </div>
-    );
-  }
+    return true;
+  });
+  const rows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const count = (s: string) => templates.filter((t) => (t.status === "active" ? "approved" : t.status) === s).length;
 
   return (
-    <TooltipProvider delayDuration={200}>
-      <div className="flex flex-col gap-4 p-4 md:p-6">
-        {/* Quick Stats Dashboard */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Card 1: Active Templates */}
-          <div className="bg-card border border-border rounded-[12px] px-5 py-4 flex items-center gap-4 shadow-sm hover:shadow-md transition-all duration-200">
-            {/* Left: icon + label */}
-            <div className="flex flex-col items-start gap-1 shrink-0">
-              <div className="w-11 h-11 rounded-[10px] bg-[#EFF6FF] flex items-center justify-center text-[#2563EB]">
-                <ActiveFormIcon className="size-5" />
-              </div>
-              <span className="text-[11px] font-medium text-muted-foreground whitespace-nowrap">
-                Active Templates
-              </span>
-            </div>
-            {/* Right: number + text */}
-            <div className="flex flex-col gap-1.5 flex-1 min-w-0 mt-1">
-              <span className="text-[28px] font-bold leading-none text-[#0F172A]">
-                {activeTemplates}
-              </span>
-              <span className="text-[11px] text-muted-foreground">
-                Live templates ready to send
-              </span>
-            </div>
-          </div>
+    <div className="flex flex-col gap-4 p-4 md:p-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <StatCard icon={<FileText className="size-5" />} label="Total" value={templates.length} />
+        <StatCard
+          icon={<CheckCircle2 className="size-5" />}
+          label="Approved"
+          value={count("approved")}
+          color="#059669"
+          bg="#ECFDF5"
+          ratio={templates.length ? count("approved") / templates.length : 0}
+        />
+        <StatCard
+          icon={<Pencil className="size-5" />}
+          label="Draft"
+          value={count("draft")}
+          color="#D97706"
+          bg="#FFFBEB"
+          ratio={templates.length ? count("draft") / templates.length : 0}
+          hint={isAdmin ? "Awaiting your approval" : "Awaiting admin approval"}
+        />
+        <StatCard
+          icon={<Archive className="size-5" />}
+          label="Archived"
+          value={count("archived")}
+          color="#475569"
+          bg="#F1F5F9"
+          ratio={templates.length ? count("archived") / templates.length : 0}
+        />
+      </div>
 
-          {/* Card 2: Total Templates */}
-          <div className="bg-card border border-border rounded-[12px] px-5 py-4 flex items-center gap-4 shadow-sm hover:shadow-md transition-all duration-200">
-            {/* Left: icon + label */}
-            <div className="flex flex-col items-start gap-1 shrink-0">
-              <div className="w-11 h-11 rounded-[10px] flex items-center justify-center bg-[#ECFDF5] text-[#059669]">
-                <TotalResponseIcon className="size-5" />
-              </div>
-              <span className="text-[11px] font-medium text-muted-foreground whitespace-nowrap">
-                Total Templates
-              </span>
-            </div>
-            {/* Right: number + text */}
-            <div className="flex flex-col gap-1.5 flex-1 min-w-0 mt-1">
-              <span className="text-[28px] font-bold leading-none text-[#0F172A]">
-                {totalTemplates}
-              </span>
-              <span className="text-[11px] text-muted-foreground">
-                Configured categories & layouts
-              </span>
-            </div>
-          </div>
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+        <div className="relative flex-1">
+          <Input
+            placeholder="Search templates…"
+            className="h-10 pr-10"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+          />
+          <Search className="absolute right-3 top-3 size-4 text-muted-foreground" />
         </div>
-
-        {/* Search & Filters Bar matching Forms */}
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-          {/* Search Section */}
-          <div className="flex flex-1 w-full">
-            <div className="relative w-full">
-              <Input
-                placeholder="Search by template name, category or subject..."
-                className="w-full pr-10 h-10"
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setCurrentPage(1);
-                }}
-              />
-              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-muted-foreground">
-                <Search className="size-4" />
-              </div>
-            </div>
-          </div>
-
-          {/* Filters & Sort */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <div className="flex-1 min-w-0 sm:w-[190px]">
-                <Select
-                  value={categoryFilter}
-                  onValueChange={(val) => {
-                    setCategoryFilter(val);
-                    setCurrentPage(1);
-                  }}
-                >
-                  <SelectTrigger className="w-full h-10" size="lg">
-                    <SelectValue placeholder="All Categories" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Category: All</SelectItem>
-                    {filterCategories.map((cat) => (
-                      <SelectItem key={cat} value={cat}>
-                        {cat}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex-1 min-w-0 sm:w-[160px]">
-                <Select
-                  value={statusFilter}
-                  onValueChange={(val) => {
-                    setStatusFilter(val);
-                    setCurrentPage(1);
-                  }}
-                >
-                  <SelectTrigger className="w-full h-10" size="lg">
-                    <SelectValue placeholder="Status: All" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Status: All</SelectItem>
-                    <SelectItem value="active">Status: Active</SelectItem>
-                    <SelectItem value="draft">Status: Draft</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
+        <div className="grid grid-cols-2 sm:flex gap-2">
+          <Filter value={type} onChange={(v) => (setType(v), setPage(1))} all="All types" options={TEMPLATE_TYPES} />
+          <Filter value={templateCategory} onChange={(v) => (setTemplateCategory(v), setPage(1))} all="All categories" options={TEMPLATE_CATEGORIES} />
+          <Filter
+            value={status}
+            onChange={(v) => (setStatus(v), setPage(1))}
+            all="All statuses"
+            options={["draft", "approved", "archived"]}
+            labels={{ draft: "Draft", approved: "Approved", archived: "Archived" }}
+          />
+          <Filter value={language} onChange={(v) => (setLanguage(v), setPage(1))} all="All languages" options={TEMPLATE_LANGUAGES} />
         </div>
+        <div className="flex gap-2">
+          <Button asChild variant="outline" className="h-10 gap-1.5">
+            <Link href="/organization/email-templates/categories">
+              <FolderCog className="size-4" /> Lifecycle categories
+            </Link>
+          </Button>
+          <Button asChild className="h-10 gap-1.5">
+            <Link href="/organization/email-templates/create">
+              <Plus className="size-4" /> New template
+            </Link>
+          </Button>
+        </div>
+      </div>
 
-        {/* Desktop View - Table matching Forms module exactly */}
-        <div className="hidden lg:block border border-[#e5e5e5] rounded-[12px] bg-white overflow-hidden shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)]">
-          <Table>
-            <TableHeader className="bg-[#fafafa] border-b border-[#e2e8f0]">
-              <TableRow className="hover:bg-transparent border-b border-[#e2e8f0]">
-                <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
-                  TEMPLATE NAME
-                </TableHead>
-                <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
-                  CATEGORY
-                </TableHead>
-                <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
-                  SUBJECT LINE & SHORTCUTS
-                </TableHead>
-                <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto">
-                  STATUS
-                </TableHead>
-                <TableHead className="py-[16px] px-[24px] text-[#64748b] text-[12px] font-semibold tracking-[0.6px] uppercase h-auto text-right w-[85px]">
-                  ACTIONS
-                </TableHead>
+      <div className={tableShell}>
+        <Table>
+          <TableHeader className={tableHeaderClass}>
+            <TableRow className="hover:bg-transparent">
+              <Th>Template</Th>
+              <Th>Type</Th>
+              <Th>Category</Th>
+              <Th>Language</Th>
+              <Th>Version</Th>
+              <Th>Status</Th>
+              <Th>Created by</Th>
+              <Th>Approved by</Th>
+              <Th>Last modified</Th>
+              <Th className="text-right"> </Th>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={10} className="py-10 text-center text-muted-foreground">
+                  <Loader2 className="inline size-4 animate-spin mr-2" /> Loading…
+                </TableCell>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(!mounted || isLoading) && allTemplates.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="h-48 text-center">
-                    <div className="flex flex-col items-center justify-center text-muted-foreground">
-                      <div className="size-8 animate-spin rounded-full border-4 border-primary border-t-transparent mb-4" />
-                      <p>Loading email templates...</p>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : filteredTemplates.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="h-64 text-center">
-                    <div className="flex flex-col items-center justify-center gap-3">
-                      <div className="flex size-12 items-center justify-center rounded-full bg-muted/40">
-                        <SearchX className="size-6 text-muted-foreground/80" />
-                      </div>
-                      <div className="flex flex-col gap-0.5 text-center">
-                        <p className="text-sm font-semibold text-foreground">No templates found</p>
-                        <p className="text-xs text-muted-foreground">
-                          Try adjusting your filters or create a new template.
-                        </p>
-                      </div>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                paginatedTemplates.map((item: EmailTemplate) => (
-                  <TableRow
-                    key={item.id}
-                    className="border-b border-[#e2e8f0] hover:bg-muted/15 transition-colors"
-                  >
-                    <TableCell className="py-5 px-6 align-middle">
-                      <div className="font-semibold text-[#1e293b] text-[14px]">
-                        {item.name}
-                      </div>
-                      <div className="text-[#64748b] text-[12px] mt-0.5">
-                        Last modified:{" "}
-                        {item.updatedAt
-                          ? new Date(item.updatedAt).toLocaleDateString("en-GB", {
-                              day: "2-digit",
-                              month: "short",
-                              year: "numeric",
-                            })
-                          : "No date"}
-                      </div>
-                    </TableCell>
-
-                    <TableCell className="py-5 px-6 align-middle">
-                      <span className={getCategoryStyle(item.category)}>
-                        {item.category}
-                      </span>
-                    </TableCell>
-
-                    <TableCell className="py-5 px-6 align-middle">
-                      <div className="flex flex-col gap-1 max-w-[400px]">
-                        <span className="text-[13px] font-medium text-[#1e293b] truncate">
-                          {item.subject}
-                        </span>
-                        <div className="flex flex-wrap items-center gap-1 mt-0.5">
-                          {item.variables && item.variables.length > 0 ? (
-                            item.variables.map((v) => {
-                              const sc = variablesByKey.get(v.toLowerCase());
-                              return (
-                                <Tooltip key={v}>
-                                  <TooltipTrigger asChild>
-                                    <span className="cursor-help inline-flex items-center px-1.5 py-0.5 rounded bg-blue-50/60 border border-blue-200 text-[#2563EB] font-mono text-[10px] font-semibold hover:bg-blue-100 transition-colors">
-                                      {`{${v}}`}
-                                    </span>
-                                  </TooltipTrigger>
-                                  <TooltipContent
-                                    side="top"
-                                    className="bg-white text-[#0F172A] border border-[#E2E8F0] shadow-[0px_6px_20px_rgba(0,0,0,0.08)] p-3 rounded-[8px] max-w-xs z-50 animate-in fade-in-0 zoom-in-95"
-                                  >
-                                    <div className="flex items-center gap-2 pb-1.5 border-b border-[#F1F5F9]">
-                                      <span className="font-mono text-[11px] font-bold text-[#2563EB] bg-[#EFF6FF] px-1.5 py-0.5 rounded border border-[#DBEAFE]">
-                                        {`{${v}}`}
-                                      </span>
-                                      <span className="text-[12px] font-bold text-[#0F172A]">{sc?.label || v}</span>
-                                    </div>
-                                    <p className="text-[11px] text-[#475569] mt-2 leading-relaxed">{sc?.description || "Variable shortcut"}</p>
-                                    {sc && (
-                                      <div className="mt-2.5 bg-[#F8FAFC] border border-[#E2E8F0] rounded-[6px] px-2.5 py-1.5 flex items-center justify-between text-[11px]">
-                                        <span className="text-[#64748B] font-medium">Resolves to:</span>
-                                        <span className="font-mono font-semibold text-[#2563EB]">
-                                          "{sc.sampleValue}"
-                                        </span>
-                                      </div>
-                                    )}
-                                  </TooltipContent>
-                                </Tooltip>
-                              );
-                            })
-                          ) : (
-                            <span className="text-[11px] text-slate-400">Standard Text</span>
-                          )}
-                        </div>
-                      </div>
-                    </TableCell>
-
-                    <TableCell className="py-5 px-6 align-middle">
-                      <span
-                        className={
-                          statusStyles[item.status.toLowerCase()] ||
-                          "bg-muted text-muted-foreground font-medium px-2.5 py-0.5 rounded-full text-xs border-0 inline-flex items-center"
-                        }
-                      >
-                        <span className="capitalize">{item.status}</span>
-                      </span>
-                    </TableCell>
-
-                    <TableCell className="py-5 px-6 align-middle text-right">
-                      <div className="flex justify-end">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              className="data-[state=open]:bg-muted text-muted-foreground flex size-8 rounded-md hover:bg-muted"
-                              size="icon"
-                            >
-                              <EllipsisVertical className="size-4" />
-                              <span className="sr-only">Open menu</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-44 z-50">
-                            <DropdownMenuItem
-                              className="gap-2 text-[13px] cursor-pointer"
-                              onClick={() => setPreviewTemplate(item)}
-                            >
-                              <Eye className="size-4 text-blue-600" />
-                              View Preview
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="gap-2 text-[13px]" asChild>
-                              <Link href={`/organization/email-templates/${item.id}/edit`}>
-                                <Pencil className="size-4" />
-                                Edit Template
-                              </Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="gap-2 text-[13px] cursor-pointer"
-                              onClick={() => handleDuplicate(item.id)}
-                            >
-                              <Copy className="size-4" />
-                              Duplicate
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="gap-2 text-[13px] cursor-pointer text-[#2563EB]"
-                              onClick={() => {
-                                setTestSendTemplate(item);
-                                setTestRecipientEmail("");
-                              }}
-                            >
-                              <Send className="size-4" />
-                              Test Dispatch
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              variant="destructive"
-                              className="gap-2 text-[13px] cursor-pointer"
-                              onClick={() => setDeleteTemplateId(item.id)}
-                            >
-                              <Trash2 className="size-4" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-
-          {/* Desktop Pagination Footer matching Forms & Lead Manager module */}
-          <div className="flex flex-col sm:flex-row items-center justify-between border-t border-border/80 bg-zinc-100 dark:bg-muted/5 py-4 px-6 gap-4">
-            <p className="text-sm text-muted-foreground font-normal">
-              Showing{" "}
-              <span className="font-medium text-foreground">
-                {filteredTemplates.length === 0 ? 0 : startIndex + 1}
-              </span>{" "}
-              to{" "}
-              <span className="font-medium text-foreground">
-                {Math.min(endIndex, filteredTemplates.length)}
-              </span>{" "}
-              of{" "}
-              <span className="font-medium text-foreground">
-                {filteredTemplates.length}
-              </span>{" "}
-              entries
-            </p>
-            {totalPages > 1 && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <Button
-                  variant="outline"
-                  className="h-9 px-4 border border-border/80 bg-background text-foreground text-sm font-normal rounded-[6px] hover:bg-muted/30 hover:text-[var(--primary)] dark:hover:bg-muted/10 transition-colors shadow-2xs"
-                  onClick={() => {
-                    if (currentPage > 1) setCurrentPage(currentPage - 1);
-                  }}
-                  disabled={currentPage === 1}
-                >
-                  Previous
-                </Button>
-                <div className="flex items-center gap-1">
-                  {visiblePages.map((page) => {
-                    const isActive = page === currentPage;
-                    return (
-                      <Button
-                        key={page}
-                        variant={isActive ? "default" : "outline"}
-                        className={`h-9 w-9 p-0 text-sm border shadow-2xs rounded-[6px] transition-colors ${
-                          isActive
-                            ? "bg-[#EA2525] border-[#EA2525] text-white font-semibold hover:bg-[#D61F1F] shadow-xs"
-                            : "border-border/80 bg-background text-muted-foreground hover:bg-muted/30 dark:hover:bg-muted/10 hover:text-foreground font-normal"
-                        }`}
-                        onClick={() => setCurrentPage(page)}
-                      >
-                        {page}
+            ) : rows.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={10}>
+                  <EmptyState
+                    title="No templates found"
+                    action={
+                      <Button asChild size="sm">
+                        <Link href="/organization/email-templates/create">Create a template</Link>
                       </Button>
-                    );
-                  })}
-                </div>
-                <Button
-                  variant="outline"
-                  className="h-9 px-4 border border-border/80 bg-background text-foreground text-sm font-normal rounded-[6px] hover:bg-muted/30 hover:text-[var(--primary)] dark:hover:bg-muted/10 transition-colors shadow-2xs"
-                  onClick={() => {
-                    if (currentPage < totalPages) setCurrentPage(currentPage + 1);
-                  }}
-                  disabled={currentPage === totalPages}
-                >
-                  Next
-                </Button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Mobile View - Ultra-Compact List Layout matching Lead Manager */}
-        {(!mounted || isLoading) && allTemplates.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-3 py-16 border border-border/80 bg-card rounded-xl lg:hidden text-center px-4 w-full">
-            <div className="size-6 animate-spin rounded-full border-2 border-primary border-t-transparent mb-2" />
-            <p className="text-xs text-muted-foreground">Loading templates...</p>
-          </div>
-        ) : filteredTemplates.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-3 py-16 border border-border/80 bg-card rounded-xl lg:hidden text-center px-4 w-full">
-            <div className="flex size-12 items-center justify-center rounded-full bg-muted/40">
-              <SearchX className="size-6 text-muted-foreground/80" />
-            </div>
-            <div className="flex flex-col gap-0.5">
-              <p className="text-sm font-semibold text-foreground">
-                No templates found
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Try adjusting your filters or search query.
-              </p>
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-3.5 lg:hidden w-full">
-            {mobileTemplates.map((item: EmailTemplate) => {
-              // Generate initials for avatar
-              const initials =
-                item.name
-                  .split(" ")
-                  .filter(Boolean)
-                  .map((n: string) => n[0])
-                  .join("")
-                  .toUpperCase()
-                  .slice(0, 2) || "ET";
-
-              return (
-                <div
-                  key={item.id}
-                  className="bg-card border border-border/80 rounded-xl p-4 md:p-5 flex flex-col gap-4 hover:shadow-xs transition-all duration-200"
-                >
-                  {/* Row 1: Avatar, Name, Subject & Action */}
-                  <div className="flex items-center justify-between gap-4 min-w-0">
-                    {/* Avatar & Text block */}
-                    <div className="flex items-center gap-3 min-w-0">
-                      {/* Initials Avatar */}
-                      <div className="flex size-10 items-center justify-center rounded-full bg-linear-to-br from-primary/10 to-primary/5 border border-primary/10 text-primary font-semibold text-sm shrink-0">
-                        {initials}
-                      </div>
-
-                      <div className="min-w-0">
-                        <span className="font-semibold text-foreground text-sm tracking-tight truncate block">
-                          {item.name}
-                        </span>
-                        <span className="text-xs text-muted-foreground truncate block mt-0.5">
-                          {item.subject}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Badge & Action */}
-                    <div className="flex items-center gap-1.5 shrink-0 self-center">
-                      <span
-                        className={
-                          statusStyles[item.status.toLowerCase()] ||
-                          "bg-muted text-muted-foreground font-medium px-2.5 py-0.5 rounded-full text-xs border-0 inline-flex items-center"
-                        }
-                      >
-                        <span className="capitalize">{item.status}</span>
+                    }
+                  />
+                </TableCell>
+              </TableRow>
+            ) : (
+              rows.map((t) => {
+                const st = t.status === "active" ? "approved" : t.status;
+                const editable = canEditTemplate(t, role);
+                return (
+                  <TableRow key={t.id} className="cursor-pointer" onClick={() => setPreview(t)}>
+                    <TableCell className="px-4 max-w-[300px]">
+                      <p className="text-sm font-medium truncate">{t.name}</p>
+                      <p className="text-[11px] text-muted-foreground truncate">
+                        {t.channel === "Email" ? t.subject : t.body}
+                      </p>
+                    </TableCell>
+                    <TableCell className="px-4">
+                      <span className={t.channel === "Email" ? pill.blue : t.channel === "SMS" ? pill.purple : t.channel === "WhatsApp" ? pill.green : pill.amber}>
+                        {t.channel}
                       </span>
-
+                    </TableCell>
+                    <TableCell className="px-4 text-xs">
+                      <p>{t.templateCategory || "—"}</p>
+                      {t.category && <p className="text-[11px] text-muted-foreground">{t.category}</p>}
+                    </TableCell>
+                    <TableCell className="px-4 text-xs">{t.language || "English"}</TableCell>
+                    <TableCell className="px-4 text-xs">v{t.versionNumber || 1}</TableCell>
+                    <TableCell className="px-4">
+                      <StatusPill status={st} />
+                    </TableCell>
+                    <TableCell className="px-4 text-xs">{t.createdByName || (t.organizationId ? "—" : "System")}</TableCell>
+                    <TableCell className="px-4 text-xs">
+                      {t.approvedByName ? (
+                        <>
+                          <p>{t.approvedByName}</p>
+                          <p className="text-[11px] text-muted-foreground">{formatDate(t.approvedAt)}</p>
+                        </>
+                      ) : (
+                        "—"
+                      )}
+                    </TableCell>
+                    <TableCell className="px-4 text-xs whitespace-nowrap">{formatDateTime(t.updatedAt)}</TableCell>
+                    <TableCell className="px-4 text-right" onClick={(e) => e.stopPropagation()}>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            className="text-muted-foreground flex size-8 rounded-md hover:bg-muted p-0 shrink-0"
-                            size="icon"
-                          >
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
                             <EllipsisVertical className="size-4" />
-                            <span className="sr-only">Open menu</span>
                           </Button>
                         </DropdownMenuTrigger>
-
-                        <DropdownMenuContent align="end" className="w-44 z-50">
-                          <DropdownMenuItem
-                            className="gap-2 text-[13px] cursor-pointer"
-                            onClick={() => setPreviewTemplate(item)}
-                          >
-                            <Eye className="size-4 text-blue-600" />
-                            View Preview
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => setPreview(t)}>
+                            <Eye className="size-4" /> Preview
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="gap-2 text-[13px]" asChild>
-                            <Link href={`/organization/email-templates/${item.id}/edit`}>
-                              <Pencil className="size-4" />
-                              Edit Template
-                            </Link>
+                          <DropdownMenuItem disabled={!editable || !t.organizationId} onClick={() => router.push(`/organization/email-templates/${t.id}/edit`)}>
+                            <Pencil className="size-4" /> Edit
                           </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="gap-2 text-[13px] cursor-pointer"
-                            onClick={() => handleDuplicate(item.id)}
-                          >
-                            <Copy className="size-4" />
-                            Duplicate
+                          <DropdownMenuItem onClick={() => duplicate.mutate(t.id)}>
+                            <Copy className="size-4" /> Duplicate
                           </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="gap-2 text-[13px] cursor-pointer text-[#2563EB]"
-                            onClick={() => {
-                              setTestSendTemplate(item);
-                              setTestRecipientEmail("");
-                            }}
-                          >
-                            <Send className="size-4" />
-                            Test Dispatch
-                          </DropdownMenuItem>
+                          {t.channel === "Email" && st === "approved" && (
+                            <DropdownMenuItem onClick={() => setTestFor(t)}>
+                              <Send className="size-4" /> Send test email
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            variant="destructive"
-                            className="gap-2 text-[13px] cursor-pointer"
-                            onClick={() => setDeleteTemplateId(item.id)}
-                          >
-                            <Trash2 className="size-4" />
-                            Delete
-                          </DropdownMenuItem>
+                          {isAdmin && st === "draft" && (
+                            <DropdownMenuItem onClick={() => approve.mutate(t.id)}>
+                              <CheckCircle2 className="size-4" /> Approve
+                            </DropdownMenuItem>
+                          )}
+                          {st !== "archived" && editable && t.organizationId && (
+                            <DropdownMenuItem onClick={() => archive.mutate(t.id)}>
+                              <Archive className="size-4" /> Archive
+                            </DropdownMenuItem>
+                          )}
+                          {st === "archived" && editable && (
+                            <DropdownMenuItem onClick={() => restore.mutate(t.id)}>
+                              <RotateCcw className="size-4" /> Restore as draft
+                            </DropdownMenuItem>
+                          )}
+                          {isAdmin && t.organizationId && (
+                            <DropdownMenuItem className="text-destructive" onClick={() => setDeleting(t)}>
+                              <Trash2 className="size-4" /> Delete
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
-                    </div>
-                  </div>
-
-                  {/* Row 2: Two-column grid of key details */}
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-3.5 text-xs border-t border-border/40 pt-3 text-muted-foreground">
-                    <div className="flex flex-col gap-1">
-                      <span className="font-medium text-muted-foreground/80 block">
-                        Category:
-                      </span>
-                      <div>
-                        <span className={getCategoryStyle(item.category)}>
-                          {item.category}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col gap-1">
-                      <span className="font-medium text-muted-foreground/80 block">
-                        Last Modified:
-                      </span>
-                      <span className="text-foreground/95 font-medium truncate">
-                        {item.updatedAt
-                          ? new Date(item.updatedAt).toLocaleDateString("en-GB")
-                          : "No date"}
-                      </span>
-                    </div>
-
-                    <div className="col-span-2 flex flex-col gap-1.5">
-                      <span className="font-medium text-muted-foreground/80 block">
-                        Variables & Shortcuts:
-                      </span>
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {item.variables && item.variables.length > 0 ? (
-                          item.variables.slice(0, 4).map((v: string) => (
-                            <span
-                              key={v}
-                              className="font-mono text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700"
-                            >
-                              {`{{${v}}}`}
-                            </span>
-                          ))
-                        ) : (
-                          <span className="text-[11px] text-muted-foreground">Standard Text</span>
-                        )}
-                        {item.variables && item.variables.length > 4 && (
-                          <span className="text-[10px] text-muted-foreground font-medium">
-                            +{item.variables.length - 4} more
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Mobile & Tablet Load More Footer */}
-        {mobileVisibleCount < filteredTemplates.length ? (
-          <div className="flex flex-col items-center gap-3 py-4 mt-2 lg:hidden">
-            <Button
-              variant="outline"
-              onClick={() => setMobileVisibleCount((prev) => prev + 5)}
-              className="w-full h-10 border border-border bg-background text-foreground font-medium rounded-[8px] hover:bg-accent hover:text-accent-foreground shadow-2xs transition-colors"
-            >
-              Load More Templates
-            </Button>
-            <p className="text-xs text-muted-foreground font-normal">
-              Showing{" "}
-              <span className="font-medium text-foreground">
-                {Math.min(mobileVisibleCount, filteredTemplates.length)}
-              </span>{" "}
-              of{" "}
-              <span className="font-medium text-foreground">
-                {filteredTemplates.length}
-              </span>{" "}
-              entries
-            </p>
-          </div>
-        ) : filteredTemplates.length > 0 ? (
-          <div className="text-center py-4 mt-2 lg:hidden border-t border-border/40">
-            <p className="text-xs text-muted-foreground font-normal">
-              Showing all{" "}
-              <span className="font-medium text-foreground">
-                {filteredTemplates.length}
-              </span>{" "}
-              of{" "}
-              <span className="font-medium text-foreground">
-                {filteredTemplates.length}
-              </span>{" "}
-              entries
-            </p>
-          </div>
-        ) : null}
-
-        {/* Delete Confirmation Alert Dialog */}
-        <AlertDialog open={!!deleteTemplateId} onOpenChange={() => setDeleteTemplateId(null)}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Are you sure you want to delete this template?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This action cannot be undone. Communications already sent using this template will preserve their original text.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleDeleteConfirm}
-                className="bg-red-600 hover:bg-red-700 text-white"
-              >
-                Delete Template
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-
-        {/* Preview Modal Dialog */}
-        {previewTemplate && (
-          <Dialog open={!!previewTemplate} onOpenChange={() => setPreviewTemplate(null)}>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle className="text-base font-bold flex items-center gap-2">
-                  <Eye className="size-4 text-[#2563EB]" />
-                  Template Preview: {previewTemplate.name}
-                </DialogTitle>
-                <DialogDescription className="text-xs">
-                  Evaluated with live applicant variables and authenticated sender profile.
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className="rounded-xl border border-[#E2E8F0] bg-white p-5 shadow-xs space-y-4 my-2">
-                <div className="pb-3 border-b border-slate-100 space-y-1">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                    SUBJECT
-                  </span>
-                  <h3 className="text-sm md:text-base font-bold text-slate-900">
-                    {renderTemplate(previewTemplate.subject, sampleCandidateContext)}
-                  </h3>
-                  <div className="flex items-center gap-3 text-xs text-slate-500 pt-1">
-                    <span>
-                      Category: <strong className="text-slate-800">{previewTemplate.category}</strong>
-                    </span>
-                    <span>|</span>
-                    <span>
-                      Sender: <strong className="text-slate-800">{user?.name || "Admissions Desk"}</strong>
-                    </span>
-                  </div>
-                </div>
-
-                <div className="whitespace-pre-line text-xs md:text-sm text-slate-700 leading-relaxed font-sans">
-                  {renderTemplate(previewTemplate.body, sampleCandidateContext)}
-                </div>
-
-                {previewTemplate.footer && (
-                  <div className="pt-3 border-t border-slate-100 whitespace-pre-line text-[11px] text-slate-500 leading-relaxed font-sans">
-                    {renderTemplate(previewTemplate.footer, sampleCandidateContext)}
-                  </div>
-                )}
-              </div>
-
-              <DialogFooter>
-                <Button variant="outline" size="sm" onClick={() => setPreviewTemplate(null)} className="text-xs">
-                  Close
-                </Button>
-                <Button
-                  size="sm"
-                  className="bg-[#2563EB] text-white text-xs gap-1.5"
-                  asChild
-                >
-                  <Link href={`/organization/email-templates/${previewTemplate.id}/edit`}>
-                    <Pencil className="size-3.5" />
-                    Edit This Template
-                  </Link>
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        )}
-
-        {/* Test Send Dialog */}
-        {testSendTemplate && (
-          <Dialog open={!!testSendTemplate} onOpenChange={() => setTestSendTemplate(null)}>
-            <DialogContent className="max-w-lg">
-              <DialogHeader>
-                <DialogTitle className="text-base font-bold flex items-center gap-2">
-                  <Send className="size-4 text-[#2563EB]" />
-                  Dispatch Test Email
-                </DialogTitle>
-                <DialogDescription className="text-xs">
-                  Send a sample email to verify shortcut resolution and formatting.
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className="space-y-3 py-2 text-xs">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold">Recipient Email *</label>
-                  <Input
-                    type="email"
-                    placeholder="e.g. test@example.com"
-                    value={testRecipientEmail}
-                    onChange={(e) => setTestRecipientEmail(e.target.value)}
-                    className="h-9 text-xs"
-                    required
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold">Candidate Name</label>
-                    <Input
-                      value={testCandidateName}
-                      onChange={(e) => setTestCandidateName(e.target.value)}
-                      className="h-9 text-xs"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold">Application No</label>
-                    <Input
-                      value={testAppNo}
-                      onChange={(e) => setTestAppNo(e.target.value)}
-                      className="h-9 text-xs"
-                    />
-                  </div>
-                </div>
-
-                <div className="p-3 rounded-md bg-slate-50 border border-slate-200 text-slate-700 space-y-1">
-                  <p className="font-semibold text-slate-900">
-                    Subject:{" "}
-                    {renderTemplate(testSendTemplate.subject, {
-                      ...sampleCandidateContext,
-                      name: testCandidateName,
-                      application_no: testAppNo,
-                      date: new Date().toLocaleDateString("en-IN"),
-                    })}
-                  </p>
-                  <p className="text-[11px] text-slate-500">
-                    Sender: <strong>{user?.name || "Admissions Desk"}</strong>
-                  </p>
-                </div>
-              </div>
-
-              <DialogFooter>
-                <Button variant="outline" size="sm" onClick={() => setTestSendTemplate(null)} className="text-xs">
-                  Cancel
-                </Button>
-                <Button
-                  size="sm"
-                  className="bg-[#2563EB] text-white text-xs gap-1.5"
-                  disabled={sendEmailMutation.isPending || !testRecipientEmail}
-                  onClick={() => {
-                    const ctx = {
-                      ...sampleCandidateContext,
-                      name: testCandidateName,
-                      application_no: testAppNo,
-                      date: new Date().toLocaleDateString("en-IN"),
-                    };
-                    sendEmailMutation.mutate(
-                      {
-                        to: testRecipientEmail,
-                        subject: renderTemplate(testSendTemplate.subject, ctx),
-                        body: renderTemplate(testSendTemplate.body, ctx),
-                        footer: testSendTemplate.footer ? renderTemplate(testSendTemplate.footer, ctx) : undefined,
-                        category: testSendTemplate.category,
-                        templateId: testSendTemplate.id,
-                        senderName: user?.name || "Admissions Desk",
-                        applicationNo: testAppNo,
-                        applicantName: testCandidateName,
-                      },
-                      {
-                        onSuccess: () => setTestSendTemplate(null),
-                      }
-                    );
-                  }}
-                >
-                  <Send className="size-3.5" />
-                  Dispatch Email
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
       </div>
-    </TooltipProvider>
+      <Pager page={page} limit={PAGE_SIZE} total={filtered.length} onPage={setPage} />
+
+      <Dialog open={!!preview} onOpenChange={(o) => !o && setPreview(null)}>
+        <DialogContent className="sm:max-w-[680px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {preview?.name} <span className="text-xs text-muted-foreground font-normal">v{preview?.versionNumber || 1}</span>
+            </DialogTitle>
+          </DialogHeader>
+          {preview && <TemplatePreview t={preview} />}
+        </DialogContent>
+      </Dialog>
+
+      {testFor && <TestSendDialog t={testFor} onClose={() => setTestFor(null)} />}
+
+      <AlertDialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete template?</AlertDialogTitle>
+            <AlertDialogDescription>“{deleting?.name}” will be removed permanently. Archive it instead to keep its history.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => deleting && del.mutate(deleting.id)}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
+function TemplatePreview({ t }: { t: CommTemplate }) {
+  const r = (s?: string | null) => renderTemplate(s || "", SAMPLE_CONTEXT);
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap gap-2 text-xs">
+        <span className={pill.blue}>{t.channel}</span>
+        {t.templateCategory && <span className={pill.purple}>{t.templateCategory}</span>}
+        <StatusPill status={t.status === "active" ? "approved" : t.status} />
+        <span className={pill.gray}>{t.language}</span>
+      </div>
+      {t.channel === "Email" && (
+        <p className="text-sm">
+          <span className="text-muted-foreground">Subject:</span> <strong>{r(t.subject)}</strong>
+        </p>
+      )}
+      <div className="rounded-[8px] border border-border p-4 text-sm whitespace-pre-wrap break-words bg-muted/20">
+        {t.header && <div className="mb-3 text-muted-foreground">{r(t.header)}</div>}
+        {r(t.body)}
+        {t.signature && <div className="mt-4">{r(t.signature)}</div>}
+        {t.footer && <div className="mt-4 border-t border-border pt-3 text-xs text-muted-foreground">{r(t.footer)}</div>}
+      </div>
+      <p className="text-[11px] text-muted-foreground">
+        Merge fields used: {(t.variables || []).length ? t.variables.join(", ") : "none"} · Editable by:{" "}
+        {(t.editableByRoles || []).join(", ") || "org_admin"}
+      </p>
+    </div>
+  );
+}
+
+function TestSendDialog({ t, onClose }: { t: CommTemplate; onClose: () => void }) {
+  const send = useSendTemplatedEmail();
+  const [to, setTo] = React.useState("");
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-[460px]">
+        <DialogHeader>
+          <DialogTitle>Send test email</DialogTitle>
+        </DialogHeader>
+        <Field label="Recipient email" required>
+          <Input className="h-10" type="email" value={to} onChange={(e) => setTo(e.target.value)} />
+        </Field>
+        <p className="text-xs text-muted-foreground">Merge fields are filled with sample values.</p>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            disabled={!/\S+@\S+\.\S+/.test(to) || send.isPending}
+            onClick={() =>
+              send.mutate(
+                {
+                  to,
+                  subject: `[TEST] ${renderTemplate(t.subject, SAMPLE_CONTEXT)}`,
+                  body: renderTemplate(t.body, SAMPLE_CONTEXT),
+                  header: t.header ? renderTemplate(t.header, SAMPLE_CONTEXT) : undefined,
+                  footer: t.footer ? renderTemplate(t.footer, SAMPLE_CONTEXT) : undefined,
+                  signature: t.signature ? renderTemplate(t.signature, SAMPLE_CONTEXT) : undefined,
+                  category: t.category,
+                  templateId: t.id,
+                },
+                { onSuccess: onClose },
+              )
+            }
+          >
+            {send.isPending && <Loader2 className="size-4 animate-spin" />} Send
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function Filter({
+  value,
+  onChange,
+  options,
+  all,
+  labels,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: readonly string[];
+  all: string;
+  labels?: Record<string, string>;
+}) {
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger className="w-full sm:w-[150px] h-10">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="all">{all}</SelectItem>
+        {options.map((o) => (
+          <SelectItem key={o} value={o}>
+            {labels?.[o] || o}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }

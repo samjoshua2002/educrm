@@ -1,4 +1,4 @@
-import { LayoutDashboard, Building2, CreditCard } from "lucide-react";
+import { LayoutDashboard, Building2, CreditCard, Bell } from "lucide-react";
 import { NavGroup } from "./sidebar/sidebar-items";
 
 export const superadminNavItems: NavGroup[] = [
@@ -18,8 +18,13 @@ export const superadminNavItems: NavGroup[] = [
       },
       {
         title: "Subscriptions",
-        url: "/superadmin/subscriptions",
+        url: "/superadmin/organizations",
         icon: CreditCard,
+      },
+      {
+        title: "Notifications",
+        url: "/superadmin/notifications",
+        icon: Bell,
       },
     ],
   },

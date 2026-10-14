@@ -1,4 +1,5 @@
 import { IsString, IsOptional, IsIn, IsDateString, MaxLength } from 'class-validator';
+import { TIME_ZONES } from '../constants/interview-picklists.js';
 
 // Partial edit of an existing interview slot. Every field is optional —
 // only the keys present in the request body are changed. A booked slot
@@ -37,8 +38,8 @@ export class UpdateSlotDto {
   @IsString()
   meetingLink?: string;
 
+  // Time_Zone (Pick List)
   @IsOptional()
-  @IsString()
-  @MaxLength(50)
+  @IsIn(TIME_ZONES as unknown as string[])
   timeZone?: string;
 }

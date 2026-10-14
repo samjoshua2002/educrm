@@ -620,6 +620,10 @@ export default function ShortlistingConfigPage() {
                           >
                             <TableCell className="py-[16px] px-[24px] align-middle font-semibold text-[#1e293b] text-[14px]">
                               {rule.program}
+                              <span className="block text-[11px] font-normal text-muted-foreground">
+                                {rule.ruleNumber ? `Rule ID ${rule.ruleNumber}` : ""}
+                                {rule.creator?.name ? ` · by ${rule.creator.name}` : ""}
+                              </span>
                             </TableCell>
                             <TableCell className="py-[16px] px-[24px] align-middle text-[#475569] text-[14px]">
                               {rule.academicYear}
@@ -964,6 +968,9 @@ export default function ShortlistingConfigPage() {
                             <TableCell className="py-[16px] px-[24px] align-middle font-semibold text-[#1e293b] text-[14px]">
                               <div className="flex flex-col gap-0.5">
                                 <span>{rubric.parameterName}</span>
+                                {rubric.rubricNumber ? (
+                                  <span className="text-[11px] text-muted-foreground font-normal">Rubric ID {rubric.rubricNumber}</span>
+                                ) : null}
                                 {rubric.description && (
                                   <span className="text-xs text-muted-foreground font-normal line-clamp-1">{rubric.description}</span>
                                 )}

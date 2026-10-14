@@ -1,222 +1,243 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { apiGet, apiPost, apiDelete } from "@/lib/api";
-import { mockCommunications, mockCommunicationTemplates, CommunicationLog, CommunicationTemplate } from "@/data/mock-communications";
-import { PaginatedResponse } from "@/types/api";
+import { apiGet, apiPost, apiPatch } from "@/lib/api";
+import { useAuthStore } from "@/stores/auth-store";
+import type { PaginatedResponse } from "@/types/api";
+import type {
+  CommunicationStats,
+  ComposePayload,
+  ComposeResult,
+  TimelineEntry,
+  TimelineResponse,
+} from "@/types/communications";
 
-// 1. Fetch all communication logs
-export function useCommunications(page = 1, limit = 50, filters?: Record<string, any>) {
+export function useOrgId() {
+  return useAuthStore((s) => s.user?.organizationId) || undefined;
+}
+
+const errMsg = (e: any, fallback: string) => {
+  const m = e?.response?.data?.message || e?.message || fallback;
+  return Array.isArray(m) ? m.join(", ") : m;
+};
+
+export interface CommunicationFilters {
+  channel?: string;
+  direction?: string;
+  status?: string;
+  search?: string;
+  applicationId?: string;
+  leadId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  followUpDue?: boolean;
+}
+
+/** Organization-wide interaction list (Email / SMS / WhatsApp / Call / System). */
+export function useCommunications(page = 1, limit = 20, filters: CommunicationFilters = {}) {
+  const orgId = useOrgId();
   return useQuery({
-    queryKey: ["communications", page, limit, filters],
-    queryFn: async () => {
-      try {
-        const raw = await apiGet<
-          { data: CommunicationLog[]; total: number } | PaginatedResponse<CommunicationLog>
-        >("/communications", {
-          page,
-          limit,
-          ...filters,
-        });
-        if (raw && Array.isArray((raw as any).data)) {
-          const total = (raw as any).total ?? (raw as any).pagination?.total ?? (raw as any).data.length;
-          return { data: (raw as any).data as CommunicationLog[], total };
-        }
-      } catch {
-        // Fallback to empty list if endpoint fails
-      }
-      return {
-        data: [],
-        total: 0,
-      };
-    },
+    queryKey: ["communications", orgId, page, limit, filters],
+    queryFn: () =>
+      apiGet<PaginatedResponse<TimelineEntry>>(`/organizations/${orgId}/communications`, {
+        page,
+        limit,
+        channel: filters.channel && filters.channel !== "all" ? filters.channel : undefined,
+        direction: filters.direction && filters.direction !== "all" ? filters.direction : undefined,
+        status: filters.status && filters.status !== "all" ? filters.status : undefined,
+        search: filters.search || undefined,
+        applicationId: filters.applicationId || undefined,
+        leadId: filters.leadId || undefined,
+        dateFrom: filters.dateFrom || undefined,
+        dateTo: filters.dateTo || undefined,
+        followUpDue: filters.followUpDue ? "true" : undefined,
+      }),
+    enabled: !!orgId,
   });
 }
 
-// 2. Fetch single communication detail by ID or applicationNo
-export function useCommunication(id: string) {
+export function useCommunicationStats() {
+  const orgId = useOrgId();
   return useQuery({
-    queryKey: ["communication", id],
-    queryFn: async () => {
-      if (!id) return null;
-      try {
-        const response = await apiGet<CommunicationLog>(`/communications/${encodeURIComponent(id)}`);
-        if (response) return response;
-      } catch {
-        // Fallback to applicationNo query
-      }
-      try {
-        const listRes = await apiGet<{ data: CommunicationLog[] }>("/communications", { applicationNo: id });
-        if (listRes && Array.isArray((listRes as any).data) && (listRes as any).data.length > 0) {
-          return (listRes as any).data[0];
-        }
-      } catch {
-        // Fallback to local search
-      }
-      const cleanId = id.replace(/^COMM-/, "").toLowerCase();
-      const found = mockCommunications.find(
-        (c) =>
-          c.id.toLowerCase() === id.toLowerCase() ||
-          c.applicationNo.toLowerCase() === id.toLowerCase() ||
-          c.applicationNo.toLowerCase() === cleanId
-      );
-      if (found) return found;
-
-      // DO NOT return mockCommunications[0] fallback here to allow useApplication to resolve real DB candidate!
-      return null;
-    },
-    enabled: !!id,
+    queryKey: ["communications", "stats", orgId],
+    queryFn: () => apiGet<CommunicationStats>(`/organizations/${orgId}/communications/stats`),
+    enabled: !!orgId,
   });
 }
 
-// 3. Fetch communication templates
-export function useCommunicationTemplates() {
+/** One chronological timeline for an applicant / lead. */
+export function useCommunicationTimeline(params: { applicationId?: string | null; leadId?: string | null; channel?: string }) {
+  const orgId = useOrgId();
+  const { applicationId, leadId, channel } = params;
   return useQuery({
-    queryKey: ["communication-templates"],
-    queryFn: async () => {
-      try {
-        const response = await apiGet<CommunicationTemplate[]>("/communications/templates");
-        if (response && Array.isArray(response)) return response;
-      } catch {
-        // Fallback
-      }
-      return mockCommunicationTemplates;
-    },
+    queryKey: ["communications", "timeline", orgId, applicationId, leadId, channel],
+    queryFn: () =>
+      apiGet<TimelineResponse>(`/organizations/${orgId}/communications/timeline`, {
+        applicationId: applicationId || undefined,
+        leadId: leadId || undefined,
+        channel: channel && channel !== "all" ? channel : undefined,
+      }),
+    enabled: !!orgId && !!(applicationId || leadId),
   });
 }
 
-// 4. Send new communication mutation
-export function useSendCommunication() {
-  const queryClient = useQueryClient();
+export function useInteraction(id?: string | null) {
+  const orgId = useOrgId();
+  return useQuery({
+    queryKey: ["communications", "interaction", orgId, id],
+    queryFn: () => apiGet<TimelineEntry>(`/organizations/${orgId}/communications/interactions/${id}`),
+    enabled: !!orgId && !!id,
+  });
+}
 
+function useInvalidateCommunications() {
+  const qc = useQueryClient();
+  return () => {
+    qc.invalidateQueries({ queryKey: ["communications"] });
+    qc.invalidateQueries({ queryKey: ["messaging"] });
+  };
+}
+
+/** Unified compose: Email / SMS / WhatsApp to one or many recipients, now or scheduled. */
+export function useComposeCommunication() {
+  const orgId = useOrgId();
+  const invalidate = useInvalidateCommunications();
   return useMutation({
-    mutationFn: async (payload: {
-      applicationNo: string;
-      applicantName?: string;
-      recipientEmail?: string;
-      recipientPhone?: string;
-      channel: "Email" | "SMS" | "WhatsApp";
-      category: string;
-      subject: string;
-      content: string;
-      sender?: string;
-      scheduledAt?: string;
-    }) => {
-      // 1. If it's an email and not scheduled, send via Brevo SMTP backend endpoint
-      if (payload.channel === "Email" && payload.recipientEmail && !payload.scheduledAt) {
-        try {
-          const res = await apiPost<{ success: boolean; messageId?: string }>("/email-templates/send", {
-            to: payload.recipientEmail,
-            subject: payload.subject,
-            body: payload.content,
-            senderName: payload.sender || "Admissions Desk",
-            category: payload.category,
-            applicationNo: payload.applicationNo,
-            applicantName: payload.applicantName,
-            channel: payload.channel,
-          });
-
-          if (res && (res as any).success === false) {
-            throw new Error("SMTP service failed to deliver email. Please check the recipient address.");
-          }
-        } catch (mailErr: any) {
-          const errorMsg =
-            mailErr?.response?.data?.message ||
-            mailErr?.message ||
-            "Failed to send email via SMTP service.";
-          console.error("Backend email sending error:", errorMsg);
-          throw new Error(errorMsg);
-        }
-      }
-
-      // 2. Return communication log
-      const newLog: CommunicationLog = {
-        id: `COMM-${Date.now()}`,
-        applicationNo: payload.applicationNo || "APP2026001",
-        applicantName: payload.applicantName || "Applicant",
-        recipientEmail: payload.recipientEmail || "applicant@example.com",
-        recipientPhone: payload.recipientPhone || "+91 98765 43210",
-        channel: payload.channel,
-        category: (payload.category as any) || "General Notice",
-        subject: payload.subject,
-        content: payload.content,
-        sender: payload.sender || "Admissions Desk",
-        sentAt: payload.scheduledAt || new Date().toISOString(),
-        status: payload.scheduledAt ? "Scheduled" : "Sent",
-        openCount: payload.scheduledAt ? 0 : 1,
-        timeline: [
-          {
-            status: payload.scheduledAt ? "Scheduled" : "Sent",
-            timestamp: new Date().toLocaleString("en-IN"),
-            description: payload.scheduledAt
-              ? `Message scheduled for ${payload.scheduledAt}`
-              : `Dispatched to ${payload.recipientEmail} via Brevo SMTP`,
-          },
-        ],
-      };
-      return newLog;
+    mutationFn: (payload: ComposePayload) => apiPost<ComposeResult>(`/organizations/${orgId}/communications/send`, payload),
+    onSuccess: (res) => {
+      invalidate();
+      if (res.scheduled) toast.success(`${res.succeeded} message(s) scheduled`);
+      else if (res.failed === 0) toast.success(`${res.succeeded} message(s) sent`);
+      else toast.warning(`${res.succeeded} sent, ${res.failed} failed`);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["communications"] });
-    },
-    onError: (err: any) => {
-      toast.error(err?.message || "Failed to dispatch communication.");
+    onError: (e: any) => {
+      if (e?.response?.status !== 400) toast.error(errMsg(e, "Could not send the message"));
     },
   });
 }
 
-// 5. Resend message mutation
 export function useResendCommunication() {
-  const queryClient = useQueryClient();
-
+  const orgId = useOrgId();
+  const invalidate = useInvalidateCommunications();
   return useMutation({
-    mutationFn: async (id: string) => {
-      try {
-        return await apiPost(`/communications/${encodeURIComponent(id)}/resend`);
-      } catch {
-        const found = mockCommunications.find((c) => c.id === id || c.applicationNo === id);
-        if (found) {
-          found.status = "Delivered";
-          found.sentAt = new Date().toISOString();
-          found.timeline.push({
-            status: "Resent",
-            timestamp: new Date().toLocaleString(),
-            description: "Message manually re-triggered by admin operator",
-          });
-        }
-        return found;
-      }
-    },
-    onSuccess: (_, id) => {
-      queryClient.invalidateQueries({ queryKey: ["communications"] });
-      queryClient.invalidateQueries({ queryKey: ["communication", id] });
-      toast.success("Message re-sent successfully!");
-    },
-    onError: () => {
-      toast.error("Failed to resend message");
+    mutationFn: (id: string) => apiPost(`/organizations/${orgId}/communications/${id}/resend`),
+    onSuccess: () => {
+      invalidate();
+      toast.success("Message re-sent");
     },
   });
 }
 
-// 6. Delete log mutation
-export function useDeleteCommunication() {
-  const queryClient = useQueryClient();
-
+export function useCancelCommunication() {
+  const orgId = useOrgId();
+  const invalidate = useInvalidateCommunications();
   return useMutation({
-    mutationFn: async (id: string) => {
-      try {
-        return await apiDelete(`/communications/${encodeURIComponent(id)}`);
-      } catch {
-        const index = mockCommunications.findIndex((c) => c.id === id || c.applicationNo === id);
-        if (index !== -1) mockCommunications.splice(index, 1);
-        return { success: true };
-      }
-    },
+    mutationFn: (id: string) => apiPost(`/organizations/${orgId}/communications/${id}/cancel`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["communications"] });
-      toast.success("Communication log deleted.");
+      invalidate();
+      toast.success("Scheduled message cancelled");
     },
-    onError: () => {
-      toast.error("Failed to delete communication log.");
+  });
+}
+
+export interface InteractionInput {
+  channel: string;
+  direction: string;
+  applicationId?: string;
+  leadId?: string;
+  subject: string;
+  summary?: string;
+  content?: string;
+  attachments?: { name: string; url: string }[];
+  relatedRecordId?: string;
+  deliveryStatus?: string;
+  dateTime?: string;
+  actionTaken?: string;
+  nextFollowUpDate?: string;
+  assignedStaffId?: string;
+  remarks?: string;
+}
+
+export function useCreateInteraction() {
+  const orgId = useOrgId();
+  const invalidate = useInvalidateCommunications();
+  return useMutation({
+    mutationFn: (payload: InteractionInput) => apiPost<TimelineEntry>(`/organizations/${orgId}/communications/interactions`, payload),
+    onSuccess: () => {
+      invalidate();
+      toast.success("Interaction logged");
     },
+  });
+}
+
+export function useUpdateInteraction() {
+  const orgId = useOrgId();
+  const invalidate = useInvalidateCommunications();
+  return useMutation({
+    mutationFn: ({ id, ...payload }: { id: string; actionTaken?: string; nextFollowUpDate?: string; assignedStaffId?: string; remarks?: string; summary?: string; deliveryStatus?: string }) =>
+      apiPatch<TimelineEntry>(`/organizations/${orgId}/communications/interactions/${id}`, payload),
+    onSuccess: () => {
+      invalidate();
+      toast.success("Interaction updated");
+    },
+  });
+}
+
+/** Applicant / lead search used by recipient pickers. */
+export interface RecipientOption {
+  key: string;
+  applicationId?: string;
+  leadId?: string;
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  applicationNo?: string | null;
+  program?: string | null;
+  kind: "Applicant" | "Lead";
+}
+
+export function useRecipientSearch(search: string) {
+  const orgId = useOrgId();
+  return useQuery({
+    queryKey: ["communications", "recipient-search", orgId, search],
+    queryFn: async () => {
+      const out: RecipientOption[] = [];
+      const [apps, leads] = await Promise.allSettled([
+        apiGet<any>("/applications", { page: 1, limit: 10, search: search || undefined }),
+        apiGet<any>(`/organizations/${orgId}/leads`, { page: 1, limit: 10, search: search || undefined }),
+      ]);
+      if (apps.status === "fulfilled") {
+        const rows: any[] = Array.isArray(apps.value?.data) ? apps.value.data : Array.isArray(apps.value) ? apps.value : [];
+        rows.forEach((a) =>
+          out.push({
+            key: `app:${a.id}`,
+            applicationId: a.id,
+            leadId: a.leadId || undefined,
+            name: a.name || a.student?.name || a.applicationNo,
+            email: a.email || a.student?.email,
+            phone: a.primaryMobile || a.student?.phone,
+            applicationNo: a.applicationNo,
+            program: a.program || a.course?.name,
+            kind: "Applicant",
+          }),
+        );
+      }
+      if (leads.status === "fulfilled") {
+        const rows: any[] = Array.isArray(leads.value?.data) ? leads.value.data : [];
+        rows.forEach((l) =>
+          out.push({
+            key: `lead:${l.id}`,
+            leadId: l.id,
+            name: `${l.firstName || ""} ${l.lastName || ""}`.trim() || l.email || l.phone || "Lead",
+            email: l.email,
+            phone: l.phone,
+            program: l.programInterest || l.course?.name,
+            kind: "Lead",
+          }),
+        );
+      }
+      return out;
+    },
+    enabled: !!orgId,
+    staleTime: 30_000,
   });
 }

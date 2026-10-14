@@ -10,6 +10,8 @@ import { PaginatedResponse } from "@/types/api";
 
 export interface EvaluationRubric {
   id: string;
+  // Rubric_ID (Auto Number)
+  rubricNumber?: number;
   organizationId: string;
   interviewType: "GD" | "PI";
   parameterName: string;
@@ -32,6 +34,10 @@ export interface CreateRubricInput {
 
 export interface ShortlistingRule {
   id: string;
+  // Rule_ID (Auto Number)
+  ruleNumber?: number;
+  createdBy?: string | null;
+  creator?: { id: string; name: string; email?: string } | null;
   organizationId: string;
   program: string;
   academicYear: string;
@@ -67,8 +73,12 @@ export interface ShortlistPreviewRow {
   academicComponent: number;
   testComponent: number;
   experienceComponent: number;
+  // Filled only when entrance scoring is split (CAT vs other exams)
+  catComponent?: number | null;
+  otherTestComponent?: number | null;
   shortlistScore: number;
   shortlistStatus: "Eligible" | "Not Eligible";
+  failedCriteria?: string[];
 }
 
 // ============================================================================
@@ -209,13 +219,38 @@ export interface ScoreConversionConfig {
     twelfth: ScoreBand[];
     ug: ScoreBand[];
     testPercentile: ScoreBand[];
+    // Split entrance scoring (owner request): CAT and other exams
+    catPercentile?: ScoreBand[];
+    otherTestPercentile?: ScoreBand[];
     experienceMonths: ScoreBand[];
   };
   discrepancyThreshold: number;
   qualifyingScore?: number;
   resultsAnnounced?: boolean;
   resultsDeclarationDate?: string | null;
+  autoAnnounceResults?: boolean;
+  // 'best_overall' (default: single best percentile across all tests) or
+  // 'cat_split' (CAT and best non-CAT exam scored separately)
+  entranceScoringMode?: "best_overall" | "cat_split";
+  catWeight?: number;
+  otherTestWeight?: number;
+  gdScoringSchemeId?: string | null;
 }
+
+export type ScoreConversionConfigUpdate = Partial<
+  Pick<
+    ScoreConversionConfig,
+    | "bands"
+    | "discrepancyThreshold"
+    | "qualifyingScore"
+    | "resultsAnnounced"
+    | "resultsDeclarationDate"
+    | "autoAnnounceResults"
+    | "entranceScoringMode"
+    | "catWeight"
+    | "otherTestWeight"
+  >
+>;
 
 export function useScoreConversionConfig() {
   const orgId = useAuthStore((s) => s.user?.organizationId);
@@ -230,10 +265,11 @@ export function useUpdateScoreConversionConfig() {
   const queryClient = useQueryClient();
   const orgId = useAuthStore((s) => s.user?.organizationId);
   return useMutation({
-    mutationFn: (data: Partial<Pick<ScoreConversionConfig, "bands" | "discrepancyThreshold" | "qualifyingScore" | "resultsAnnounced" | "resultsDeclarationDate">>) =>
+    mutationFn: (data: ScoreConversionConfigUpdate) =>
       apiPatch<ScoreConversionConfig>(`/organizations/${orgId}/score-conversion-config`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["score-conversion-config"] });
+      queryClient.invalidateQueries({ queryKey: ["composite-score"] });
       toast.success("Score conversion settings saved");
     },
     onError: (err: any) => toast.error(err.response?.data?.message || "Failed to save settings"),

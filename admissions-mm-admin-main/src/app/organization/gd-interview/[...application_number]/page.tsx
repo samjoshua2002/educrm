@@ -54,13 +54,29 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { useApplication, useUpdateApplicationStatus, useUpdateGdEvaluation, useUpdateApplication } from "@/hooks/use-applications";
 import { useInterviews, useMarkCompleted } from "@/hooks/use-interviews";
-import { useCompositeScore, useScoreAdjustment } from "@/hooks/use-scoring";
+import { useCompositeScore, useScoreAdjustment, useSaveComponentScores, type GdComponentBreakdown } from "@/hooks/use-scoring";
 import { useScoreConversionConfig } from "@/hooks/use-shortlisting";
 import { useBranches } from "@/hooks/use-branches";
 import { useAuthStore } from "@/stores/auth-store";
-import { gdInterviews } from "@/data/mock-gd-interviews";
 import { toast } from "sonner";
 import { usePageHeader } from "@/hooks/use-page-header";
+import { InterviewPanelCard } from "../_components/interview-panel-card";
+
+// Shown wherever the API has no value yet (never an invented number).
+const NOT_AVAILABLE = "—";
+// Achievement / penalty limit enforced by the API (score-adjustment DTO).
+const ADJUSTMENT_MAX = 5;
+
+// Same rule as the API (interview-picklists.ts isCatExam): CAT is scored
+// separately from other exams when entrance scoring is split.
+function isCatExamName(testName?: string | null) {
+  if (!testName) return false;
+  return /\bCAT\b/i.test(testName) || /common\s+admission\s+test/i.test(testName);
+}
+
+function formatScore(value: number | null | undefined) {
+  return value === null || value === undefined ? "Not scored yet" : String(value);
+}
 
 function formatSlotDate(dateStr: string) {
   if (!dateStr || dateStr === "- -") return "- -";
@@ -93,14 +109,10 @@ export default function GDInterviewDetailsPage() {
     return decodeURIComponent(rawParam as string);
   }, [rawParam]);
 
-  const listMatch = gdInterviews.find(
-    (item) => item.applicationNo === applicationNumber,
-  );
-
   const { data: fetchedAppData, isLoading } = useApplication(applicationNumber);
   const { data: allInterviews } = useInterviews();
 
-  const appId = (fetchedAppData as any)?.id || (listMatch as any)?.applicationId || (listMatch as any)?.id;
+  const appId = (fetchedAppData as any)?.id;
   const candidateInterview = React.useMemo(() => {
     if (!allInterviews || !Array.isArray(allInterviews)) return null;
     const matching = allInterviews.filter(
@@ -109,7 +121,7 @@ export default function GDInterviewDetailsPage() {
         (iv.application?.applicationNo === applicationNumber) ||
         (iv.applicationId === applicationNumber)
     );
-    const active = matching.find((iv) => ["Scheduled", "Rescheduled"].includes(iv.status));
+    const active = matching.find((iv) => ["Scheduled", "Rescheduled", "Slot Available"].includes(iv.status));
     const completed = matching.find((iv) => iv.status === "Completed");
     return active || completed || matching[0] || null;
   }, [allInterviews, appId, applicationNumber]);
@@ -162,9 +174,10 @@ export default function GDInterviewDetailsPage() {
 
   // Stage-2 composite score rollup — real, backend-persisted figures
   // (replaces the fabricated client-side "Composite Score Banner" calc
-  // that used to live in interviewData.interviewScores.compositeScore).
+  // that used to be computed on the client).
   const { data: compositeScoreData } = useCompositeScore(applicationNumber);
   const scoreAdjustmentMutation = useScoreAdjustment(applicationNumber);
+  const saveComponentScoresMutation = useSaveComponentScores(applicationNumber);
   const { data: branchesResponse } = useBranches(1, 100);
   const branches = branchesResponse?.data || [];
   const currentRole = useAuthStore((s) => s.user?.role);
@@ -233,9 +246,9 @@ export default function GDInterviewDetailsPage() {
         data: {
           ...(appData as any),
           education: {
-            tenth: { institute: "", board: "", stream: "", year: "", ...appData.education?.tenth, percentage: String(updatedFields.tenthPercentage) },
-            twelfth: { institute: "", board: "", stream: "", year: "", ...appData.education?.twelfth, percentage: String(updatedFields.twelfthPercentage) },
-            graduation: { state: "", university: "", college: "", degree: "", mode: "", status: "", enrollmentYear: "", passingYear: "", ...appData.education?.graduation, percentageTillLast: String(updatedFields.ugPercentage), percentage: String(updatedFields.ugPercentage) },
+            tenth: { institute: "", board: "", stream: "", year: "", ...(appData.education?.tenth as any), percentage: String(updatedFields.tenthPercentage) },
+            twelfth: { institute: "", board: "", stream: "", year: "", ...(appData.education?.twelfth as any), percentage: String(updatedFields.twelfthPercentage) },
+            graduation: { state: "", university: "", college: "", degree: "", mode: "", status: "", enrollmentYear: "", passingYear: "", ...(appData.education?.graduation as any), percentageTillLast: String(updatedFields.ugPercentage), percentage: String(updatedFields.ugPercentage) },
           }
         } as any
       }, {
@@ -305,22 +318,21 @@ export default function GDInterviewDetailsPage() {
     }
 
     if (section === "Evaluation & Scoring") {
-      const gdNum = Math.max(0, Math.min(10, Number(updatedFields.gdScore) || 0));
-      const piNum = Math.max(0, Math.min(30, Number(updatedFields.piScore) || 0));
-      const payload: any = { gdScore: gdNum, piScore: piNum };
+      // GD/PI marks for the selected scoring scheme (Settings > GD Scoring).
+      // Only components that were actually given a mark are sent.
+      if (Array.isArray(updatedFields.componentScores) && updatedFields.componentScores.length > 0) {
+        saveComponentScoresMutation.mutate(
+          { components: updatedFields.componentScores },
+          {
+            onSuccess: () => {
+              queryClient.invalidateQueries({ queryKey: ["application", applicationNumber] });
+            },
+          },
+        );
+      }
 
-      updateGdEvalMutation.mutate({
-        applicationNo: applicationNumber,
-        data: payload,
-      }, {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: ["composite-score"] });
-          queryClient.invalidateQueries({ queryKey: ["application", applicationNumber] });
-        }
-      });
-
-      const achNum = Math.max(0, Math.min(5, Number(updatedFields.achievement) || 0));
-      const penNum = Math.max(0, Math.min(5, Math.abs(Number(updatedFields.penalty) || 0)));
+      const achNum = Math.max(0, Math.min(ADJUSTMENT_MAX, Number(updatedFields.achievement) || 0));
+      const penNum = Math.max(0, Math.min(ADJUSTMENT_MAX, Math.abs(Number(updatedFields.penalty) || 0)));
       scoreAdjustmentMutation.mutate({
         achievementScore: achNum,
         penaltyScore: penNum,
@@ -375,40 +387,27 @@ export default function GDInterviewDetailsPage() {
     setActiveEditSection(null);
   };
 
-  const appData = fetchedAppData || (listMatch ? {
-    applicationNo: listMatch.applicationNo,
-    applicant: {
-      name: listMatch.name,
-      email: listMatch.email,
-      primaryMobile: listMatch.phone,
-      photo: "",
-    },
-    appliedFor: listMatch.course,
-    education: {
-      tenth: { percentage: "85" },
-      twelfth: { percentage: "92" },
-      graduation: { percentageTillLast: "75", percentage: "75" },
-    },
-    entranceTests: [
-      { exam: "CAT", score: "99", percentile: "99" }
-    ],
-    preferences: {
-      preference1: listMatch.confirmedCampus || "Kochi",
-      preference2: "Chennai",
-    }
-  } : null);
+  // Everything below comes from the API (application + composite score).
+  // Nothing is invented: a value the API does not have yet shows as "—" or
+  // "Not scored yet".
+  const appData = fetchedAppData ?? null;
 
   const interviewData = React.useMemo(() => {
     if (!appData) return null;
+    const cs = compositeScoreData;
 
-    const tenthPct = parseFloat(localInterviewEdits.academics?.tenthPercentage ?? appData.education?.tenth?.percentage ?? "0") || 0;
-    const twelfthPct = parseFloat(localInterviewEdits.academics?.twelfthPercentage ?? appData.education?.twelfth?.percentage ?? "0") || 0;
-    const ugPct = parseFloat(localInterviewEdits.academics?.ugPercentage ?? (appData.education?.graduation as any)?.percentageTillLast ?? (appData.education?.graduation as any)?.percentage ?? "0") || 0;
+    const tenthPct = localInterviewEdits.academics?.tenthPercentage ?? appData.education?.tenth?.percentage ?? "";
+    const twelfthPct = localInterviewEdits.academics?.twelfthPercentage ?? appData.education?.twelfth?.percentage ?? "";
+    const ugPct =
+      localInterviewEdits.academics?.ugPercentage ??
+      (appData.education?.graduation as any)?.percentageTillLast ??
+      (appData.education?.graduation as any)?.percentage ??
+      "";
 
-    const tenthScore = compositeScoreData?.tenthScore ?? localInterviewEdits.academics?.tenthScore ?? (tenthPct >= 80 ? 1 : 0);
-    const twelfthScore = compositeScoreData?.twelfthScore ?? localInterviewEdits.academics?.twelfthScore ?? (twelfthPct >= 90 ? 4 : twelfthPct >= 80 ? 3 : 2);
-    const ugScore = compositeScoreData?.ugScore ?? localInterviewEdits.academics?.ugScore ?? (ugPct >= 70 ? 2 : ugPct >= 60 ? 1 : 0);
-    const totalAcademicScore = tenthScore + twelfthScore + ugScore;
+    const tenthScore: number | string = cs?.tenthScore ?? NOT_AVAILABLE;
+    const twelfthScore: number | string = cs?.twelfthScore ?? NOT_AVAILABLE;
+    const ugScore: number | string = cs?.ugScore ?? NOT_AVAILABLE;
+    const totalAcademicScore: number | string = cs?.academicComponent ?? NOT_AVAILABLE;
 
     const rawTests = (appData.entranceTests && Array.isArray(appData.entranceTests))
       ? appData.entranceTests.filter((t: any) => {
@@ -420,46 +419,50 @@ export default function GDInterviewDetailsPage() {
         })
       : [];
 
-    const calcIndividualTestScore = (pctVal: any) => {
-      const pct = parseFloat(pctVal) || 0;
-      const testBands = scoringConfig?.bands?.testPercentile;
-      if (testBands && Array.isArray(testBands) && testBands.length > 0) {
-        const sorted = [...testBands]
-          .map((b: any) => ({
-            threshold: Number(b.minPercentile ?? b.minPercent ?? 0),
-            points: Number(b.points ?? 0),
-          }))
-          .sort((a, b) => b.threshold - a.threshold);
-        for (const band of sorted) {
-          if (pct >= band.threshold) return band.points;
-        }
-        return 0;
+    // Per-test points from the organisation's configured bands (Settings >
+    // Scoring Bands). CAT and other exams use their own bands when the
+    // entrance scoring is split. No bands configured = no per-test points.
+    const isSplit = cs?.entranceScoringMode === "cat_split" || scoringConfig?.entranceScoringMode === "cat_split";
+    const bandsFor = (testName: string) => {
+      const b = scoringConfig?.bands;
+      if (!b) return [];
+      if (isSplit) return (isCatExamName(testName) ? b.catPercentile : b.otherTestPercentile) ?? b.testPercentile ?? [];
+      return b.testPercentile ?? [];
+    };
+    const maxFor = (testName: string) => {
+      if (isSplit) return isCatExamName(testName) ? cs?.maxCatScore : cs?.maxOtherTestScore;
+      return cs?.maxTestScore;
+    };
+    const calcIndividualTestScore = (pctVal: any, testName: string): number | null => {
+      const pct = parseFloat(pctVal);
+      const bands = bandsFor(testName);
+      if (!Number.isFinite(pct) || !Array.isArray(bands) || bands.length === 0) return null;
+      const sorted = [...bands]
+        .map((band: any) => ({ threshold: Number(band.minPercentile ?? band.minPercent ?? 0), points: Number(band.points ?? 0) }))
+        .sort((a, b) => b.threshold - a.threshold);
+      for (const band of sorted) {
+        if (pct >= band.threshold) return band.points;
       }
-      if (pct >= 95) return 10;
-      if (pct >= 90) return 8;
-      if (pct >= 80) return 6;
-      if (pct >= 70) return 4;
-      if (pct >= 60) return 2;
       return 0;
     };
 
-    const maxScore = compositeScoreData?.maxTestScore ?? 10;
-
     const allTests = rawTests.map((t: any) => {
-      const tPct = parseFloat(t.percentile) || 0;
-      const testScoreVal = (t.score && t.score !== "-")
-        ? t.score
-        : (t.percentile != null && t.percentile !== "-"
-            ? `${calcIndividualTestScore(tPct)} / ${maxScore}`
-            : "-");
-
+      const name = t.exam || t.testName || "-";
+      let testScoreVal: string = "-";
+      if (t.score && t.score !== "-") testScoreVal = String(t.score);
+      else if (t.percentile != null && t.percentile !== "-") {
+        const pts = calcIndividualTestScore(t.percentile, name);
+        const max = maxFor(name);
+        if (pts !== null) testScoreVal = max != null ? `${pts} / ${max}` : String(pts);
+      }
       return {
-        name: t.exam || t.testName || "CAT",
+        name,
+        isCat: isCatExamName(name),
         rollNo: t.rollNo || "-",
         month: t.month || "-",
-        status: t.status || "Declared",
+        status: t.status || "-",
         score: testScoreVal,
-        percentile: t.percentile != null ? String(t.percentile) : "-",
+        percentile: t.percentile != null && t.percentile !== "" ? String(t.percentile) : "-",
       };
     });
 
@@ -469,68 +472,62 @@ export default function GDInterviewDetailsPage() {
       return currentPct > bestPct ? current : best;
     }, rawTests[0]);
 
-    const rawPercentile = parseFloat(localInterviewEdits.entranceTest?.percentile ?? bestTest?.percentile ?? "0") || 0;
-    // Use band-derived score from API; fall back to simple linear formula only when compositeScoreData hasn't loaded
-    const entranceTestScore = compositeScoreData?.testComponent ?? Math.round((rawPercentile * 0.4) * 10) / 10;
+    const bestPercentile = cs?.bestTestPercentile ?? (bestTest?.percentile != null ? parseFloat(bestTest.percentile) : null);
+    const entranceTestScore: number | string = cs?.testComponent ?? NOT_AVAILABLE;
 
-    const validatedExpMonths = parseInt(localInterviewEdits.experience?.validatedMonths ?? (appData as any).experience?.validatedMonths ?? "0") || 0;
-    // Use band-derived experience score from API; fall back to simple formula
-    const expScore = compositeScoreData?.experienceComponent ?? Math.min(5, Math.floor(validatedExpMonths / 6));
+    const validatedExpMonths =
+      localInterviewEdits.experience?.validatedMonths ??
+      (appData as any).experience?.validatedMonths ??
+      cs?.validatedExperienceMonths ??
+      "";
+    const expScore: number | string = cs?.experienceComponent ?? NOT_AVAILABLE;
 
-    const dbGdScore = fetchedAppData?.gdEvaluation?.gdScore ?? compositeScoreData?.gdScore;
-    const dbPiScore = fetchedAppData?.gdEvaluation?.piScore ?? compositeScoreData?.piScore;
-    const gdScore = localInterviewEdits.scoring?.gdScore ?? (dbGdScore !== undefined && dbGdScore !== null ? dbGdScore : (listMatch?.selectionStatus === "Accepted" ? 8 : listMatch?.selectionStatus === "Rejected" ? 3 : 5));
-    const piScore = localInterviewEdits.scoring?.piScore ?? (dbPiScore !== undefined && dbPiScore !== null ? dbPiScore : (listMatch?.selectionStatus === "Accepted" ? 22 : listMatch?.selectionStatus === "Rejected" ? 9 : 15));
+    const achievement = cs?.achievementScore ?? 0;
+    const penalty = Math.abs(cs?.penaltyScore ?? 0);
+    const assignedTotalOther = cs?.otherComponentsTotal ?? Number((achievement - penalty).toFixed(2));
 
-    const achievement = localInterviewEdits.scoring?.achievement !== undefined
-      ? Math.max(0, Math.min(5, Number(localInterviewEdits.scoring.achievement) || 0))
-      : Math.min(5, compositeScoreData?.achievementScore ?? 0);
-    const rawPenalty = localInterviewEdits.scoring?.penalty !== undefined
-      ? Number(localInterviewEdits.scoring.penalty)
-      : (compositeScoreData?.penaltyScore ?? 0);
-    const penalty = Math.max(0, Math.min(5, Math.abs(rawPenalty || 0)));
-    const assignedTotalOther = Number((achievement - penalty).toFixed(2));
+    const gdComponents = cs?.gdComponents ?? [];
 
-    const base = {
+    return {
       applicationNo: appData.applicationNo,
       name: appData.applicant?.name || "",
       email: appData.applicant?.email || "",
       phone: appData.applicant?.primaryMobile || "",
       appliedFor: appData.appliedFor || "",
       interviewDetails: {
-        location: interviewSlot?.location || "- -",
-        date: interviewSlot?.slotDate ? formatSlotDate(interviewSlot.slotDate) : "- -",
-        time: interviewSlot?.startTime && interviewSlot?.endTime
-          ? formatSlotTime(interviewSlot.startTime, interviewSlot.endTime)
+        location: candidateInterview?.location || interviewSlot?.location || "- -",
+        date: (candidateInterview?.interviewDate || interviewSlot?.slotDate)
+          ? formatSlotDate((candidateInterview?.interviewDate || interviewSlot?.slotDate) as string)
+          : "- -",
+        time: (candidateInterview?.startTime || interviewSlot?.startTime) && (candidateInterview?.endTime || interviewSlot?.endTime)
+          ? formatSlotTime(
+              (candidateInterview?.startTime || interviewSlot?.startTime) as string,
+              (candidateInterview?.endTime || interviewSlot?.endTime) as string,
+            )
           : "- -",
       },
       academics: {
-        tenth: {
-          percentage: String(tenthPct),
-          score: tenthScore,
-        },
-        twelfth: {
-          percentage: String(twelfthPct),
-          score: twelfthScore,
-        },
-        ug: {
-          percentage: String(ugPct),
-          score: ugScore,
-        },
+        tenth: { percentage: String(tenthPct), score: tenthScore },
+        twelfth: { percentage: String(twelfthPct), score: twelfthScore },
+        ug: { percentage: String(ugPct), score: ugScore },
         totalScore: totalAcademicScore,
       },
       entranceTest: {
-        name: localInterviewEdits.entranceTest?.name ?? bestTest?.exam ?? "CAT",
+        name: localInterviewEdits.entranceTest?.name ?? cs?.bestTestName ?? bestTest?.exam ?? "-",
         score: localInterviewEdits.entranceTest?.score ?? bestTest?.score ?? "-",
-        percentile: String(rawPercentile),
+        percentile: bestPercentile != null && Number.isFinite(bestPercentile) ? String(bestPercentile) : "-",
       },
       entranceTests: allTests,
       workExperiences: (appData as any).workExperiences || (appData as any).experiences || [],
       experience: {
-        companyName: localInterviewEdits.experience?.companyName ?? (appData as any).experience?.companyName ?? "TCS Digital",
-        designation: localInterviewEdits.experience?.designation ?? (appData as any).experience?.designation ?? "Systems Engineer",
-        claimedMonths: localInterviewEdits.experience?.claimedMonths ?? (appData as any).experience?.claimedMonths ?? "18",
-        validatedMonths: String(validatedExpMonths),
+        companyName: localInterviewEdits.experience?.companyName ?? (appData as any).experience?.companyName ?? "",
+        designation: localInterviewEdits.experience?.designation ?? (appData as any).experience?.designation ?? "",
+        claimedMonths:
+          localInterviewEdits.experience?.claimedMonths ??
+          (appData as any).experience?.claimedMonths ??
+          cs?.claimedExperienceMonths ??
+          "",
+        validatedMonths: String(validatedExpMonths ?? ""),
         score: expScore,
       },
       entranceTestScore,
@@ -540,16 +537,7 @@ export default function GDInterviewDetailsPage() {
         penalty,
         assignedTotalOther,
       },
-      interviewScores: {
-        gd: gdScore,
-        pi: piScore,
-        get totalGDPI() {
-          return this.gd + this.pi;
-        },
-        get compositeScore() {
-          return Math.min(100, Math.round((totalAcademicScore + entranceTestScore + expScore + this.totalGDPI + assignedTotalOther) * 10) / 10);
-        },
-      },
+      gdComponents,
       discrepancy: appData.entranceTests?.every((t: any) => t.percentile === "-")
         ? "Entrance Score Awaited"
         : null,
@@ -559,7 +547,6 @@ export default function GDInterviewDetailsPage() {
           fetchedAppData?.confirmedCampus ??
           (fetchedAppData as any)?.confirmed_campus ??
           fetchedAppData?.gdEvaluation?.confirmedCampus ??
-          listMatch?.confirmedCampus ??
           "Awaited Scores",
         waitlist:
           localInterviewEdits.decision?.waitlist ??
@@ -571,26 +558,48 @@ export default function GDInterviewDetailsPage() {
           fetchedAppData?.evaluationRemarks ??
           (fetchedAppData as any)?.evaluation_remarks ??
           fetchedAppData?.gdEvaluation?.remarks ??
-          (listMatch?.selectionStatus === "Accepted"
-            ? "Strong performance in GD and PI. Recommended for selection."
-            : listMatch?.selectionStatus === "Rejected"
-              ? "Does not meet the cut-off requirements."
-              : ""),
+          "",
       },
     };
+  }, [appData, localInterviewEdits, fetchedAppData, compositeScoreData, scoringConfig, interviewSlot, candidateInterview]);
 
-    return base;
-  }, [appData, listMatch, localInterviewEdits, fetchedAppData, compositeScoreData, scoringConfig, interviewSlot]);
+  // The composite score is calculated by the API only (no client-side guess).
+  const liveCompositeScore: number | string = compositeScoreData?.compositeScore ?? NOT_AVAILABLE;
 
-  const liveCompositeScore = React.useMemo(() => {
-    if (!interviewData) return 0;
-    const rowAcad = Number(compositeScoreData?.academicComponent ?? interviewData.academics.totalScore) || 0;
-    const rowTest = Number(compositeScoreData?.testComponent ?? interviewData.entranceTestScore) || 0;
-    const rowExp = Number(compositeScoreData?.experienceComponent ?? interviewData.expScore) || 0;
-    const rowGdpi = Number(compositeScoreData?.gdpiTotal ?? interviewData.interviewScores.totalGDPI) || 0;
-    const rowOther = Number(interviewData.components.assignedTotalOther) || 0;
-    return Math.max(0, Math.min(100, Number((rowAcad + rowTest + rowExp + rowGdpi + rowOther).toFixed(2))));
+  // Entrance rows of the breakdown: one row (best percentile across all
+  // tests) by default, or CAT and "other exams" separately when split.
+  const entranceRows = React.useMemo(() => {
+    const cs = compositeScoreData;
+    if (!cs) return [];
+    const pct = (v: number | null | undefined) => (v === null || v === undefined ? "—" : `${v}%`);
+    if (cs.entranceScoringMode === "cat_split") {
+      return [
+        { label: "Entrance Test - CAT", particulars: `CAT (${pct(cs.catPercentile)})`, max: cs.maxCatScore, score: cs.catComponent },
+        {
+          label: "Entrance Test - Other Exams",
+          particulars: `${cs.otherTestName ?? "No other exam"} (${pct(cs.otherTestPercentile)})`,
+          max: cs.maxOtherTestScore,
+          score: cs.otherTestComponent,
+        },
+      ];
+    }
+    return [
+      {
+        label: "Entrance Test",
+        particulars: `${cs.bestTestName ?? interviewData?.entranceTest.name ?? "—"} (${pct(cs.bestTestPercentile)})`,
+        max: cs.maxTestScore as number | null,
+        score: cs.testComponent as number | null,
+      },
+    ];
   }, [compositeScoreData, interviewData]);
+
+  const gdpiParticulars = React.useMemo(() => {
+    const comps = compositeScoreData?.gdComponents ?? [];
+    if (comps.length === 0) return "—";
+    return comps
+      .map((c) => `${c.label} (${c.rawScore === null ? "Not scored yet" : `${c.rawScore}/${c.maxMarks}`})`)
+      .join(" + ");
+  }, [compositeScoreData]);
 
   const campusOptions = React.useMemo(() => {
     const options: { value: string; label: string }[] = [
@@ -649,7 +658,7 @@ export default function GDInterviewDetailsPage() {
     return false;
   }, [interviewData]);
 
-  if (isLoading && !listMatch) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen w-full bg-white">
         <div className="flex flex-col items-center gap-2">
@@ -1188,7 +1197,12 @@ export default function GDInterviewDetailsPage() {
                     </div>
                   ))}
                   <div className="px-5 pt-3 mt-2 border-t border-[#F8FAFC] flex justify-between items-center">
-                    <span className="text-xs font-semibold text-slate-600">Test Score: <span className="font-bold text-[#1A237E]">{compositeScoreData?.testComponent ?? "—"} / {compositeScoreData?.maxTestScore ?? "10"}</span></span>
+                    <span className="text-xs font-semibold text-slate-600">Test Score: <span className="font-bold text-[#1A237E]">{compositeScoreData?.testComponent ?? "—"} / {compositeScoreData?.maxTestScore ?? "—"}</span></span>
+                    {compositeScoreData?.entranceScoringMode === "cat_split" && (
+                      <span className="text-[11px] text-slate-500">
+                        CAT {compositeScoreData.catComponent ?? 0} / {compositeScoreData.maxCatScore ?? "—"} · Other exams {compositeScoreData.otherTestComponent ?? 0} / {compositeScoreData.maxOtherTestScore ?? "—"}
+                      </span>
+                    )}
                   </div>
                 </div>
               )}
@@ -1274,7 +1288,7 @@ export default function GDInterviewDetailsPage() {
                   <div className="space-y-3">
                     <div className="flex justify-between items-center text-sm">
                       <span className="text-slate-600">
-                        Achievement (Max 5)
+                        Achievement (Max {ADJUSTMENT_MAX})
                       </span>
                       <div
                         className="w-[72px] h-[32px] flex items-center justify-center bg-slate-50 text-[#1A237E] font-bold text-[14px] rounded-[8px] border border-[#E2E8F0]"
@@ -1284,7 +1298,7 @@ export default function GDInterviewDetailsPage() {
                       </div>
                     </div>
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-slate-600">Penalty (Max -5)</span>
+                      <span className="text-slate-600">Penalty (Max -{ADJUSTMENT_MAX})</span>
                       <div
                         className="w-[72px] h-[32px] flex items-center justify-center bg-red-50 text-red-600 font-bold text-[14px] rounded-[8px] border border-[#E2E8F0]"
                         style={{ fontFamily: "Inter" }}
@@ -1310,31 +1324,45 @@ export default function GDInterviewDetailsPage() {
                     GD &amp; PI Scores
                   </h3>
                   <div className="space-y-3">
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-slate-600">GD Score (Max 10)</span>
-                      <div
-                        className="w-[72px] h-[32px] flex items-center justify-center bg-slate-50 text-[#1A237E] font-bold text-[14px] rounded-[8px] border border-[#E2E8F0]"
-                        style={{ fontFamily: "Inter" }}
-                      >
-                        {interviewData.interviewScores.gd}
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-slate-600">PI Score (Max 30)</span>
-                      <div
-                        className="w-[72px] h-[32px] flex items-center justify-center bg-slate-50 text-[#1A237E] font-bold text-[14px] rounded-[8px] border border-[#E2E8F0]"
-                        style={{ fontFamily: "Inter" }}
-                      >
-                        {interviewData.interviewScores.pi}
-                      </div>
-                    </div>
+                    {!compositeScoreData ? (
+                      <p className="text-xs text-muted-foreground animate-pulse">Loading scores...</p>
+                    ) : interviewData.gdComponents.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">No GD / PI components in the selected scoring scheme.</p>
+                    ) : (
+                      interviewData.gdComponents.map((c: GdComponentBreakdown) => (
+                        <div key={c.key} className="flex justify-between items-center text-sm gap-3">
+                          <span className="text-slate-600">
+                            {c.label} (Max {c.maxMarks})
+                            {c.source === "evaluations" && (
+                              <span className="block text-[11px] text-slate-400">From panel evaluations</span>
+                            )}
+                            {c.includeInComposite && c.maxMarks !== c.compositeWeight && (
+                              <span className="block text-[11px] text-slate-400">Weightage {c.compositeWeight}</span>
+                            )}
+                          </span>
+                          <div
+                            className={`min-w-[72px] px-2 h-[32px] flex items-center justify-center rounded-[8px] border border-[#E2E8F0] ${
+                              c.rawScore === null
+                                ? "bg-amber-50 text-amber-700 font-medium text-[11px]"
+                                : "bg-slate-50 text-[#1A237E] font-bold text-[14px]"
+                            }`}
+                            style={{ fontFamily: "Inter" }}
+                          >
+                            {formatScore(c.rawScore)}
+                          </div>
+                        </div>
+                      ))
+                    )}
 
                     <div className="pt-2 flex justify-between items-center" style={{ borderTop: "1px solid #F8FAFC" }}>
                       <span className="font-sans text-sm font-bold text-[#1E293B] leading-5">
                         Total - GDPI
+                        {compositeScoreData?.scheme && (
+                          <span className="block text-[11px] font-medium text-slate-400">{compositeScoreData.scheme.name}</span>
+                        )}
                       </span>
                       <span className="font-bold text-lg text-blue-600 w-20 text-right pr-3" style={{ fontFamily: "Inter" }}>
-                        {interviewData.interviewScores.totalGDPI}
+                        {compositeScoreData ? compositeScoreData.gdpiTotal : NOT_AVAILABLE}
                       </span>
                     </div>
                   </div>
@@ -1492,27 +1520,29 @@ export default function GDInterviewDetailsPage() {
                           10th ({interviewData.academics.tenth.score}) · 12th ({interviewData.academics.twelfth.score}) · UG ({interviewData.academics.ug.score})
                         </div>
                         <div style={{ color: "#475569", textAlign: "center", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 600, lineHeight: "20px" }}>
-                          {compositeScoreData.maxAcademicScore || 25}
+                          {compositeScoreData.maxAcademicScore ?? NOT_AVAILABLE}
                         </div>
                         <div style={{ color: "var(--text-primary-color, #1E293B)", textAlign: "right", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 700, lineHeight: "20px" }}>
                           {compositeScoreData.academicComponent ?? interviewData.academics.totalScore}
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-4 items-center py-3.5">
-                        <div style={{ color: "var(--text-primary-color, #1E293B)", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 600, lineHeight: "20px" }}>
-                          Entrance Test
+                      {entranceRows.map((row) => (
+                        <div key={row.label} className="grid grid-cols-4 items-center py-3.5">
+                          <div style={{ color: "var(--text-primary-color, #1E293B)", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 600, lineHeight: "20px" }}>
+                            {row.label}
+                          </div>
+                          <div style={{ color: "#475569", textAlign: "center", fontFamily: "Inter", fontSize: "13px", fontStyle: "normal", fontWeight: 500, lineHeight: "20px" }}>
+                            {row.particulars}
+                          </div>
+                          <div style={{ color: "#475569", textAlign: "center", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 600, lineHeight: "20px" }}>
+                            {row.max ?? NOT_AVAILABLE}
+                          </div>
+                          <div style={{ color: "var(--text-primary-color, #1E293B)", textAlign: "right", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 700, lineHeight: "20px" }}>
+                            {row.score ?? NOT_AVAILABLE}
+                          </div>
                         </div>
-                        <div style={{ color: "#475569", textAlign: "center", fontFamily: "Inter", fontSize: "13px", fontStyle: "normal", fontWeight: 500, lineHeight: "20px" }}>
-                          {interviewData.entranceTest.name} ({interviewData.entranceTest.percentile}%)
-                        </div>
-                        <div style={{ color: "#475569", textAlign: "center", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 600, lineHeight: "20px" }}>
-                          {compositeScoreData.maxTestScore || 10}
-                        </div>
-                        <div style={{ color: "var(--text-primary-color, #1E293B)", textAlign: "right", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 700, lineHeight: "20px" }}>
-                          {compositeScoreData.testComponent ?? interviewData.entranceTestScore}
-                        </div>
-                      </div>
+                      ))}
 
                       <div className="grid grid-cols-4 items-center py-3.5">
                         <div style={{ color: "var(--text-primary-color, #1E293B)", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 600, lineHeight: "20px" }}>
@@ -1522,7 +1552,7 @@ export default function GDInterviewDetailsPage() {
                           {interviewData.experience.validatedMonths || 0} Months Validated
                         </div>
                         <div style={{ color: "#475569", textAlign: "center", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 600, lineHeight: "20px" }}>
-                          {compositeScoreData.maxExperienceScore || 5}
+                          {compositeScoreData.maxExperienceScore ?? NOT_AVAILABLE}
                         </div>
                         <div style={{ color: "var(--text-primary-color, #1E293B)", textAlign: "right", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 700, lineHeight: "20px" }}>
                           {compositeScoreData.experienceComponent ?? interviewData.expScore}
@@ -1534,13 +1564,13 @@ export default function GDInterviewDetailsPage() {
                           GD &amp; PI Scores
                         </div>
                         <div style={{ color: "#475569", textAlign: "center", fontFamily: "Inter", fontSize: "13px", fontStyle: "normal", fontWeight: 500, lineHeight: "20px" }}>
-                          GD ({interviewData.interviewScores.gd}) + PI ({interviewData.interviewScores.pi})
+                          {gdpiParticulars}
                         </div>
                         <div style={{ color: "#475569", textAlign: "center", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 600, lineHeight: "20px" }}>
-                          40
+                          {compositeScoreData.maxGdpiTotal ?? NOT_AVAILABLE}
                         </div>
                         <div style={{ color: "#2563EB", textAlign: "right", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 700, lineHeight: "20px" }}>
-                          {compositeScoreData?.gdpiTotal ? compositeScoreData.gdpiTotal : interviewData.interviewScores.totalGDPI}
+                          {compositeScoreData.gdpiTotal}
                         </div>
                       </div>
 
@@ -1554,7 +1584,7 @@ export default function GDInterviewDetailsPage() {
                           <span className="text-red-500 font-semibold">-{interviewData.components.penalty} Pen</span>
                         </div>
                         <div style={{ color: "#475569", textAlign: "center", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 600, lineHeight: "20px" }}>
-                          5
+                          {ADJUSTMENT_MAX}
                         </div>
                         <div style={{ color: "var(--text-primary-color, #1E293B)", textAlign: "right", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 700, lineHeight: "20px" }}>
                           {interviewData.components.assignedTotalOther >= 0 ? `+${interviewData.components.assignedTotalOther}` : interviewData.components.assignedTotalOther}
@@ -1595,29 +1625,31 @@ export default function GDInterviewDetailsPage() {
                         </span>
                       </div>
                       <div className="flex justify-between items-center pt-1.5 border-t border-slate-200/60 text-[11px] text-slate-500 font-sans">
-                        <span>Max Weight: <strong className="text-slate-700">{compositeScoreData.maxAcademicScore || 25}</strong></span>
+                        <span>Max Weight: <strong className="text-slate-700">{compositeScoreData.maxAcademicScore ?? NOT_AVAILABLE}</strong></span>
                         <span className="font-semibold text-slate-800">Score: {compositeScoreData.academicComponent ?? interviewData.academics.totalScore}</span>
                       </div>
                     </div>
 
-                    {/* Entrance Test */}
-                    <div className="p-3 bg-slate-50/80 rounded-lg border border-slate-200/80 flex flex-col gap-1.5">
-                      <div className="flex justify-between items-start gap-2">
-                        <div className="min-w-0 flex-1">
-                          <span className="font-semibold text-xs text-[#1E293B] block">Entrance Test</span>
-                          <span className="text-[11px] text-slate-500 block mt-0.5 leading-snug break-words">
-                            {interviewData.entranceTest.name} ({interviewData.entranceTest.percentile}%)
+                    {/* Entrance Test (CAT and other exams separately when split) */}
+                    {entranceRows.map((row) => (
+                      <div key={row.label} className="p-3 bg-slate-50/80 rounded-lg border border-slate-200/80 flex flex-col gap-1.5">
+                        <div className="flex justify-between items-start gap-2">
+                          <div className="min-w-0 flex-1">
+                            <span className="font-semibold text-xs text-[#1E293B] block">{row.label}</span>
+                            <span className="text-[11px] text-slate-500 block mt-0.5 leading-snug break-words">
+                              {row.particulars}
+                            </span>
+                          </div>
+                          <span className="font-bold text-sm text-[#1E293B] shrink-0">
+                            {row.score ?? NOT_AVAILABLE}
                           </span>
                         </div>
-                        <span className="font-bold text-sm text-[#1E293B] shrink-0">
-                          {compositeScoreData.testComponent ?? interviewData.entranceTestScore}
-                        </span>
+                        <div className="flex justify-between items-center pt-1.5 border-t border-slate-200/60 text-[11px] text-slate-500 font-sans">
+                          <span>Max Weight: <strong className="text-slate-700">{row.max ?? NOT_AVAILABLE}</strong></span>
+                          <span className="font-semibold text-slate-800">Score: {row.score ?? NOT_AVAILABLE}</span>
+                        </div>
                       </div>
-                      <div className="flex justify-between items-center pt-1.5 border-t border-slate-200/60 text-[11px] text-slate-500 font-sans">
-                        <span>Max Weight: <strong className="text-slate-700">{compositeScoreData.maxTestScore || 10}</strong></span>
-                        <span className="font-semibold text-slate-800">Score: {compositeScoreData.testComponent ?? interviewData.entranceTestScore}</span>
-                      </div>
-                    </div>
+                    ))}
 
                     {/* Work Experience */}
                     <div className="p-3 bg-slate-50/80 rounded-lg border border-slate-200/80 flex flex-col gap-1.5">
@@ -1633,7 +1665,7 @@ export default function GDInterviewDetailsPage() {
                         </span>
                       </div>
                       <div className="flex justify-between items-center pt-1.5 border-t border-slate-200/60 text-[11px] text-slate-500 font-sans">
-                        <span>Max Weight: <strong className="text-slate-700">{compositeScoreData.maxExperienceScore || 5}</strong></span>
+                        <span>Max Weight: <strong className="text-slate-700">{compositeScoreData.maxExperienceScore ?? NOT_AVAILABLE}</strong></span>
                         <span className="font-semibold text-slate-800">Score: {compositeScoreData.experienceComponent ?? interviewData.expScore}</span>
                       </div>
                     </div>
@@ -1644,17 +1676,17 @@ export default function GDInterviewDetailsPage() {
                         <div className="min-w-0 flex-1">
                           <span className="font-semibold text-xs text-[#1E293B] block">GD &amp; PI Scores</span>
                           <span className="text-[11px] text-slate-500 block mt-0.5 leading-snug break-words">
-                            GD ({interviewData.interviewScores.gd}) + PI ({interviewData.interviewScores.pi})
+                            {gdpiParticulars}
                           </span>
                         </div>
                         <span className="font-bold text-sm text-blue-600 shrink-0">
-                          {compositeScoreData?.gdpiTotal ? compositeScoreData.gdpiTotal : interviewData.interviewScores.totalGDPI}
+                          {compositeScoreData.gdpiTotal}
                         </span>
                       </div>
                       <div className="flex justify-between items-center pt-1.5 border-t border-slate-200/60 text-[11px] text-slate-500 font-sans">
-                        <span>Max Weight: <strong className="text-slate-700">40</strong></span>
+                        <span>Max Weight: <strong className="text-slate-700">{compositeScoreData.maxGdpiTotal ?? NOT_AVAILABLE}</strong></span>
                         <span className="font-semibold text-blue-600">
-                          Score: {compositeScoreData?.gdpiTotal ? compositeScoreData.gdpiTotal : interviewData.interviewScores.totalGDPI}
+                          Score: {compositeScoreData.gdpiTotal}
                         </span>
                       </div>
                     </div>
@@ -1675,7 +1707,7 @@ export default function GDInterviewDetailsPage() {
                         </span>
                       </div>
                       <div className="flex justify-between items-center pt-1.5 border-t border-slate-200/60 text-[11px] text-slate-500 font-sans">
-                        <span>Max Weight: <strong className="text-slate-700">5</strong></span>
+                        <span>Max Weight: <strong className="text-slate-700">{ADJUSTMENT_MAX}</strong></span>
                         <span className="font-semibold text-slate-800">
                           Score: {interviewData.components.assignedTotalOther >= 0 ? `+${interviewData.components.assignedTotalOther}` : interviewData.components.assignedTotalOther}
                         </span>
@@ -1698,6 +1730,9 @@ export default function GDInterviewDetailsPage() {
               )}
             </CardContent>
           </Card>
+
+          {/* Interviews, assigned panel, calendar sync and panel feedback */}
+          <InterviewPanelCard applicationId={appId} />
 
           {/* Decision Panel */}
           <Card
@@ -1946,8 +1981,7 @@ export default function GDInterviewDetailsPage() {
               data={{
                 achievement: interviewData.components.achievement,
                 penalty: interviewData.components.penalty,
-                gdScore: interviewData.interviewScores.gd,
-                piScore: interviewData.interviewScores.pi,
+                components: interviewData.gdComponents,
               }}
               onSave={(d) => handleSave("Evaluation & Scoring", d)}
               onClose={() => setActiveEditSection(null)}
@@ -2544,116 +2578,132 @@ function EditEntranceTestForm({ data, onSave, onClose }: any) {
   );
 }
 
-function EditScoringForm({ data, onSave, onClose }: GDFormProps) {
+// GD / PI marks follow the scoring scheme selected in Settings > GD Scoring
+// (the predefined Standard template is GD /10 + PI /30). Maxima come from the
+// API; a component with no mark stays "Not scored yet".
+function EditScoringForm({
+  data,
+  onSave,
+  onClose,
+}: Omit<GDFormProps, "data"> & { data: { achievement: number; penalty: number; components: GdComponentBreakdown[] } }) {
+  const components = data.components ?? [];
   const initialPenalty = data.penalty ? -Math.abs(Number(data.penalty)) : 0;
-  const [formData, setFormData] = React.useState({
-    achievement: Number(data.achievement) || 0,
-    penalty: initialPenalty,
-    gdScore: Number(data.gdScore) || 0,
-    piScore: Number(data.piScore) || 0,
-  });
+  const [achievement, setAchievement] = React.useState<number | string>(Number(data.achievement) || 0);
+  const [penalty, setPenalty] = React.useState<number | string>(initialPenalty);
 
-  const [fieldErrors, setFieldErrors] = React.useState<{ [key: string]: string }>({});
+  // Raw mark per component (components without parameters) and per
+  // parameter (components with parameters). Empty string = not scored.
+  const [rawMarks, setRawMarks] = React.useState<Record<string, string>>(() =>
+    Object.fromEntries(components.map((c) => [c.key, c.rawScore === null ? "" : String(c.rawScore)])),
+  );
+  const [paramMarks, setParamMarks] = React.useState<Record<string, Record<string, string>>>(() =>
+    Object.fromEntries(
+      components.map((c) => [
+        c.key,
+        Object.fromEntries(c.parameters.map((p) => [p.key, p.score === null ? "" : String(p.score)])),
+      ]),
+    ),
+  );
+  const [remarks, setRemarks] = React.useState<Record<string, string>>(() =>
+    Object.fromEntries(components.map((c) => [c.key, c.remarks ?? ""])),
+  );
+  const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>({});
+
+  const setError = (key: string, message: string | null) =>
+    setFieldErrors((prev) => {
+      const next = { ...prev };
+      if (message) next[key] = message;
+      else delete next[key];
+      return next;
+    });
+
+  const checkRange = (key: string, value: string, max: number) => {
+    if (value === "") return setError(key, null);
+    const num = Number(value);
+    setError(key, !Number.isFinite(num) || num < 0 || num > max ? `Allowed: 0 to ${max}` : null);
+  };
 
   const handleAchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
-    if (val === "") {
-      setFormData((prev) => ({ ...prev, achievement: 0 }));
-      return;
-    }
+    if (val === "") return setAchievement(0);
     const num = Number(val);
-    if (num < 0 || num > 5) {
-      setFieldErrors((prev) => ({ ...prev, achievement: "Allowed: 0 to 5" }));
-    } else {
-      setFieldErrors((prev) => {
-        const { achievement, ...rest } = prev;
-        return rest;
-      });
-    }
-    setFormData((prev) => ({ ...prev, achievement: num }));
+    setError("achievement", num < 0 || num > ADJUSTMENT_MAX ? `Allowed: 0 to ${ADJUSTMENT_MAX}` : null);
+    setAchievement(num);
   };
 
   const handlePenChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
-    if (val === "" || val === "-") {
-      setFormData((prev) => ({ ...prev, penalty: val as any }));
-      return;
-    }
+    if (val === "" || val === "-") return setPenalty(val);
     let num = Number(val);
-    if (num > 0 && num <= 5) {
-      num = -num;
-    }
-    if (num < -5 || num > 0) {
-      setFieldErrors((prev) => ({ ...prev, penalty: "Allowed: -5 to 0" }));
-    } else {
-      setFieldErrors((prev) => {
-        const { penalty, ...rest } = prev;
-        return rest;
-      });
-    }
-    setFormData((prev) => ({ ...prev, penalty: num }));
+    if (num > 0 && num <= ADJUSTMENT_MAX) num = -num;
+    setError("penalty", num < -ADJUSTMENT_MAX || num > 0 ? `Allowed: -${ADJUSTMENT_MAX} to 0` : null);
+    setPenalty(num);
   };
 
-  const handleGdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    if (val === "") {
-      setFormData((prev) => ({ ...prev, gdScore: 0 }));
-      return;
+  const componentValue = (c: GdComponentBreakdown): number | null => {
+    if (c.source === "evaluations") return c.rawScore;
+    if (c.parameters.length > 0) {
+      const values = Object.values(paramMarks[c.key] ?? {}).filter((v) => v !== "");
+      return values.length ? values.reduce((sum, v) => sum + (Number(v) || 0), 0) : null;
     }
-    const num = Number(val);
-    if (num < 0 || num > 10) {
-      setFieldErrors((prev) => ({ ...prev, gdScore: "Allowed: 0 to 10" }));
-    } else {
-      setFieldErrors((prev) => {
-        const { gdScore, ...rest } = prev;
-        return rest;
-      });
-    }
-    setFormData((prev) => ({ ...prev, gdScore: num }));
+    const v = rawMarks[c.key];
+    return v === undefined || v === "" ? null : Number(v) || 0;
   };
 
-  const handlePiChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    if (val === "") {
-      setFormData((prev) => ({ ...prev, piScore: 0 }));
-      return;
-    }
-    const num = Number(val);
-    if (num < 0 || num > 30) {
-      setFieldErrors((prev) => ({ ...prev, piScore: "Allowed: 0 to 30" }));
-    } else {
-      setFieldErrors((prev) => {
-        const { piScore, ...rest } = prev;
-        return rest;
-      });
-    }
-    setFormData((prev) => ({ ...prev, piScore: num }));
-  };
-
-  const achNum = typeof formData.achievement === "number" ? formData.achievement : 0;
-  const penNum = typeof formData.penalty === "number" ? Math.abs(formData.penalty) : 0;
+  const achNum = typeof achievement === "number" ? achievement : 0;
+  const penNum = typeof penalty === "number" ? Math.abs(penalty) : 0;
   const liveTotalOther = Number((achNum - penNum).toFixed(2));
 
-  const gdNum = typeof formData.gdScore === "number" ? formData.gdScore : 0;
-  const piNum = typeof formData.piScore === "number" ? formData.piScore : 0;
-  const liveTotalGDPI = gdNum + piNum;
+  const liveTotalGDPI = Number(
+    components
+      .filter((c) => c.includeInComposite)
+      .reduce((sum, c) => {
+        const v = componentValue(c);
+        return v === null || c.maxMarks <= 0 ? sum : sum + (v / c.maxMarks) * c.compositeWeight;
+      }, 0)
+      .toFixed(2),
+  );
+  const maxGDPI = components.filter((c) => c.includeInComposite).reduce((sum, c) => sum + c.compositeWeight, 0);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (Object.keys(fieldErrors).length > 0) {
+      toast.error("Please correct the highlighted marks");
+      return;
+    }
 
-    const clampedAch = Math.max(0, Math.min(5, Number(formData.achievement) || 0));
-    const rawPen = Number(formData.penalty) || 0;
-    const clampedPen = Math.max(0, Math.min(5, Math.abs(rawPen)));
-    const clampedGd = Math.max(0, Math.min(10, Number(formData.gdScore) || 0));
-    const clampedPi = Math.max(0, Math.min(30, Number(formData.piScore) || 0));
+    const componentScores = components
+      .filter((c) => c.source !== "evaluations")
+      .map((c) => {
+        if (c.parameters.length > 0) {
+          const entered = Object.entries(paramMarks[c.key] ?? {}).filter(([, v]) => v !== "");
+          if (entered.length === 0 && !remarks[c.key]) return null;
+          return {
+            componentKey: c.key,
+            parameterScores: Object.fromEntries(entered.map(([k, v]) => [k, Number(v)])),
+            remarks: remarks[c.key] || undefined,
+          };
+        }
+        const v = rawMarks[c.key];
+        if ((v === undefined || v === "") && !remarks[c.key] && c.rawScore === null) return null;
+        return {
+          componentKey: c.key,
+          rawScore: v === undefined || v === "" ? null : Number(v),
+          remarks: remarks[c.key] || undefined,
+        };
+      })
+      .filter(Boolean);
 
     onSave({
-      achievement: clampedAch,
-      penalty: clampedPen,
-      gdScore: clampedGd,
-      piScore: clampedPi,
+      achievement: Math.max(0, Math.min(ADJUSTMENT_MAX, Number(achievement) || 0)),
+      penalty: Math.max(0, Math.min(ADJUSTMENT_MAX, Math.abs(Number(penalty) || 0))),
+      componentScores,
     });
   };
+
+  const labelClass = "text-[#64748B] font-semibold text-[12px] leading-4 tracking-[0.6px] uppercase font-sans";
+  const inputClass = (key: string) =>
+    `border-[#D4D4D4] rounded-[8px] h-10 text-[14px] ${fieldErrors[key] ? "border-red-500 focus-visible:ring-red-500" : ""}`;
 
   return (
     <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-x-6 gap-y-3 pt-5 pb-1">
@@ -2662,99 +2712,134 @@ function EditScoringForm({ data, onSave, onClose }: GDFormProps) {
       </div>
       <div className="flex flex-col gap-1.5">
         <div className="flex justify-between items-center">
-          <Label className="text-[#64748B] font-semibold text-[12px] leading-4 tracking-[0.6px] uppercase font-sans">
-            Achievement (Max 5)
-          </Label>
-          <span className="text-[11px] text-slate-400 font-medium">0 to 5</span>
+          <Label className={labelClass}>Achievement (Max {ADJUSTMENT_MAX})</Label>
+          <span className="text-[11px] text-slate-400 font-medium">0 to {ADJUSTMENT_MAX}</span>
         </div>
         <Input
           type="number"
           min={0}
-          max={5}
+          max={ADJUSTMENT_MAX}
           step="any"
-          value={formData.achievement}
+          value={achievement}
           onChange={handleAchChange}
-          className={`border-[#D4D4D4] rounded-[8px] h-10 text-[14px] ${fieldErrors.achievement ? "border-red-500 focus-visible:ring-red-500" : ""}`}
+          className={inputClass("achievement")}
         />
-        {fieldErrors.achievement && (
-          <span className="text-[11px] text-red-500 font-medium">{fieldErrors.achievement}</span>
-        )}
+        {fieldErrors.achievement && <span className="text-[11px] text-red-500 font-medium">{fieldErrors.achievement}</span>}
       </div>
       <div className="flex flex-col gap-1.5">
         <div className="flex justify-between items-center">
-          <Label className="text-[#64748B] font-semibold text-[12px] leading-4 tracking-[0.6px] uppercase font-sans">
-            Penalty (Max -5)
-          </Label>
-          <span className="text-[11px] text-slate-400 font-medium">-5 to 0</span>
+          <Label className={labelClass}>Penalty (Max -{ADJUSTMENT_MAX})</Label>
+          <span className="text-[11px] text-slate-400 font-medium">-{ADJUSTMENT_MAX} to 0</span>
         </div>
         <Input
           type="number"
-          min={-5}
+          min={-ADJUSTMENT_MAX}
           max={0}
           step="any"
-          value={formData.penalty}
+          value={penalty}
           onChange={handlePenChange}
-          className={`border-[#D4D4D4] rounded-[8px] h-10 text-[14px] ${fieldErrors.penalty ? "border-red-500 focus-visible:ring-red-500" : ""}`}
+          className={inputClass("penalty")}
         />
-        {fieldErrors.penalty && (
-          <span className="text-[11px] text-red-500 font-medium">{fieldErrors.penalty}</span>
-        )}
+        {fieldErrors.penalty && <span className="text-[11px] text-red-500 font-medium">{fieldErrors.penalty}</span>}
       </div>
 
       <div className="col-span-2 flex justify-between items-center py-2.5 px-3.5 bg-slate-50 rounded-[8px] border border-[#E2E8F0] mt-1 mb-1">
         <span className="font-semibold text-xs text-[#1E293B]">Total - Other</span>
-        <span className="font-bold text-sm text-[#1E293B]">
-          {liveTotalOther >= 0 ? `+${liveTotalOther}` : liveTotalOther}
-        </span>
+        <span className="font-bold text-sm text-[#1E293B]">{liveTotalOther >= 0 ? `+${liveTotalOther}` : liveTotalOther}</span>
       </div>
 
       <div className="col-span-2 pb-1 pt-2 border-t border-[#F1F5F9]">
         <h3 className="font-bold text-slate-800 text-sm">GD &amp; PI Scores</h3>
       </div>
-      <div className="flex flex-col gap-1.5">
-        <div className="flex justify-between items-center">
-          <Label className="text-[#64748B] font-semibold text-[12px] leading-4 tracking-[0.6px] uppercase font-sans">
-            GD Score (Max 10)
-          </Label>
-          <span className="text-[11px] text-slate-400 font-medium">0 to 10</span>
-        </div>
-        <Input
-          type="number"
-          min={0}
-          max={10}
-          step="any"
-          value={formData.gdScore}
-          onChange={handleGdChange}
-          className={`border-[#D4D4D4] rounded-[8px] h-10 text-[14px] ${fieldErrors.gdScore ? "border-red-500 focus-visible:ring-red-500" : ""}`}
-        />
-        {fieldErrors.gdScore && (
-          <span className="text-[11px] text-red-500 font-medium">{fieldErrors.gdScore}</span>
-        )}
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <div className="flex justify-between items-center">
-          <Label className="text-[#64748B] font-semibold text-[12px] leading-4 tracking-[0.6px] uppercase font-sans">
-            PI Score (Max 30)
-          </Label>
-          <span className="text-[11px] text-slate-400 font-medium">0 to 30</span>
-        </div>
-        <Input
-          type="number"
-          min={0}
-          max={30}
-          step="any"
-          value={formData.piScore}
-          onChange={handlePiChange}
-          className={`border-[#D4D4D4] rounded-[8px] h-10 text-[14px] ${fieldErrors.piScore ? "border-red-500 focus-visible:ring-red-500" : ""}`}
-        />
-        {fieldErrors.piScore && (
-          <span className="text-[11px] text-red-500 font-medium">{fieldErrors.piScore}</span>
-        )}
-      </div>
+
+      {components.length === 0 && (
+        <p className="col-span-2 text-xs text-muted-foreground">
+          The selected scoring scheme has no components. Configure it in Settings &gt; GD Scoring.
+        </p>
+      )}
+
+      {components.map((c) => {
+        const fromPanel = c.source === "evaluations";
+        return (
+          <div key={c.key} className="col-span-2 flex flex-col gap-2 rounded-[8px] border border-[#E2E8F0] p-3">
+            <div className="flex justify-between items-center">
+              <Label className={labelClass}>
+                {c.label} (Max {c.maxMarks})
+              </Label>
+              <span className="text-[11px] text-slate-400 font-medium">
+                {c.includeInComposite ? `Weightage ${c.compositeWeight}` : "Not in composite"}
+              </span>
+            </div>
+
+            {fromPanel ? (
+              <p className="text-[12px] text-slate-600">
+                {c.rawScore} / {c.maxMarks} from submitted panel evaluations. Edit it through the evaluator portal.
+              </p>
+            ) : c.parameters.length > 0 ? (
+              <div className="grid grid-cols-2 gap-3">
+                {c.parameters.map((p) => {
+                  const errKey = `${c.key}.${p.key}`;
+                  return (
+                    <div key={p.key} className="flex flex-col gap-1">
+                      <span className="text-[11px] text-slate-500 font-medium">
+                        {p.name} (0 to {p.maxMarks})
+                      </span>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={p.maxMarks}
+                        step="any"
+                        placeholder="Not scored yet"
+                        value={paramMarks[c.key]?.[p.key] ?? ""}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          checkRange(errKey, v, p.maxMarks);
+                          setParamMarks((prev) => ({ ...prev, [c.key]: { ...(prev[c.key] ?? {}), [p.key]: v } }));
+                        }}
+                        className={inputClass(errKey)}
+                      />
+                      {fieldErrors[errKey] && <span className="text-[11px] text-red-500 font-medium">{fieldErrors[errKey]}</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <>
+                <Input
+                  type="number"
+                  min={0}
+                  max={c.maxMarks}
+                  step="any"
+                  placeholder="Not scored yet"
+                  value={rawMarks[c.key] ?? ""}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    checkRange(c.key, v, c.maxMarks);
+                    setRawMarks((prev) => ({ ...prev, [c.key]: v }));
+                  }}
+                  className={inputClass(c.key)}
+                />
+                {fieldErrors[c.key] && <span className="text-[11px] text-red-500 font-medium">{fieldErrors[c.key]}</span>}
+              </>
+            )}
+
+            {!fromPanel && (
+              <Input
+                placeholder="Remarks (optional)"
+                value={remarks[c.key] ?? ""}
+                onChange={(e) => setRemarks((prev) => ({ ...prev, [c.key]: e.target.value }))}
+                className="border-[#D4D4D4] rounded-[8px] h-9 text-[13px]"
+              />
+            )}
+          </div>
+        );
+      })}
 
       <div className="col-span-2 flex justify-between items-center py-2.5 px-3.5 bg-blue-50/60 rounded-[8px] border border-blue-100 mt-1">
         <span className="font-semibold text-xs text-[#1E293B]">Total - GDPI</span>
-        <span className="font-bold text-sm text-blue-600">{liveTotalGDPI} / 40</span>
+        <span className="font-bold text-sm text-blue-600">
+          {liveTotalGDPI} / {maxGDPI}
+        </span>
       </div>
 
       <div className="flex items-center gap-3 pt-4 border-t border-[#E5E5E5] col-span-2 mt-2">

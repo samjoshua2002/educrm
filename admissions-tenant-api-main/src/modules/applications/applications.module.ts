@@ -18,6 +18,12 @@ import { LeadsModule } from '../leads/leads.module.js';
 import { CoursesModule } from '../courses/courses.module.js';
 import { EmailTemplatesModule } from '../email-templates/email-templates.module.js';
 import { NotificationsModule } from '../notifications/notifications.module.js';
+import { ApplicationStatusLog } from './entities/application-status-log.entity.js';
+import { ApplicationWorkflowSettings } from './entities/application-workflow-settings.entity.js';
+import { ApplicationDocument } from '../documents/entities/application-document.entity.js';
+import { User } from '../users/entities/user.entity.js';
+import { ApplicationStatusService } from './application-status.service.js';
+import { ApplicationTrackerController } from './application-tracker.controller.js';
 
 @Module({
   imports: [
@@ -34,14 +40,18 @@ import { NotificationsModule } from '../notifications/notifications.module.js';
       ApplicationExtraCurricular,
       ApplicationOtherQualification,
       ApplicationActivity,
+      ApplicationStatusLog,
+      ApplicationWorkflowSettings,
+      ApplicationDocument,
+      User,
     ]),
     LeadsModule,
     CoursesModule,
     EmailTemplatesModule,
     NotificationsModule,
   ],
-  controllers: [ApplicationsController],
-  providers: [ApplicationsService],
-  exports: [ApplicationsService],
+  controllers: [ApplicationTrackerController, ApplicationsController],
+  providers: [ApplicationsService, ApplicationStatusService],
+  exports: [ApplicationsService, ApplicationStatusService],
 })
 export class ApplicationsModule {}

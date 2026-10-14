@@ -1,32 +1,65 @@
-import { Controller, Get, Patch, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Patch, Post, Body, Param, UseGuards, Request, Res, ParseUUIDPipe } from '@nestjs/common';
+import type { Response } from 'express';
 import { RejectionService } from './rejection.service.js';
-import { UpdateRejectionDto } from './dto/update-rejection.dto.js';
+import { UpdateRejectionDto } from './dto/acceptance.dto.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
+import { TenantGuard } from '../../common/guards/tenant.guard.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
-import { Role } from '../../common/enums/roles.enum.js';
+import { ResponseMessage } from '../../common/decorators/response-message.decorator.js';
+import { STAFF_READ, STAFF_WRITE } from './admission-decisions.controller.js';
+import { sendPdf } from './offer-letters.controller.js';
 
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, TenantGuard)
 @Controller('organizations/:orgId/applications/:applicationNo/rejection')
 export class RejectionController {
   constructor(private readonly rejectionService: RejectionService) {}
 
   @Get()
-  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.APPLICATION_MANAGER, Role.EXAM_MANAGER, Role.COUNSELOR)
+  @Roles(...STAFF_READ)
+  @ResponseMessage('Rejection fetched successfully')
   getRejection(@Param('orgId') orgId: string, @Param('applicationNo') applicationNo: string) {
     return this.rejectionService.getRejection(orgId, applicationNo);
   }
 
-  // Upserts the rejection record — used both to create one standalone (a
-  // rejection outside the decision workflow) and to refine the
-  // auto-created record's detailed reason afterward.
+  // Create (standalone rejection) or edit the rejection record.
   @Patch()
-  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.APPLICATION_MANAGER)
+  @Roles(...STAFF_WRITE)
+  @ResponseMessage('Rejection saved')
   updateRejection(
     @Param('orgId') orgId: string,
     @Param('applicationNo') applicationNo: string,
     @Body() dto: UpdateRejectionDto,
+    @Request() req,
   ) {
-    return this.rejectionService.createRejectionRecord(orgId, applicationNo, dto);
+    return this.rejectionService.upsert(orgId, applicationNo, dto, req.user.sub);
+  }
+
+  // Generate the rejection letter from its template and email it (PDF attached).
+  @Post('send-letter')
+  @Roles(...STAFF_WRITE)
+  @ResponseMessage('Rejection letter sent')
+  sendLetter(@Param('orgId') orgId: string, @Param('applicationNo') applicationNo: string, @Request() req) {
+    return this.rejectionService.sendLetter(orgId, applicationNo, req.user.sub);
+  }
+}
+
+@UseGuards(JwtAuthGuard, RolesGuard, TenantGuard)
+@Controller('organizations/:orgId/rejections')
+export class OrgRejectionsController {
+  constructor(private readonly rejectionService: RejectionService) {}
+
+  @Get()
+  @Roles(...STAFF_READ)
+  @ResponseMessage('Rejections fetched successfully')
+  list(@Param('orgId') orgId: string) {
+    return this.rejectionService.listRejections(orgId);
+  }
+
+  @Get(':id/pdf')
+  @Roles(...STAFF_READ)
+  async download(@Param('orgId') orgId: string, @Param('id', ParseUUIDPipe) id: string, @Res() res: Response) {
+    const { buffer, filename } = await this.rejectionService.getPdf(orgId, id);
+    sendPdf(res, buffer, filename);
   }
 }

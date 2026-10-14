@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiGet, apiPost, apiPatch, apiDelete, publicGet } from "@/lib/api";
+import { apiGet, apiPost, apiPatch, apiDelete } from "@/lib/api";
 import { PaginatedResponse } from "@/types/api";
 import { useAuthStore } from "@/stores/auth-store";
 import { toast } from "sonner";
@@ -61,7 +61,7 @@ export function useCurrentAcademicSession() {
   return useQuery({
     queryKey: ["academic-session-current", { orgId }],
     queryFn: () =>
-      publicGet<AcademicSession>(`/organizations/${orgId}/academic-sessions/current`),
+      apiGet<AcademicSession>(`/organizations/${orgId}/academic-sessions/current`),
     enabled: !!orgId,
   });
 }

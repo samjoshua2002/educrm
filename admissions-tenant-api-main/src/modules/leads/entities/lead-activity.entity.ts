@@ -43,6 +43,14 @@ export class LeadActivity {
   @Column({ name: 'new_assigned_to', type: 'uuid', nullable: true })
   newAssignedTo: string;
 
+  /** Extra structured context (routing rule, merge source, channel, engagement type…) */
+  @Column({ type: 'jsonb', nullable: true })
+  metadata: Record<string, any> | null;
+
+  /** Set when this activity was moved here from a merged duplicate lead */
+  @Column({ name: 'merged_from_lead_id', type: 'uuid', nullable: true })
+  mergedFromLeadId: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

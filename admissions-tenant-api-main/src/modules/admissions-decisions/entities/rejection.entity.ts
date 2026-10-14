@@ -6,15 +6,13 @@ import {
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
+  Generated,
 } from 'typeorm';
 import { Organization } from '../../organizations/entities/organization.entity.js';
 import { Application } from '../../applications/entities/application.entity.js';
+import { LetterTemplate } from './letter-template.entity.js';
 
-// Phase 6b — Rejections module. Created automatically when
-// AdmissionDecisionsService.finalizeDecision locks a decision with
-// finalDecision = 'rejected' (see RejectionService.createRejectionRecord),
-// but can also be created standalone for rejections that happen outside the
-// decision workflow (e.g. a verification-stage rejection).
+// Rejections (scope: Rejection Handling).
 export enum RejectionReason {
   BELOW_CUTOFF = 'below_cutoff',
   INCOMPLETE_DOCUMENTS = 'incomplete_documents',
@@ -27,6 +25,11 @@ export enum RejectionReason {
 export class Rejection {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  // Rejection ID (Auto Number)
+  @Column({ name: 'rejection_no', type: 'int' })
+  @Generated('increment')
+  rejectionNo: number;
 
   @Column({ name: 'organization_id', type: 'uuid' })
   organizationId: string;
@@ -51,22 +54,40 @@ export class Rejection {
   rejectionReason: RejectionReason;
 
   @Column({ name: 'detailed_reason', type: 'text', nullable: true })
-  detailedReason: string;
+  detailedReason: string | null;
 
-  @Column({ name: 'rejection_date', default: () => 'CURRENT_TIMESTAMP' })
+  @Column({ name: 'rejection_date', type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   rejectionDate: Date;
+
+  // Rejection Letter Template — Lookup (Templates)
+  @Column({ name: 'rejection_letter_template_id', type: 'uuid', nullable: true })
+  rejectionLetterTemplateId: string | null;
+
+  @ManyToOne(() => LetterTemplate, { onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'rejection_letter_template_id' })
+  rejectionLetterTemplate: LetterTemplate;
+
+  @Column({ name: 'rejection_letter_pdf', type: 'varchar', length: 500, nullable: true })
+  rejectionLetterPdf: string | null;
+
+  @Column({ name: 'rejection_letter_pdf_path', type: 'varchar', length: 500, nullable: true, select: false })
+  rejectionLetterPdfPath: string | null;
 
   @Column({ name: 'communication_sent', default: false })
   communicationSent: boolean;
 
+  @Column({ name: 'communication_sent_at', type: 'timestamp', nullable: true })
+  communicationSentAt: Date | null;
+
   @Column({ name: 'alternate_options_suggested', type: 'text', nullable: true })
-  alternateOptionsSuggested: string;
+  alternateOptionsSuggested: string | null;
 
   @Column({ name: 'eligible_for_reapply', default: true })
   eligibleForReapply: boolean;
 
+  // Next Intake (Pick List) — an academic session name.
   @Column({ name: 'next_intake', length: 100, nullable: true })
-  nextIntake: string;
+  nextIntake: string | null;
 
   @Column({ name: 'created_by', type: 'uuid', nullable: true })
   createdBy: string;

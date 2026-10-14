@@ -66,6 +66,7 @@ import {
 
 import { type Application, useApplications, useDeleteApplication, useVerifyApplication } from "@/hooks/use-applications";
 import { usePageHeader } from "@/hooks/use-page-header";
+import { useAuthStore } from "@/stores/auth-store";
 
 
 const paymentStatusStyles: Record<string, string> = {
@@ -172,6 +173,10 @@ export default function ApplicationsPage() {
 
   const { data: applicationsResponse, isLoading } = useApplications(1, 200, appliedSearch || undefined);
   const verifyMutation = useVerifyApplication();
+  // Backend: PATCH /applications/:no/verify allows superadmin/org_admin/application_manager; DELETE allows superadmin/org_admin.
+  const role = useAuthStore((s) => s.user?.role);
+  const canVerify = role === "superadmin" || role === "org_admin" || role === "application_manager";
+  const canDelete = role === "superadmin" || role === "org_admin";
 
   const applicationsState = React.useMemo(() => {
     const raw = (applicationsResponse as any)?.data || applicationsResponse || [];
@@ -824,7 +829,7 @@ export default function ApplicationsPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-40">
-                            {app.verificationStatus !== "verified" && (
+                            {canVerify && app.verificationStatus !== "verified" && (
                               <>
                                 <DropdownMenuItem
                                   className="gap-2 cursor-pointer"
@@ -839,6 +844,7 @@ export default function ApplicationsPage() {
                             <DropdownMenuItem
                               variant="destructive"
                               className="gap-2 cursor-pointer"
+                              disabled={!canDelete}
                               onClick={() => setDeleteAppId(app.id)}
                             >
                               <Trash2 className="size-4" />
@@ -1005,7 +1011,7 @@ export default function ApplicationsPage() {
                         </DropdownMenuTrigger>
 
                         <DropdownMenuContent align="end" className="w-40">
-                          {app.verificationStatus !== "verified" && (
+                          {canVerify && app.verificationStatus !== "verified" && (
                             <>
                               <DropdownMenuItem
                                 className="gap-2 cursor-pointer"
@@ -1020,6 +1026,7 @@ export default function ApplicationsPage() {
                           <DropdownMenuItem
                             variant="destructive"
                             className="gap-2 cursor-pointer"
+                            disabled={!canDelete}
                             onClick={() => setDeleteAppId(app.id)}
                           >
                             <Trash2 className="size-4" />

@@ -140,11 +140,11 @@ export default function OrganizationsPage() {
         const matchesSearch =
           item.name.toLowerCase().includes(q) ||
           item.email.toLowerCase().includes(q) ||
-          item.phone.toLowerCase().includes(q) ||
+          (item.phone || "").toLowerCase().includes(q) ||
           item.slug.toLowerCase().includes(q);
         if (!matchesSearch) return false;
       }
-      if (statusFilter !== "all" && item.status !== statusFilter)
+      if (statusFilter !== "all" && item.status?.toLowerCase() !== statusFilter.toLowerCase())
         return false;
       return true;
     });

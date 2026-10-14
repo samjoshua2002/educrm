@@ -95,6 +95,7 @@ import {
   useDeleteSlot,
   useUpdateSlot,
   useRescheduleInterview,
+  useInterviewPicklists,
   type InterviewSlot,
   type Interview,
 } from "@/hooks/use-interviews";
@@ -339,6 +340,10 @@ export default function InterviewSlotsPage() {
     }
   };
 
+  // Time_Zone picklist (scope) served by the API
+  const { data: picklists } = useInterviewPicklists();
+  const timeZoneOptions = picklists?.timeZones ?? [DEFAULT_TIME_ZONE];
+
   // Edit slot dialog
   const updateSlot = useUpdateSlot();
   const [editForm, setEditForm] = React.useState<{
@@ -351,6 +356,7 @@ export default function InterviewSlotsPage() {
     location: string;
     mode: "In-person" | "Virtual";
     meetingLink: string;
+    timeZone: string;
   } | null>(null);
 
   const openEdit = (s: InterviewSlot) => {
@@ -364,6 +370,7 @@ export default function InterviewSlotsPage() {
       location: s.location || "",
       mode: s.mode,
       meetingLink: s.meetingLink || "",
+      timeZone: s.timeZone || DEFAULT_TIME_ZONE,
     });
   };
 
@@ -380,6 +387,7 @@ export default function InterviewSlotsPage() {
         location: editForm.mode === "Virtual" ? undefined : editForm.location || undefined,
         mode: editForm.mode,
         meetingLink: editForm.mode === "Virtual" ? editForm.meetingLink || undefined : undefined,
+        timeZone: editForm.timeZone || undefined,
       },
     });
     setEditForm(null);
@@ -397,6 +405,7 @@ export default function InterviewSlotsPage() {
     location: "",
     mode: "In-person" as "In-person" | "Virtual",
     meetingLink: "",
+    timeZone: DEFAULT_TIME_ZONE,
   });
 
   const handleCreateSingle = async () => {
@@ -409,6 +418,7 @@ export default function InterviewSlotsPage() {
       location: singleForm.mode === "Virtual" ? undefined : singleForm.location || undefined,
       mode: singleForm.mode,
       meetingLink: singleForm.mode === "Virtual" ? singleForm.meetingLink || undefined : undefined,
+      timeZone: singleForm.timeZone || undefined,
     });
     setCreateOpen(false);
     setSingleForm({
@@ -420,6 +430,7 @@ export default function InterviewSlotsPage() {
       location: "",
       mode: "In-person",
       meetingLink: "",
+      timeZone: DEFAULT_TIME_ZONE,
     });
   };
 
@@ -436,6 +447,7 @@ export default function InterviewSlotsPage() {
     location: "",
     mode: "In-person" as "In-person" | "Virtual",
     meetingLink: "",
+    timeZone: DEFAULT_TIME_ZONE,
   });
 
   const handleBulkCreate = async () => {
@@ -449,6 +461,7 @@ export default function InterviewSlotsPage() {
       location: bulkForm.mode === "Virtual" ? undefined : bulkForm.location || undefined,
       mode: bulkForm.mode,
       meetingLink: bulkForm.mode === "Virtual" ? bulkForm.meetingLink || undefined : undefined,
+      timeZone: bulkForm.timeZone || undefined,
     });
     setBulkOpen(false);
     setBulkForm({
@@ -461,6 +474,7 @@ export default function InterviewSlotsPage() {
       location: "",
       mode: "In-person",
       meetingLink: "",
+      timeZone: DEFAULT_TIME_ZONE,
     });
   };
 
@@ -1986,6 +2000,12 @@ export default function InterviewSlotsPage() {
                 </Select>
               )}
             </div>
+
+            <TimeZoneField
+              value={singleForm.timeZone}
+              options={timeZoneOptions}
+              onChange={(v) => setSingleForm({ ...singleForm, timeZone: v })}
+            />
           </div>
 
           <div className="flex items-center gap-3 justify-end mt-2 pt-3 border-t border-slate-100">
@@ -2213,6 +2233,12 @@ export default function InterviewSlotsPage() {
                   </Select>
                 )}
               </div>
+
+              <TimeZoneField
+                value={bulkForm.timeZone}
+                options={timeZoneOptions}
+                onChange={(v) => setBulkForm({ ...bulkForm, timeZone: v })}
+              />
             </div>
           </div>
 
@@ -2421,6 +2447,12 @@ export default function InterviewSlotsPage() {
                   </Select>
                 )}
               </div>
+
+              <TimeZoneField
+                value={editForm.timeZone}
+                options={timeZoneOptions}
+                onChange={(v) => setEditForm({ ...editForm, timeZone: v })}
+              />
 
               <div className="flex items-center gap-3 justify-end mt-2 pt-3 border-t border-slate-100">
                 <Button
@@ -2832,6 +2864,38 @@ function RescheduleInterviewModalContent({
           Reschedule Interview
         </Button>
       </div>
+    </div>
+  );
+}
+
+const DEFAULT_TIME_ZONE = "Asia/Kolkata";
+
+// Time_Zone (Pick List) of an interview slot.
+function TimeZoneField({
+  value,
+  options,
+  onChange,
+}: {
+  value: string;
+  options: string[];
+  onChange: (value: string) => void;
+}) {
+  const list = value && !options.includes(value) ? [value, ...options] : options;
+  return (
+    <div className="flex flex-col gap-2">
+      <Label className="text-[#64748B] font-semibold text-[11px] uppercase tracking-wider">Time Zone</Label>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger className="w-full border-[#D4D4D4] rounded-lg h-11 text-sm bg-white text-[#0F172A]">
+          <SelectValue placeholder="Select time zone" />
+        </SelectTrigger>
+        <SelectContent>
+          {list.map((tz) => (
+            <SelectItem key={tz} value={tz}>
+              {tz}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }

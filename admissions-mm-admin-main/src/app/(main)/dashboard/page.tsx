@@ -1,42 +1,15 @@
-"use client";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
-import * as React from "react";
-
-import { useApplications } from "@/hooks/use-applications";
-
-import { DashboardCharts } from "./_components/dashboard-charts";
-import { DashboardStats } from "./_components/dashboard-stats";
-import { RecentApplicationsTable } from "./_components/recent-applications-table";
-
-export default function DashboardPage() {
-  const [mounted, setMounted] = React.useState(false);
-  const { data: applicationsResponse, isLoading } = useApplications();
-
-  React.useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const applications = React.useMemo(() => {
-    return applicationsResponse?.data ?? [];
-  }, [applicationsResponse]);
-
-  return (
-    <div className="flex flex-col gap-6 p-4 md:p-6 w-full max-w-full min-w-0">
-      <DashboardStats
-        applications={applications}
-        isLoading={isLoading}
-        mounted={mounted}
-      />
-      <DashboardCharts
-        applications={applications}
-        isLoading={isLoading}
-        mounted={mounted}
-      />
-      <RecentApplicationsTable
-        applications={applications}
-        isLoading={isLoading}
-        mounted={mounted}
-      />
-    </div>
-  );
+/**
+ * Legacy template route. The real dashboards live under /superadmin/dashboard
+ * and /organization/dashboard (reports under /organization/reports), so this
+ * page only forwards the signed-in user to the right one.
+ */
+export default async function LegacyDashboardRedirect() {
+  const role = (await cookies()).get("user_role")?.value;
+  if (!role) redirect("/login");
+  if (role === "superadmin") redirect("/superadmin/dashboard");
+  if (role === "student") redirect("/my-application");
+  redirect("/organization/dashboard");
 }

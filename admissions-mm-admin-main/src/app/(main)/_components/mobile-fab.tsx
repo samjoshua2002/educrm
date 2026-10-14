@@ -85,8 +85,9 @@ export function MobileFab() {
                 <span className="text-[#1E293B] font-inter text-[16px] font-medium leading-normal">Add Application</span>
               </div>
 
+              {user?.role !== "superadmin" && (
               <SheetClose asChild>
-                <Link href="/lead-manager/create" className="flex items-center gap-4 py-3 border-b border-[#D4D4D4] cursor-pointer active:bg-muted hover:bg-muted/50 transition-colors w-full">
+                <Link href="/organization/lead-manager/create" className="flex items-center gap-4 py-3 border-b border-[#D4D4D4] cursor-pointer active:bg-muted hover:bg-muted/50 transition-colors w-full">
                   <div className="flex size-10 items-center justify-center rounded-[32px] bg-[#2563ea] shrink-0">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
                       <path d="M2 21V9H7.5V21H2ZM9.25 21V3H14.75V21H9.25ZM16.5 21V11H22V21H16.5Z" fill="white"/>
@@ -95,6 +96,7 @@ export function MobileFab() {
                   <span className="text-[#1E293B] font-inter text-[16px] font-medium leading-normal">Add Lead</span>
                 </Link>
               </SheetClose>
+              )}
 
               <div className="flex items-center gap-4 py-3 border-b border-[#D4D4D4] cursor-pointer active:bg-muted">
                 <div className="flex size-10 items-center justify-center rounded-[32px] bg-[#2563ea] shrink-0">
@@ -114,6 +116,7 @@ export function MobileFab() {
                 <span className="text-[#1E293B] font-inter text-[16px] font-medium leading-normal">Add Member</span>
               </div>
 
+              {user?.role === "superadmin" && (
               <SheetClose asChild>
                 <Link href="/superadmin/organizations/create" className="flex items-center gap-4 py-3 border-b border-[#D4D4D4] cursor-pointer active:bg-muted hover:bg-muted/50 transition-colors w-full">
                   <div className="flex size-10 items-center justify-center rounded-[32px] bg-[#2563ea] shrink-0">
@@ -124,6 +127,7 @@ export function MobileFab() {
                   <span className="text-[#1E293B] font-inter text-[16px] font-medium leading-normal">Create Organization</span>
                 </Link>
               </SheetClose>
+              )}
             </div>
             
             {/* We also need a close button to close this full-screen sheet */}

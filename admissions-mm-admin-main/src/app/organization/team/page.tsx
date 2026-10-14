@@ -73,6 +73,7 @@ import { useBranches } from "@/hooks/use-branches";
 import { Role, User } from "@/types/auth";
 import { cn } from "@/lib/utils";
 import { usePageHeaderStore } from "@/stores/page-header-store";
+import { toast } from "sonner";
 
 const ROLES = [
   Role.ORG_ADMIN,
@@ -191,13 +192,17 @@ export default function TeamPage() {
             email: formEmail,
             phone: formPhone,
             role: formRole,
-            branchId: formBranch !== "none" ? formBranch : undefined,
+            branchId: formBranch !== "none" ? formBranch : null,
             ...(formPassword ? { password: formPassword } : {}),
           },
         },
         { onSuccess: () => closeFormDialog() }
       );
     } else {
+      if (formPassword.length < 6) {
+        toast.error("Password must be at least 6 characters");
+        return;
+      }
       createUser(
         {
           name: formName,
@@ -205,7 +210,7 @@ export default function TeamPage() {
           phone: formPhone,
           role: formRole,
           branchId: formBranch !== "none" ? formBranch : undefined,
-          password: formPassword || "initialPassword123",
+          password: formPassword,
         },
         { onSuccess: () => closeFormDialog() }
       );
@@ -309,7 +314,7 @@ export default function TeamPage() {
               <span className="text-[11px] font-medium text-muted-foreground whitespace-nowrap">Total Staff</span>
             </div>
             <div className="flex flex-col gap-2 flex-1 min-w-0">
-              <span className="text-[28px] font-bold leading-none text-[#0F172A]">{totalCount}</span>
+              <span className="text-[28px] font-bold leading-none text-[#0F172A]">{pagination?.total ?? team.length}</span>
               <div className="w-full h-[6px] rounded-[9999px] overflow-hidden bg-[#2563EB]/15">
                 <div
                   className="h-full rounded-[9999px] transition-all duration-700"
@@ -459,7 +464,7 @@ export default function TeamPage() {
                       </div>
                     </TableCell>
                     <TableCell className="py-[24px] px-[24px] align-middle text-[#475569] text-[14px]">
-                      {branches.find((b) => b.id === user.branchId)?.name || "Central"}
+                      {branches.find((b) => b.id === user.branchId)?.name || "-"}
                     </TableCell>
                     <TableCell className="py-[24px] px-[24px] align-middle">
                       <Badge variant="secondary" className={roleStyles[user.role] || ""}>
@@ -667,7 +672,7 @@ export default function TeamPage() {
                         <Building2 className="size-3" /> Branch:
                       </span>
                       <span className="text-foreground/95 font-medium truncate">
-                        {branches.find((b) => b.id === user.branchId)?.name || "Central"}
+                        {branches.find((b) => b.id === user.branchId)?.name || "-"}
                       </span>
                     </div>
 

@@ -13,6 +13,42 @@ import { ScoreAdjustmentDto } from './dto/score-adjustment.dto.js';
 import { EmailTemplatesService } from '../email-templates/email-templates.service.js';
 import { MailerService } from '../notifications/mailer.service.js';
 import { CommunicationsService } from '../communications/communications.service.js';
+import { GdScoringSchemesService, STANDARD_SCHEME_ID } from './gd-scoring-schemes.service.js';
+import { isCatExam } from './constants/interview-picklists.js';
+
+type Band = { minPercent?: number; minPercentile?: number; minYears?: number; minMonths?: number; points: number };
+
+export interface EntranceBreakdown {
+  // 'best_overall' (default) or 'cat_split' (CAT and other exams separately)
+  entranceScoringMode: 'best_overall' | 'cat_split';
+  testComponent: number;
+  maxTestScore: number;
+  bestTestPercentile: number | null;
+  bestTestName: string | null;
+  // Filled only in 'cat_split' mode (null otherwise)
+  catComponent: number | null;
+  maxCatScore: number | null;
+  catPercentile: number | null;
+  otherTestComponent: number | null;
+  maxOtherTestScore: number | null;
+  otherTestPercentile: number | null;
+  otherTestName: string | null;
+}
+
+export interface GdComponentBreakdown {
+  key: string;
+  label: string;
+  interviewType: 'GD' | 'PI' | null;
+  maxMarks: number;
+  compositeWeight: number;
+  includeInComposite: boolean;
+  // null = not scored yet (no submitted panel evaluation and no marks entered)
+  rawScore: number | null;
+  contribution: number | null;
+  source: 'evaluations' | 'manual' | 'legacy' | null;
+  parameters: Array<{ key: string; name: string; maxMarks: number; score: number | null }>;
+  remarks: string | null;
+}
 
 export interface InterviewScoreBreakdown {
   interviewId: string;
@@ -26,10 +62,14 @@ export interface InterviewScoreBreakdown {
   evaluatorCount: number;
 }
 
-export interface CompositeScoreBreakdown {
+export interface CompositeScoreBreakdown extends EntranceBreakdown {
   applicationId: string;
   applicationNo: string;
   interviews: InterviewScoreBreakdown[];
+  // Selected GD/PI scoring scheme and the per-component marks it produced.
+  scheme: { id: string; name: string; isPredefined: boolean };
+  gdComponents: GdComponentBreakdown[];
+  maxGdpiTotal: number;
   // Average score (out of ~100, per the rubric weightage scale) across all
   // Completed GD interview round(s) that have submitted evaluations, and
   // likewise for PI. null if there are no such rounds yet.
@@ -42,9 +82,6 @@ export interface CompositeScoreBreakdown {
   ugScore: number;
   academicComponent: number;
   maxAcademicScore: number;
-  // Entrance test score (band-derived, from best percentile)
-  testComponent: number;
-  maxTestScore: number;
   // Experience score (auto-calculated from from/to dates, band-derived)
   experienceComponent: number;
   maxExperienceScore: number;
@@ -68,8 +105,13 @@ export interface ShortlistPreviewRow {
   academicComponent: number;
   testComponent: number;
   experienceComponent: number;
+  catComponent: number | null;
+  otherTestComponent: number | null;
   shortlistScore: number;
   shortlistStatus: 'Eligible' | 'Not Eligible';
+  // Minimum criteria of the rule (Minimum_GPA, Minimum_Test_Score,
+  // Work_Experience) the candidate did not meet. Any miss = Not Eligible.
+  failedCriteria: string[];
 }
 
 // Converts a raw percentage/percentile/years value into points using an
@@ -171,9 +213,89 @@ function bestEntrancePercentile(
   return best;
 }
 
+function bestTest(
+  records: Array<{ percentile?: number | string | null; testName?: string | null }> | undefined,
+): { percentile: number; testName: string | null } | null {
+  let best: { percentile: number; testName: string | null } | null = null;
+  for (const rec of records ?? []) {
+    if (rec.percentile === null || rec.percentile === undefined) continue;
+    const val = Number(rec.percentile);
+    if (!Number.isFinite(val)) continue;
+    if (!best || val > best.percentile) best = { percentile: val, testName: rec.testName ?? null };
+  }
+  return best;
+}
+
+function maxPoints(bands: Band[] | undefined): number {
+  return Math.max(0, ...(bands ?? []).map((b: any) => Number(b.points ?? b.score ?? 0)));
+}
+
+// Entrance-test component. Default ('best_overall', the original behaviour):
+// the single best percentile across ALL tests on bands.testPercentile.
+// 'cat_split' (owner request): CAT scored on bands.catPercentile x
+// catWeight%, plus the best percentile among NON-CAT tests (XAT, MAT, CMAT,
+// GMAT, GRE, ...) on bands.otherTestPercentile x otherTestWeight%.
+export function computeEntranceComponent(
+  tests: Array<{ percentile?: number | string | null; testName?: string | null }> | undefined,
+  config: { bands: Record<string, Band[]>; entranceScoringMode?: string; catWeight?: number | string; otherTestWeight?: number | string },
+): EntranceBreakdown {
+  const overall = bestTest(tests);
+  if (config.entranceScoringMode !== 'cat_split') {
+    const bands = config.bands.testPercentile ?? [];
+    return {
+      entranceScoringMode: 'best_overall',
+      testComponent: pointsFromBands(overall?.percentile ?? null, bands, 'minPercentile'),
+      maxTestScore: maxPoints(bands),
+      bestTestPercentile: overall?.percentile ?? null,
+      bestTestName: overall?.testName ?? null,
+      catComponent: null,
+      maxCatScore: null,
+      catPercentile: null,
+      otherTestComponent: null,
+      maxOtherTestScore: null,
+      otherTestPercentile: null,
+      otherTestName: null,
+    };
+  }
+
+  const catWeight = config.catWeight !== undefined && config.catWeight !== null ? Number(config.catWeight) : 100;
+  const otherWeight = config.otherTestWeight !== undefined && config.otherTestWeight !== null ? Number(config.otherTestWeight) : 100;
+  const catBands = config.bands.catPercentile ?? config.bands.testPercentile ?? [];
+  const otherBands = config.bands.otherTestPercentile ?? config.bands.testPercentile ?? [];
+
+  const cat = bestTest((tests ?? []).filter((t) => isCatExam(t.testName)));
+  const other = bestTest((tests ?? []).filter((t) => !isCatExam(t.testName)));
+
+  const round2 = (n: number) => Number(n.toFixed(2));
+  const catComponent = round2(pointsFromBands(cat?.percentile ?? null, catBands, 'minPercentile') * (catWeight / 100));
+  const otherTestComponent = round2(pointsFromBands(other?.percentile ?? null, otherBands, 'minPercentile') * (otherWeight / 100));
+  const maxCatScore = round2(maxPoints(catBands) * (catWeight / 100));
+  const maxOtherTestScore = round2(maxPoints(otherBands) * (otherWeight / 100));
+
+  return {
+    entranceScoringMode: 'cat_split',
+    testComponent: round2(catComponent + otherTestComponent),
+    maxTestScore: round2(maxCatScore + maxOtherTestScore),
+    bestTestPercentile: overall?.percentile ?? null,
+    bestTestName: overall?.testName ?? null,
+    catComponent,
+    maxCatScore,
+    catPercentile: cat?.percentile ?? null,
+    otherTestComponent,
+    maxOtherTestScore,
+    otherTestPercentile: other?.percentile ?? null,
+    otherTestName: other?.testName ?? null,
+  };
+}
+
 @Injectable()
 export class ScoringService implements OnApplicationBootstrap {
   private readonly logger = new Logger(ScoringService.name);
+  // Orgs whose results announcement is running right now. The auto-announce
+  // sweep runs every 30 s but one announcement (composite rollup + one email
+  // per applicant) can take far longer, and resultsAnnounced is only set at
+  // the end — without this guard every tick restarted it and re-emailed everyone.
+  private readonly announcing = new Set<string>();
 
   constructor(
     @InjectRepository(Application)
@@ -191,6 +313,7 @@ export class ScoringService implements OnApplicationBootstrap {
     private readonly mailerService: MailerService,
     private readonly communicationsService: CommunicationsService,
     private readonly configService: ConfigService,
+    private readonly gdSchemesService: GdScoringSchemesService,
   ) {}
 
   onApplicationBootstrap() {
@@ -206,6 +329,7 @@ export class ScoringService implements OnApplicationBootstrap {
       const now = new Date();
       const configs = await this.conversionConfigService.findPendingAutoAnnouncements(now);
       for (const cfg of configs) {
+        if (this.announcing.has(cfg.organizationId)) continue;
         try {
           this.logger.log(`Auto-announcing results for org ${cfg.organizationId} at scheduled declaration date ${cfg.resultsDeclarationDate}`);
           await this.announceResults(
@@ -254,14 +378,15 @@ export class ScoringService implements OnApplicationBootstrap {
     // still awaiting a shortlisting decision.
     return applications
       .filter((app) => app.shortlistStatus !== 'Shortlisted' && app.shortlistStatus !== 'Review')
-      .map((app) => this.scoreApplicationForShortlisting(app, rule, config.bands));
+      .map((app) => this.scoreApplicationForShortlisting(app, rule, config));
   }
 
   private scoreApplicationForShortlisting(
     app: Application,
     rule: ShortlistingRule,
-    bands: Record<string, Array<{ minPercent?: number; minPercentile?: number; minYears?: number; minMonths?: number; points: number }>>,
+    config: { bands: Record<string, Band[]>; entranceScoringMode?: string; catWeight?: number; otherTestWeight?: number },
   ): ShortlistPreviewRow {
+    const bands = config.bands;
     const tenth = app.educationRecords?.find((e) => e.level === '10th');
     const twelfth = app.educationRecords?.find((e) => e.level === '12th');
     const ug = app.educationRecords?.find((e) => e.level === 'UG');
@@ -271,10 +396,11 @@ export class ScoringService implements OnApplicationBootstrap {
     const ugScore = pointsFromBands(parsePercentage(ug?.percentageCgpa), bands.ug, 'minPercent');
     const academicComponent = tenthScore + twelfthScore + ugScore;
 
-    // If an application has multiple entrance tests, only the single highest
-    // percentile counts towards the shortlisting score (never summed).
-    const bestTestPercentile = bestEntrancePercentile(app.entranceTests);
-    const testComponent = pointsFromBands(bestTestPercentile, bands.testPercentile, 'minPercentile');
+    // Entrance tests: by default only the single highest percentile counts
+    // (never summed); in 'cat_split' mode CAT and the best other exam are
+    // scored separately (see computeEntranceComponent).
+    const entrance = computeEntranceComponent(app.entranceTests, config);
+    const testComponent = entrance.testComponent;
 
     // Claimed (self-reported) experience, summed (in months) from the
     // applicant's work-experience records — this is all that's known
@@ -288,6 +414,31 @@ export class ScoringService implements OnApplicationBootstrap {
       testComponent * (Number(rule.testWeightage) / 100) +
       experienceComponent * (Number(rule.experienceWeightage) / 100);
 
+    // Rule minimums (scope fields Minimum_GPA, Minimum_Test_Score,
+    // Work_Experience). Only checked when the rule sets them.
+    const failedCriteria: string[] = [];
+    if (rule.minGpa !== null && rule.minGpa !== undefined && Number(rule.minGpa) > 0) {
+      const ugValue = parsePercentage(ug?.percentageCgpa);
+      const minGpa = Number(rule.minGpa);
+      // A minimum of 10 or less is read as a CGPA (compared with a UG value
+      // of 10 or less); a larger minimum is read as a percentage.
+      const comparable =
+        ugValue === null ? null : minGpa <= 10 ? (ugValue <= 10 ? ugValue : ugValue / 9.5) : ugValue <= 10 ? ugValue * 9.5 : ugValue;
+      if (comparable === null || comparable < minGpa) failedCriteria.push(`Minimum GPA ${minGpa}`);
+    }
+    if (rule.minTestScore !== null && rule.minTestScore !== undefined && Number(rule.minTestScore) > 0) {
+      if (entrance.bestTestPercentile === null || entrance.bestTestPercentile < Number(rule.minTestScore)) {
+        failedCriteria.push(`Minimum test score ${Number(rule.minTestScore)}`);
+      }
+    }
+    if (rule.minExperienceYears !== null && rule.minExperienceYears !== undefined && Number(rule.minExperienceYears) > 0) {
+      if ((claimedMonths ?? 0) / 12 < Number(rule.minExperienceYears)) {
+        failedCriteria.push(`Work experience ${Number(rule.minExperienceYears)} yr`);
+      }
+    }
+
+    const eligible = shortlistScore >= Number(rule.cutoffScore) && failedCriteria.length === 0;
+
     return {
       applicationId: app.id,
       applicationNo: app.applicationNo,
@@ -295,8 +446,11 @@ export class ScoringService implements OnApplicationBootstrap {
       academicComponent,
       testComponent,
       experienceComponent,
+      catComponent: entrance.catComponent,
+      otherTestComponent: entrance.otherTestComponent,
       shortlistScore: Number(shortlistScore.toFixed(2)),
-      shortlistStatus: shortlistScore >= Number(rule.cutoffScore) ? 'Eligible' : 'Not Eligible',
+      shortlistStatus: eligible ? 'Eligible' : 'Not Eligible',
+      failedCriteria,
     };
   }
 
@@ -419,10 +573,21 @@ export class ScoringService implements OnApplicationBootstrap {
   // Read-only variant used by the GET .../composite-score endpoint — looks
   // the application up by applicationNo and still persists the freshly
   // recomputed values (compute-and-return, not just read stale columns).
-  async getCompositeScoreBreakdown(orgId: string, applicationNo: string): Promise<CompositeScoreBreakdown> {
+  async getCompositeScoreBreakdown(
+    orgId: string,
+    applicationNo: string,
+    user?: { sub?: string; role?: string; email?: string },
+  ): Promise<CompositeScoreBreakdown> {
     const application = await this.applicationRepository.findOne({ where: { applicationNo, organizationId: orgId } });
     if (!application) {
       throw new NotFoundException(`Application ${applicationNo} not found`);
+    }
+    // Students may only see their own application's breakdown.
+    if (user?.role === 'student') {
+      const owns =
+        (!!application.studentId && application.studentId === user.sub) ||
+        (!!user.email && !!application.email && application.email.toLowerCase() === user.email.toLowerCase());
+      if (!owns) throw new NotFoundException(`Application ${applicationNo} not found`);
     }
     return this.computeCompositeScore(orgId, application.id);
   }
@@ -463,6 +628,7 @@ export class ScoringService implements OnApplicationBootstrap {
     });
 
     const interviewBreakdowns: InterviewScoreBreakdown[] = [];
+    const interviewFraction = new Map<string, number>();
     for (const interview of interviews) {
       if (interview.status !== 'Completed') {
         interviewBreakdowns.push({
@@ -516,13 +682,18 @@ export class ScoringService implements OnApplicationBootstrap {
       }
 
       let interviewScore = 0;
+      let weightSum = 0;
       for (const { sum, count, rubric } of byRubric.values()) {
         const maxScore = Number(rubric.maxScore) || 0;
         const weightagePercent = Number(rubric.weightagePercent) || 0;
         if (!maxScore) continue;
         const avgRaw = sum / count;
         interviewScore += (avgRaw / maxScore) * weightagePercent;
+        weightSum += weightagePercent;
       }
+      // Share of the possible weighted score (0..1), used by custom scoring
+      // schemes to scale the panel's marks to the component's max marks.
+      if (weightSum > 0) interviewFraction.set(interview.id, interviewScore / weightSum);
 
       const hasEvaluations = submittedEvaluations.length > 0;
       interviewBreakdowns.push({
@@ -535,27 +706,98 @@ export class ScoringService implements OnApplicationBootstrap {
       });
     }
 
-    // Multiple rounds of the SAME interviewType (e.g. a re-interview PI
-    // round) are averaged, not summed — a re-round is a re-assessment of
-    // the same axis, not an extra one.
-    const gdScores = interviewBreakdowns
-      .filter((i) => i.interviewType === 'GD' && i.score !== null)
-      .map((i) => i.score as number);
-    const piScores = interviewBreakdowns
-      .filter((i) => i.interviewType === 'PI' && i.score !== null)
-      .map((i) => i.score as number);
-    let gdScore = gdScores.length ? gdScores.reduce((a, b) => a + b, 0) / gdScores.length : null;
-    let piScore = piScores.length ? piScores.reduce((a, b) => a + b, 0) / piScores.length : null;
+    // GD/PI marks come from the selected scoring scheme (owner request). The
+    // predefined Standard template reproduces the original behaviour exactly:
+    // GD and PI raw marks added to the composite as-is.
+    //
+    // Per component, the raw mark is taken from (first that exists):
+    //  1. submitted panel evaluations of Completed interviews of the
+    //     component's interview type (rounds of the same type are averaged,
+    //     not summed - a re-round re-assesses the same axis). Standard
+    //     template: the rubric-weighted total as before; custom schemes: the
+    //     panel's share of the possible rubric score x the component's max.
+    //  2. marks entered on the candidate's GD & Interview page
+    //     (candidate_component_scores).
+    //  3. Standard template only: the legacy Application.gdScore / piScore.
+    // contribution = raw / maxMarks x compositeWeight (Standard: = raw).
+    const scheme = await this.gdSchemesService.getActiveScheme(orgId);
+    const manualRows = await this.gdSchemesService.getComponentScores(orgId, application.id, scheme.id);
+    const manualByKey = new Map(manualRows.map((r) => [r.componentKey, r]));
+    const isStandard = scheme.id === STANDARD_SCHEME_ID;
 
-    // Fall back to application-level gdScore and piScore (evaluated on the Evaluation & Scoring card)
-    if ((gdScore === null || gdScore === 0) && application.gdScore !== null && application.gdScore !== undefined) {
-      gdScore = Number(application.gdScore);
-    }
-    if ((piScore === null || piScore === 0) && application.piScore !== null && application.piScore !== undefined) {
-      piScore = Number(application.piScore);
-    }
+    const avg = (values: number[]) => (values.length ? values.reduce((a, b) => a + b, 0) / values.length : null);
+    const round2 = (n: number) => Number(n.toFixed(2));
 
-    const gdpiTotal = Number(((gdScore ?? 0) + (piScore ?? 0)).toFixed(2));
+    const gdComponents: GdComponentBreakdown[] = scheme.components.map((component) => {
+      let rawScore: number | null = null;
+      let source: GdComponentBreakdown['source'] = null;
+
+      if (component.interviewType) {
+        const typed = interviewBreakdowns.filter((i) => i.interviewType === component.interviewType && i.score !== null);
+        const fromPanel = isStandard
+          ? avg(typed.map((i) => i.score as number))
+          : avg(
+              typed
+                .filter((i) => interviewFraction.has(i.interviewId))
+                .map((i) => (interviewFraction.get(i.interviewId) as number) * component.maxMarks),
+            );
+        if (fromPanel !== null && fromPanel !== 0) {
+          rawScore = fromPanel;
+          source = 'evaluations';
+        }
+      }
+
+      const manual = manualByKey.get(component.key);
+      if (rawScore === null && manual && manual.rawScore !== null && manual.rawScore !== undefined) {
+        rawScore = Number(manual.rawScore);
+        source = 'manual';
+      }
+
+      if (rawScore === null && isStandard) {
+        const legacy = component.key === 'gd' ? application.gdScore : component.key === 'pi' ? application.piScore : null;
+        if (legacy !== null && legacy !== undefined) {
+          rawScore = Number(legacy);
+          source = 'legacy';
+        }
+      }
+
+      const contribution =
+        rawScore === null || !component.includeInComposite
+          ? null
+          : component.maxMarks > 0
+            ? round2((rawScore / component.maxMarks) * component.compositeWeight)
+            : 0;
+
+      return {
+        key: component.key,
+        label: component.label,
+        interviewType: component.interviewType,
+        maxMarks: component.maxMarks,
+        compositeWeight: component.compositeWeight,
+        includeInComposite: component.includeInComposite,
+        rawScore: rawScore !== null ? round2(rawScore) : null,
+        contribution,
+        source,
+        parameters: component.parameters.map((p) => ({
+          key: p.key,
+          name: p.name,
+          maxMarks: p.maxMarks,
+          score:
+            manual?.parameterScores && manual.parameterScores[p.key] !== undefined
+              ? Number(manual.parameterScores[p.key])
+              : null,
+        })),
+        remarks: manual?.remarks ?? null,
+      };
+    });
+
+    const firstOfType = (type: 'GD' | 'PI') => gdComponents.find((c) => c.interviewType === type && c.rawScore !== null);
+    const gdScore = firstOfType('GD')?.rawScore ?? null;
+    const piScore = firstOfType('PI')?.rawScore ?? null;
+    const gdpiTotal = round2(gdComponents.reduce((sum, c) => sum + (c.contribution ?? 0), 0));
+    const maxGdpiTotal = round2(
+      gdComponents.filter((c) => c.includeInComposite).reduce((sum, c) => sum + c.compositeWeight, 0),
+    );
 
     const config = await this.conversionConfigService.getOrCreate(orgId);
 
@@ -568,15 +810,13 @@ export class ScoringService implements OnApplicationBootstrap {
     const ugScore = pointsFromBands(parsePercentage(ug?.percentageCgpa), config.bands.ug ?? [], 'minPercent');
     const academicComponent = tenthScore + twelfthScore + ugScore;
 
-    // Entrance test score from band config (best percentile wins)
-    const bestTestPercentile = bestEntrancePercentile(fullApplication.entranceTests);
-    const testComponent = pointsFromBands(bestTestPercentile, config.bands.testPercentile ?? [], 'minPercentile');
-    const maxTestScore = Math.max(0, ...(config.bands.testPercentile ?? []).map((b) => Number(b.points ?? 0)));
+    // Entrance test component (best overall by default, or CAT + best other
+    // exam when the org switched on the CAT split).
+    const entrance = computeEntranceComponent(fullApplication.entranceTests, config);
+    const testComponent = entrance.testComponent;
 
     // Max possible scores per category (for UI display)
-    const maxAcadPerCategory = (bandKey: 'tenth' | 'twelfth' | 'ug') =>
-      Math.max(0, ...(config.bands[bandKey] ?? []).map((b) => Number(b.points ?? 0)));
-    const maxAcademicScore = maxAcadPerCategory('tenth') + maxAcadPerCategory('twelfth') + maxAcadPerCategory('ug');
+    const maxAcademicScore = maxPoints(config.bands.tenth) + maxPoints(config.bands.twelfth) + maxPoints(config.bands.ug);
 
     // Experience score: automatically calculated from candidate's work experience from/to dates.
     const autoCalcMonths = sumExperienceMonths(fullApplication.workExperienceRecords ?? []);
@@ -589,17 +829,7 @@ export class ScoringService implements OnApplicationBootstrap {
 
     const expBands = config.bands.experienceMonths ?? (config.bands as any).experienceYears ?? [];
     const experienceComponent = pointsFromBands(effectiveMonths, expBands, 'minMonths');
-    const maxExperienceScore = Math.max(0, ...expBands.map((b: any) => Number(b.points ?? b.score ?? 0)));
-    // DEBUG — remove after confirming scores are correct
-    console.log('[scoring] exp debug', {
-      validatedMonths,
-      autoCalcMonths,
-      effectiveMonths,
-      experienceComponent,
-      maxExperienceScore,
-      bandCount: expBands.length,
-      bands: expBands,
-    });
+    const maxExperienceScore = maxPoints(expBands);
 
     // discrepancyThreshold is treated as a PERCENTAGE difference threshold
     // relative to the claimed value. No discrepancy check is possible (and
@@ -639,16 +869,19 @@ export class ScoringService implements OnApplicationBootstrap {
       applicationId: application.id,
       applicationNo: application.applicationNo,
       interviews: interviewBreakdowns,
-      gdScore: gdScore !== null ? Number(gdScore.toFixed(2)) : null,
-      piScore: piScore !== null ? Number(piScore.toFixed(2)) : null,
+      scheme: { id: scheme.id, name: scheme.name, isPredefined: scheme.isPredefined },
+      gdComponents,
+      maxGdpiTotal,
+      gdScore,
+      piScore,
       gdpiTotal,
       tenthScore,
       twelfthScore,
       ugScore,
       academicComponent,
       maxAcademicScore,
+      ...entrance,
       testComponent,
-      maxTestScore,
       experienceComponent,
       maxExperienceScore,
       claimedExperienceMonths: application.claimedExperienceMonths ?? null,
@@ -784,6 +1017,18 @@ export class ScoringService implements OnApplicationBootstrap {
   }
 
   async announceResults(orgId: string, declarationDate?: string, actorId?: string) {
+    if (this.announcing.has(orgId)) {
+      throw new BadRequestException('Results are already being announced for this organization. Please wait for it to finish.');
+    }
+    this.announcing.add(orgId);
+    try {
+      return await this.runAnnounceResults(orgId, declarationDate, actorId);
+    } finally {
+      this.announcing.delete(orgId);
+    }
+  }
+
+  private async runAnnounceResults(orgId: string, declarationDate?: string, actorId?: string) {
     const config = await this.conversionConfigService.getOrCreate(orgId);
     const qualifyingScore = config.qualifyingScore !== null && config.qualifyingScore !== undefined
       ? Number(config.qualifyingScore)

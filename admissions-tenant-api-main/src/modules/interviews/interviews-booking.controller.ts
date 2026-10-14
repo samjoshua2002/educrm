@@ -3,15 +3,44 @@ import { InterviewsBookingService } from './interviews-booking.service.js';
 import { BookInterviewDto } from './dto/book-interview.dto.js';
 import { RescheduleInterviewDto } from './dto/reschedule-interview.dto.js';
 import { CompleteInterviewDto } from './dto/complete-interview.dto.js';
+import { CreateInterviewDto, UpdateInterviewDto } from './dto/interview.dto.js';
+import * as Picklists from './constants/interview-picklists.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
+import { TenantGuard } from '../../common/guards/tenant.guard.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { Role } from '../../common/enums/roles.enum.js';
 
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, TenantGuard)
 @Controller('organizations/:orgId/interviews')
 export class InterviewsBookingController {
   constructor(private readonly bookingService: InterviewsBookingService) {}
+
+  // Picklist values from the scope document, for the UI.
+  @Get('picklists')
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.EXAM_MANAGER, Role.APPLICATION_MANAGER, Role.COUNSELOR, Role.LEAD_MANAGER)
+  picklists() {
+    return {
+      interviewTypes: Picklists.INTERVIEW_TYPES,
+      interviewModes: Picklists.INTERVIEW_MODES,
+      interviewStatuses: Picklists.INTERVIEW_STATUSES,
+      interviewOutcomes: Picklists.INTERVIEW_OUTCOMES,
+      slotStatuses: Picklists.SLOT_STATUSES,
+      timeZones: Picklists.TIME_ZONES,
+      recommendations: Picklists.RECOMMENDATIONS,
+      evaluationStatuses: Picklists.EVALUATION_STATUSES,
+      ruleStatuses: Picklists.RULE_STATUSES,
+      calendarProviders: Picklists.CALENDAR_PROVIDERS,
+      calendarSyncStatuses: Picklists.CALENDAR_SYNC_STATUSES,
+    };
+  }
+
+  // Interview without a slot yet (status "Slot Available").
+  @Post()
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.EXAM_MANAGER)
+  create(@Param('orgId') orgId: string, @Body() dto: CreateInterviewDto, @Request() req) {
+    return this.bookingService.create(orgId, dto, req.user.sub);
+  }
 
   @Post('book')
   @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.EXAM_MANAGER)
@@ -20,7 +49,7 @@ export class InterviewsBookingController {
   }
 
   @Get()
-  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.EXAM_MANAGER, Role.STUDENT)
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.EXAM_MANAGER, Role.APPLICATION_MANAGER, Role.COUNSELOR, Role.STUDENT)
   findAll(
     @Param('orgId') orgId: string,
     @Query('applicationId') applicationId?: string,
@@ -31,9 +60,15 @@ export class InterviewsBookingController {
   }
 
   @Get(':id')
-  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.EXAM_MANAGER)
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.EXAM_MANAGER, Role.APPLICATION_MANAGER, Role.COUNSELOR)
   findOne(@Param('id') id: string, @Param('orgId') orgId: string) {
     return this.bookingService.findOneOrThrow(id, orgId);
+  }
+
+  @Patch(':id')
+  @Roles(Role.SUPERADMIN, Role.ORG_ADMIN, Role.EXAM_MANAGER)
+  update(@Param('id') id: string, @Param('orgId') orgId: string, @Body() dto: UpdateInterviewDto, @Request() req) {
+    return this.bookingService.update(orgId, id, dto, req.user.sub);
   }
 
   @Patch(':id/reschedule')

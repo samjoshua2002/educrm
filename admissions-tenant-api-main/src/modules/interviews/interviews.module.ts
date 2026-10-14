@@ -26,12 +26,18 @@ import { CompositeScoreController } from './composite-score.controller.js';
 import { NotificationsModule } from '../notifications/notifications.module.js';
 import { EmailTemplatesModule } from '../email-templates/email-templates.module.js';
 import { CommunicationsModule } from '../communications/communications.module.js';
+import { CalendarSyncModule } from '../calendar-sync/calendar-sync.module.js';
+import { GdScoringScheme } from './entities/gd-scoring-scheme.entity.js';
+import { CandidateComponentScore } from './entities/candidate-component-score.entity.js';
+import { GdScoringSchemesService } from './gd-scoring-schemes.service.js';
+import { GdScoringSchemesController } from './gd-scoring-schemes.controller.js';
 
 @Module({
   imports: [
     NotificationsModule,
     EmailTemplatesModule,
     CommunicationsModule,
+    CalendarSyncModule,
     TypeOrmModule.forFeature([
       EvaluationRubric,
       ShortlistingRule,
@@ -41,6 +47,8 @@ import { CommunicationsModule } from '../communications/communications.module.js
       Application,
       InterviewEvaluation,
       EvaluationScore,
+      GdScoringScheme,
+      CandidateComponentScore,
     ]),
   ],
   controllers: [
@@ -56,6 +64,7 @@ import { CommunicationsModule } from '../communications/communications.module.js
     SlotsController,
     InterviewsBookingController,
     CompositeScoreController,
+    GdScoringSchemesController,
   ],
   providers: [
     RubricsService,
@@ -65,7 +74,8 @@ import { CommunicationsModule } from '../communications/communications.module.js
     SlotsService,
     InterviewsBookingService,
     EvaluationsService,
+    GdScoringSchemesService,
   ],
-  exports: [ScoringService, ScoreConversionConfigService, InterviewsBookingService, EvaluationsService],
+  exports: [ScoringService, ScoreConversionConfigService, InterviewsBookingService, EvaluationsService, GdScoringSchemesService],
 })
 export class InterviewsModule {}

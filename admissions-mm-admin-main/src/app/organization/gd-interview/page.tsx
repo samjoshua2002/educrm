@@ -80,7 +80,28 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-import { type GDInterview, gdInterviews } from "@/data/mock-gd-interviews";
+
+// One row of the GD & Interview list, built from the live applications API.
+type GDInterview = {
+  id: number | string;
+  applicationId?: string;
+  applicationNo: string;
+  name: string;
+  email: string;
+  phone: string;
+  interviewLocation: string;
+  preference1?: string | null;
+  preference2?: string | null;
+  interviewPreference1?: string | null;
+  interviewPreference2?: string | null;
+  preferredInterviewLocations?: string[];
+  date: string;
+  time: string;
+  course: string;
+  selectionStatus: "Accepted" | "Rejected" | "In Progress";
+  confirmedCampus: string;
+  shortlistStatus?: "Shortlisted" | "Review" | string | null;
+};
 
 // ============================================================================
 // ROW ACTIONS (B4 schedule, B5 reschedule/cancel/no-show/complete)
@@ -716,8 +737,6 @@ export default function GDInterviewPage() {
     if (!appsList || !Array.isArray(appsList)) return;
 
     const mapped = appsList.map((app: any, index: number) => {
-      // Retain mock interview details if application numbers match
-      const mockMatch = gdInterviews.find((m) => m.applicationNo === app.applicationNo);
       const expectedStatus: GDInterview["selectionStatus"] = app.formStatus === "accepted"
         ? "Accepted"
         : app.formStatus === "rejected"
@@ -752,7 +771,6 @@ export default function GDInterviewPage() {
           app.shortlistStatus ||
           app.waitlistStatus ||
           (app.formStatus === "accepted" ? "Selected" : app.formStatus === "rejected" ? "Not Selected" : null) ||
-          mockMatch?.shortlistStatus ||
           null,
         waitlistStatus: app.waitlistStatus || null,
         interviewLocation: primaryInterviewLoc,
@@ -761,16 +779,17 @@ export default function GDInterviewPage() {
         interviewPreference1: (app.interviewPreference1 || "").trim() || preferredInterviewLocations[0] || null,
         interviewPreference2: (app.interviewPreference2 || "").trim() || preferredInterviewLocations[1] || null,
         preferredInterviewLocations,
-        date: mockMatch?.date || "2026-02-07",
-        time: mockMatch?.time || "14:30",
-        course: app.program || mockMatch?.course || "PGDM 2026-28",
+        // Real interview date/time comes from the booked slot (getSlotDisplay).
+        date: (app.id && interviewsByApplicationId.get(app.id)?.slot?.slotDate) || "",
+        time: "",
+        course: app.program || app.course || "",
         selectionStatus: expectedStatus,
         confirmedCampus: app.confirmedCampus || expectedCampus,
       };
     });
 
     setInterviewsState(mapped);
-  }, [appsList]);
+  }, [appsList, interviewsByApplicationId]);
 
   // Sync published results decisions from evaluate page
   const [publishedMap, setPublishedMap] = React.useState<Record<string, "Selected" | "Not Selected">>({});
@@ -782,12 +801,6 @@ export default function GDInterviewPage() {
           try {
             setPublishedMap(JSON.parse(raw));
           } catch {}
-        } else if (localStorage.getItem("educrm_results_published") === "true") {
-          setPublishedMap({
-            "CITY/2026/1003": "Selected",
-            "APP/2026/1003": "Selected",
-            "APP/2026/1002": "Selected",
-          });
         } else {
           setPublishedMap({});
         }

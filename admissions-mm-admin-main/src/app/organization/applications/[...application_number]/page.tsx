@@ -84,7 +84,7 @@ import { useApplication, useUpdateApplication, ApplicationDetail, useActiveAppli
 import { useAuthStore } from "@/stores/auth-store";
 import { useBranches } from "@/hooks/use-branches";
 import { useCourses } from "@/hooks/use-courses";
-import { gdInterviews } from "@/data/mock-gd-interviews";
+import { ApplicationWorkspace } from "@/app/organization/applications/_components/application-workspace";
 import { toast } from "sonner";
 import { usePageHeader } from "@/hooks/use-page-header";
 
@@ -462,6 +462,13 @@ export default function ApplicationDetailsPage() {
           )}
         </div>
       </div>
+
+      {/* Application management: status tracker, fee payment, documents, reminders */}
+      <ApplicationWorkspace
+        applicationNo={applicationData.applicationNo}
+        applicationId={applicationData.id}
+        isStudent={isStudent}
+      />
 
       {/* Main Content Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

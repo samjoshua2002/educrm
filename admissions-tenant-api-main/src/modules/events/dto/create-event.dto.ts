@@ -29,6 +29,7 @@ export class CreateEventDto {
   @IsString()
   status?: string;
 
+  /** 'all' | 'staff' | 'student' | 'lead' | 'applicant' | staff role ids */
   @IsOptional()
   @IsArray()
   targetAudience?: string[];
@@ -37,9 +38,29 @@ export class CreateEventDto {
   @IsString()
   targetCourseId?: string;
 
+  /** Lead statuses (leads.status) */
   @IsOptional()
   @IsArray()
   targetLeadStages?: string[];
+
+  /** Lead sources (leads.source) */
+  @IsOptional()
+  @IsArray()
+  targetLeadSources?: string[];
+
+  /** Application statuses (applications.form_status) */
+  @IsOptional()
+  @IsArray()
+  targetApplicationStatuses?: string[];
+
+  @IsOptional()
+  @IsString()
+  targetAcademicSession?: string;
+
+  /** Branch ids (staff, leads and applicants of these branches) */
+  @IsOptional()
+  @IsArray()
+  targetBranchIds?: string[];
 
   @IsOptional()
   @IsString()
@@ -72,6 +93,11 @@ export class CreateEventDto {
   @IsOptional()
   @IsString()
   scheduledPublishTime?: string;
+
+  /** ISO timestamp of the scheduled publish moment (preferred over date + time) */
+  @IsOptional()
+  @IsString()
+  scheduledPublishAt?: string;
 
   @IsOptional()
   @IsString()
@@ -120,4 +146,35 @@ export class CreateEventDto {
   @IsOptional()
   @IsString()
   publishMode?: string;
+}
+
+/** Audience preview (same targeting fields as an announcement). */
+export class AudiencePreviewDto {
+  @IsOptional()
+  @IsArray()
+  targetAudience?: string[];
+
+  @IsOptional()
+  @IsString()
+  targetCourseId?: string;
+
+  @IsOptional()
+  @IsArray()
+  targetLeadStages?: string[];
+
+  @IsOptional()
+  @IsArray()
+  targetLeadSources?: string[];
+
+  @IsOptional()
+  @IsArray()
+  targetApplicationStatuses?: string[];
+
+  @IsOptional()
+  @IsString()
+  targetAcademicSession?: string;
+
+  @IsOptional()
+  @IsArray()
+  targetBranchIds?: string[];
 }

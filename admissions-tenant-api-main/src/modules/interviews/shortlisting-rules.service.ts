@@ -24,6 +24,8 @@ export class ShortlistingRulesService {
 
   findAllByOrg(orgId: string, filters?: { program?: string; academicYear?: string; status?: string }) {
     const query = this.ruleRepository.createQueryBuilder('rule')
+      .leftJoin('rule.creator', 'creator')
+      .addSelect(['creator.id', 'creator.name', 'creator.email'])
       .where('rule.organization_id = :orgId', { orgId });
 
     if (filters?.program) {

@@ -43,6 +43,8 @@ import {
   UpdateGdEvaluationDto,
 } from './dto/update-sections.dto.js';
 import { VerifyApplicationDto } from './dto/verify-application.dto.js';
+import { ApplicationStatusService } from './application-status.service.js';
+import { fromApplicationStatus, toApplicationStatus } from './application-workflow.constants.js';
 
 import { ApplicationEducation, EducationLevel } from './entities/application-education.entity.js';
 import { ApplicationEntranceTest } from './entities/application-entrance-test.entity.js';
@@ -72,6 +74,7 @@ export class ApplicationsService {
     private readonly emailTemplatesService: EmailTemplatesService,
     private readonly dataSource: DataSource,
     private readonly mailerService: MailerService,
+    private readonly statusService: ApplicationStatusService,
   ) {}
 
   // =========================================================================
@@ -185,6 +188,7 @@ export class ApplicationsService {
     search?: string,
     status?: string,
     verificationStatus?: string,
+    filters: { stage?: string; source?: string; counsellorId?: string; academicYear?: string } = {},
   ) {
     const query = this.applicationRepository
       .createQueryBuilder('app')
@@ -203,7 +207,22 @@ export class ApplicationsService {
         'pref2.id::text = app.preference_2::text AND pref2.organization_id = :orgId',
         { orgId },
       )
+      .leftJoinAndSelect('app.assignedCounselor', 'counsellor')
       .where('app.organization_id = :orgId', { orgId });
+
+    if (filters.stage && filters.stage !== 'all') {
+      query.andWhere('app.current_stage = :stage', { stage: filters.stage });
+    }
+    if (filters.source && filters.source !== 'all') {
+      query.andWhere('app.application_source = :source', { source: filters.source });
+    }
+    if (filters.counsellorId && filters.counsellorId !== 'all') {
+      if (filters.counsellorId === 'unassigned') query.andWhere('app.assigned_counselor_id IS NULL');
+      else query.andWhere('app.assigned_counselor_id = :cid', { cid: filters.counsellorId });
+    }
+    if (filters.academicYear && filters.academicYear !== 'all') {
+      query.andWhere('app.academic_session = :ay', { ay: filters.academicYear });
+    }
 
     if (status) {
       query.andWhere('app.form_status = :status', { status: status.toLowerCase() });
@@ -265,6 +284,17 @@ export class ApplicationsService {
       verificationStatus: app.verificationStatus || (app as any).verification_status || 'pending',
       verificationRemarks: app.verificationRemarks || (app as any).verification_remarks || null,
       verifiedAt: app.verifiedAt || (app as any).verified_at || null,
+      // Application Master fields (scope p.15)
+      applicantId: app.studentId,
+      academicYear: app.academicSession,
+      applicationStatus: toApplicationStatus(app.formStatus),
+      currentStage: app.currentStage || 'Application Started',
+      applicationStartDate: app.createdAt,
+      applicationSubmissionDate: app.submittedAt ?? null,
+      assignedCounsellorId: app.assignedCounselorId ?? null,
+      assignedCounsellorName: app.assignedCounselor?.name ?? null,
+      lastUpdated: app.updatedAt,
+      applicationSource: app.applicationSource ?? null,
     }));
 
     return {
@@ -320,6 +350,11 @@ export class ApplicationsService {
       preference1: pref1Name,
       preference2: pref2Name,
     };
+    (app as any).applicationStatus = toApplicationStatus(app.formStatus);
+    if (app.assignedCounselorId) {
+      const counsellor = await this.dataSource.getRepository(User).findOne({ where: { id: app.assignedCounselorId } });
+      (app as any).assignedCounsellorName = counsellor?.name ?? null;
+    }
 
     return app;
   }
@@ -347,7 +382,7 @@ export class ApplicationsService {
     // Cascade delete any communication logs associated with this application
     try {
       if (app.applicationNo) {
-        await manager.delete(CommunicationLog, { applicationNo: app.applicationNo });
+        await manager.delete(CommunicationLog, { applicationNo: app.applicationNo, organizationId: orgId });
       }
       if (app.email) {
         await manager.delete(CommunicationLog, { recipientEmail: app.email, organizationId: orgId });
@@ -618,6 +653,8 @@ export class ApplicationsService {
         interviewPreference1: dto.preferences?.interviewPreference1 || undefined,
         interviewPreference2: dto.preferences?.interviewPreference2 || undefined,
         hobbies: dto.otherDetails?.hobbies || undefined,
+        applicationSource: dto.applicationSource || (creatorRole === Role.STUDENT ? 'Website' : null),
+        currentStage: 'Application Started',
         createdBy: creatorId,
         updatedBy: creatorId,
       });
@@ -709,6 +746,8 @@ export class ApplicationsService {
 
       await queryRunner.commitTransaction();
 
+      await this.statusService.initialize(savedApp, creatorId).catch(() => undefined);
+
       return savedApp;
     } catch (err) {
       await queryRunner.rollbackTransaction();
@@ -786,7 +825,7 @@ export class ApplicationsService {
     // Synchronize to users table
     if (originalEmail) {
       const user = await this.dataSource.manager.findOne(User, {
-        where: { email: originalEmail },
+        where: { email: originalEmail, role: Role.STUDENT },
       });
       if (user) {
         if (dto.name) user.name = dto.name;
@@ -802,7 +841,10 @@ export class ApplicationsService {
 
   async updatePreferences(id: string, orgId: string, dto: UpdatePreferencesDto, actorId: string) {
     const app = await this.getAppAndAssertEditable(id, orgId);
-    await this.validatePreferences(orgId, dto.preference1, dto.preference2);
+    const { p1Id, p2Id } = await this.validatePreferences(orgId, dto.preference1, dto.preference2);
+    if ((dto.preference1 && !p1Id) || (dto.preference2 && !p2Id)) {
+      throw new BadRequestException('Preferred campus not found in this organization');
+    }
     if (dto.courseId) {
       const course = await this.coursesService.validateCourseExists(dto.courseId, orgId);
       app.courseId = course.id;
@@ -859,7 +901,9 @@ export class ApplicationsService {
     Object.assign(app, dto);
     app.updatedBy = actorId;
     app.lastActivityAt = new Date();
-    return this.applicationRepository.save(app);
+    const saved = await this.applicationRepository.save(app);
+    await this.statusService.evaluate(saved.id, actorId);
+    return saved;
   }
 
   // Generic replace strategy for child collections
@@ -934,44 +978,74 @@ export class ApplicationsService {
   // WORKFLOW
   // =========================================================================
 
+  /** Stores the hashed account password chosen on the form (Student row + login User). */
+  private async applyAccountPassword(studentId: string | null | undefined, orgId: string, password: string) {
+    if (!studentId) return;
+    const student = await this.studentRepository.findOne({ where: { id: studentId } });
+    if (!student) return;
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Save to Student entity (backward compatibility)
+    if (!student.password) {
+      student.password = hashedPassword;
+      await this.studentRepository.save(student);
+    }
+
+    // Save to User entity so the student can log in
+    const user = await this.dataSource.getRepository(User).findOne({
+      where: { email: student.email, organizationId: orgId, role: Role.STUDENT },
+    });
+    if (user) {
+      user.password = hashedPassword;
+      await this.dataSource.getRepository(User).save(user);
+    }
+  }
+
+  /**
+   * Saves the account password before the fee is paid, so the browser never has to keep the
+   * plaintext while the student is away on a redirect gateway. Only while the form is still editable.
+   */
+  async setAccountPassword(id: string, orgId: string, password?: string) {
+    if (!password) throw new BadRequestException('password is required');
+    const app = await this.getAppAndAssertEditable(id, orgId);
+    if (!['draft', 'incomplete'].includes((app.formStatus || '').toLowerCase())) {
+      throw new BadRequestException('Application is already submitted');
+    }
+    await this.applyAccountPassword(app.studentId, orgId, password);
+    return { success: true };
+  }
+
   async submitApplication(id: string, orgId: string, actorId: string, dto?: SubmitApplicationDto) {
     const app = await this.getAppAndAssertEditable(id, orgId);
 
-    if (app.paymentStatus !== 'success') {
+    if (!['success', 'paid'].includes((app.paymentStatus || '').toLowerCase())) {
       throw new BadRequestException('Payment required before submission');
     }
 
+    // Submit only once, and never move a reviewed/decided application back to "submitted".
+    const prevStatus = app.formStatus;
+    const now = new Date();
+    const claimed = await this.applicationRepository.update(
+      { id: app.id, formStatus: In(['draft', 'incomplete']) },
+      { formStatus: 'submitted', submittedAt: now, lastActivityAt: now, updatedBy: actorId },
+    );
+    if (!claimed.affected) {
+      throw new BadRequestException('Application is already submitted');
+    }
     app.formStatus = 'submitted';
-    app.submittedAt = new Date();
-    app.lastActivityAt = new Date();
+    app.submittedAt = now;
+    app.lastActivityAt = now;
     app.updatedBy = actorId;
 
-    let saved = await this.applicationRepository.save(app);
+    let saved = app;
 
     // "Creates" the student account by persisting a hashed credential on the
     // linked Student row (no separate login flow yet — see project notes).
     if (dto?.password) {
-      const student = await this.studentRepository.findOne({ where: { id: saved.studentId } });
-      if (student) {
-        const hashedPassword = await bcrypt.hash(dto.password, 10);
-        
-        // Save to Student entity (backward compatibility)
-        if (!student.password) {
-          student.password = hashedPassword;
-          await this.studentRepository.save(student);
-        }
-
-        // Save to User entity so the student can log in
-        const user = await this.dataSource.getRepository(User).findOne({
-          where: { email: student.email, organizationId: orgId },
-        });
-        if (user) {
-          user.password = hashedPassword;
-          await this.dataSource.getRepository(User).save(user);
-        }
-      }
+      await this.applyAccountPassword(saved.studentId, orgId, dto.password);
     }
 
+    try {
     await this.emailTemplatesService.sendTransactional({
       organizationId: orgId,
       categorySlug: 'application_submitted',
@@ -995,11 +1069,13 @@ export class ApplicationsService {
     });
     saved.confirmationEmailSentAt = new Date();
     saved = await this.applicationRepository.save(saved);
+    } catch (e) {
+      // The submission is already recorded; the confirmation e-mail is best effort.
+    }
 
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await this.logActivity(queryRunner.manager, saved.id, orgId, actorId, 'status_changed', 'Application submitted', 'incomplete', 'submitted');
-    await queryRunner.release();
+    await this.logActivity(this.dataSource.manager, saved.id, orgId, actorId, 'status_changed', 'Application submitted', prevStatus, 'submitted');
+
+    await this.statusService.evaluate(saved.id, actorId);
 
     return saved;
   }
@@ -1020,16 +1096,22 @@ export class ApplicationsService {
     }
 
     const prev = app.formStatus;
-    app.formStatus = status.toLowerCase();
+    app.formStatus = fromApplicationStatus(status) || status.toLowerCase();
     app.updatedBy = actorId;
     app.lastActivityAt = new Date();
     
     const saved = await this.applicationRepository.save(app);
 
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await this.logActivity(queryRunner.manager, saved.id, orgId, actorId, 'status_changed', `Status updated to ${status}`, prev, status);
-    await queryRunner.release();
+    await this.logActivity(this.dataSource.manager, saved.id, orgId, actorId, 'status_changed', `Status updated to ${status}`, prev, status);
+
+    // Final decisions are mirrored on the status tracker; other changes go through the rules engine.
+    if (saved.formStatus === 'accepted' && saved.currentStage !== 'Approved') {
+      await this.statusService.changeStage(saved, 'Approved', { actorId, source: 'manual', internalRemarks: `Application status set to ${status}` });
+    } else if (saved.formStatus === 'rejected' && saved.currentStage !== 'Rejected') {
+      await this.statusService.changeStage(saved, 'Rejected', { actorId, source: 'manual', internalRemarks: `Application status set to ${status}` });
+    } else {
+      await this.statusService.evaluate(saved.id, actorId);
+    }
 
     return saved;
   }
@@ -1056,10 +1138,8 @@ export class ApplicationsService {
 
     const saved = await this.applicationRepository.save(app);
 
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await this.logActivity(queryRunner.manager, saved.id, orgId, actorId, 'shortlist_status_changed', `Shortlist status updated to ${shortlistStatus}`, prev, shortlistStatus);
-    await queryRunner.release();
+    await this.logActivity(this.dataSource.manager, saved.id, orgId, actorId, 'shortlist_status_changed', `Shortlist status updated to ${shortlistStatus}`, prev, shortlistStatus);
+    await this.statusService.evaluate(saved.id, actorId);
 
     return saved;
   }
@@ -1117,10 +1197,8 @@ export class ApplicationsService {
 
     const saved = await this.applicationRepository.save(app);
 
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
     await this.logActivity(
-      queryRunner.manager,
+      this.dataSource.manager,
       saved.id,
       orgId,
       actorId,
@@ -1129,7 +1207,8 @@ export class ApplicationsService {
       prev,
       dto.status,
     );
-    await queryRunner.release();
+
+    await this.statusService.evaluate(saved.id, actorId);
 
     // Send document verification email via organization SMTP and record communication log
     try {

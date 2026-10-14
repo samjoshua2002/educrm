@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { Bell, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
@@ -11,7 +12,6 @@ import { users } from "@/data/users";
 
 import { AccountSwitcher } from "../sidebar/account-switcher";
 import { useAuthStore } from "@/stores/auth-store";
-import { applications as mockApplications } from "@/data/mock-applications";
 
 export function DynamicHeader() {
   const pathname = usePathname();
@@ -33,13 +33,10 @@ export function DynamicHeader() {
       } catch (e) {
         console.error(e);
       }
-      if (!appsList || appsList.length === 0) {
-        appsList = mockApplications;
-      }
       const app = appsList.find((a: any) => a.applicationNo === appNo);
-      if (app) return app.name.toUpperCase();
+      if (app?.name) return String(app.name).toUpperCase();
     }
-    return "MS. ANBUKARASI A";
+    return (user?.name || "").toUpperCase();
   };
 
   const applicantName = getApplicantName();
@@ -83,9 +80,7 @@ export function DynamicHeader() {
   // Common template for actions (Right side)
   const commonActions = (
     <div className="flex items-center gap-2">
-      <Button variant="ghost" size="icon" className="size-9 rounded-full">
-        <Bell className="size-5" />
-      </Button>
+      <NotificationBell />
     </div>
   );
 

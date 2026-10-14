@@ -33,14 +33,37 @@ export class AnnouncementEvent {
   @Column({ length: 50, default: 'Published' })
   status: string; // 'Draft' | 'Published' | 'Scheduled' | 'Archived'
 
+  /**
+   * Audience segments: 'all' (staff + students) | 'staff' (every staff role) |
+   * 'student' | 'lead' | 'applicant' | a staff role ('org_admin', 'counselor',
+   * 'lead_manager', 'application_manager', 'exam_manager').
+   */
   @Column({ name: 'target_audience', type: 'jsonb', default: () => "'[]'" })
   targetAudience: string[];
 
+  /** Program filter for leads, applicants and students (courses.id) */
   @Column({ name: 'target_course_id', type: 'varchar', length: 100, nullable: true })
   targetCourseId: string | null;
 
+  /** Lead statuses to target (leads.status values), empty = all open leads */
   @Column({ name: 'target_lead_stages', type: 'jsonb', default: () => "'[]'" })
   targetLeadStages: string[];
+
+  /** Lead sources to target (leads.source values), empty = any source */
+  @Column({ name: 'target_lead_sources', type: 'jsonb', default: () => "'[]'" })
+  targetLeadSources: string[];
+
+  /** Application statuses to target (applications.form_status values), empty = any */
+  @Column({ name: 'target_application_statuses', type: 'jsonb', default: () => "'[]'" })
+  targetApplicationStatuses: string[];
+
+  /** Academic session of the applicants to target, null = any */
+  @Column({ name: 'target_academic_session', type: 'varchar', length: 50, nullable: true })
+  targetAcademicSession: string | null;
+
+  /** Branches of the staff / leads / applicants to target, empty = all branches */
+  @Column({ name: 'target_branch_ids', type: 'jsonb', default: () => "'[]'" })
+  targetBranchIds: string[];
 
   @Column({ name: 'event_start_date', type: 'varchar', length: 50, nullable: true })
   eventStartDate: string | null;
@@ -65,6 +88,14 @@ export class AnnouncementEvent {
 
   @Column({ name: 'scheduled_publish_time', type: 'varchar', length: 50, nullable: true })
   scheduledPublishTime: string | null;
+
+  /** Exact publish moment (sent by the browser from date + time); used by the publish cron */
+  @Index()
+  @Column({ name: 'scheduled_publish_at', type: 'timestamptz', nullable: true })
+  scheduledPublishAt: Date | null;
+
+  @Column({ name: 'published_at', type: 'timestamptz', nullable: true })
+  publishedAt: Date | null;
 
   @Column({ type: 'text', nullable: true })
   description: string | null;
@@ -92,6 +123,17 @@ export class AnnouncementEvent {
 
   @Column({ name: 'email_template_id', type: 'varchar', length: 100, nullable: true })
   emailTemplateId: string | null;
+
+  /** 'pending' | 'in_progress' | 'completed' | 'failed' */
+  @Column({ name: 'delivery_status', type: 'varchar', length: 20, nullable: true })
+  deliveryStatus: string | null;
+
+  @Column({ name: 'last_delivered_at', type: 'timestamptz', nullable: true })
+  lastDeliveredAt: Date | null;
+
+  /** Recipients and per-channel results of the last delivery run */
+  @Column({ name: 'delivery_stats', type: 'jsonb', nullable: true })
+  deliveryStats: Record<string, any> | null;
 
   @Column({ name: 'created_by_id', type: 'uuid', nullable: true })
   createdById: string | null;

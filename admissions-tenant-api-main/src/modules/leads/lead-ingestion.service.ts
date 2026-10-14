@@ -12,7 +12,8 @@ import { FormResponse, ResponseStatus } from '../forms/entities/form-response.en
 import { FormStats } from '../forms/entities/form-stats.entity.js';
 import { FormDailyStats } from '../forms/entities/form-daily-stats.entity.js';
 import { SubmitPublicFormDto } from './dto/submit-public-form.dto.js';
-import { LeadAssignmentService } from './lead-assignment.service.js';
+import { LeadPipelineService } from './lead-pipeline.service.js';
+import { mapPayload } from './lead-field-mapper.js';
 
 @Injectable()
 export class LeadIngestionService {
@@ -28,7 +29,7 @@ export class LeadIngestionService {
     @InjectRepository(FormDailyStats)
     private readonly dailyStatsRepository: Repository<FormDailyStats>,
     private readonly dataSource: DataSource,
-    private readonly assignmentService: LeadAssignmentService,
+    private readonly pipeline: LeadPipelineService,
   ) {}
 
   async submitPublicForm(
@@ -60,49 +61,64 @@ export class LeadIngestionService {
     // 4. Rate Limiting (TO BE IMPLEMENTED WITH REDIS/MEMORY)
     // For now, we continue with the core logic.
 
-    // 5. Extract Unique Key (email OR phone)
+    // 5. Map submitted values onto the standard lead fields
     const email = this.extractFieldByType(form, dto.data, 'email')?.toLowerCase();
     const phone = this.extractFieldByType(form, dto.data, 'phone');
+    const { firstName, lastName } = this.extractFullName(form, dto.data);
+    const mapped = mapPayload({ ...(dto.data || {}) });
+    const utm = dto.utmData || {};
 
-    // 6. Duplicate Detection (same key + same form)
-    let isDuplicate = false;
-    let existingLead: Lead | null = null;
+    // location → leads.branch_id, course → leads.course_id (UUIDs picked from real
+    // Branch/Course records by the form builder). Non-UUID values are kept as text.
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const rawBranch = dto.data?.location;
+    const rawCourse = dto.data?.course;
+    const branchId = rawBranch && UUID_REGEX.test(String(rawBranch)) ? String(rawBranch) : null;
+    const courseId = rawCourse && UUID_REGEX.test(String(rawCourse)) ? String(rawCourse) : null;
 
-    if (email || phone) {
-      const query = this.leadRepository
-        .createQueryBuilder('lead')
-        .where('lead.form_id = :formId', { formId: form.id });
+    const metaField = (form.fields || []).find(
+      (f: any) => f && (f.id === 'form_metadata' || f.type === 'metadata'),
+    );
+    const formCampaign = (form as any).campaign || metaField?.campaign;
+    const leadSource =
+      form.source && form.source.toLowerCase() !== 'direct'
+        ? form.source
+        : dto.source || form.source || 'Direct';
 
-      if (email && phone) {
-        query.andWhere('(lead.email = :email OR lead.phone = :phone)', { email, phone });
-      } else if (email) {
-        query.andWhere('lead.email = :email', { email });
-      } else {
-        query.andWhere('lead.phone = :phone', { phone });
-      }
+    // 6-11. Unified capture pipeline: source tracking → duplicate / re-entry check → scoring → routing
+    const result = await this.pipeline.ingest(
+      form.organizationId,
+      {
+        ...mapped,
+        firstName: firstName ?? mapped.firstName,
+        lastName: lastName ?? mapped.lastName,
+        email: email ?? mapped.email,
+        phone: phone ?? mapped.phone,
+        branchId,
+        courseId: courseId ?? null,
+        programInterest: courseId ? null : mapped.programInterest ?? (rawCourse ? String(rawCourse) : null),
+        formId: form.id,
+        formName: form.name,
+        channelSource: 'Web',
+        source: leadSource,
+        campaignId: form.campaignId || null,
+        utmSource: utm.utm_source ?? mapped.utmSource,
+        utmMedium: utm.utm_medium ?? mapped.utmMedium,
+        utmCampaign: utm.utm_campaign ?? mapped.utmCampaign ?? formCampaign ?? null,
+        utmTerm: utm.utm_term ?? mapped.utmTerm,
+        utmContent: utm.utm_content ?? mapped.utmContent,
+        gclid: utm.gclid ?? null,
+        fbclid: utm.fbclid ?? null,
+        submissionUrl: utm.page_url ?? utm.url ?? mapped.submissionUrl ?? null,
+        referrerUrl: utm.referrer ?? mapped.referrerUrl ?? null,
+        rawPayload: dto.data,
+      },
+      { createdFrom: 'Web', channelSource: 'Web', mode: 'capture', note: `Form "${form.name}"` },
+    );
+    const isDuplicate = result.outcome !== 'created';
 
-      existingLead = await query.getOne();
-      if (existingLead) {
-        isDuplicate = true;
-      }
-    }
-
-    // 7. Duplicate Limit Protection (Max 5)
-    const MAX_DUPLICATE_LIMIT = 5;
-    if (isDuplicate && existingLead && existingLead.duplicateCount >= MAX_DUPLICATE_LIMIT) {
-      // Still log the submission but skip lead update/creation
-      await this.logSubmission(form, dto, meta);
-      return { success: true };
-    }
-
-    // Wrap in transaction for integrity
     await this.dataSource.transaction(async (manager) => {
-      const leadSource =
-        form.source && form.source.toLowerCase() !== 'direct'
-          ? form.source
-          : (dto.source || form.source || 'Direct');
-
-      // 8. Store Raw Submission
+      // Store raw submission
       const submission = manager.create(FormSubmission, {
         formId: form.id,
         organizationId: form.organizationId,
@@ -114,7 +130,7 @@ export class LeadIngestionService {
       });
       await manager.save(submission);
 
-      // Store Processed Form Response (for administrative review)
+      // Processed form response (administrative review)
       const response = manager.create(FormResponse, {
         formId: form.id,
         organizationId: form.organizationId,
@@ -123,74 +139,6 @@ export class LeadIngestionService {
         isDuplicate,
       });
       await manager.save(response);
-
-      // 9. System field values → dedicated Lead columns
-      // location → leads.branch_id, course → leads.course_id (both optional UUIDs picked from
-      // real Branch/Course records by the form builder when configuring select options).
-      // Guard: only store if the submitted value is a valid UUID; otherwise treat as null
-      // (prevents errors when forms still have old non-UUID option IDs like course codes).
-      const UUID_REGEX =
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      const rawBranch = dto.data?.location;
-      const rawCourse = dto.data?.course;
-      const branchId =
-        rawBranch && UUID_REGEX.test(String(rawBranch)) ? rawBranch : null;
-      const courseId =
-        rawCourse && UUID_REGEX.test(String(rawCourse)) ? rawCourse : null;
-      const city = dto.data?.city || null;
-      const state = dto.data?.state || null;
-      const country = dto.data?.country || null;
-      const { firstName, lastName } = this.extractFullName(form, dto.data);
-
-      // 10. Store/Update Lead
-      if (existingLead) {
-        existingLead.duplicateCount += 1;
-        existingLead.isDuplicate = true;
-        existingLead.source = leadSource;
-        existingLead.rawPayload = dto.data;
-        if (branchId) existingLead.branchId = branchId;
-        if (courseId) existingLead.courseId = courseId;
-        if (city) existingLead.city = city;
-        if (state) existingLead.state = state;
-        if (country) existingLead.country = country;
-        if (firstName) existingLead.firstName = firstName;
-        if (lastName) existingLead.lastName = lastName;
-        await manager.save(existingLead);
-      } else {
-        const metaField = (form.fields || []).find((f: any) => f && (f.id === 'form_metadata' || f.type === 'metadata'));
-        const formCampaign = form.campaignId || (form as any).campaign || metaField?.campaign;
-
-        const lead = manager.create(Lead, {
-          organizationId: form.organizationId,
-          branchId,
-          courseId,
-          city: city,
-          state: state,
-          country: country,
-          formId: form.id,
-          campaignId: form.campaignId || undefined,
-          firstName,
-          lastName,
-          email,
-          phone,
-          source: leadSource,
-          utmSource: dto.utmData?.utm_source,
-          utmMedium: dto.utmData?.utm_medium,
-          utmCampaign: dto.utmData?.utm_campaign || formCampaign,
-          rawPayload: dto.data,
-          isDuplicate: false,
-          duplicateCount: 0,
-        });
-
-        // 11. Assignment Engine
-        const assignment = await this.assignmentService.assignLead(lead);
-        if (assignment) {
-          lead.assignedTo = assignment.userId;
-          lead.assignedAt = assignment.timestamp;
-        }
-
-        await manager.save(lead);
-      }
 
       // 12. Update Analytics
       await this.updateAnalytics(manager, form.id, isDuplicate);

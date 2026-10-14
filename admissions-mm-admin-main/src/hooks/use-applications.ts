@@ -412,11 +412,16 @@ function toContactPayload(updatedData: ApplicationDetail) {
   };
 }
 
+// GET /applications/:no returns branch NAMES in preference1/2, but PATCH /preferences only accepts
+// branch UUIDs (@IsUUID). An unchanged preference still holds the name, so it is left out of the body.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const uuidOrUndefined = (v?: string) => (v && UUID_RE.test(v) ? v : undefined);
+
 function toPreferencesPayload(updatedData: ApplicationDetail) {
   return {
-    preference1: updatedData.preferences.preference1 || undefined,
-    preference2: updatedData.preferences.preference2 || undefined,
-    courseId: updatedData.courseId || undefined,
+    preference1: uuidOrUndefined(updatedData.preferences.preference1),
+    preference2: uuidOrUndefined(updatedData.preferences.preference2),
+    courseId: uuidOrUndefined(updatedData.courseId),
     interviewLocation: updatedData.interviewLocation || undefined,
     interviewPreference1: updatedData.preferences.interviewPreference1 || undefined,
     interviewPreference2: updatedData.preferences.interviewPreference2 || undefined,
@@ -731,6 +736,14 @@ export function useVerifyApplication() {
 }
 
 // 5. Submit application (locks editing)
+/**
+ * Saves the account password chosen on the application form (hashed server-side) before the
+ * student is sent to a payment gateway, so the plaintext never has to be stored in the browser.
+ */
+export function setApplicationAccountPassword(applicationNo: string, password: string) {
+  return apiPatch(`/applications/${encodeURIComponent(applicationNo)}/account-password`, { password });
+}
+
 export function useSubmitApplication() {
   const queryClient = useQueryClient();
 
@@ -745,6 +758,7 @@ export function useSubmitApplication() {
       const applicationNo = typeof payload === "string" ? payload : payload.applicationNo;
       queryClient.invalidateQueries({ queryKey: ["applications"] });
       queryClient.invalidateQueries({ queryKey: ["application", applicationNo] });
+      queryClient.invalidateQueries({ queryKey: ["active-application"] });
       toast.success("Application submitted successfully");
     },
     onError: (err: any) => {

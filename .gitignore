@@ -33,3 +33,6 @@ logs/
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+
+node_modules_trash/
+.claude-work/

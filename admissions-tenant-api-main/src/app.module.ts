@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { UsersModule } from './modules/users/users.module.js';
 import { OrganizationsModule } from './modules/organizations/organizations.module.js';
@@ -23,11 +24,22 @@ import { EmailTemplateCategoriesModule } from './modules/email-template-categori
 import { OrganizationSettingsModule } from './modules/organization-settings/organization-settings.module.js';
 import { CommunicationsModule } from './modules/communications/communications.module.js';
 import { EventsModule } from './modules/events/events.module.js';
+import { InAppNotificationsModule } from './modules/in-app-notifications/in-app-notifications.module.js';
+import { MessagingModule } from './modules/messaging/messaging.module.js';
+import { CampaignsModule } from './modules/campaigns/campaigns.module.js';
+import { LeadCaptureModule } from './modules/lead-capture/lead-capture.module.js';
+import { DocumentsModule } from './modules/documents/documents.module.js';
+import { RemindersModule } from './modules/reminders/reminders.module.js';
+import { EmailCampaignsModule } from './modules/email-campaigns/email-campaigns.module.js';
+import { CallsModule } from './modules/calls/calls.module.js';
 
 @Module({
   imports: [
     // Global config — reads .env automatically
     ConfigModule.forRoot({ isGlobal: true }),
+
+    // Cron jobs (reminders, scheduled campaigns, SLA checks, calendar sync)
+    ScheduleModule.forRoot(),
     
     // Rate Limiting — 100 requests per minute for development
     ThrottlerModule.forRoot([{
@@ -72,6 +84,14 @@ import { EventsModule } from './modules/events/events.module.js';
     OrganizationSettingsModule,
     CommunicationsModule,
     EventsModule,
+    InAppNotificationsModule,
+    MessagingModule,
+    CampaignsModule,
+    LeadCaptureModule,
+    DocumentsModule,
+    RemindersModule,
+    EmailCampaignsModule,
+    CallsModule,
   ],
   providers: [
     {
