@@ -86,7 +86,7 @@ export class Rejection {
   eligibleForReapply: boolean;
 
   // Next Intake (Pick List) — an academic session name.
-  @Column({ name: 'next_intake', length: 100, nullable: true })
+  @Column({ name: 'next_intake', type: 'varchar', length: 100, nullable: true })
   nextIntake: string | null;
 
   @Column({ name: 'created_by', type: 'uuid', nullable: true })

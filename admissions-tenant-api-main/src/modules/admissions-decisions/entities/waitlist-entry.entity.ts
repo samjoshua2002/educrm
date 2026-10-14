@@ -54,7 +54,7 @@ export class WaitlistEntry {
   application: Application;
 
   // Program the candidate is waitlisted for (ranking is per program).
-  @Column({ name: 'program', length: 255, nullable: true })
+  @Column({ name: 'program', type: 'varchar', length: 255, nullable: true })
   program: string | null;
 
   @Column({ name: 'waitlist_rank', type: 'int', nullable: true })
@@ -68,10 +68,10 @@ export class WaitlistEntry {
   })
   waitlistStatus: WaitlistStatus;
 
-  @Column({ name: 'movement_trigger', length: 100, nullable: true })
+  @Column({ name: 'movement_trigger', type: 'varchar', length: 100, nullable: true })
   movementTrigger: string | null;
 
-  @Column({ name: 'alternate_program_offered', length: 255, nullable: true })
+  @Column({ name: 'alternate_program_offered', type: 'varchar', length: 255, nullable: true })
   alternateProgramOffered: string | null;
 
   @Column({ name: 'offer_released', default: false })

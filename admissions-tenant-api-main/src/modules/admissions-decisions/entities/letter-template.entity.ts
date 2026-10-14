@@ -38,7 +38,7 @@ export class LetterTemplate {
   type: string;
 
   // Email subject used when the letter is sent (merge fields allowed).
-  @Column({ length: 255, nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   subject: string | null;
 
   @Column({ name: 'body_html', type: 'text' })

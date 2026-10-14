@@ -52,7 +52,7 @@ export class OfferLetter {
   @Column({ name: 'offer_type', length: 30, default: 'regular' })
   offerType: string;
 
-  @Column({ name: 'program_offered', length: 255, nullable: true })
+  @Column({ name: 'program_offered', type: 'varchar', length: 255, nullable: true })
   programOffered: string | null;
 
   @Column({ name: 'offer_status', length: 20, default: 'draft' })

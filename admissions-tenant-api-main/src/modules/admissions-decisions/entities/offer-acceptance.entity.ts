@@ -64,7 +64,7 @@ export class OfferAcceptance {
   @Column({ name: 'fee_payment_status', length: 20, default: 'pending' })
   feePaymentStatus: string;
 
-  @Column({ name: 'payment_reference_id', length: 100, nullable: true })
+  @Column({ name: 'payment_reference_id', type: 'varchar', length: 100, nullable: true })
   paymentReferenceId: string | null;
 
   @Column({ name: 'onboarding_package_sent', default: false })
