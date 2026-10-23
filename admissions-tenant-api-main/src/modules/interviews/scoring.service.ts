@@ -4,6 +4,7 @@ import { Repository, In } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { Application } from '../applications/entities/application.entity.js';
 import { ShortlistingRule } from './entities/shortlisting-rule.entity.js';
+import { ScoreConversionConfig } from './entities/score-conversion-config.entity.js';
 import { ScoreConversionConfigService } from './score-conversion-config.service.js';
 import { Interview } from './entities/interview.entity.js';
 import { InterviewEvaluation } from './entities/interview-evaluation.entity.js';
@@ -78,7 +79,7 @@ export interface ShortlistPreviewRow {
 // a hardcoded cutoff.
 function pointsFromBands(
   value: number | null | undefined,
-  bands: Array<{ minPercent?: number; minPercentile?: number; minYears?: number; minMonths?: number; points: number }>,
+  bands: Array<{ minPercent?: number; minPercentile?: number; minYears?: number; minMonths?: number; points: number }> | undefined | null,
   key: 'minPercent' | 'minPercentile' | 'minYears' | 'minMonths',
 ): number {
   const numValue = value !== null && value !== undefined ? Number(value) : null;
@@ -149,6 +150,37 @@ function sumExperienceMonths(
     counted = true;
   }
   return counted ? Math.round(totalMonths) : null;
+}
+
+export function isCatOrXat(testName?: string | null): boolean {
+  if (!testName) return false;
+  const name = testName.trim().toUpperCase();
+  return (!name.includes('CMAT') && (name === 'CAT' || name.startsWith('CAT ') || name.includes('CAT'))) ||
+         (name === 'XAT' || name.startsWith('XAT ') || name.includes('XAT'));
+}
+
+// Calculates the highest points earned across entrance-test attempts.
+// CAT & XAT tests are scored using the tougher CAT/XAT band, while remaining
+// tests (MAT, CMAT, ATMA, GMAT, etc.) are scored using the other tests band.
+function calculateBestEntrancePoints(
+  records: Array<{ testName?: string | null; exam?: string | null; percentile?: number | string | null }> | undefined,
+  bands: Record<string, any>,
+): number {
+  if (!records || records.length === 0) return 0;
+  let bestPoints = 0;
+  for (const rec of records) {
+    if (rec.percentile === null || rec.percentile === undefined) continue;
+    const val = Number(rec.percentile);
+    if (!Number.isFinite(val)) continue;
+    const examName = rec.testName || rec.exam || '';
+    const isCatXatExam = isCatOrXat(examName);
+    const targetBands = isCatXatExam
+      ? (bands.testPercentileCatXat && bands.testPercentileCatXat.length > 0 ? bands.testPercentileCatXat : bands.testPercentile)
+      : (bands.testPercentileOther && bands.testPercentileOther.length > 0 ? bands.testPercentileOther : bands.testPercentile);
+    const pts = pointsFromBands(val, targetBands ?? [], 'minPercentile');
+    if (pts > bestPoints) bestPoints = pts;
+  }
+  return bestPoints;
 }
 
 // Picks the single highest entrance-test percentile across all of an
@@ -260,7 +292,7 @@ export class ScoringService implements OnApplicationBootstrap {
   private scoreApplicationForShortlisting(
     app: Application,
     rule: ShortlistingRule,
-    bands: Record<string, Array<{ minPercent?: number; minPercentile?: number; minYears?: number; minMonths?: number; points: number }>>,
+    bands: ScoreConversionConfig['bands'],
   ): ShortlistPreviewRow {
     const tenth = app.educationRecords?.find((e) => e.level === '10th');
     const twelfth = app.educationRecords?.find((e) => e.level === '12th');
@@ -271,10 +303,9 @@ export class ScoringService implements OnApplicationBootstrap {
     const ugScore = pointsFromBands(parsePercentage(ug?.percentageCgpa), bands.ug, 'minPercent');
     const academicComponent = tenthScore + twelfthScore + ugScore;
 
-    // If an application has multiple entrance tests, only the single highest
-    // percentile counts towards the shortlisting score (never summed).
-    const bestTestPercentile = bestEntrancePercentile(app.entranceTests);
-    const testComponent = pointsFromBands(bestTestPercentile, bands.testPercentile, 'minPercentile');
+    // Each entrance test is scored against its specific band (CAT/XAT vs Other),
+    // and candidate's best points across attempts counts towards shortlisting score.
+    const testComponent = calculateBestEntrancePoints(app.entranceTests, bands);
 
     // Claimed (self-reported) experience, summed (in months) from the
     // applicant's work-experience records — this is all that's known
@@ -441,8 +472,12 @@ export class ScoringService implements OnApplicationBootstrap {
       throw new NotFoundException(`Application ${applicationNo} not found`);
     }
 
-    if (dto.achievementScore !== undefined) application.achievementScore = Math.max(0, Math.min(5, Number(dto.achievementScore)));
-    if (dto.penaltyScore !== undefined) application.penaltyScore = Math.max(0, Math.min(5, Math.abs(Number(dto.penaltyScore))));
+    const config = await this.conversionConfigService.getOrCreate(orgId);
+    const maxAch = config.bands?.evaluationLimits?.maxAchievement ?? 5;
+    const maxPen = config.bands?.evaluationLimits?.maxPenalty ?? 5;
+
+    if (dto.achievementScore !== undefined) application.achievementScore = Math.max(0, Math.min(maxAch, Number(dto.achievementScore)));
+    if (dto.penaltyScore !== undefined) application.penaltyScore = Math.max(0, Math.min(maxPen, Math.abs(Number(dto.penaltyScore))));
     if (dto.remarks !== undefined) application.scoreAdjustmentRemarks = dto.remarks;
     application.updatedBy = actorId;
     await this.applicationRepository.save(application);
@@ -568,10 +603,16 @@ export class ScoringService implements OnApplicationBootstrap {
     const ugScore = pointsFromBands(parsePercentage(ug?.percentageCgpa), config.bands.ug ?? [], 'minPercent');
     const academicComponent = tenthScore + twelfthScore + ugScore;
 
-    // Entrance test score from band config (best percentile wins)
-    const bestTestPercentile = bestEntrancePercentile(fullApplication.entranceTests);
-    const testComponent = pointsFromBands(bestTestPercentile, config.bands.testPercentile ?? [], 'minPercentile');
-    const maxTestScore = Math.max(0, ...(config.bands.testPercentile ?? []).map((b) => Number(b.points ?? 0)));
+    // Entrance test score from band config (CAT/XAT vs Other bands, best score wins)
+    const testComponent = calculateBestEntrancePoints(fullApplication.entranceTests, config.bands);
+    const maxTestCatXat = Math.max(0, ...(config.bands.testPercentileCatXat ?? []).map((b) => Number(b.points ?? 0)));
+    const maxTestOther = Math.max(0, ...(config.bands.testPercentileOther ?? []).map((b) => Number(b.points ?? 0)));
+    const maxTestScore = Math.max(
+      maxTestCatXat,
+      maxTestOther,
+      Math.max(0, ...(config.bands.testPercentile ?? []).map((b) => Number(b.points ?? 0))),
+      10,
+    );
 
     // Max possible scores per category (for UI display)
     const maxAcadPerCategory = (bandKey: 'tenth' | 'twelfth' | 'ug') =>

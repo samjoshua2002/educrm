@@ -1,9 +1,10 @@
 import { IsObject, IsOptional, IsNumber, Min } from 'class-validator';
+import { ScoreConversionConfig } from '../entities/score-conversion-config.entity.js';
 
 export class UpdateScoreConversionConfigDto {
   @IsOptional()
   @IsObject()
-  bands?: Record<string, Array<{ minPercent?: number; minPercentile?: number; minYears?: number; minMonths?: number; points: number }>>;
+  bands?: ScoreConversionConfig['bands'];
 
   @IsOptional()
   @IsNumber()

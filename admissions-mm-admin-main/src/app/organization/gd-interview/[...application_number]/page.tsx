@@ -58,6 +58,7 @@ import { useCompositeScore, useScoreAdjustment } from "@/hooks/use-scoring";
 import { useScoreConversionConfig } from "@/hooks/use-shortlisting";
 import { useBranches } from "@/hooks/use-branches";
 import { useAuthStore } from "@/stores/auth-store";
+import { cn } from "@/lib/utils";
 import { gdInterviews } from "@/data/mock-gd-interviews";
 import { toast } from "sonner";
 import { usePageHeader } from "@/hooks/use-page-header";
@@ -116,6 +117,12 @@ export default function GDInterviewDetailsPage() {
 
   const interviewSlot = candidateInterview?.slot;
   const { data: scoringConfig } = useScoreConversionConfig();
+  const evalLimits = React.useMemo(() => ({
+    maxGd: Number(scoringConfig?.bands?.evaluationLimits?.maxGd) || 10,
+    maxPi: Number(scoringConfig?.bands?.evaluationLimits?.maxPi) || 30,
+    maxAchievement: Number(scoringConfig?.bands?.evaluationLimits?.maxAchievement) || 5,
+    maxPenalty: Number(scoringConfig?.bands?.evaluationLimits?.maxPenalty) || 5,
+  }), [scoringConfig]);
   const queryClient = useQueryClient();
   const markCompletedMutation = useMarkCompleted();
   const isInterviewCompleted = candidateInterview?.status === "Completed";
@@ -305,8 +312,8 @@ export default function GDInterviewDetailsPage() {
     }
 
     if (section === "Evaluation & Scoring") {
-      const gdNum = Math.max(0, Math.min(10, Number(updatedFields.gdScore) || 0));
-      const piNum = Math.max(0, Math.min(30, Number(updatedFields.piScore) || 0));
+      const gdNum = Math.max(0, Math.min(evalLimits.maxGd, Number(updatedFields.gdScore) || 0));
+      const piNum = Math.max(0, Math.min(evalLimits.maxPi, Number(updatedFields.piScore) || 0));
       const payload: any = { gdScore: gdNum, piScore: piNum };
 
       updateGdEvalMutation.mutate({
@@ -319,8 +326,8 @@ export default function GDInterviewDetailsPage() {
         }
       });
 
-      const achNum = Math.max(0, Math.min(5, Number(updatedFields.achievement) || 0));
-      const penNum = Math.max(0, Math.min(5, Math.abs(Number(updatedFields.penalty) || 0)));
+      const achNum = Math.max(0, Math.min(evalLimits.maxAchievement, Number(updatedFields.achievement) || 0));
+      const penNum = Math.max(0, Math.min(evalLimits.maxPenalty, Math.abs(Number(updatedFields.penalty) || 0)));
       scoreAdjustmentMutation.mutate({
         achievementScore: achNum,
         penaltyScore: penNum,
@@ -420,9 +427,20 @@ export default function GDInterviewDetailsPage() {
         })
       : [];
 
-    const calcIndividualTestScore = (pctVal: any) => {
+    const isCatOrXatTest = (examName?: string) => {
+      if (!examName) return false;
+      const upper = examName.trim().toUpperCase();
+      return (!upper.includes("CMAT") && (upper === "CAT" || upper.startsWith("CAT ") || upper.includes("CAT"))) ||
+             (upper === "XAT" || upper.startsWith("XAT ") || upper.includes("XAT"));
+    };
+
+    const calcIndividualTestScore = (pctVal: any, examName?: string) => {
       const pct = parseFloat(pctVal) || 0;
-      const testBands = scoringConfig?.bands?.testPercentile;
+      const isCatXat = isCatOrXatTest(examName);
+      const testBands = isCatXat
+        ? (scoringConfig?.bands?.testPercentileCatXat || scoringConfig?.bands?.testPercentile)
+        : (scoringConfig?.bands?.testPercentileOther || scoringConfig?.bands?.testPercentile);
+
       if (testBands && Array.isArray(testBands) && testBands.length > 0) {
         const sorted = [...testBands]
           .map((b: any) => ({
@@ -433,6 +451,14 @@ export default function GDInterviewDetailsPage() {
         for (const band of sorted) {
           if (pct >= band.threshold) return band.points;
         }
+        return 0;
+      }
+      if (isCatXat) {
+        if (pct >= 90) return 10;
+        if (pct >= 80) return 8;
+        if (pct >= 70) return 6;
+        if (pct >= 60) return 4;
+        if (pct >= 50) return 2;
         return 0;
       }
       if (pct >= 95) return 10;
@@ -447,18 +473,23 @@ export default function GDInterviewDetailsPage() {
 
     const allTests = rawTests.map((t: any) => {
       const tPct = parseFloat(t.percentile) || 0;
+      const examName = t.exam || t.testName || "CAT";
+      const isCatXat = isCatOrXatTest(examName);
+      const indScore = calcIndividualTestScore(tPct, examName);
       const testScoreVal = (t.score && t.score !== "-")
         ? t.score
         : (t.percentile != null && t.percentile !== "-"
-            ? `${calcIndividualTestScore(tPct)} / ${maxScore}`
+            ? `${indScore} / ${maxScore}`
             : "-");
 
       return {
-        name: t.exam || t.testName || "CAT",
+        name: examName,
+        isCatXat,
         rollNo: t.rollNo || "-",
         month: t.month || "-",
         status: t.status || "Declared",
         score: testScoreVal,
+        individualPoints: indScore,
         percentile: t.percentile != null ? String(t.percentile) : "-",
       };
     });
@@ -483,12 +514,12 @@ export default function GDInterviewDetailsPage() {
     const piScore = localInterviewEdits.scoring?.piScore ?? (dbPiScore !== undefined && dbPiScore !== null ? dbPiScore : (listMatch?.selectionStatus === "Accepted" ? 22 : listMatch?.selectionStatus === "Rejected" ? 9 : 15));
 
     const achievement = localInterviewEdits.scoring?.achievement !== undefined
-      ? Math.max(0, Math.min(5, Number(localInterviewEdits.scoring.achievement) || 0))
-      : Math.min(5, compositeScoreData?.achievementScore ?? 0);
+      ? Math.max(0, Math.min(evalLimits.maxAchievement, Number(localInterviewEdits.scoring.achievement) || 0))
+      : Math.min(evalLimits.maxAchievement, compositeScoreData?.achievementScore ?? 0);
     const rawPenalty = localInterviewEdits.scoring?.penalty !== undefined
       ? Number(localInterviewEdits.scoring.penalty)
       : (compositeScoreData?.penaltyScore ?? 0);
-    const penalty = Math.max(0, Math.min(5, Math.abs(rawPenalty || 0)));
+    const penalty = Math.max(0, Math.min(evalLimits.maxPenalty, Math.abs(rawPenalty || 0)));
     const assignedTotalOther = Number((achievement - penalty).toFixed(2));
 
     const base = {
@@ -1171,7 +1202,7 @@ export default function GDInterviewDetailsPage() {
                     <div key={idx} className="space-y-4 border-t border-slate-100 pt-4 first:border-0 first:pt-0">
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-slate-500">Test Name</span>
-                        <span className="font-medium">{test.name}</span>
+                        <span className="font-semibold text-slate-800">{test.name}</span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-slate-500">Score</span>
@@ -1274,7 +1305,7 @@ export default function GDInterviewDetailsPage() {
                   <div className="space-y-3">
                     <div className="flex justify-between items-center text-sm">
                       <span className="text-slate-600">
-                        Achievement (Max 5)
+                        Achievement (Max {evalLimits.maxAchievement})
                       </span>
                       <div
                         className="w-[72px] h-[32px] flex items-center justify-center bg-slate-50 text-[#1A237E] font-bold text-[14px] rounded-[8px] border border-[#E2E8F0]"
@@ -1284,7 +1315,7 @@ export default function GDInterviewDetailsPage() {
                       </div>
                     </div>
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-slate-600">Penalty (Max -5)</span>
+                      <span className="text-slate-600">Penalty (Max -{evalLimits.maxPenalty})</span>
                       <div
                         className="w-[72px] h-[32px] flex items-center justify-center bg-red-50 text-red-600 font-bold text-[14px] rounded-[8px] border border-[#E2E8F0]"
                         style={{ fontFamily: "Inter" }}
@@ -1311,7 +1342,7 @@ export default function GDInterviewDetailsPage() {
                   </h3>
                   <div className="space-y-3">
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-slate-600">GD Score (Max 10)</span>
+                      <span className="text-slate-600">GD Score (Max {evalLimits.maxGd})</span>
                       <div
                         className="w-[72px] h-[32px] flex items-center justify-center bg-slate-50 text-[#1A237E] font-bold text-[14px] rounded-[8px] border border-[#E2E8F0]"
                         style={{ fontFamily: "Inter" }}
@@ -1320,7 +1351,7 @@ export default function GDInterviewDetailsPage() {
                       </div>
                     </div>
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-slate-600">PI Score (Max 30)</span>
+                      <span className="text-slate-600">PI Score (Max {evalLimits.maxPi})</span>
                       <div
                         className="w-[72px] h-[32px] flex items-center justify-center bg-slate-50 text-[#1A237E] font-bold text-[14px] rounded-[8px] border border-[#E2E8F0]"
                         style={{ fontFamily: "Inter" }}
@@ -1537,7 +1568,7 @@ export default function GDInterviewDetailsPage() {
                           GD ({interviewData.interviewScores.gd}) + PI ({interviewData.interviewScores.pi})
                         </div>
                         <div style={{ color: "#475569", textAlign: "center", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 600, lineHeight: "20px" }}>
-                          40
+                          {evalLimits.maxGd + evalLimits.maxPi}
                         </div>
                         <div style={{ color: "#2563EB", textAlign: "right", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 700, lineHeight: "20px" }}>
                           {compositeScoreData?.gdpiTotal ? compositeScoreData.gdpiTotal : interviewData.interviewScores.totalGDPI}
@@ -1554,7 +1585,7 @@ export default function GDInterviewDetailsPage() {
                           <span className="text-red-500 font-semibold">-{interviewData.components.penalty} Pen</span>
                         </div>
                         <div style={{ color: "#475569", textAlign: "center", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 600, lineHeight: "20px" }}>
-                          5
+                          {evalLimits.maxAchievement}
                         </div>
                         <div style={{ color: "var(--text-primary-color, #1E293B)", textAlign: "right", fontFamily: "Inter", fontSize: "14px", fontStyle: "normal", fontWeight: 700, lineHeight: "20px" }}>
                           {interviewData.components.assignedTotalOther >= 0 ? `+${interviewData.components.assignedTotalOther}` : interviewData.components.assignedTotalOther}
@@ -1652,7 +1683,7 @@ export default function GDInterviewDetailsPage() {
                         </span>
                       </div>
                       <div className="flex justify-between items-center pt-1.5 border-t border-slate-200/60 text-[11px] text-slate-500 font-sans">
-                        <span>Max Weight: <strong className="text-slate-700">40</strong></span>
+                        <span>Max Weight: <strong className="text-slate-700">{evalLimits.maxGd + evalLimits.maxPi}</strong></span>
                         <span className="font-semibold text-blue-600">
                           Score: {compositeScoreData?.gdpiTotal ? compositeScoreData.gdpiTotal : interviewData.interviewScores.totalGDPI}
                         </span>
@@ -1675,7 +1706,7 @@ export default function GDInterviewDetailsPage() {
                         </span>
                       </div>
                       <div className="flex justify-between items-center pt-1.5 border-t border-slate-200/60 text-[11px] text-slate-500 font-sans">
-                        <span>Max Weight: <strong className="text-slate-700">5</strong></span>
+                        <span>Max Weight: <strong className="text-slate-700">{evalLimits.maxAchievement}</strong></span>
                         <span className="font-semibold text-slate-800">
                           Score: {interviewData.components.assignedTotalOther >= 0 ? `+${interviewData.components.assignedTotalOther}` : interviewData.components.assignedTotalOther}
                         </span>
@@ -1949,6 +1980,7 @@ export default function GDInterviewDetailsPage() {
                 gdScore: interviewData.interviewScores.gd,
                 piScore: interviewData.interviewScores.pi,
               }}
+              evalLimits={evalLimits}
               onSave={(d) => handleSave("Evaluation & Scoring", d)}
               onClose={() => setActiveEditSection(null)}
             />
@@ -1982,18 +2014,18 @@ export default function GDInterviewDetailsPage() {
             <div className="flex flex-col gap-2">
               <div className="flex justify-between items-center">
                 <Label className="text-[#64748B] font-semibold text-[12px] leading-4 tracking-[0.6px] uppercase font-sans">
-                  Achievement (Max 5)
+                  Achievement (Max {evalLimits.maxAchievement})
                 </Label>
-                <span className="text-[11px] text-slate-400 font-medium">0 to 5</span>
+                <span className="text-[11px] text-slate-400 font-medium">0 to {evalLimits.maxAchievement}</span>
               </div>
               <Input
                 type="number"
                 step="any"
                 min={0}
-                max={5}
+                max={evalLimits.maxAchievement}
                 value={scoreAdjustmentForm.achievementScore}
                 onChange={(e) => {
-                  const val = Math.max(0, Math.min(5, Number(e.target.value) || 0));
+                  const val = Math.max(0, Math.min(evalLimits.maxAchievement, Number(e.target.value) || 0));
                   setScoreAdjustmentForm((prev) => ({ ...prev, achievementScore: val }));
                 }}
                 className="border-[#D4D4D4] rounded-[8px] h-10 text-[14px]"
@@ -2002,20 +2034,20 @@ export default function GDInterviewDetailsPage() {
             <div className="flex flex-col gap-2">
               <div className="flex justify-between items-center">
                 <Label className="text-[#64748B] font-semibold text-[12px] leading-4 tracking-[0.6px] uppercase font-sans">
-                  Penalty (Max -5)
+                  Penalty (Max -{evalLimits.maxPenalty})
                 </Label>
-                <span className="text-[11px] text-slate-400 font-medium">-5 to 0</span>
+                <span className="text-[11px] text-slate-400 font-medium">-{evalLimits.maxPenalty} to 0</span>
               </div>
               <Input
                 type="number"
                 step="any"
-                min={-5}
+                min={-evalLimits.maxPenalty}
                 max={0}
                 value={scoreAdjustmentForm.penaltyScore ? -Math.abs(scoreAdjustmentForm.penaltyScore) : 0}
                 onChange={(e) => {
                   let val = Number(e.target.value) || 0;
-                  if (val > 0 && val <= 5) val = -val;
-                  const clamped = Math.max(-5, Math.min(0, val));
+                  if (val > 0 && val <= evalLimits.maxPenalty) val = -val;
+                  const clamped = Math.max(-evalLimits.maxPenalty, Math.min(0, val));
                   setScoreAdjustmentForm((prev) => ({ ...prev, penaltyScore: Math.abs(clamped) }));
                 }}
                 className="border-[#D4D4D4] rounded-[8px] h-10 text-[14px]"
@@ -2070,6 +2102,12 @@ interface GDFormProps {
   data: any;
   onSave: (updatedData: any) => void;
   onClose: () => void;
+  evalLimits?: {
+    maxGd: number;
+    maxPi: number;
+    maxAchievement: number;
+    maxPenalty: number;
+  };
 }
 
 function EditAcademicsForm({ data, onSave, onClose }: GDFormProps) {
@@ -2544,7 +2582,13 @@ function EditEntranceTestForm({ data, onSave, onClose }: any) {
   );
 }
 
-function EditScoringForm({ data, onSave, onClose }: GDFormProps) {
+function EditScoringForm({ data, onSave, onClose, evalLimits }: GDFormProps) {
+  const limits = evalLimits ?? {
+    maxGd: 10,
+    maxPi: 30,
+    maxAchievement: 5,
+    maxPenalty: 5,
+  };
   const initialPenalty = data.penalty ? -Math.abs(Number(data.penalty)) : 0;
   const [formData, setFormData] = React.useState({
     achievement: Number(data.achievement) || 0,
@@ -2562,8 +2606,8 @@ function EditScoringForm({ data, onSave, onClose }: GDFormProps) {
       return;
     }
     const num = Number(val);
-    if (num < 0 || num > 5) {
-      setFieldErrors((prev) => ({ ...prev, achievement: "Allowed: 0 to 5" }));
+    if (num < 0 || num > limits.maxAchievement) {
+      setFieldErrors((prev) => ({ ...prev, achievement: `Allowed: 0 to ${limits.maxAchievement}` }));
     } else {
       setFieldErrors((prev) => {
         const { achievement, ...rest } = prev;
@@ -2580,11 +2624,11 @@ function EditScoringForm({ data, onSave, onClose }: GDFormProps) {
       return;
     }
     let num = Number(val);
-    if (num > 0 && num <= 5) {
+    if (num > 0 && num <= limits.maxPenalty) {
       num = -num;
     }
-    if (num < -5 || num > 0) {
-      setFieldErrors((prev) => ({ ...prev, penalty: "Allowed: -5 to 0" }));
+    if (num < -limits.maxPenalty || num > 0) {
+      setFieldErrors((prev) => ({ ...prev, penalty: `Allowed: -${limits.maxPenalty} to 0` }));
     } else {
       setFieldErrors((prev) => {
         const { penalty, ...rest } = prev;
@@ -2601,8 +2645,8 @@ function EditScoringForm({ data, onSave, onClose }: GDFormProps) {
       return;
     }
     const num = Number(val);
-    if (num < 0 || num > 10) {
-      setFieldErrors((prev) => ({ ...prev, gdScore: "Allowed: 0 to 10" }));
+    if (num < 0 || num > limits.maxGd) {
+      setFieldErrors((prev) => ({ ...prev, gdScore: `Allowed: 0 to ${limits.maxGd}` }));
     } else {
       setFieldErrors((prev) => {
         const { gdScore, ...rest } = prev;
@@ -2619,8 +2663,8 @@ function EditScoringForm({ data, onSave, onClose }: GDFormProps) {
       return;
     }
     const num = Number(val);
-    if (num < 0 || num > 30) {
-      setFieldErrors((prev) => ({ ...prev, piScore: "Allowed: 0 to 30" }));
+    if (num < 0 || num > limits.maxPi) {
+      setFieldErrors((prev) => ({ ...prev, piScore: `Allowed: 0 to ${limits.maxPi}` }));
     } else {
       setFieldErrors((prev) => {
         const { piScore, ...rest } = prev;
@@ -2637,15 +2681,16 @@ function EditScoringForm({ data, onSave, onClose }: GDFormProps) {
   const gdNum = typeof formData.gdScore === "number" ? formData.gdScore : 0;
   const piNum = typeof formData.piScore === "number" ? formData.piScore : 0;
   const liveTotalGDPI = gdNum + piNum;
+  const maxGdpi = limits.maxGd + limits.maxPi;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const clampedAch = Math.max(0, Math.min(5, Number(formData.achievement) || 0));
+    const clampedAch = Math.max(0, Math.min(limits.maxAchievement, Number(formData.achievement) || 0));
     const rawPen = Number(formData.penalty) || 0;
-    const clampedPen = Math.max(0, Math.min(5, Math.abs(rawPen)));
-    const clampedGd = Math.max(0, Math.min(10, Number(formData.gdScore) || 0));
-    const clampedPi = Math.max(0, Math.min(30, Number(formData.piScore) || 0));
+    const clampedPen = Math.max(0, Math.min(limits.maxPenalty, Math.abs(rawPen)));
+    const clampedGd = Math.max(0, Math.min(limits.maxGd, Number(formData.gdScore) || 0));
+    const clampedPi = Math.max(0, Math.min(limits.maxPi, Number(formData.piScore) || 0));
 
     onSave({
       achievement: clampedAch,
@@ -2663,14 +2708,14 @@ function EditScoringForm({ data, onSave, onClose }: GDFormProps) {
       <div className="flex flex-col gap-1.5">
         <div className="flex justify-between items-center">
           <Label className="text-[#64748B] font-semibold text-[12px] leading-4 tracking-[0.6px] uppercase font-sans">
-            Achievement (Max 5)
+            Achievement (Max {limits.maxAchievement})
           </Label>
-          <span className="text-[11px] text-slate-400 font-medium">0 to 5</span>
+          <span className="text-[11px] text-slate-400 font-medium">0 to {limits.maxAchievement}</span>
         </div>
         <Input
           type="number"
           min={0}
-          max={5}
+          max={limits.maxAchievement}
           step="any"
           value={formData.achievement}
           onChange={handleAchChange}
@@ -2683,13 +2728,13 @@ function EditScoringForm({ data, onSave, onClose }: GDFormProps) {
       <div className="flex flex-col gap-1.5">
         <div className="flex justify-between items-center">
           <Label className="text-[#64748B] font-semibold text-[12px] leading-4 tracking-[0.6px] uppercase font-sans">
-            Penalty (Max -5)
+            Penalty (Max -{limits.maxPenalty})
           </Label>
-          <span className="text-[11px] text-slate-400 font-medium">-5 to 0</span>
+          <span className="text-[11px] text-slate-400 font-medium">-{limits.maxPenalty} to 0</span>
         </div>
         <Input
           type="number"
-          min={-5}
+          min={-limits.maxPenalty}
           max={0}
           step="any"
           value={formData.penalty}
@@ -2714,14 +2759,14 @@ function EditScoringForm({ data, onSave, onClose }: GDFormProps) {
       <div className="flex flex-col gap-1.5">
         <div className="flex justify-between items-center">
           <Label className="text-[#64748B] font-semibold text-[12px] leading-4 tracking-[0.6px] uppercase font-sans">
-            GD Score (Max 10)
+            GD Score (Max {limits.maxGd})
           </Label>
-          <span className="text-[11px] text-slate-400 font-medium">0 to 10</span>
+          <span className="text-[11px] text-slate-400 font-medium">0 to {limits.maxGd}</span>
         </div>
         <Input
           type="number"
           min={0}
-          max={10}
+          max={limits.maxGd}
           step="any"
           value={formData.gdScore}
           onChange={handleGdChange}
@@ -2734,14 +2779,14 @@ function EditScoringForm({ data, onSave, onClose }: GDFormProps) {
       <div className="flex flex-col gap-1.5">
         <div className="flex justify-between items-center">
           <Label className="text-[#64748B] font-semibold text-[12px] leading-4 tracking-[0.6px] uppercase font-sans">
-            PI Score (Max 30)
+            PI Score (Max {limits.maxPi})
           </Label>
-          <span className="text-[11px] text-slate-400 font-medium">0 to 30</span>
+          <span className="text-[11px] text-slate-400 font-medium">0 to {limits.maxPi}</span>
         </div>
         <Input
           type="number"
           min={0}
-          max={30}
+          max={limits.maxPi}
           step="any"
           value={formData.piScore}
           onChange={handlePiChange}
@@ -2754,7 +2799,7 @@ function EditScoringForm({ data, onSave, onClose }: GDFormProps) {
 
       <div className="col-span-2 flex justify-between items-center py-2.5 px-3.5 bg-blue-50/60 rounded-[8px] border border-blue-100 mt-1">
         <span className="font-semibold text-xs text-[#1E293B]">Total - GDPI</span>
-        <span className="font-bold text-sm text-blue-600">{liveTotalGDPI} / 40</span>
+        <span className="font-bold text-sm text-blue-600">{liveTotalGDPI} / {maxGdpi}</span>
       </div>
 
       <div className="flex items-center gap-3 pt-4 border-t border-[#E5E5E5] col-span-2 mt-2">

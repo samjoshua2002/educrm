@@ -208,8 +208,16 @@ export interface ScoreConversionConfig {
     tenth: ScoreBand[];
     twelfth: ScoreBand[];
     ug: ScoreBand[];
-    testPercentile: ScoreBand[];
+    testPercentileCatXat?: ScoreBand[];
+    testPercentileOther?: ScoreBand[];
+    testPercentile?: ScoreBand[];
     experienceMonths: ScoreBand[];
+    evaluationLimits?: {
+      maxGd: number;
+      maxPi: number;
+      maxAchievement: number;
+      maxPenalty: number;
+    };
   };
   discrepancyThreshold: number;
   qualifyingScore?: number;

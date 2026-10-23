@@ -17,6 +17,21 @@ import { Organization } from '../../organizations/entities/organization.entity.j
 //   "ug":         [...],
 //   "testPercentile": [{ "minPercentile": 99, "points": 10 }, ...]
 // }
+export interface EvaluationLimitsConfig {
+  maxGd?: number;
+  maxPi?: number;
+  maxAchievement?: number;
+  maxPenalty?: number;
+}
+
+export interface ScoreBandEntry {
+  minPercent?: number;
+  minPercentile?: number;
+  minYears?: number;
+  minMonths?: number;
+  points: number;
+}
+
 @Entity('score_conversion_configs')
 export class ScoreConversionConfig {
   @PrimaryGeneratedColumn('uuid')
@@ -30,7 +45,17 @@ export class ScoreConversionConfig {
   organization: Organization;
 
   @Column({ type: 'jsonb' })
-  bands: Record<string, Array<{ minPercent?: number; minPercentile?: number; minYears?: number; minMonths?: number; points: number }>>;
+  bands: {
+    tenth?: ScoreBandEntry[];
+    twelfth?: ScoreBandEntry[];
+    ug?: ScoreBandEntry[];
+    testPercentileCatXat?: ScoreBandEntry[];
+    testPercentileOther?: ScoreBandEntry[];
+    testPercentile?: ScoreBandEntry[];
+    experienceMonths?: ScoreBandEntry[];
+    evaluationLimits?: EvaluationLimitsConfig;
+    [key: string]: any;
+  };
 
   @Column({ name: 'discrepancy_threshold', type: 'decimal', precision: 5, scale: 2, default: 10 })
   discrepancyThreshold: number;

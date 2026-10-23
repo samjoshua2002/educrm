@@ -20,6 +20,23 @@ const DEFAULT_BANDS = {
   tenth: ACADEMIC_BANDS,
   twelfth: ACADEMIC_BANDS,
   ug: ACADEMIC_BANDS,
+  // CAT & XAT are tougher exams — separate scoring band
+  testPercentileCatXat: [
+    { minPercentile: 90, points: 10 },
+    { minPercentile: 80, points: 8 },
+    { minPercentile: 70, points: 6 },
+    { minPercentile: 60, points: 4 },
+    { minPercentile: 50, points: 2 },
+  ],
+  // Remaining entrance tests (MAT, CMAT, ATMA, GMAT, etc.)
+  testPercentileOther: [
+    { minPercentile: 95, points: 10 },
+    { minPercentile: 90, points: 8 },
+    { minPercentile: 80, points: 6 },
+    { minPercentile: 70, points: 4 },
+    { minPercentile: 60, points: 2 },
+  ],
+  // Retained for backward compatibility
   testPercentile: [
     { minPercentile: 95, points: 10 },
     { minPercentile: 90, points: 8 },
@@ -37,6 +54,13 @@ const DEFAULT_BANDS = {
     { minMonths: 12, points: 4 },  // 1 year
     { minMonths: 0, points: 0 },
   ],
+  // Customizable evaluation score limits for GD, PI, and Other components
+  evaluationLimits: {
+    maxGd: 10,
+    maxPi: 30,
+    maxAchievement: 5,
+    maxPenalty: 5,
+  },
 };
 
 @Injectable()
@@ -62,17 +86,55 @@ export class ScoreConversionConfigService {
         qualifyingScore: 50,
       });
       config = await this.configRepository.save(config);
-    } else if (!config.bands?.experienceMonths && (config.bands as any)?.experienceYears) {
-      // One-time migration for rows saved before the years->months switch:
-      // convert the old minYears bands to minMonths in place so existing
-      // orgs don't silently lose their configured experience bands.
-      const oldBands = (config.bands as any).experienceYears as Array<{ minYears?: number; points: number }>;
-      config.bands = {
-        ...config.bands,
-        experienceMonths: oldBands.map((b) => ({ minMonths: (b.minYears ?? 0) * 12, points: b.points })),
-      };
-      delete (config.bands as any).experienceYears;
-      config = await this.configRepository.save(config);
+    } else {
+      let needsSave = false;
+      if (!config.bands?.experienceMonths && (config.bands as any)?.experienceYears) {
+        // One-time migration for rows saved before the years->months switch
+        const oldBands = (config.bands as any).experienceYears as Array<{ minYears?: number; points: number }>;
+        config.bands = {
+          ...config.bands,
+          experienceMonths: oldBands.map((b) => ({ minMonths: (b.minYears ?? 0) * 12, points: b.points })),
+        };
+        delete (config.bands as any).experienceYears;
+        needsSave = true;
+      }
+      // Populate separate CAT/XAT and Other bands if not present on existing config
+      if (!config.bands?.testPercentileCatXat || !config.bands?.testPercentileOther) {
+        config.bands = {
+          ...config.bands,
+          testPercentileCatXat: config.bands?.testPercentileCatXat ?? [
+            { minPercentile: 90, points: 10 },
+            { minPercentile: 80, points: 8 },
+            { minPercentile: 70, points: 6 },
+            { minPercentile: 60, points: 4 },
+            { minPercentile: 50, points: 2 },
+          ],
+          testPercentileOther: config.bands?.testPercentileOther ?? (config.bands?.testPercentile ?? [
+            { minPercentile: 95, points: 10 },
+            { minPercentile: 90, points: 8 },
+            { minPercentile: 80, points: 6 },
+            { minPercentile: 70, points: 4 },
+            { minPercentile: 60, points: 2 },
+          ]),
+        };
+        needsSave = true;
+      }
+      // Populate customizable evaluation score limits (GD, PI, Other) if missing
+      if (!config.bands?.evaluationLimits) {
+        config.bands = {
+          ...config.bands,
+          evaluationLimits: {
+            maxGd: 10,
+            maxPi: 30,
+            maxAchievement: 5,
+            maxPenalty: 5,
+          },
+        };
+        needsSave = true;
+      }
+      if (needsSave) {
+        config = await this.configRepository.save(config);
+      }
     }
     return config;
   }
