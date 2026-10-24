@@ -10,15 +10,12 @@ import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 
 import { useAuthStore } from "@/stores/auth-store";
-import { useApplications } from "@/hooks/use-applications";
 import { usePageHeaderStore } from "@/stores/page-header-store";
 
 export function DynamicHeader() {
   const pathname = usePathname();
   const user = useAuthStore((state) => state.user);
   const userName = user?.name?.split(" ")[0] || "User";
-  const { data: appsResponse } = useApplications();
-  const appsList: any[] = (appsResponse as any)?.data || appsResponse || [];
 
   // Organization pages provide their own header info via the store
   const storeTitle = usePageHeaderStore((s) => s.title);
@@ -30,13 +27,7 @@ export function DynamicHeader() {
   const isOrganizationRoute = pathname.startsWith("/organization");
 
   const getApplicantName = () => {
-    const segments = pathname.split("/").filter(Boolean);
-    const appNo = segments[segments.length - 1];
-    if (appNo && Array.isArray(appsList)) {
-      const app = appsList.find((a: any) => a.applicationNo === appNo);
-      if (app) return app.name.toUpperCase();
-    }
-    return "MS. ANBUKARASI A";
+    return user?.name?.toUpperCase() || "Candidate";
   };
 
   const applicantName = getApplicantName();

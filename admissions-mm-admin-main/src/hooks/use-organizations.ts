@@ -161,6 +161,7 @@ export function useUpdateOrganizationGeneric() {
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ["organizations"] });
       queryClient.invalidateQueries({ queryKey: ["organization", id] });
+      queryClient.invalidateQueries({ queryKey: ["superadmin", "analytics", "overview"] });
       toast.success("Organization updated successfully");
     },
     onError: (error: any) => {

@@ -18,7 +18,7 @@ export const superadminNavItems: NavGroup[] = [
       },
       {
         title: "Subscriptions",
-        url: "/superadmin/organizations",
+        url: "/superadmin/subscriptions",
         icon: CreditCard,
       },
       {

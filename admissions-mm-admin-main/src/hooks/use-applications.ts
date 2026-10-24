@@ -564,7 +564,15 @@ export function useApplications(
   verificationStatus?: string,
 ) {
   const user = useAuthStore((state) => state.user);
-  const isStudent = user?.role === "student";
+  const canAccess =
+    user?.role &&
+    [
+      "superadmin",
+      "org_admin",
+      "application_manager",
+      "counselor",
+      "exam_manager",
+    ].includes(user.role);
 
   return useQuery({
     queryKey: ["applications", page, limit, search, status, verificationStatus],
@@ -575,7 +583,7 @@ export function useApplications(
       if (verificationStatus && verificationStatus !== "all") params.verificationStatus = verificationStatus;
       return apiGet<{ data: Application[]; pagination: any }>("/applications", params);
     },
-    enabled: !isStudent,
+    enabled: Boolean(canAccess),
   });
 }
 

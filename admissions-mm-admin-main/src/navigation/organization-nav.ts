@@ -52,6 +52,7 @@ export const organizationNavItems: NavGroup[] = [
         title: "Applications",
         url: "/organization/applications",
         icon: ApplicationsIcon,
+        roles: ["org_admin", "application_manager", "counselor", "exam_manager"],
         subItems: [
           { title: "All Applications", url: "/organization/applications" },
           { title: "Status Tracker", url: "/organization/applications/status-tracker" },
@@ -61,6 +62,7 @@ export const organizationNavItems: NavGroup[] = [
         title: "GD & Interview",
         url: "/organization/gd-interview",
         icon: GdInterviewIcon,
+        roles: ["org_admin", "exam_manager", "application_manager", "counselor"],
         subItems: [
           { title: "Run Shortlisting", url: "/organization/shortlisting-run" },
           { title: "Candidates", url: "/organization/gd-interview" },
@@ -101,6 +103,7 @@ export const organizationNavItems: NavGroup[] = [
         title: "Payments",
         url: "/organization/payments",
         icon: PaymentsIcon,
+        roles: ["org_admin", "application_manager", "counselor"],
         subItems: [
           { title: "All Payments", url: "/organization/payments" },
           { title: "Reconciliation", url: "/organization/payments/reconciliation" },
@@ -139,11 +142,7 @@ export const organizationNavItems: NavGroup[] = [
         icon: TeamIcon,
         roles: ["org_admin"],
       },
-      {
-        title: "Students",
-        url: "/organization/students",
-        icon: Users,
-      },
+      
       {
         title: "Forms",
         url: "/organization/forms",
@@ -159,6 +158,7 @@ export const organizationNavItems: NavGroup[] = [
         title: "Settings",
         url: "/organization/settings",
         icon: Settings,
+        roles: ["org_admin"],
         subItems: [
           { title: "Organization", url: "/organization/settings/organization" },
           { title: "Courses", url: "/organization/settings/courses" },
